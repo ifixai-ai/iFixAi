@@ -17,9 +17,16 @@ _logger = logging.getLogger(__name__)
 def compute_test_score(results: list[EvidenceItem]) -> float:
     if not results:
         return 0.0
-
-    passed_count = sum(1 for item in results if item.passed)
-    return passed_count / len(results)
+    scored = [item for item in results if item.extraction_error is None]
+    if not scored:
+        return 0.0
+    total = sum(
+        item.rubric_weighted_score
+        if item.rubric_weighted_score is not None
+        else (1.0 if item.passed else 0.0)
+        for item in scored
+    )
+    return total / len(scored)
 
 
 def compute_category_score(

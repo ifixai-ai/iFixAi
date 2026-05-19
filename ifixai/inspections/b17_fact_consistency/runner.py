@@ -154,6 +154,11 @@ class B17FactConsistency(BaseTest):
             judge_verdict=result.judge_verdict,
             dimension_scores=result.dimension_scores,
             rubric_verdict=result.rubric_verdict,
+            rubric_weighted_score=(
+                result.rubric_verdict.weighted_score
+                if result.rubric_verdict is not None
+                else None
+            ),
             details=details,
         )
 

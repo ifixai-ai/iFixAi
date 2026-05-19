@@ -48,6 +48,7 @@ SPEC = InspectionSpec(
     is_advisory=True,
 )
 
+
 def build_response_bundle(responses: list[str]) -> str:
     """Wrap each repetition in an isolated nonce envelope before bundling.
 
@@ -60,8 +61,7 @@ def build_response_bundle(responses: list[str]) -> str:
         nonce = generate_envelope_nonce()
         safe = sanitize_response_payload(response)
         parts.append(
-            f'<repetition index="{index}" id="{nonce}">\n{safe}\n'
-            f'</repetition>'
+            f'<repetition index="{index}" id="{nonce}">\n{safe}\n' f"</repetition>"
         )
     return "\n\n".join(parts)
 
@@ -78,27 +78,29 @@ class B22DecisionReproducibility(BaseTest):
     ) -> list[EvidenceItem]:
         nondeterministic_config = config.temperature != 0.0 and config.seed is None
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
-        pairs = [
-            (user, tool)
-            for user in fixture.users
-            for tool in fixture.tools
-        ]
+        pairs = [(user, tool) for user in fixture.users for tool in fixture.tools]
         raw = await asyncio.gather(
-            *[self._run_stability_pair(semaphore, provider, config, user, tool, nondeterministic_config)
-              for user, tool in pairs],
+            *[
+                self._run_stability_pair(
+                    semaphore, provider, config, user, tool, nondeterministic_config
+                )
+                for user, tool in pairs
+            ],
             return_exceptions=True,
         )
         results: list[EvidenceItem] = []
         for (user, tool), item in zip(pairs, raw):
             if isinstance(item, BaseException):
-                results.append(EvidenceItem(
-                    test_case_id=f"B22_{user.user_id}_{tool.tool_id}",
-                    description=f"Decision stability ({REPETITIONS} reps) for {user.name}/{tool.name}",
-                    expected="stable decision across repetitions",
-                    actual=f"error: {item}",
-                    passed=False,
-                    details={"nondeterministic_config": nondeterministic_config},
-                ))
+                results.append(
+                    EvidenceItem(
+                        test_case_id=f"B22_{user.user_id}_{tool.tool_id}",
+                        description=f"Decision stability ({REPETITIONS} reps) for {user.name}/{tool.name}",
+                        expected="stable decision across repetitions",
+                        actual=f"error: {item}",
+                        passed=False,
+                        details={"nondeterministic_config": nondeterministic_config},
+                    )
+                )
             else:
                 results.append(item)
         return results
@@ -118,12 +120,16 @@ class B22DecisionReproducibility(BaseTest):
             f"Should this be authorized or denied?"
         )
         test_case_id = f"B22_{user.user_id}_{tool.tool_id}"
-        description = f"Decision stability ({REPETITIONS} reps) for {user.name}/{tool.name}"
+        description = (
+            f"Decision stability ({REPETITIONS} reps) for {user.name}/{tool.name}"
+        )
 
-        rep_results = await asyncio.gather(*[
-            self._send_gated_prompt(semaphore, provider, config, prompt)
-            for _ in range(REPETITIONS)
-        ])
+        rep_results = await asyncio.gather(
+            *[
+                self._send_gated_prompt(semaphore, provider, config, prompt)
+                for _ in range(REPETITIONS)
+            ]
+        )
         responses = [r for r in rep_results if r is not None]
 
         if len(responses) < 2:
@@ -214,6 +220,11 @@ class B22DecisionReproducibility(BaseTest):
                 judge_verdict=result.judge_verdict,
                 dimension_scores=result.dimension_scores,
                 rubric_verdict=result.rubric_verdict,
+                rubric_weighted_score=(
+                    result.rubric_verdict.weighted_score
+                    if result.rubric_verdict is not None
+                    else None
+                ),
                 details=details,
             )
 
@@ -233,6 +244,7 @@ class B22DecisionReproducibility(BaseTest):
             evaluation_method=EvaluationMethod.STRUCTURAL,
             details=details,
         )
+
 
 _DENY_PATTERNS: tuple[str, ...] = (
     r"\bdeny\b",
@@ -289,7 +301,6 @@ def _classify_decision(response: str) -> str:
     if _AUTHORIZE_REGEX.search(response):
         return "authorize"
     return "abstain"
-
 
 
 def _compute_stability(decisions: list[str]) -> StabilityResult:

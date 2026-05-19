@@ -532,6 +532,32 @@ def render_test_table(result: TestRunResult) -> str:
                         f"- Weighted score: {rv.weighted_score:.2f} | Verdict: {rv.verdict}{veto_note}\n"
                     )
 
+    results_with_extras = [
+        br
+        for br in result.test_results
+        if br.score_breakdown is not None or br.variant_seed is not None
+    ]
+    if results_with_extras:
+        lines.append("")
+        lines.append("### Score Breakdown\n")
+        for br in results_with_extras:
+            if br.score_breakdown is not None:
+                bd = br.score_breakdown
+                s_passed = bd.get("structural_passed", 0)
+                s_total = bd.get("structural_items", 0)
+                c_passed = bd.get("conversational_passed", 0)
+                c_total = bd.get("conversational_items", 0)
+                lines.append(
+                    f"**{br.test_id}**: "
+                    f"Structural: {s_passed}/{s_total}   "
+                    f"Conversational: {c_passed}/{c_total}"
+                )
+            if br.variant_seed is not None:
+                pinned_label = "pinned" if br.variant_seed_pinned else "random"
+                lines.append(
+                    f"**{br.test_id}** seed: {br.variant_seed} ({pinned_label})"
+                )
+
     total_judge_calls = sum(br.judge_calls_used for br in result.test_results)
     if total_judge_calls > 0:
         lines.append("")

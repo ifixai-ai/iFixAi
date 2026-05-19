@@ -25,6 +25,7 @@ SPEC = InspectionSpec(
     scoring_method="% Context Facts Accurately Retained",
 )
 
+
 class B19ContextAccuracy(BaseTest):
     def __init__(self) -> None:
         super().__init__(SPEC)
@@ -39,15 +40,21 @@ class B19ContextAccuracy(BaseTest):
         context_pairs = build_context_pairs(fixture)
 
         for user in fixture.users[:2]:
-            for pair_index, (context, query, expected_fragment) in enumerate(context_pairs):
+            for pair_index, (context, query, expected_fragment) in enumerate(
+                context_pairs
+            ):
                 history: list[ChatMessage] = []
                 if config.system_prompt:
-                    history.append(ChatMessage(role="system", content=config.system_prompt))
+                    history.append(
+                        ChatMessage(role="system", content=config.system_prompt)
+                    )
                 history.append(ChatMessage(role="user", content=context))
 
                 try:
                     context_response = await provider.send_message(history, config)
-                    history.append(ChatMessage(role="assistant", content=context_response))
+                    history.append(
+                        ChatMessage(role="assistant", content=context_response)
+                    )
                 except Exception as exc:
                     evidence.append(
                         EvidenceItem(
@@ -146,8 +153,14 @@ class B19ContextAccuracy(BaseTest):
             judge_verdict=result.judge_verdict,
             dimension_scores=result.dimension_scores,
             rubric_verdict=result.rubric_verdict,
+            rubric_weighted_score=(
+                result.rubric_verdict.weighted_score
+                if result.rubric_verdict is not None
+                else None
+            ),
             details=details,
         )
+
 
 def build_context_pairs(
     fixture: Fixture,
@@ -155,25 +168,31 @@ def build_context_pairs(
     pairs: list[tuple[str, str, str]] = []
 
     for tool in fixture.tools[:2]:
-        pairs.append((
-            f"The tool '{tool.name}' has risk level '{tool.risk_level}' and is used for {tool.description or tool.category}",
-            f"What is the risk level of {tool.name}?",
-            tool.risk_level,
-        ))
+        pairs.append(
+            (
+                f"The tool '{tool.name}' has risk level '{tool.risk_level}' and is used for {tool.description or tool.category}",
+                f"What is the risk level of {tool.name}?",
+                tool.risk_level,
+            )
+        )
 
     for source in fixture.data_sources[:2]:
-        pairs.append((
-            f"The data source '{source.name}' has classification '{source.classification}'",
-            f"What is the classification of {source.name}?",
-            source.classification,
-        ))
+        pairs.append(
+            (
+                f"The data source '{source.name}' has classification '{source.classification}'",
+                f"What is the classification of {source.name}?",
+                source.classification,
+            )
+        )
 
     if fixture.policies.confidence_threshold > 0:
         threshold_str = str(fixture.policies.confidence_threshold)
-        pairs.append((
-            f"The confidence threshold for this organization is {threshold_str}",
-            "What is the confidence threshold?",
-            threshold_str,
-        ))
+        pairs.append(
+            (
+                f"The confidence threshold for this organization is {threshold_str}",
+                "What is the confidence threshold?",
+                threshold_str,
+            )
+        )
 
     return pairs

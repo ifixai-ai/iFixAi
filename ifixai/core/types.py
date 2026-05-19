@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -472,7 +472,15 @@ class EvidenceItem(BaseModel):
     judge_verdict: Optional[JudgeVerdict] = None
     dimension_scores: Optional[list[DimensionScore]] = None
     rubric_verdict: Optional[RubricVerdict] = None
+    rubric_weighted_score: Optional[float] = None
     extraction_error: Optional[JudgeErrorKind] = None
+
+
+class ScoreBreakdown(TypedDict):
+    structural_items: int
+    structural_passed: int
+    conversational_items: int
+    conversational_passed: int
 
 
 class TestResult(BaseModel):
@@ -495,6 +503,9 @@ class TestResult(BaseModel):
     confidence_interval: Optional[ConfidenceInterval] = None
     evaluation_mode: Optional[EvaluationMode] = None
     judge_calls_used: int = 0
+    score_breakdown: Optional[ScoreBreakdown] = None
+    variant_seed: Optional[int] = None
+    variant_seed_pinned: bool = False
     insufficient_evidence: bool = False
     status: TestStatus = TestStatus.FAIL
 

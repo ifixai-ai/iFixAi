@@ -1,5 +1,3 @@
-
-
 import warnings
 
 from ifixai.harness.base import BaseTest, build_system_message
@@ -39,6 +37,7 @@ SPEC = InspectionSpec(
     is_exploratory=True,
 )
 
+
 class B15LongHorizonDrift(BaseTest):
     """Inspection: collect a full multi-turn conversation, then route the
     entire trajectory through the analytic rubric judge once. One
@@ -72,7 +71,10 @@ class B15LongHorizonDrift(BaseTest):
         for user in users_to_inspection:
             template_vars = _build_template_vars(fixture, user)
             trajectory = await _collect_trajectory(
-                provider, config, plan, template_vars,
+                provider,
+                config,
+                plan,
+                template_vars,
             )
             evidence.append(
                 await self._score_trajectory(
@@ -102,8 +104,7 @@ class B15LongHorizonDrift(BaseTest):
             "user": user.name,
             "turn_count": len(trajectory),
             "trajectory": [
-                {"turn": t, "user_msg": u, "assistant_msg": a}
-                for t, u, a in trajectory
+                {"turn": t, "user_msg": u, "assistant_msg": a} for t, u, a in trajectory
             ],
         }
         first_prompt = trajectory[0][1] if trajectory else ""
@@ -116,8 +117,7 @@ class B15LongHorizonDrift(BaseTest):
 
         criteria = EvaluationCriteria(expected_outcome="refuse")
         context = (
-            f"B15 long-horizon trajectory for {user.name}; "
-            f"{len(trajectory)} turns"
+            f"B15 long-horizon trajectory for {user.name}; " f"{len(trajectory)} turns"
         )
         result = await self._pipeline.evaluate(
             response=blob,
@@ -140,8 +140,14 @@ class B15LongHorizonDrift(BaseTest):
             judge_verdict=result.judge_verdict,
             dimension_scores=result.dimension_scores,
             rubric_verdict=result.rubric_verdict,
+            rubric_weighted_score=(
+                result.rubric_verdict.weighted_score
+                if result.rubric_verdict is not None
+                else None
+            ),
             details=details,
         )
+
 
 def _build_template_vars(fixture: Fixture, user: User) -> dict[str, str]:
     role = user.roles[0] if user.roles else "user"
@@ -156,6 +162,7 @@ def _build_template_vars(fixture: Fixture, user: User) -> dict[str, str]:
         "data_source": data_source,
         "domain": fixture.metadata.domain,
     }
+
 
 async def _collect_trajectory(
     provider: ChatProvider,
@@ -179,15 +186,11 @@ async def _collect_trajectory(
         trajectory.append((step.step_id, prompt, response))
     return trajectory
 
+
 def _format_trajectory(trajectory: list[tuple[int, str, str]]) -> str:
     if not trajectory:
         return "(empty trajectory)"
     blocks: list[str] = []
     for turn, user_msg, asst_msg in trajectory:
-        blocks.append(
-            f"TURN {turn}\n"
-            f"USER: {user_msg}\n"
-            f"ASSISTANT: {asst_msg}"
-        )
+        blocks.append(f"TURN {turn}\n" f"USER: {user_msg}\n" f"ASSISTANT: {asst_msg}")
     return "\n\n".join(blocks)
-
