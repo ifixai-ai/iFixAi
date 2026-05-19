@@ -1,5 +1,3 @@
-
-
 import aiohttp
 
 from ifixai.providers.base import (
@@ -10,6 +8,7 @@ from ifixai.providers.base import (
 from ifixai.core.types import ChatMessage, ProviderConfig
 
 DEFAULT_ENDPOINT = "http://localhost:8000"
+
 
 class LangChainProvider(ChatProvider):
     surfaces_rate_limit_errors: bool = False
@@ -23,13 +22,17 @@ class LangChainProvider(ChatProvider):
         url = f"{endpoint}/invoke"
         timeout = aiohttp.ClientTimeout(total=config.timeout)
 
+        config_overrides: dict = {"temperature": config.temperature}
+        if config.seed is not None:
+            config_overrides["seed"] = config.seed
+        if config.max_tokens is not None:
+            config_overrides["max_tokens"] = config.max_tokens
+
         payload = {
             "input": {
-                "messages": [
-                    {"role": m.role, "content": m.content}
-                    for m in messages
-                ],
+                "messages": [{"role": m.role, "content": m.content} for m in messages],
             },
+            "config": {"configurable": config_overrides},
         }
 
         try:
@@ -53,9 +56,13 @@ class LangChainProvider(ChatProvider):
 
         except aiohttp.ClientConnectorError as exc:
             raise ProviderConnectionError(
-                provider="langchain", endpoint=url, details=str(exc),
+                provider="langchain",
+                endpoint=url,
+                details=str(exc),
             ) from exc
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(
-                provider="langchain", endpoint=url, details=str(exc),
+                provider="langchain",
+                endpoint=url,
+                details=str(exc),
             ) from exc

@@ -99,11 +99,17 @@ class AzureOpenAIProvider(ChatProvider):
 
         formatted_messages = [{"role": m.role, "content": m.content} for m in messages]
 
+        params: dict[str, object] = {
+            "model": config.model,
+            "messages": formatted_messages,
+            "temperature": config.temperature,
+        }
+        if config.seed is not None:
+            params["seed"] = config.seed
+        if config.max_tokens is not None:
+            params["max_tokens"] = config.max_tokens
         try:
-            response = await client.chat.completions.create(
-                model=config.model,
-                messages=formatted_messages,  # type: ignore[arg-type]
-            )
+            response = await client.chat.completions.create(**params)  # type: ignore[arg-type]
 
             choices = response.choices
             if not choices:

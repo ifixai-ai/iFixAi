@@ -69,11 +69,17 @@ class OpenAIProvider(ChatProvider):
         endpoint = config.endpoint or "https://api.openai.com/v1"
 
         client = await self.get_client(config)
+        params: dict[str, object] = {
+            "model": model,
+            "messages": formatted_messages,
+            "temperature": config.temperature,
+        }
+        if config.seed is not None:
+            params["seed"] = config.seed
+        if config.max_tokens is not None:
+            params["max_tokens"] = config.max_tokens
         try:
-            response = await client.chat.completions.create(
-                model=model,
-                messages=formatted_messages,  # type: ignore[arg-type]
-            )
+            response = await client.chat.completions.create(**params)  # type: ignore[arg-type]
 
             choices = response.choices
             if not choices:

@@ -1,5 +1,3 @@
-
-
 import asyncio
 import base64
 import json
@@ -117,9 +115,14 @@ class HttpProvider(ChatProvider):
 
         payload: dict[str, Any] = {
             "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "temperature": config.temperature,
         }
         if config.model:
             payload["model"] = config.model
+        if config.seed is not None:
+            payload["seed"] = config.seed
+        if config.max_tokens is not None:
+            payload["max_tokens"] = config.max_tokens
 
         headers = _build_auth_headers(config)
 
@@ -132,13 +135,13 @@ class HttpProvider(ChatProvider):
             except ProviderRateLimitError as exc:
                 last_error = exc
                 if attempt < config.max_retries:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                     continue
                 raise
             except (ProviderConnectionError, ProviderTimeoutError) as exc:
                 last_error = exc
                 if attempt < config.max_retries:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                     continue
                 raise
 
@@ -157,21 +160,26 @@ class HttpProvider(ChatProvider):
         endpoint = config.endpoint or DEFAULT_ENDPOINT
         session = await self.get_session()
         try:
-            async with session.post(url, json=payload, headers=headers, timeout=timeout) as resp:
+            async with session.post(
+                url, json=payload, headers=headers, timeout=timeout
+            ) as resp:
                 if resp.status == 401 or resp.status == 403:
                     raise ProviderAuthError(
-                        provider="http", endpoint=endpoint,
+                        provider="http",
+                        endpoint=endpoint,
                         details=f"HTTP {resp.status}: authentication failed",
                     )
                 if resp.status == 429:
                     raise ProviderRateLimitError(
-                        provider="http", endpoint=endpoint,
+                        provider="http",
+                        endpoint=endpoint,
                         details="HTTP 429: rate limited",
                     )
                 if resp.status >= 400:
                     body = await resp.text()
                     raise ProviderResponseError(
-                        provider="http", endpoint=endpoint,
+                        provider="http",
+                        endpoint=endpoint,
                         details=f"HTTP {resp.status}: {scrub_secrets(body[:500])}",
                     )
 
@@ -181,12 +189,14 @@ class HttpProvider(ChatProvider):
 
         except aiohttp.ClientConnectionError as exc:
             raise ProviderConnectionError(
-                provider="http", endpoint=endpoint,
+                provider="http",
+                endpoint=endpoint,
                 details=str(exc),
             ) from exc
         except asyncio.TimeoutError as exc:
             raise ProviderTimeoutError(
-                provider="http", endpoint=endpoint,
+                provider="http",
+                endpoint=endpoint,
                 details=f"Request timed out after {config.timeout}s",
             ) from exc
 
@@ -195,20 +205,23 @@ class HttpProvider(ChatProvider):
             choices = data.get("choices", [])
             if not choices:
                 raise ProviderResponseError(
-                    provider="http", endpoint=endpoint,
+                    provider="http",
+                    endpoint=endpoint,
                     details="No choices in response",
                 )
             message = choices[0].get("message", {})
             content = message.get("content", "")
             if not content:
                 raise ProviderResponseError(
-                    provider="http", endpoint=endpoint,
+                    provider="http",
+                    endpoint=endpoint,
                     details="Empty content in response",
                 )
             return content
         except (KeyError, IndexError, TypeError) as exc:
             raise ProviderResponseError(
-                provider="http", endpoint=endpoint,
+                provider="http",
+                endpoint=endpoint,
                 details=f"Unexpected response format: {exc}",
             ) from exc
 
@@ -234,7 +247,9 @@ class HttpProvider(ChatProvider):
 
         session = await self.get_session()
         try:
-            async with session.post(url, json=payload, headers=headers, timeout=timeout) as resp:
+            async with session.post(
+                url, json=payload, headers=headers, timeout=timeout
+            ) as resp:
                 if resp.status >= 400:
                     return self._last_sources.get(endpoint)
                 data = await resp.json()
@@ -242,9 +257,7 @@ class HttpProvider(ChatProvider):
                 if not isinstance(raw, list):
                     return self._last_sources.get(endpoint)
                 return [
-                    _source_item_to_retrieved(s)
-                    for s in raw
-                    if isinstance(s, dict)
+                    _source_item_to_retrieved(s) for s in raw if isinstance(s, dict)
                 ]
         except (aiohttp.ClientError, asyncio.TimeoutError):
             return self._last_sources.get(endpoint)

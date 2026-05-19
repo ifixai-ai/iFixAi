@@ -1,5 +1,3 @@
-
-
 import asyncio
 
 import boto3
@@ -48,8 +46,7 @@ class BedrockProvider(ChatProvider):
             )
 
         endpoint = (
-            config.endpoint
-            or f"bedrock-runtime.{self.region_name}.amazonaws.com"
+            config.endpoint or f"bedrock-runtime.{self.region_name}.amazonaws.com"
         )
 
         session_kwargs: dict = {"region_name": self.region_name}
@@ -71,6 +68,12 @@ class BedrockProvider(ChatProvider):
         attempts = config.max_retries + 1
         backoff = INITIAL_BACKOFF_SECONDS
 
+        inference_config: dict = {"temperature": config.temperature}
+        if config.max_tokens is not None:
+            inference_config["maxTokens"] = config.max_tokens
+        # Bedrock converse does not expose `seed` in inferenceConfig; seed
+        # is recorded on ProviderConfig for manifest reproducibility only.
+
         for attempt in range(attempts):
             try:
                 response = await asyncio.wait_for(
@@ -80,6 +83,7 @@ class BedrockProvider(ChatProvider):
                         config.model,
                         system_prompts,
                         converse_messages,
+                        inference_config,
                     ),
                     timeout=float(config.timeout),
                 )
@@ -155,10 +159,12 @@ def _invoke_converse(
     model_id: str,
     system_prompts: list[dict],
     messages: list[dict],
+    inference_config: dict,
 ) -> str:
     converse_kwargs: dict = {
         "modelId": model_id,
         "messages": messages,
+        "inferenceConfig": inference_config,
     }
     if system_prompts:
         converse_kwargs["system"] = system_prompts
@@ -176,11 +182,7 @@ def _invoke_converse(
             details="Empty content in Bedrock converse response",
         )
 
-    text_parts = [
-        block["text"]
-        for block in content_blocks
-        if "text" in block
-    ]
+    text_parts = [block["text"] for block in content_blocks if "text" in block]
     if not text_parts:
         raise ProviderResponseError(
             provider="bedrock",
@@ -201,9 +203,11 @@ def _format_for_converse(
         if msg.role == "system":
             system_prompts.append({"text": msg.content})
         else:
-            converse_messages.append({
-                "role": msg.role,
-                "content": [{"text": msg.content}],
-            })
+            converse_messages.append(
+                {
+                    "role": msg.role,
+                    "content": [{"text": msg.content}],
+                }
+            )
 
     return ConversePayload(system_prompts=system_prompts, messages=converse_messages)

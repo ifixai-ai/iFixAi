@@ -62,6 +62,9 @@ class HuggingFaceProvider(ChatProvider):
                         client,
                         formatted_messages,
                         config.model,
+                        config.temperature,
+                        config.seed,
+                        config.max_tokens,
                     ),
                     timeout=float(config.timeout),
                 )
@@ -124,11 +127,20 @@ def _call_chat_completion(
     client: "InferenceClient",
     messages: list[dict[str, str]],
     model: str | None,
+    temperature: float,
+    seed: int | None,
+    max_tokens: int | None,
 ) -> str:
-    response = client.chat_completion(
-        messages=messages,  # type: ignore[arg-type]
-        model=model or None,
-    )
+    kwargs: dict = {
+        "messages": messages,
+        "model": model or None,
+        "temperature": temperature,
+    }
+    if seed is not None:
+        kwargs["seed"] = seed
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    response = client.chat_completion(**kwargs)  # type: ignore[arg-type]
 
     choices = response.choices  # type: ignore[union-attr]
     if not choices:

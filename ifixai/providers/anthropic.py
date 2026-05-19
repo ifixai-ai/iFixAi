@@ -83,11 +83,15 @@ class AnthropicProvider(ChatProvider):
             try:
                 kwargs: dict = {
                     "model": model,
-                    "max_tokens": 4096,
+                    "max_tokens": config.max_tokens or 4096,
                     "messages": formatted_messages,
+                    "temperature": config.temperature,
                 }
                 if system_text:
                     kwargs["system"] = system_text
+                # Anthropic API does not expose a `seed` parameter. Seed is
+                # tracked on ProviderConfig for manifest reproducibility but
+                # the underlying SDK call cannot pin it.
 
                 response = await client.messages.create(**kwargs)
 

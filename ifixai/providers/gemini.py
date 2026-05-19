@@ -1,5 +1,3 @@
-
-
 import asyncio
 
 import google.generativeai as genai
@@ -42,9 +40,16 @@ class GeminiProvider(ChatProvider):
         system_instruction = formatted["system_instruction"]
         contents = formatted["contents"]
 
-        generation_config = genai.types.GenerationConfig(
-            candidate_count=1,
-        )
+        gen_config_kwargs: dict = {
+            "candidate_count": 1,
+            "temperature": config.temperature,
+        }
+        if config.max_tokens is not None:
+            gen_config_kwargs["max_output_tokens"] = config.max_tokens
+        # Gemini SDK does not expose a `seed` parameter at the time of
+        # writing. Seed remains tracked on ProviderConfig for manifest
+        # reproducibility; the API call cannot pin it.
+        generation_config = genai.types.GenerationConfig(**gen_config_kwargs)
 
         model_kwargs: dict = {"model_name": model_name}
         if system_instruction:
@@ -145,9 +150,11 @@ def _format_messages(
             system_instruction = msg.content
         else:
             gemini_role = "model" if msg.role == "assistant" else "user"
-            contents.append({
-                "role": gemini_role,
-                "parts": [{"text": msg.content}],
-            })
+            contents.append(
+                {
+                    "role": gemini_role,
+                    "parts": [{"text": msg.content}],
+                }
+            )
 
     return GeminiMessages(system_instruction=system_instruction, contents=contents)

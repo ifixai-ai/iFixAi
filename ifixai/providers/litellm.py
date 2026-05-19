@@ -39,7 +39,12 @@ class LiteLLMProvider(ChatProvider):
             "messages": formatted_messages,
             "drop_params": True,
             "timeout": float(config.timeout),
+            "temperature": config.temperature,
         }
+        if config.seed is not None:
+            params["seed"] = config.seed
+        if config.max_tokens is not None:
+            params["max_tokens"] = config.max_tokens
         if config.api_key:
             params["api_key"] = config.api_key
         if config.endpoint:

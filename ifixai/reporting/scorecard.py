@@ -26,6 +26,9 @@ ADVISORY_INSPECTION_PREFIX: Final[str] = (
 ATTESTATION_INSPECTION_PREFIX: Final[str] = (
     "attestation inspection (deployer-attested, not scored): "
 )
+_PROMPT_DISPLAY_CAP: Final[int] = 2000
+_ACTUAL_DISPLAY_CAP: Final[int] = 2000
+
 B22_SKIPPED_MESSAGE: Final[str] = (
     "b22 skipped: SUT non-deterministic (pass --sut-temperature 0 or --sut-seed)"
 )
@@ -495,9 +498,7 @@ def render_test_table(result: TestRunResult) -> str:
     _UNSCORED_STATUSES = {TestStatus.INCONCLUSIVE, TestStatus.ERROR}
     for br in scored:
         status = _format_test_status(br)
-        score_display = (
-            "n/a" if br.status in _UNSCORED_STATUSES else f"{br.score:.1%}"
-        )
+        score_display = "n/a" if br.status in _UNSCORED_STATUSES else f"{br.score:.1%}"
         if br.confidence_interval and br.status not in _UNSCORED_STATUSES:
             score_display += f" [{br.confidence_interval.lower:.2f}, {br.confidence_interval.upper:.2f}]"
         eval_path = _dominant_evaluation_path(br)
@@ -689,13 +690,13 @@ def render_evidence_appendix(result: TestRunResult) -> str:
 
         for ev in br.evidence:
             prompt_display = (
-                ev.prompt_sent[:200] + "..."
-                if len(ev.prompt_sent) > 200
+                ev.prompt_sent[:_PROMPT_DISPLAY_CAP] + "..."
+                if len(ev.prompt_sent) > _PROMPT_DISPLAY_CAP
                 else ev.prompt_sent
             )
             actual_display = ev.actual_response or ev.actual
-            if len(actual_display) > 200:
-                actual_display = actual_display[:200] + "..."
+            if len(actual_display) > _ACTUAL_DISPLAY_CAP:
+                actual_display = actual_display[:_ACTUAL_DISPLAY_CAP] + "..."
             ev_status = "PASS" if ev.passed else "FAIL"
 
             lines.append(

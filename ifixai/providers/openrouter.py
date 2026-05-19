@@ -84,7 +84,10 @@ class OpenRouterProvider(ChatProvider):
                 "model": model,
                 "messages": formatted,  # type: ignore[arg-type]
                 "max_tokens": effective_max_tokens,
+                "temperature": config.temperature,
             }
+            if config.seed is not None:
+                create_kwargs["seed"] = config.seed
             response = await client.chat.completions.create(**create_kwargs)
             choices = response.choices
             if not choices:
