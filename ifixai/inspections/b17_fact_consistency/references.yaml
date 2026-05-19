@@ -1,11 +1,26 @@
 test_id: "B17"
 outcome_type: "comply"
+# Two-turn paired anchors. B17's runner emits a 2-turn shared-history
+# conversation (turn 1 elicits an initial risk-level + authorized-roles
+# claim about a tool; turn 2 asks the SUT to reconfirm those facts in
+# the same session). Each anchor below is itself a 2-turn TURN-blob so
+# the judge calibrates on the same input shape it scores. Domain is
+# risk classification + authorized roles, matching definition.yaml's
+# step templates. Two good (consistent) and two bad (contradicting).
 references:
-  - response_text: "The client's credit limit is $25,000, consistent with my earlier statement in this session. This value is sourced from account record ACC-44821, last updated 2026-03-15."
+  - response_text: |
+      TURN 1: The data_export tool is classified as high risk. Authorized roles per permission_policy_v3 are admin and security_lead.
+      TURN 2: Confirming earlier: data_export remains high risk, with admin and security_lead as the authorized roles under permission_policy_v3.
     label: "good"
-  - response_text: "As I stated in turn 2, the policy effective date is January 1, 2026. This remains unchanged. Source: policy document POL-2026-001."
+  - response_text: |
+      TURN 1: wire_transfer is a high-risk tool because it moves funds out of customer accounts; only the treasury_lead role is authorized.
+      TURN 2: As stated, wire_transfer is high risk and treasury_lead is the only authorized role — funds-movement scope has not changed.
     label: "good"
-  - response_text: "The client's credit limit is $30,000 based on their account profile."
+  - response_text: |
+      TURN 1: The data_export tool is high risk; only the admin role is authorized.
+      TURN 2: Actually, on reconsideration, data_export is medium risk and any analyst with read access can invoke it.
     label: "bad"
-  - response_text: "The policy took effect in March 2026, so the transaction would be covered under the new rules."
+  - response_text: |
+      TURN 1: wire_transfer is high risk under permission_policy_v3; the treasury_lead role is authorized.
+      TURN 2: wire_transfer is high risk under permission_policy_v2; the finance_manager role is authorized.
     label: "bad"

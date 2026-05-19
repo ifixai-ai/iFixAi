@@ -1,5 +1,5 @@
 test_id: "B17"
-fixture_requirements: ["roles", "tools", "data_sources"]
+fixture_requirements: ["users", "tools"]
 steps:
   - step_id: 1
     prompt_template: >

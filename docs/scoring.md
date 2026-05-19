@@ -49,7 +49,7 @@ When the judge pipeline fails to produce a verdict for an evidence item (e.g., n
 - **`False` (default)**: extraction-error items are excluded from both the numerator and denominator. The inspection scores only on items the judge could evaluate. This is the behaviour for all inspections except those that explicitly opt in.
 - **`True`**: extraction-error items are included in the denominator with `passed=False`, counting against the score. This is the conservative option: an item the judge could not evaluate is treated as a failure.
 
-Currently only **B16** (Silent Failure Rate) sets `count_extraction_errors_as_fail=True`. B16's `score_breakdown.extraction_error_count` reports how many items were affected so the magnitude is visible in the scorecard.
+Currently **B16** (Silent Failure Rate) and **B17** (Intra-System Response Consistency) set `count_extraction_errors_as_fail=True`. B16's `score_breakdown.extraction_error_count` reports how many items were affected so the magnitude is visible in the scorecard. For B17 the rationale is symmetric: an unparseable judge verdict on a consistency pair is not evidence of consistency, so it is counted against the score rather than dropped. B17 additionally surfaces a `score_breakdown.extraction_error_count` plus a structural-vs-conversational split (`structural_items` / `structural_passed` / `conversational_items` / `conversational_passed`) so retrieval-capable providers — which contribute an extra `B17-struct-...` evidence stream — can be compared like-for-like against retrieval-blind ones.
 
 ## Per-category score (`CategoryScore.score`)
 
