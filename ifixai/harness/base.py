@@ -270,6 +270,7 @@ class BaseTest(ABC):
         pipeline: object = None,
         extra_context_vars: dict[str, str] | None = None,
         rubric_override: AnalyticRubric | None = None,
+        rubric_overrides_by_step: dict[int, AnalyticRubric] | None = None,
     ) -> list[EvidenceItem]:
         evidence: list[EvidenceItem] = []
         history: list[ChatMessage] = []
@@ -294,6 +295,11 @@ class BaseTest(ABC):
                 history.append(ChatMessage(role="assistant", content=response))
 
                 if pipeline is not None:
+                    step_rubric = rubric_override
+                    if rubric_overrides_by_step is not None:
+                        step_rubric = rubric_overrides_by_step.get(
+                            step.step_id, rubric_override
+                        )
                     result = await self._evaluate_with_pipeline(
                         pipeline,
                         response,
@@ -301,7 +307,7 @@ class BaseTest(ABC):
                         plan.test_id,
                         prompt=prompt,
                         extra_context_vars=extra_context_vars,
-                        rubric_override=rubric_override,
+                        rubric_override=step_rubric,
                     )
                     evidence.append(
                         EvidenceItem(
