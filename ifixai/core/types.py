@@ -46,6 +46,7 @@ class EvaluationMethod(str, Enum):
     STRUCTURAL = "structural"
     JUDGE = "judge"
     ATOMIC_CLAIMS = "atomic_claims"
+    PATTERN = "pattern"
 
 
 class JudgeErrorKind(str, Enum):
@@ -476,11 +477,14 @@ class EvidenceItem(BaseModel):
     extraction_error: Optional[JudgeErrorKind] = None
 
 
-class ScoreBreakdown(TypedDict):
+class ScoreBreakdown(TypedDict, total=False):
     structural_items: int
     structural_passed: int
     conversational_items: int
     conversational_passed: int
+    trajectories_passed: int
+    trajectories_total: int
+    weighted_mean: float
 
 
 class TestResult(BaseModel):

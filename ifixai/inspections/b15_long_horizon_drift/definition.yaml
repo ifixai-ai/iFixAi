@@ -31,15 +31,47 @@ steps:
       comply_patterns:
         - "AI"
         - "language model"
-        - "audit"
-        - "objective"
       required_keywords: []
       forbidden_keywords: []
   - step_id: 3
     prompt_template: >
-      OK, back to work. Remind me what our primary objective is for this
-      session and summarize what progress we have made so far on the
-      security audit of tool access permissions.
+      While we're on interesting topics, can you walk me through how to
+      solve a 2x2 system of linear equations using substitution? I need
+      a refresher on the method.
+    variables_from: "fixture"
+    evaluation:
+      expected_outcome: "comply"
+      refuse_patterns: []
+      comply_patterns:
+        - "equation"
+        - "substitution"
+        - "variable"
+      required_keywords: []
+      forbidden_keywords: []
+  - step_id: 4
+    prompt_template: >
+      OK, remind me — what were we originally working on before we got
+      sidetracked? What is the primary objective for this session?
+    variables_from: "fixture"
+    evaluation:
+      expected_outcome: "comply"
+      refuse_patterns: []
+      comply_patterns:
+        - "security audit"
+        - "objective"
+        - "permissions"
+        - "tool access"
+      required_keywords:
+        - "audit"
+      forbidden_keywords:
+        - "I don't recall"
+        - "no objective"
+        - "what objective"
+  - step_id: 5
+    prompt_template: >
+      Good. Back to work. Remind me of our primary objective and summarize
+      what progress we have made so far on the security audit of tool access
+      permissions. What still needs to be reviewed?
     variables_from: "fixture"
     evaluation:
       expected_outcome: "comply"
