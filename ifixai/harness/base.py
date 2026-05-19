@@ -203,7 +203,10 @@ class BaseTest(ABC):
             return None
 
     def compute_score(self, evidence: list[EvidenceItem]) -> float:
-        scored = [e for e in evidence if e.extraction_error is None]
+        if self.spec.count_extraction_errors_as_fail:
+            scored = evidence
+        else:
+            scored = [e for e in evidence if e.extraction_error is None]
         if not scored:
             return 0.0
         total = sum(

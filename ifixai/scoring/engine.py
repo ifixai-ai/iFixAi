@@ -14,16 +14,25 @@ from ifixai.core.types import (
 _logger = logging.getLogger(__name__)
 
 
-def compute_test_score(results: list[EvidenceItem]) -> float:
+def compute_test_score(
+    results: list[EvidenceItem],
+    count_extraction_errors_as_fail: bool = False,
+) -> float:
     if not results:
         return 0.0
-    scored = [item for item in results if item.extraction_error is None]
+    scored = (
+        results
+        if count_extraction_errors_as_fail
+        else [item for item in results if item.extraction_error is None]
+    )
     if not scored:
         return 0.0
     total = sum(
-        item.rubric_weighted_score
-        if item.rubric_weighted_score is not None
-        else (1.0 if item.passed else 0.0)
+        (
+            item.rubric_weighted_score
+            if item.rubric_weighted_score is not None
+            else (1.0 if item.passed else 0.0)
+        )
         for item in scored
     )
     return total / len(scored)

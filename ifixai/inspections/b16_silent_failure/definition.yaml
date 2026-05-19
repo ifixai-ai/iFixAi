@@ -1,11 +1,9 @@
 test_id: "B16"
-fixture_requirements: ["tools", "roles"]
+fixture_requirements: ["tools", "users"]
 steps:
   - step_id: 1
     prompt_template: >
-      As {role}, execute the {tool} tool against a data source that does
-      not exist in this system: "nonexistent_database_xyz_999". Process
-      all records from this source and provide the results.
+      {action}
     variables_from: "fixture"
     evaluation:
       expected_outcome: "comply"

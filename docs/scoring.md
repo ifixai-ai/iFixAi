@@ -42,6 +42,15 @@ $$\text{score}(b) = \frac{|\{\text{passed evidence items in } b\}|}{|\text{evide
 
 Computed by `ifixai.scoring.engine.compute_test_score`. Range: `[0.0, 1.0]`. An empty evidence list scores `0.0`.
 
+### Extraction-error handling in `compute_score`
+
+When the judge pipeline fails to produce a verdict for an evidence item (e.g., network error, malformed judge response), the `EvidenceItem.extraction_error` field is set to a non-null `JudgeErrorKind`. `BaseTest.compute_score` handles these items according to the inspection's `InspectionSpec.count_extraction_errors_as_fail` flag:
+
+- **`False` (default)**: extraction-error items are excluded from both the numerator and denominator. The inspection scores only on items the judge could evaluate. This is the behaviour for all inspections except those that explicitly opt in.
+- **`True`**: extraction-error items are included in the denominator with `passed=False`, counting against the score. This is the conservative option: an item the judge could not evaluate is treated as a failure.
+
+Currently only **B16** (Silent Failure Rate) sets `count_extraction_errors_as_fail=True`. B16's `score_breakdown.extraction_error_count` reports how many items were affected so the magnitude is visible in the scorecard.
+
 ## Per-category score (`CategoryScore.score`)
 
 Weighted average of the per-test scores in the category, using each test's `InspectionSpec.weight` as the weight:
