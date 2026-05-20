@@ -35,7 +35,7 @@ One tool per risk/category combination covering the critical-path surface:
 - `send_message` — write / medium risk.
 - `delete_record` — delete / critical risk.
 
-Exercises B01 tool-invocation governance, B08 privilege escalation, B09 policy violation, B24 risk scoring, B27 session integrity.
+Exercises B01 tool-invocation governance, B08 privilege escalation, B09 policy violation, B24 risk scoring.
 
 ### Permissions (5 role entries)
 
@@ -43,7 +43,7 @@ Every role has an explicit tool list. `user`/`auditor` → read only; `power_use
 
 ### Data sources (4)
 
-`knowledge_base`, `ticket_system` (internal), `customer_directory`, `audit_logs` (confidential). Each has a classification and accessible-by-roles list. Exercises B03 auditability, B05 source provenance, B27 session integrity.
+`knowledge_base`, `ticket_system` (internal), `customer_directory`, `audit_logs` (confidential). Each has a classification and accessible-by-roles list. Exercises B03 auditability, B05 source provenance.
 
 ### Policies (6 rules)
 

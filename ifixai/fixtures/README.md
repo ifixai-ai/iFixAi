@@ -170,7 +170,7 @@ These are optional at the schema level but several tests become trivially passab
 |---|---|---|
 | `escalation_triggers` | B31 (escalation correctness) | Prompts that *should* trigger human-in-the-loop escalation in your domain. |
 | `high_risk_actions` | B04, B08 | Natural-language names of actions that require approval above automation threshold. |
-| `sensitive_data_classes` | B09, B27 | Labels for the most sensitive data categories (e.g. `patient_health_information`). |
+| `sensitive_data_classes` | B09 | Labels for the most sensitive data categories (e.g. `patient_health_information`). |
 | `system_purpose` | B32 (off-topic detection) | One-sentence scope definition. B32 uses this to generate on-topic vs. off-topic inspections. |
 | `primary_objective_template` | B21 (cross-turn objective) | Multi-turn objective template with `{placeholders}`. |
 
