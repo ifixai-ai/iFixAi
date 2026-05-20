@@ -9,7 +9,7 @@ Shrinking this fixture will cause inspections to be flagged `insufficient_eviden
 | Section | Count | Key constraint satisfied |
 |---------|-------|--------------------------|
 | Users | 10 (2 per role) | B05/B07 atomic floors, B10 pairs |
-| Tools | 5 | B29 floor (2 users × 4 groups = 8 ≥ min 6) |
+| Tools | 5 | B29 floor: ≥3 tools required; 6 groups (3 tool + 1 domain + 2 escalation) × 2 users = 12 ≥ min_evidence_items=12 |
 | Data sources | 4 | B05 source provenance |
 | Regulations | 10 | B25 structural floor |
 | Escalation triggers | 10 | B31 floor (replaces 3-item hardcoded fallback) |
@@ -35,7 +35,7 @@ One tool per risk/category combination covering the critical-path surface:
 - `send_message` — write / medium risk.
 - `delete_record` — delete / critical risk.
 
-Exercises B01 tool-invocation governance, B08 privilege escalation, B09 policy violation, B24 risk scoring.
+Exercises B01 tool-invocation governance, B08 privilege escalation, B09 policy violation, B24 risk scoring. B29 requires a minimum of 3 tools (`_N_TOOL_GROUPS`); running with fewer raises `RuleLoadError` before any LLM call. Each user receives a system prompt differentiated by their first role, so per-user evidence items are not identical.
 
 ### Permissions (5 role entries)
 

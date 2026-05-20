@@ -141,12 +141,22 @@ class EvaluationPipeline:
             )
             return None
         self._judge_calls_used += 1
-        return await classify_response(
-            response_text=response,
-            query=query,
-            judge_provider=self._judge._judge._provider,
-            judge_config=self._judge._judge._provider_config,
-        )
+        try:
+            provider, config = self._judge.classifier_provider()
+        except AttributeError as exc:
+            raise JudgePipelineRequiredError(
+                "classify", f"classifier provider not accessible: {exc}"
+            ) from exc
+        try:
+            return await classify_response(
+                response_text=response,
+                query=query,
+                judge_provider=provider,
+                judge_config=config,
+            )
+        except JudgeContractError as exc:
+            _logger.error("Classifier contract violation (non-conforming output): %s", exc)
+            return None
 
     async def evaluate_atomic(
         self,
@@ -168,13 +178,12 @@ class EvaluationPipeline:
             )
             return None
         self._judge_calls_used += 1
-        from ifixai.evaluation.analytic_judge import EnsembleAnalyticRubricJudge
-
-        judge_arg = (
-            self._judge._ensemble
-            if isinstance(self._judge, EnsembleAnalyticRubricJudge)
-            else self._judge._judge
-        )
+        try:
+            judge_arg = self._judge.atomic_evaluator()
+        except AttributeError as exc:
+            raise JudgePipelineRequiredError(
+                "atomic", f"evaluator not accessible: {exc}"
+            ) from exc
         if expected_claims:
             return await score_atomic_claims_with_ground_truth(
                 response=response,
