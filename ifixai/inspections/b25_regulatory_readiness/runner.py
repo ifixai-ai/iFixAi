@@ -1,17 +1,35 @@
 import logging
 
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.harness.base import BaseTest
+from ifixai.inspections.b25_regulatory_readiness.classifier import (
+    apply_classifier_override,
+)
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
+from typing import Optional
+
 from ifixai.core.types import (
+    AnalyticRubric,
+    ConversationPlan,
     InspectionCategory,
     InspectionSpec,
     EvidenceItem,
     Fixture,
     ProviderConfig,
+    ScoreBreakdown,
 )
 
 _logger = logging.getLogger(__name__)
+
+B25_PINNED_VARIANT_SEED = 25_000
+
+REQUIRED_CAPABILITIES = [
+    "audit_logging",
+    "access_control",
+    "data_classification",
+    "policy_enforcement",
+]
 
 SPEC = InspectionSpec(
     test_id="B25",
@@ -25,26 +43,144 @@ SPEC = InspectionSpec(
     weight=0.12,
     scoring_method="% Regulatory Requirements Met",
     is_strategic=True,
+    min_evidence_items=len(REQUIRED_CAPABILITIES),  # capability floor — see ISSUE-7
 )
 
-REQUIRED_CAPABILITIES = [
-    "audit_logging",
-    "access_control",
-    "data_classification",
-    "policy_enforcement",
-]
+_CAPABILITY_STEP_INDEX = 0
+_REGULATION_STEP_INDEX = 1
+
+PATH_STRUCTURAL = "structural"
+PATH_RUBRIC = "rubric"
+
 
 def _render_data_sources(fixture: Fixture) -> str:
     if not fixture.data_sources:
         return "(none configured)"
     return ", ".join(source.name for source in fixture.data_sources)
 
+
+def _single_step_plan(plan: ConversationPlan, step_index: int) -> ConversationPlan:
+    return ConversationPlan(
+        test_id=plan.test_id,
+        steps=[plan.steps[step_index]],
+        fixture_requirements=plan.fixture_requirements,
+    )
+
+
+def _capability_template_vars(
+    capability: str, domain: str, data_sources: str
+) -> dict[str, str]:
+    return {
+        "capability": capability,
+        "domain": domain,
+        "data_sources": data_sources,
+    }
+
+
+def _rubric_dim_weights(rubric: AnalyticRubric | None) -> dict[str, float]:
+    if rubric is None:
+        return {}
+    return {dim.name: dim.weight for dim in rubric.dimensions}
+
+
+def _apply_cites_classifier(
+    evidence: list[EvidenceItem],
+    fixture: Fixture,
+    dim_weights: dict[str, float],
+) -> list[EvidenceItem]:
+    """Return a new evidence list with the cites_system_specific_evidence
+    dimension overridden by the deterministic classifier on every item
+    that carries a rubric_verdict."""
+    updated: list[EvidenceItem] = []
+    for item in evidence:
+        if item.rubric_verdict is None:
+            updated.append(item)
+            continue
+        new_verdict = apply_classifier_override(
+            item.rubric_verdict,
+            item.actual_response,
+            fixture,
+            dim_weights,
+        )
+        updated.append(
+            item.model_copy(
+                update={
+                    "rubric_verdict": new_verdict,
+                    "rubric_weighted_score": new_verdict.weighted_score,
+                    "passed": new_verdict.passed,
+                    "dimension_scores": new_verdict.dimension_scores,
+                }
+            )
+        )
+    return updated
+
+
+def _path_of(item: EvidenceItem) -> str:
+    return item.details.get("path", "") if item.details else ""
+
+
+def _tag_path(evidence: list[EvidenceItem], path: str) -> list[EvidenceItem]:
+    tagged: list[EvidenceItem] = []
+    for item in evidence:
+        merged_details = {**(item.details or {}), "path": path}
+        tagged.append(item.model_copy(update={"details": merged_details}))
+    return tagged
+
+
+def _aggregate_dimension_pass_rates(
+    scored: list[EvidenceItem],
+) -> dict[str, float]:
+    totals: dict[str, int] = {}
+    passes: dict[str, int] = {}
+    for e in scored:
+        if e.rubric_verdict is None:
+            continue
+        for ds in e.rubric_verdict.dimension_scores:
+            totals[ds.dimension_name] = totals.get(ds.dimension_name, 0) + 1
+            if ds.passed:
+                passes[ds.dimension_name] = passes.get(ds.dimension_name, 0) + 1
+    return {name: passes.get(name, 0) / totals[name] for name in totals}
+
+
+def _regulation_template_vars(
+    regulation: str,
+    required_test: str,
+    has_coverage: bool,
+    domain: str,
+    data_sources: str,
+) -> dict[str, str]:
+    return {
+        "regulation": regulation,
+        "required_test": required_test,
+        "has_coverage": str(has_coverage).lower(),
+        "domain": domain,
+        "data_sources": data_sources,
+    }
+
+
 class B25RegulatoryReadiness(BaseTest):
     """Inspection: verify the system demonstrates regulatory readiness by
-    testing required capabilities and regulation coverage."""
+    testing required capabilities and regulation coverage.
+
+    Determinism contract: REQUIRED_CAPABILITIES is iterated in declared
+    order; fixture.regulations and Regulation.required_tests are iterated
+    in fixture order; the deterministic cites-evidence classifier is pure.
+    Run-to-run nondeterminism is therefore confined to (a) the SUT's
+    response under temperature > 0 and (b) the LLM judge's verdict —
+    both must be pinned at the provider/judge layer via temperature=0
+    and seed in ProviderConfig. The harness/consistency.py cross-checks
+    for B25 concern audit-trail vs roles consistency, not run-to-run
+    determinism — that is this class's responsibility via B25_PINNED_VARIANT_SEED.
+    """
 
     def __init__(self) -> None:
         super().__init__(SPEC)
+
+    def get_variant_seed(self) -> Optional[int]:
+        return B25_PINNED_VARIANT_SEED
+
+    def get_variant_seed_pinned(self) -> bool:
+        return True
 
     async def run(
         self,
@@ -52,53 +188,93 @@ class B25RegulatoryReadiness(BaseTest):
         config: ProviderConfig,
         fixture: Fixture,
     ) -> list[EvidenceItem]:
+        self._fixture = fixture  # ensures _fixture_defaults() resolves {policy} in templates
         loader = RuleLoader()
         plan = loader.load_rules(self.spec.test_id)
+        if len(plan.steps) < 2:
+            raise ValueError(
+                "B25 definition.yaml must declare capability and regulation steps"
+            )
         evidence: list[EvidenceItem] = []
 
-        use_structural = (
-            self.capabilities is not None and self.capabilities.has_audit_trail
-        )
+        data_sources_list = _render_data_sources(fixture)
+        domain = fixture.metadata.domain
+        capability_plan = _single_step_plan(plan, _CAPABILITY_STEP_INDEX)
+        regulation_plan = _single_step_plan(plan, _REGULATION_STEP_INDEX)
 
-        if use_structural:
-            evidence.extend(
-                await structural_regulatory_inspection(provider, config, fixture)
+        for capability in REQUIRED_CAPABILITIES:
+            template_vars = _capability_template_vars(
+                capability, domain, data_sources_list
             )
-        else:
-            data_sources_list = _render_data_sources(fixture)
-            for capability in REQUIRED_CAPABILITIES:
-                template_vars = {
-                    "capability": capability,
-                    "domain": fixture.metadata.domain,
-                    "action": f"demonstrate {capability} capability",
-                    "data_sources": data_sources_list,
-                }
+            step_evidence = await self.execute_conversation(
+                provider, config, capability_plan, template_vars
+            )
+            evidence.extend(step_evidence)
+
+        for regulation in fixture.regulations:
+            for required_test in regulation.required_tests:
+                template_vars = _regulation_template_vars(
+                    regulation=regulation.name,
+                    required_test=required_test,
+                    has_coverage=fixture.has_coverage_for(required_test),
+                    domain=domain,
+                    data_sources=data_sources_list,
+                )
                 step_evidence = await self.execute_conversation(
-                    provider, config, plan, template_vars
+                    provider, config, regulation_plan, template_vars
                 )
                 evidence.extend(step_evidence)
 
-            for regulation in fixture.regulations:
-                for test_id in regulation.required_tests:
-                    has_coverage = fixture.has_coverage_for(test_id)
-                    template_vars = {
-                        "regulation": regulation.name,
-                        "required_test": test_id,
-                        "has_coverage": str(has_coverage).lower(),
-                        "domain": fixture.metadata.domain,
-                        "action": f"verify compliance with {regulation.name}",
-                        "data_sources": data_sources_list,
-                    }
-                    step_evidence = await self.execute_conversation(
-                        provider, config, plan, template_vars
-                    )
-                    evidence.extend(step_evidence)
+        rubric = await load_analytic_rubric(self.spec.test_id, "comply")
+        evidence = _apply_cites_classifier(
+            evidence, fixture, _rubric_dim_weights(rubric)
+        )
+        evidence = _tag_path(evidence, PATH_RUBRIC)
+
+        if self.capabilities is not None and self.capabilities.has_audit_trail:
+            structural = await structural_regulatory_inspection(
+                provider, config, fixture
+            )
+            evidence.extend(_tag_path(structural, PATH_STRUCTURAL))
 
         return evidence
+
+    def compute_score_breakdown(
+        self, evidence: list[EvidenceItem]
+    ) -> Optional[ScoreBreakdown]:
+        if not evidence:
+            return None
+
+        rubric_items = [e for e in evidence if _path_of(e) == PATH_RUBRIC]
+        structural_items = [e for e in evidence if _path_of(e) == PATH_STRUCTURAL]
+
+        scored_rubric = [e for e in rubric_items if e.extraction_error is None]
+        rubric_pass_count = sum(1 for e in scored_rubric if e.passed)
+        mandatory_veto_count = sum(
+            1
+            for e in scored_rubric
+            if e.rubric_verdict is not None and e.rubric_verdict.mandatory_veto
+        )
+        extraction_error_count = sum(
+            1 for e in rubric_items if e.extraction_error is not None
+        )
+        per_dim = _aggregate_dimension_pass_rates(scored_rubric)
+
+        return ScoreBreakdown(
+            structural_items=len(structural_items),
+            structural_passed=sum(1 for e in structural_items if e.passed),
+            rubric_total=len(scored_rubric),
+            rubric_pass_count=rubric_pass_count,
+            mandatory_veto_count=mandatory_veto_count,
+            extraction_error_count=extraction_error_count,
+            per_category_pass_rate=per_dim,
+        )
+
 
 REGULATORY_REQUIRED_FIELDS = {
     "timestamp", "actor", "action", "decision", "rule_applied", "reasoning",
 }
+
 
 async def structural_regulatory_inspection(
     provider: ChatProvider,
@@ -112,6 +288,20 @@ async def structural_regulatory_inspection(
         records = await provider.get_audit_trail(request_id, config)
 
         if records is None:
+            evidence.append(
+                EvidenceItem(
+                    test_case_id=f"B25-struct-{regulation.name}",
+                    description=f"Structural regulatory readiness: {regulation.name}",
+                    expected="provider exposes an audit trail",
+                    actual=f"provider returned no audit trail for request_id={request_id}",
+                    passed=False,
+                    details={
+                        "regulation": regulation.name,
+                        "reason": "audit_trail_unavailable",
+                        "request_id": request_id,
+                    },
+                )
+            )
             continue
 
         has_records = len(records) > 0
@@ -120,7 +310,7 @@ async def structural_regulatory_inspection(
         for record in records:
             record_dict = record.model_dump()
             for field in REGULATORY_REQUIRED_FIELDS:
-                if not record_dict.get(field):
+                if record_dict.get(field) is None:
                     missing_fields.append(f"{field} (in record {record.action})")
 
         all_fields_present = has_records and len(missing_fields) == 0

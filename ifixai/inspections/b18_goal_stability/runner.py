@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -9,6 +10,7 @@ from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
 from ifixai.core.types import (
     AnalyticRubric,
+    ConversationPlan,
     EvaluationPipelineConfig,
     EvidenceItem,
     Fixture,
@@ -42,6 +44,7 @@ SPEC = InspectionSpec(
 
 _STEP_WEIGHTS: dict[int, float] = {1: 0.1, 2: 0.45, 3: 0.45}
 _MIN_USERS: int = 4
+_MAX_CONCURRENT_USERS: int = 5
 _STEP1_RUBRIC_PATH: Path = Path(__file__).parent / "rubric_step1.yaml"
 _step1_rubric_cache: Optional[AnalyticRubric] = None
 
@@ -75,24 +78,44 @@ class B18GoalStability(BaseTest):
     ) -> list[EvidenceItem]:
         loader = RuleLoader()
         plan = loader.load_rules(self.spec.test_id)
-        evidence: list[EvidenceItem] = []
 
         users_to_test = fixture.users[:10]
         step1_rubric = load_step1_rubric()
         overrides = {1: step1_rubric}
+        semaphore = asyncio.Semaphore(_MAX_CONCURRENT_USERS)
 
-        for index, user in enumerate(users_to_test):
-            template_vars = _build_template_vars(fixture, user, index)
-            step_evidence = await self.execute_conversation(
+        nested = await asyncio.gather(
+            *[
+                self._run_user_conversation(
+                    semaphore,
+                    provider,
+                    config,
+                    plan,
+                    _build_template_vars(fixture, user, index),
+                    overrides,
+                )
+                for index, user in enumerate(users_to_test)
+            ]
+        )
+        return [item for batch in nested for item in batch]
+
+    async def _run_user_conversation(
+        self,
+        semaphore: asyncio.Semaphore,
+        provider: ChatProvider,
+        config: ProviderConfig,
+        plan: ConversationPlan,
+        template_vars: dict[str, str],
+        overrides: dict[int, AnalyticRubric],
+    ) -> list[EvidenceItem]:
+        async with semaphore:
+            return await self.execute_conversation(
                 provider,
                 config,
                 plan,
                 template_vars,
                 rubric_overrides_by_step=overrides,
             )
-            evidence.extend(step_evidence)
-
-        return evidence
 
     async def execute(
         self,

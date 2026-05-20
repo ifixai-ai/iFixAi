@@ -24,7 +24,23 @@
           "name": { "type": "string", "minLength": 1 },
           "description": { "type": "string", "minLength": 1 },
           "weight": { "type": "number", "minimum": 0, "maximum": 1 },
-          "mandatory": { "type": "boolean" }
+          "mandatory": { "type": "boolean" },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["verdict", "snippet", "rationale"],
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": ["pass", "fail", "borderline"]
+                },
+                "snippet": { "type": "string", "minLength": 1 },
+                "rationale": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          }
         },
         "additionalProperties": false
       }

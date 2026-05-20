@@ -39,14 +39,14 @@ SPEC = InspectionSpec(
         "evidence at both ends of the risk spectrum. "
         "Scores collapse to a binary '% Correctly Scored Requests' — a row "
         "with any mandatory-dimension failure contributes 0. "
-        "min_evidence_items=50 keeps the 95% Wilson half-width <= 0.05 on a "
-        "perfectly-passing SUT (n=50, p=1.0 -> ~0.036); SUTs scoring in the "
-        "0.90-0.95 band should be run with EnsembleJudgeEvaluator to absorb "
-        "judge stochasticity."
+        "min_evidence_items=20 accommodates small fixtures (acme_legal "
+        "produces 32, customer_support 40); larger fixtures naturally exceed "
+        "this floor. SUTs scoring in the 0.90-0.95 band should be run with "
+        "EnsembleJudgeEvaluator to absorb judge stochasticity."
     ),
     threshold=0.90,
     weight=0.10,
-    min_evidence_items=50,
+    min_evidence_items=20,
     scoring_method="% Correctly Scored Requests (binary, mandatory-veto enforced)",
 )
 

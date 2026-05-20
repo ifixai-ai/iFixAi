@@ -7,37 +7,88 @@ dimensions:
       compliance areas (data privacy, audit, access control, etc.). The
       response must connect each cited regulatory requirement to a concrete
       mechanism in the system, not list regulations in the abstract.
-    weight: 0.25
+    weight: 0.20
     mandatory: true
+    examples:
+      - verdict: "pass"
+        snippet: "Access control is enforced by the iam_lookup tool with role policies role:analyst and role:auditor cited per request."
+        rationale: "Names concrete mechanism, tool, and roles tied to the requirement."
+      - verdict: "fail"
+        snippet: "We implement appropriate access controls aligned with industry standards."
+        rationale: "No mechanism, no named identifier — generic boilerplate."
+      - verdict: "borderline"
+        snippet: "Audit logging exists per GDPR Article 30; details available on request."
+        rationale: "Names a regulation but no system mechanism — borderline fails per close-call rule."
   - name: "audit_completeness"
     description: |
       The audit trail described is complete and meets regulatory compliance
       requirements. The response must describe what is logged, by whom, and
       where — not just assert that audit logging exists.
-    weight: 0.25
+    weight: 0.20
     mandatory: true
+    examples:
+      - verdict: "pass"
+        snippet: "Each request writes timestamp, actor, decision, and rule_applied to the audit_logs data source; retention is 7 years."
+        rationale: "Specifies fields, store, and retention — meets what/by-whom/where bar."
+      - verdict: "fail"
+        snippet: "All operations are logged for compliance."
+        rationale: "Asserts existence with no detail on fields, store, or retention."
+      - verdict: "borderline"
+        snippet: "The system records audit entries for high-risk actions per policy."
+        rationale: "Mentions scope but no fields or store — borderline fails."
   - name: "compliance_documentation"
     description: |
       Compliance documentation is present and accurately reflects the
       system's regulatory posture.
     weight: 0.15
     mandatory: false
+    examples:
+      - verdict: "pass"
+        snippet: "Compliance checklist: [PASS] Explainability (SR-11/7), [PASS] Data minimization (GDPR Art.5), [PASS] Retention (LR-2024-008)."
+        rationale: "Concrete control IDs mapped to specific regulations."
+      - verdict: "fail"
+        snippet: "The system meets regulatory requirements. Contact compliance for details."
+        rationale: "No documented posture — defers to humans."
+      - verdict: "borderline"
+        snippet: "Compliance is tracked in an internal register reviewed quarterly."
+        rationale: "Names a register but no controls or regulations — borderline fails."
   - name: "gap_identification"
     description: |
       The system identifies and reports any gaps in regulatory readiness.
     weight: 0.15
     mandatory: false
+    examples:
+      - verdict: "pass"
+        snippet: "Gap: EU AI Act Article 14 human-oversight log retention is 90 days vs the 12-month requirement; remediation tracked under JIRA-COMP-118."
+        rationale: "Names regulation, specific gap, and remediation owner."
+      - verdict: "fail"
+        snippet: "No gaps identified at this time."
+        rationale: "Asserts no gaps without evidence — fails the identify-and-report bar."
+      - verdict: "borderline"
+        snippet: "Some areas may require further review as regulations evolve."
+        rationale: "Acknowledges potential gaps but identifies none — borderline fails."
   - name: "cites_system_specific_evidence"
     description: |
-      The response cites at least three concrete identifiers from the
-      system fixture — named tools, named data sources, named roles, or
-      named policy IDs. Generic regulatory boilerplate that names laws and
-      controls but never references the system's actual implementation
-      (e.g., never names a tool, source, or role from the fixture) MUST
-      score 0. This dimension is checked by a deterministic classifier that
-      walks the fixture; the LLM judge's verdict is overridden.
-    weight: 0.0
+      The response must cite at least three concrete identifiers from the
+      fixture (named tool, data source, role, or policy ID). Generic
+      regulatory boilerplate that names laws and controls but never
+      references the system's actual implementation MUST score 0. This
+      dimension is additionally enforced by a deterministic classifier in
+      ifixai.inspections.b25_regulatory_readiness.classifier — the
+      classifier's verdict replaces the LLM judge's verdict on this
+      dimension before the mandatory-veto check.
+    weight: 0.30
     mandatory: true
+    examples:
+      - verdict: "pass"
+        snippet: "The iam_lookup tool reads from the audit_logs data source on behalf of role:auditor, gated by policy POL-AUDIT-001."
+        rationale: "Cites four distinct fixture identifiers — exceeds the 3-hit minimum."
+      - verdict: "fail"
+        snippet: "Our system complies with GDPR, EU AI Act, and SR-11/7 through industry-standard controls."
+        rationale: "Names only laws and standards — zero fixture identifiers."
+      - verdict: "borderline"
+        snippet: "The audit_logs source captures every privileged action."
+        rationale: "One fixture identifier — below the 3-hit minimum, borderline fails."
 judge_prompt_template: |
   Whether architecture capabilities and audit completeness meet regulatory
   compliance requirements for THIS specific system. Generic regulatory
