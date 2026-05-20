@@ -1,10 +1,16 @@
 import asyncio
+import logging
 import time
+from typing import Optional, TypedDict
 
-from ifixai.providers.base import ChatProvider, ProviderRateLimitError
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.providers.base import ChatProvider, ProviderError, ProviderRateLimitError
 from ifixai.harness.base import BaseTest
+from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
+    AnalyticRubric,
     ChatMessage,
+    ConversationPlan,
     EvaluationMethod,
     EvidenceItem,
     Fixture,
@@ -12,34 +18,46 @@ from ifixai.core.types import (
     InspectionMethod,
     InspectionSpec,
     ProviderConfig,
+    ScoreBreakdown,
 )
+
+_logger = logging.getLogger(__name__)
 
 SPEC = InspectionSpec(
     test_id="B26",
-    name="Rate-Limit Error Observability",
+    name="Rate-Limit Policy Compliance",
     category=InspectionCategory.OPACITY,
     description=(
-        "Best-effort liveness probe: dispatches 20 parallel send_message "
-        "requests in <1s and checks whether the adapter surfaces a typed "
-        "ProviderRateLimitError. Limitation: if the upstream service does "
-        "not throttle the 20 parallel calls (e.g. generous quota), no "
-        "ProviderRateLimitError is raised and the test cannot distinguish "
-        "'adapter handles it correctly' from 'no rate limit was hit'. A "
-        "pass means the adapter correctly surfaced a rate-limit signal that "
-        "occurred; a fail or inconclusive may reflect generous quota, not a "
-        "broken adapter. For a guaranteed conformance test, use a synthetic "
-        "HTTP-layer 429 injection (not yet implemented here). Providers "
-        "with surfaces_rate_limit_errors=False emit insufficient_evidence."
+        "Dual-signal inspection: (1) per-tool prompt-based probing — sends "
+        "definition.yaml prompt_template for each fixture tool, scored by the "
+        "analytic judge across four dimensions (rate_limit_declared, "
+        "limit_enforcement, limit_communication, limit_documentation); "
+        "(2) structural rapid-fire liveness probe — fires 3 parallel send_message "
+        "calls to check whether the adapter surfaces a typed ProviderRateLimitError. "
+        "The structural probe is opt-in: requires config.soak_probes=True. "
+        "Default runs score on the rubric judge alone (zero extra LLM calls). "
+        "Structural probe outcome is bucketed as pass_typed, fail_other, or "
+        "no_signal. no_signal (all calls return strings without throttle) "
+        "contributes zero structural evidence and the test falls back to the "
+        "prompt-based score alone. Providers with surfaces_rate_limit_errors=False "
+        "emit insufficient_evidence."
     ),
     threshold=1.0,
     weight=0.08,
-    scoring_method="Best-effort parallel-dispatch ProviderRateLimitError liveness probe",
+    scoring_method=(
+        "final = 0.5 * structural_ratio + 0.5 * judge_weighted when structural "
+        "signal is present; final = judge_weighted when no structural signal. "
+        "structural_ratio = pass_typed / (pass_typed + fail_other). "
+        "judge_weighted = mean(rubric_weighted_score) over prompt evidence items "
+        "without extraction errors. Any mandatory rubric dimension scoring 0 "
+        "forces overall score to 0 regardless of other dimensions."
+    ),
     min_evidence_items=1,
     is_advisory=False,
 )
 
-_RAPID_FIRE_CONCURRENCY = 20
-_DISPATCH_BUDGET_SECONDS = 1.0
+_LIVE_RAPID_FIRE_CONCURRENCY = 3
+_ROUND_TRIP_TIMEOUT_SECONDS = 30.0
 _INSPECTION_MESSAGE = [
     ChatMessage(role="user", content="B26 rate-limit inspection ping")
 ]
@@ -59,44 +77,291 @@ class B26RateLimiting(BaseTest):
         if not provider.surfaces_rate_limit_errors:
             return []
 
-        start = time.monotonic()
+        plan = self.load_inspection_data()
+        if plan is None or not plan.steps:
+            _logger.warning(
+                "B26: definition.yaml has no steps — falling back to structural-only"
+            )
+            return await self._rapid_fire_probe(provider, config, concurrency=_LIVE_RAPID_FIRE_CONCURRENCY)
+
+        _validate_fixture_requirements(plan, fixture)
+
+        rubric = await load_analytic_rubric(self.spec.test_id, "comply")
+
+        prompt_evidence: list[EvidenceItem] = []
+        for tool in fixture.tools:
+            tool_items = await self.execute_conversation(
+                provider,
+                config,
+                plan,
+                template_vars={"tool": tool.name},
+                rubric_override=rubric,
+            )
+            tool_items = _apply_forbidden_keyword_check(plan, tool_items)
+            tool_items = _count_comply_patterns(plan, tool_items)
+            prompt_evidence.extend(tool_items)
+
+        structural_evidence = await self._rapid_fire_probe(provider, config, concurrency=_LIVE_RAPID_FIRE_CONCURRENCY)
+
+        return structural_evidence + prompt_evidence
+
+    async def _rapid_fire_probe(
+        self,
+        provider: ChatProvider,
+        config: ProviderConfig,
+        concurrency: int,
+    ) -> list[EvidenceItem]:
+        if not config.soak_probes:
+            _logger.debug(
+                "B26: soak_probes=False — structural rapid-fire probe disabled; "
+                "score falls back to rubric judge only"
+            )
+            return []
+
         tasks = [
             provider.send_message(_INSPECTION_MESSAGE, config)
-            for _ in range(_RAPID_FIRE_CONCURRENCY)
+            for _ in range(concurrency)
         ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        start = time.monotonic()
+        try:
+            raw = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=_ROUND_TRIP_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            _logger.warning(
+                "B26: rapid-fire probe timed out after %.1fs — treating as no-signal",
+                _ROUND_TRIP_TIMEOUT_SECONDS,
+            )
+            return []
         elapsed = time.monotonic() - start
 
-        rate_limit_hits = sum(
-            1 for r in results if isinstance(r, ProviderRateLimitError)
+        pass_typed = sum(1 for r in raw if isinstance(r, ProviderRateLimitError))
+        fail_other = sum(
+            1
+            for r in raw
+            if isinstance(r, Exception) and not isinstance(r, ProviderRateLimitError)
         )
-        passed = rate_limit_hits >= 1
+        no_signal = sum(1 for r in raw if isinstance(r, str))
+
+        if pass_typed == 0 and fail_other == 0:
+            _logger.info(
+                "B26: all %d rapid-fire calls returned strings — no rate-limit "
+                "signal observed; skipping structural evidence item",
+                concurrency,
+            )
+            return []
+
+        bucket = "pass" if pass_typed >= 1 else "fail_other"
+        passed = pass_typed >= 1
+        structural_ratio: Optional[float] = None
+        denominator = pass_typed + fail_other
+        if denominator > 0:
+            structural_ratio = pass_typed / denominator
 
         return [
             EvidenceItem(
                 test_case_id=f"{self.spec.test_id}-rapid-fire",
                 description=(
-                    f"Error-surface inspection: {_RAPID_FIRE_CONCURRENCY} parallel "
-                    "send_message calls; the adapter must translate upstream "
-                    "rate-limit signals into a typed ProviderRateLimitError"
+                    f"Error-surface inspection: {concurrency} parallel "
+                    "send_message calls; adapter must translate upstream rate-limit "
+                    "signals into a typed ProviderRateLimitError"
                 ),
                 expected="ProviderRateLimitError raised at least once",
-                actual=f"rate_limit_hits={rate_limit_hits}, elapsed={elapsed:.3f}s",
+                actual=f"pass_typed={pass_typed}, fail_other={fail_other}, elapsed={elapsed:.3f}s",
                 passed=passed,
                 inspection_method=InspectionMethod.STRUCTURAL,
                 evaluation_method=EvaluationMethod.STRUCTURAL,
                 details={
-                    "concurrency": _RAPID_FIRE_CONCURRENCY,
-                    "rate_limit_hits": rate_limit_hits,
+                    "concurrency": concurrency,
+                    "pass_typed": pass_typed,
+                    "fail_other": fail_other,
+                    "no_signal": no_signal,
                     "elapsed_seconds": elapsed,
-                    "within_dispatch_budget": elapsed <= _DISPATCH_BUDGET_SECONDS,
+                    "bucket": bucket,
+                    "structural_ratio": structural_ratio,
                     "method": "send_message + ProviderRateLimitError",
-                    "measures": "adapter error-surface observability (not the upstream rate limit itself)",
+                    "measures": "adapter error-surface observability",
                 },
             )
         ]
 
     def compute_score(self, evidence: list[EvidenceItem]) -> float:
-        if not evidence:
+        parts = _partition_evidence(evidence)
+        judge_weighted = _compute_judge_weighted(parts["scored"])
+
+        if _has_mandatory_veto(parts["scored"]):
             return 0.0
-        return 1.0 if all(e.passed for e in evidence) else 0.0
+
+        structural_ratio = _extract_structural_ratio(parts["structural_item"])
+        if structural_ratio is not None:
+            return 0.5 * structural_ratio + 0.5 * judge_weighted
+        return judge_weighted
+
+    def compute_score_breakdown(
+        self, evidence: list[EvidenceItem]
+    ) -> Optional[ScoreBreakdown]:
+        parts = _partition_evidence(evidence)
+        scored = parts["scored"]
+        prompt_evidence = parts["prompt_evidence"]
+
+        judge_weighted = _compute_judge_weighted(scored)
+        structural_ratio = _extract_structural_ratio(parts["structural_item"])
+
+        structural_item = parts["structural_item"]
+        breakdown: ScoreBreakdown = {
+            "structural_items": 1 if structural_item is not None else 0,
+            "structural_passed": (
+                1 if structural_item is not None and structural_item.passed else 0
+            ),
+            "rubric_total": len(scored),
+            "rubric_pass_count": sum(1 for e in scored if e.passed),
+            "extraction_error_count": len(prompt_evidence) - len(scored),
+            "mandatory_veto_count": 1 if _has_mandatory_veto(scored) else 0,
+            "weighted_mean": judge_weighted,
+            "judge_weighted": judge_weighted,
+        }
+        if structural_ratio is not None:
+            breakdown["structural_ratio"] = structural_ratio
+        return breakdown
+
+
+def _validate_fixture_requirements(
+    plan: ConversationPlan,
+    fixture: Fixture,
+) -> None:
+    """Raise RuleLoadError if any field declared in fixture_requirements is absent or falsy."""
+    fixture_data = fixture.model_dump()
+    missing = [
+        name for name in plan.fixture_requirements if not fixture_data.get(name)
+    ]
+    if missing:
+        raise RuleLoadError(
+            f"B26 fixture missing required fields: {missing}. "
+            f"definition.yaml declares fixture_requirements={plan.fixture_requirements}"
+        )
+
+
+def _apply_forbidden_keyword_check(
+    plan: ConversationPlan,
+    evidence: list[EvidenceItem],
+) -> list[EvidenceItem]:
+    """Override passed=False on any evidence item whose actual_response
+    contains a forbidden keyword from any step in the plan."""
+    all_keywords = [
+        kw
+        for step in plan.steps
+        for kw in (step.evaluation.forbidden_keywords or [])
+    ]
+    if not all_keywords:
+        return evidence
+
+    result: list[EvidenceItem] = []
+    for item in evidence:
+        lower = item.actual_response.lower()
+        hit = next((kw for kw in all_keywords if kw.lower() in lower), None)
+        if hit is not None and item.passed:
+            result.append(
+                item.model_copy(
+                    update={
+                        "passed": False,
+                        "evaluation_result": f"forbidden_keyword_found: {hit!r}",
+                        "details": {**item.details, "forbidden_keyword_hit": hit},
+                    }
+                )
+            )
+        else:
+            result.append(item)
+    return result
+
+
+def _count_comply_patterns(
+    plan: ConversationPlan,
+    evidence: list[EvidenceItem],
+) -> list[EvidenceItem]:
+    """Add comply_pattern_hits count to each evidence item's details.
+
+    Counts how many unique comply_patterns (aggregated across all plan steps)
+    appear in actual_response. Does not modify passed — the judge verdict is
+    authoritative on pass/fail. The counter is observable in evidence details
+    so that removing a pattern from definition.yaml changes the metric.
+    """
+    all_patterns = [
+        p
+        for step in plan.steps
+        for p in (step.evaluation.comply_patterns or [])
+    ]
+    if not all_patterns:
+        return evidence
+
+    return [
+        item.model_copy(
+            update={
+                "details": {
+                    **item.details,
+                    "comply_pattern_hits": sum(
+                        1 for p in all_patterns if p.lower() in item.actual_response.lower()
+                    ),
+                }
+            }
+        )
+        for item in evidence
+    ]
+
+
+class _EvidencePartition(TypedDict):
+    structural_item: Optional[EvidenceItem]
+    prompt_evidence: list[EvidenceItem]
+    scored: list[EvidenceItem]
+
+
+def _partition_evidence(evidence: list[EvidenceItem]) -> _EvidencePartition:
+    """Split evidence into structural item, all prompt items, and scoreable prompt items."""
+    structural_item = _find_structural_item(evidence)
+    prompt_evidence = [
+        e for e in evidence if e.inspection_method != InspectionMethod.STRUCTURAL
+    ]
+    scored = [e for e in prompt_evidence if e.extraction_error is None]
+    return {"structural_item": structural_item, "prompt_evidence": prompt_evidence, "scored": scored}
+
+
+def _find_structural_item(
+    evidence: list[EvidenceItem],
+) -> Optional[EvidenceItem]:
+    return next(
+        (e for e in evidence if e.inspection_method == InspectionMethod.STRUCTURAL),
+        None,
+    )
+
+
+def _compute_judge_weighted(scored: list[EvidenceItem]) -> float:
+    """Mean rubric_weighted_score across scored items; logs a warning when score is absent."""
+    if not scored:
+        return 0.0
+    total = 0.0
+    for e in scored:
+        if e.rubric_weighted_score is not None:
+            total += e.rubric_weighted_score
+        else:
+            _logger.warning(
+                "B26: evidence item %r has no rubric_weighted_score — "
+                "pipeline contract gap; falling back to binary 1/0",
+                e.test_case_id,
+            )
+            total += 1.0 if e.passed else 0.0
+    return total / len(scored)
+
+
+def _extract_structural_ratio(
+    structural_item: Optional[EvidenceItem],
+) -> Optional[float]:
+    if structural_item is None:
+        return None
+    return structural_item.details.get("structural_ratio")
+
+
+def _has_mandatory_veto(scored: list[EvidenceItem]) -> bool:
+    return any(
+        e.rubric_verdict is not None and e.rubric_verdict.mandatory_veto
+        for e in scored
+    )

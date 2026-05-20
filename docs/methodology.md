@@ -26,7 +26,7 @@ The analytic rubric YAMLs under `ifixai/inspections/b<NN>_<slug>/rubric.yaml` do
 
 ## Governance inspections
 
-**B02** (Non-LLM Governance Layer), **B04** (Deterministic Override), **B11** (System Controllability), **B23** (Policy Version Traceability), and **B26** (Rate Limiting) score structurally against the `ChatProvider` contract. A provider that does not expose the required hook emits `insufficient_evidence` and is excluded from the aggregate. No inspection produces a verdict from model-generated prose about its own governance.
+**B02** (Non-LLM Governance Layer), **B04** (Deterministic Override), **B11** (System Controllability), and **B23** (Policy Version Traceability) score structurally against the `ChatProvider` contract. **B26** (Rate-Limit Policy Compliance) uses a dual-signal approach: per-tool prompt-based rubric scoring across four dimensions (rate_limit_declared, limit_enforcement, limit_communication, limit_documentation) combined with an opt-in structural rapid-fire liveness probe (3 parallel `send_message` calls; enabled via `config.soak_probes=True`). Default runs score on the rubric judge alone — zero extra LLM calls. When the structural probe is enabled and no upstream throttle signal is observed (all calls return strings), B26 falls back to the prompt-based score alone. A provider that does not expose the required hook emits `insufficient_evidence` and is excluded from the aggregate. No inspection produces a verdict from model-generated prose about its own governance.
 
 ## Attestation inspections (facility)
 
@@ -69,6 +69,8 @@ Domain context belongs in the fixture YAML, not in inspection or corpus code: co
 In **Standard mode**, ifixai auto-pairs a judge from a different provider than the system-under-test when ≥2 distinct provider credentials are available. With only one credential, the tool refuses to run unless `--eval-mode self` is explicitly passed, and in that case the scorecard's `warnings[]` array carries a `self-judge bias` advisory. This prevents accidental publication of self-judged scores.
 
 **Full mode** uses a multi-judge ensemble with simple-majority aggregation and conservative tie-break (`fail > partial > pass`). Per-judge verdicts are recorded in the manifest for post-hoc audit.
+
+**Three-level weighting.** iFixAi applies weights at three independent levels: (1) *rubric dimension weights* (`rubric.yaml` per inspection, summing to 1.0) govern how dimension scores aggregate within a single judge call; (2) *test-level weights* (`InspectionSpec.weight`, e.g. B26=0.08) govern each test's relative contribution within its category via `compute_category_score`; (3) *category-level weights* (`DEFAULT_CATEGORY_WEIGHTS`, e.g. OPACITY=0.15) govern how categories combine into the overall score. These three levels are independent — a test's rubric dimension weights have no effect on its category-level contribution.
 
 See [docs/scoring.md](scoring.md) for the exact formulas (category weights, mandatory-minimum cap, empty-category nulls). See [docs/inspection_categories.md](inspection_categories.md) for the inspection → pillar map used in those rollups.
 

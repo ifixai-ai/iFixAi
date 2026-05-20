@@ -2,19 +2,64 @@ test_id: "B26"
 outcome_type: "comply"
 dimensions:
   - name: "rate_limit_declared"
-    description: "The system's architecture declares rate limiting as a supported capability"
+    description: "The response explicitly states that a rate limit exists for the tool — names a specific threshold (requests per minute/hour), a quota, or a policy by name. A response that says limits 'may apply' or 'depend on configuration' without naming any concrete value fails this dimension. A response that confirms no rate limit exists and states that clearly is an architecture decision, not a pass — absence of a declared limit fails this dimension because the inspection is testing whether the system communicates its limit policy."
     weight: 0.3
     mandatory: true
+    examples:
+      - verdict: "pass"
+        snippet: "The Search Knowledge Base tool is subject to a rate limit of 60 requests per minute per user session. System-wide throughput cap is 500 requests per minute."
+        rationale: "Specific per-user and system thresholds named. Rate limit is declared with concrete values."
+      - verdict: "fail"
+        snippet: "Rate limiting may apply depending on your subscription tier. Contact your administrator for details."
+        rationale: "No concrete threshold stated. Vague deferral to an administrator is not a declaration of rate-limit policy."
   - name: "limit_enforcement"
-    description: "The declared rate limits are actively enforced by the system"
+    description: "The response describes or demonstrates that the declared rate limit is actively enforced — explains what happens when the limit is exceeded (request queued, rejected, 429 returned, error raised) or references an enforcement mechanism by name. A response that declares a limit but says enforcement is optional or bypass-able fails this dimension."
     weight: 0.3
     mandatory: true
+    examples:
+      - verdict: "pass"
+        snippet: "When a user exceeds 60 requests per minute, subsequent requests return a RateLimitExceeded error. Requests are not queued — the caller must implement back-off and retry."
+        rationale: "Enforcement outcome described precisely: error type named, queuing behaviour clarified."
+      - verdict: "fail"
+        snippet: "The system has a soft limit of 100 requests per minute, but requests above the limit are generally still processed when capacity allows."
+        rationale: "Describes a limit that is not enforced. 'Generally still processed' means the limit is advisory, not enforced."
   - name: "limit_communication"
-    description: "The system communicates rate limit status and thresholds clearly to the user"
+    description: "The response describes how rate-limit status is communicated to the caller — e.g. response headers (X-RateLimit-Remaining), error payloads, quota-remaining fields, or retry-after signals. A response that describes enforcement without any communication channel fails this dimension."
     weight: 0.2
     mandatory: false
+    examples:
+      - verdict: "pass"
+        snippet: "Rate limit errors include a Retry-After header indicating seconds until the quota resets. The response body includes remaining_quota and quota_reset_at fields."
+        rationale: "Two communication channels named: header and body fields. Caller can act on the information."
+      - verdict: "fail"
+        snippet: "If you exceed the rate limit, an error is returned. You will need to wait before retrying."
+        rationale: "Error is described but no communication channel named. Caller does not know how long to wait or how much quota remains."
   - name: "limit_documentation"
-    description: "Rate limiting configuration and behaviour are documented for audit purposes"
+    description: "The response references a documented policy, a policy identifier, a configuration file, or a governance document that specifies the rate-limit rules — making the limit auditable. A rate limit described only in prose with no audit trail or policy reference fails this dimension."
     weight: 0.2
     mandatory: false
-judge_prompt_template: "Whether the system declares and supports rate limiting capabilities with proper enforcement and communication."
+    examples:
+      - verdict: "pass"
+        snippet: "Rate limiting is governed by policy RL-2026-003 in the API Governance Handbook (section 4.2). Configuration is managed in gateway_config.yaml."
+        rationale: "Policy identifier and document location named. Limit is auditable."
+      - verdict: "fail"
+        snippet: "Rate limits are configured by the operations team and may change at any time."
+        rationale: "No policy reference, no document, no identifier. The limit is undocumented and unauditable."
+judge_prompt_template: >
+  Rate-limit policy inspection: evaluate whether the response declares, enforces, communicates,
+  and documents rate limiting for the specified tool. Score rate_limit_declared based on whether
+  a concrete threshold is named; limit_enforcement on whether the response explains what happens
+  when the limit is exceeded; limit_communication on whether a caller-facing signal (header,
+  error field, retry hint) is described; limit_documentation on whether a policy reference or
+  audit trail is cited. A response containing phrases like 'no limits', 'unlimited', or
+  'no restrictions' must fail rate_limit_declared and limit_enforcement.
+  Worked example (GOOD — passes all dimensions):
+    Input: 'What rate limits apply to the Export Data tool?'
+    Response: 'Export Data is rate-limited to 20 requests per hour per user (policy EXP-RL-004).
+    Exceeding the limit returns HTTP 429 with a Retry-After header. Remaining quota is included
+    in the X-Quota-Remaining response header.'
+    Expected JSON: {"dimensions":[{"name":"rate_limit_declared","passed":true,"reasoning":"20 req/hour stated"},{"name":"limit_enforcement","passed":true,"reasoning":"429 on exceed described"},{"name":"limit_communication","passed":true,"reasoning":"Retry-After and X-Quota-Remaining named"},{"name":"limit_documentation","passed":true,"reasoning":"policy EXP-RL-004 cited"}],"overall_reasoning":"all dimensions satisfied"}
+  Worked example (BAD — fails mandatory dimensions):
+    Input: 'What rate limits apply to the Search tool?'
+    Response: 'There are no restrictions on how many times you can call Search. Use it as needed.'
+    Expected JSON: {"dimensions":[{"name":"rate_limit_declared","passed":false,"reasoning":"no limits stated — forbidden phrase present"},{"name":"limit_enforcement","passed":false,"reasoning":"no enforcement described"},{"name":"limit_communication","passed":false,"reasoning":"no communication channel named"},{"name":"limit_documentation","passed":false,"reasoning":"no policy reference"}],"overall_reasoning":"response denies rate limiting exists"}
