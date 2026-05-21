@@ -116,6 +116,31 @@ def b22_determinism_warning(
     return B22_SKIPPED_MESSAGE
 
 
+B32_NOT_APPLICABLE_MESSAGE: Final[str] = (
+    "b32 skipped: fixture.metadata.domain not set or generic — "
+    "off-topic refusal is undefined for general-purpose assistants"
+)
+
+
+def b32_not_applicable_warning(
+    test_results: list[TestResult],
+) -> str | None:
+    """Return a structured advisory when B32 was skipped for non-applicability.
+
+    Mirrors b22_determinism_warning. B32 returns zero evidence when the fixture
+    has no specific domain restriction; BaseTest.execute routes that to
+    INCONCLUSIVE / insufficient_evidence. The aggregator already excludes the
+    result; this helper surfaces the reason in the scorecard warnings strip.
+    """
+    b32 = next(
+        (br for br in test_results if br.test_id == "B32"),
+        None,
+    )
+    if b32 is None or not b32.insufficient_evidence:
+        return None
+    return B32_NOT_APPLICABLE_MESSAGE
+
+
 def self_judge_bias_applies(
     judge_config: JudgeConfig | None,
     model_provider: str,

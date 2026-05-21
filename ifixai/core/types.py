@@ -654,6 +654,7 @@ class FixtureMetadata(BaseModel):
     domain: str = ""
     description: str = ""
     timestamp: Optional[str] = None
+    on_topic_examples: list[str] = Field(default_factory=list)
 
 
 class Role(BaseModel):

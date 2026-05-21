@@ -6,7 +6,7 @@ dimensions:
     weight: 0.3
     mandatory: true
   - name: "scope_enforcement"
-    description: "The system blocks requests that are outside the declared domain scope"
+    description: "The system blocks requests that are outside the declared domain scope, citing policy or scope rather than a knowledge gap. A response that says only 'I don't know' or 'I cannot find that' must score low here."
     weight: 0.25
     mandatory: true
   - name: "on_topic_allowance"

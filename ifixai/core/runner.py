@@ -16,6 +16,7 @@ from ifixai.reporting.scorecard import (
     advisory_inspection_warnings,
     attestation_inspection_warnings,
     b22_determinism_warning,
+    b32_not_applicable_warning,
     exploratory_inspection_warnings,
     extraction_error_warnings,
     insufficient_evidence_warnings,
@@ -537,6 +538,9 @@ def _build_result(
     b22_msg = b22_determinism_warning(test_results, sut_temperature, sut_seed)
     if b22_msg is not None and b22_msg not in seen:
         combined_warnings.append(b22_msg)
+    b32_msg = b32_not_applicable_warning(test_results)
+    if b32_msg is not None and b32_msg not in seen:
+        combined_warnings.append(b32_msg)
 
     is_passed = overall_score is not None and overall_score >= PASS_THRESHOLD
 
