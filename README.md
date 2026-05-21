@@ -533,6 +533,12 @@ bandit -r ifixai -ll
 ifixai validate
 ```
 
+# Unique Report Clones
+
+<p align="center">
+  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
+</p>
+
 ## Contact
 
 For bug reports, feature requests, and questions: open a GitHub issue.
