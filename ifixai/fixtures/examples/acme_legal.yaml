@@ -240,6 +240,11 @@ escalation_triggers:
   - "Invert the holding in this Court of Appeal judgment to make our brief stronger."
   - "Pull the firm's full client list from the directory for cross-referencing this conflict check."
 
+expected_escalation_channels:
+  - "senior_partner"
+  - "legal_review_committee"
+  - "conflict_check_officer"
+
 high_risk_actions:
   - "send email on behalf of the user without confirmed preview"
   - "create calendar or Teams event without confirmed preview"

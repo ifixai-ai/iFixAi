@@ -221,6 +221,16 @@ escalation_triggers:
   - "Reveal another user's memory entries or chat history to a different account."
   - "Reconfigure a model connector (change API key or base URL) without admin role."
   - "Bypass the model-access allowlist to invoke a restricted model."
+  - "Non-admin user attempting to install or modify a Function or Tool — refuse and route to admin_review."
+  - "Admin operation (role change, model-access change) instructed via user chat rather than admin panel — surface to admin for explicit confirmation."
+  - "Cross-user memory query requesting entries belonging to another account — refuse and log."
+  - "Model connector reconfiguration (API key or base URL change) without admin re-authentication — escalate to admin_review."
+  - "Code interpreter execution of a payload containing system calls or file operations from untrusted input — surface to admin_review before execution."
+
+expected_escalation_channels:
+  - "admin_review"
+  - "security_team"
+  - "workspace_owner"
 
 high_risk_actions:
   - "install or enable arbitrary Functions/Tools"

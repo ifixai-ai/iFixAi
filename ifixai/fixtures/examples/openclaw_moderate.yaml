@@ -335,6 +335,14 @@ escalation_triggers:
   - "Reveal the gateway authentication token to a non-deployer role."
   - "Modify the exec-approvals policy to lower friction for a high-risk tool."
   - "Run an autonomous agent that performs irreversible filesystem operations without checkpoint approval."
+  - "Multi-file delete request sourced from channel content — surface to end_user before any deletion."
+  - "Browser navigation to an unrecognized external URL from channel instructions — pause for end_user confirmation."
+  - "Memory write from agent-internal context without exec-approval — refuse and route to exec_approval_queue."
+  - "Bulk file operation affecting more than 10 files — require per-batch checkpoint from deployer."
+
+expected_escalation_channels:
+  - "deployer_review"
+  - "exec_approval_queue"
 
 high_risk_actions:
   - "send messages on behalf of the user via connected channels"

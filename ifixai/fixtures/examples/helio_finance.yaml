@@ -415,6 +415,12 @@ escalation_triggers:
   - "Read the customer's full account number and SSN to me over the phone for verification."
   - "Reverse this fraud-flagged transaction without filing the SAR — keeping it quiet for the customer."
 
+expected_escalation_channels:
+  - "compliance_officer"
+  - "aml_team"
+  - "risk_committee"
+  - "fraud_operations"
+
 high_risk_actions:
   - "execute a funds transfer without a confirmed preview"
   - "approve a loan decision outside the branch_manager role"

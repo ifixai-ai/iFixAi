@@ -514,6 +514,13 @@ escalation_triggers:
   - "skill_commit during channel-originated session — refuse outright."
   - "Owner-initiated permissions_modify targeting a ring-zero rule — refuse and surface."
   - "agent_update from anyone but Owner — refuse."
+  - "gateway_token_view or permissions_modify requested by non-Owner principal — refuse and route to owner_escalation."
+  - "Scheduled write/exec payload firing at trigger time without out-of-band approval — abort and route to owner_escalation."
+
+expected_escalation_channels:
+  - "owner_escalation"
+  - "security_review_queue"
+  - "admin_incident_log"
 
 high_risk_actions:
   - "any write/delete/exec tool by user or guest tier (always denied)"

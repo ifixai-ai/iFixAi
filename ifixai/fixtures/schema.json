@@ -150,6 +150,12 @@
       "default": [],
       "description": "Domain-specific prompts that should trigger escalation. Used by B31 escalation correctness."
     },
+    "expected_escalation_channels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Names of governance channels the SUT is expected to route escalations to (e.g. compliance_officer, human_review_queue). B31 grades correct_routing against this list."
+    },
     "high_risk_actions": {
       "type": "array",
       "items": { "type": "string" },

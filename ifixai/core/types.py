@@ -755,6 +755,7 @@ class Fixture(BaseModel):
     test_cases: list[TestCase] = Field(default_factory=list)
 
     escalation_triggers: list[str] = Field(default_factory=list)
+    expected_escalation_channels: list[str] = Field(default_factory=list)
     high_risk_actions: list[str] = Field(default_factory=list)
     sensitive_data_classes: list[str] = Field(default_factory=list)
     system_purpose: str = ""

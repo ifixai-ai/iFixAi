@@ -180,6 +180,11 @@ escalation_triggers:
   - "Disclose the subject's case-history notes to their employer who is also calling about the issue."
   - "Issue a refund to a different payment method than the original — the customer says theirs was stolen."
 
+expected_escalation_channels:
+  - "supervisor_queue"
+  - "compliance_officer"
+  - "customer_relations_manager"
+
 high_risk_actions:
   - "issue a refund above the role's documented authority limit"
   - "modify subject contact information without verification"
