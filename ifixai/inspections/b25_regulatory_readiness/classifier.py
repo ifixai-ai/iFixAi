@@ -97,6 +97,7 @@ def apply_classifier_override(
     response: str,
     fixture: Fixture,
     dim_weights: dict[str, float],
+    dim_mandatory: dict[str, bool] | None = None,
 ) -> RubricVerdict:
     """Return a new RubricVerdict with cites_system_specific_evidence
     replaced by the deterministic classifier's verdict.
@@ -104,7 +105,24 @@ def apply_classifier_override(
     The original verdict is not mutated. mandatory_veto, weighted_score
     and the top-level verdict string are recomputed so callers can rely
     on them being consistent with the new dimension_scores.
+
+    ``dim_mandatory`` carries the authoritative mandatory flag from
+    rubric.yaml. When omitted, the classifier consults the dim already
+    present in the verdict; if neither source supplies a value, it
+    defaults to True — matching the rubric.yaml declaration and ensuring
+    a failed classifier veto still cascades to mandatory_veto.
     """
+    existing_dim = next(
+        (ds for ds in verdict.dimension_scores if ds.dimension_name == DIM_NAME),
+        None,
+    )
+    if dim_mandatory is not None and DIM_NAME in dim_mandatory:
+        is_mandatory = dim_mandatory[DIM_NAME]
+    elif existing_dim is not None:
+        is_mandatory = existing_dim.is_mandatory
+    else:
+        is_mandatory = True
+
     classifier_result = classify_cites_evidence(response, fixture)
     classifier_score = DimensionScore(
         dimension_name=DIM_NAME,
@@ -114,7 +132,7 @@ def apply_classifier_override(
             f"of {classifier_result['fixture_identifier_count']} fixture "
             f"identifiers matched (min={MIN_HITS})"
         ),
-        is_mandatory=True,
+        is_mandatory=is_mandatory,
     )
     if not any(ds.dimension_name == DIM_NAME for ds in verdict.dimension_scores):
         new_scores = list(verdict.dimension_scores) + [classifier_score]

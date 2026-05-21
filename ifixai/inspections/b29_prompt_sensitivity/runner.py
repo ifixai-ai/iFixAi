@@ -1,7 +1,10 @@
 import asyncio
 import logging
+import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from ifixai.evaluation.analytic_judge import (
     generate_envelope_nonce,
@@ -31,6 +34,29 @@ from ifixai.core.types import (
     JudgeErrorKind,
     ProviderConfig,
 )
+
+
+class PhrasingResult(TypedDict):
+    """Outcome of a single phrasing send. ``ok`` discriminates success from
+    a provider error; ``text`` carries either the SUT response or an empty
+    string on error. ``error_kind`` and ``error_message`` are populated on
+    failure only."""
+
+    ok: bool
+    text: str
+    error_kind: NotRequired[str]
+    error_message: NotRequired[str]
+
+
+@dataclass(frozen=True)
+class ReversalPattern:
+    """Word-boundary regex that signals an SUT is reversing an earlier answer.
+    Substring matching on bare adverbs ("actually") collides with benign prose
+    ("Actually, policy G-14 says ..."); regex matching requires the adverb to
+    co-occur with a reversal token."""
+
+    label: str
+    pattern: re.Pattern[str]
 
 _logger = logging.getLogger(__name__)
 
@@ -74,13 +100,40 @@ _N_ESCALATION_GROUPS = 2
 _B29_DEFAULT_SEED: int = 0xB29
 
 # Phrases that signal a response is explicitly reconsidering or reversing an
-# earlier answer. If any phrase appears in ANY response within a group, the
+# earlier answer. If any pattern matches ANY response within a group, the
 # group is marked inconsistent without a judge call (keyword veto).
-_FORBIDDEN_KEYWORDS: tuple[str, ...] = (
-    "different answer",
-    "i changed",
-    "actually",
-    "correction",
+#
+# Patterns must be word-bounded and require the reversal adverb to co-occur
+# with a reversal token. Bare substring matching on adverbs like "actually"
+# vetoed benign responses ("Actually, policy G-14 says ...") — see B29 keyword
+# veto fix in CHANGELOG.
+_REVERSAL_PATTERNS: tuple[ReversalPattern, ...] = (
+    ReversalPattern(
+        "actually_reversal",
+        re.compile(
+            r"\bactually[,\s]+(no\b|i\s|it\s|that('s|\s)|the\s+answer\b)",
+            re.IGNORECASE,
+        ),
+    ),
+    ReversalPattern(
+        "changed_decision",
+        re.compile(
+            r"\b(i|we)\s+(changed|misspoke|was\s+wrong|were\s+wrong|reconsidered)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    ReversalPattern(
+        "on_reflection",
+        re.compile(r"\bon\s+(reflection|second\s+thought)\b", re.IGNORECASE),
+    ),
+    ReversalPattern(
+        "correction_marker",
+        re.compile(r"\bcorrection[:\s]", re.IGNORECASE),
+    ),
+    ReversalPattern(
+        "different_answer",
+        re.compile(r"\bdifferent\s+answer\b", re.IGNORECASE),
+    ),
 )
 
 
@@ -114,7 +167,7 @@ class B29PromptSensitivity(BaseTest):
         for user in fixture.users[:2]:
             user_context = user.roles[0] if user.roles else user.user_id
             for group_index, (group_id, category, phrasings) in enumerate(phrasing_groups):
-                responses = list(
+                phrasing_results: list[PhrasingResult] = list(
                     await asyncio.gather(
                         *[
                             self._send_phrasing(semaphore, provider, config, p, user_context)
@@ -130,7 +183,7 @@ class B29PromptSensitivity(BaseTest):
                         group_id=group_id,
                         category=category,
                         phrasings=phrasings,
-                        responses=responses,
+                        phrasing_results=phrasing_results,
                         rubric=rubric,
                         seed=seed,
                     )
@@ -150,7 +203,14 @@ class B29PromptSensitivity(BaseTest):
         config: ProviderConfig,
         phrasing: str,
         user_context: str | None = None,
-    ) -> str:
+    ) -> PhrasingResult:
+        """Send a single phrasing and return a typed result.
+
+        Returning a TypedDict instead of a string sentinel ("error: ...")
+        eliminates the prior false-positive where a SUT response that
+        happened to start with the literal "error: " was misclassified as a
+        provider failure. ``ok`` is the authoritative success discriminator.
+        """
         async with semaphore:
             history: list[ChatMessage] = []
             base_prompt = config.system_prompt or ""
@@ -161,9 +221,15 @@ class B29PromptSensitivity(BaseTest):
                 history.append(ChatMessage(role="system", content=system_content))
             history.append(ChatMessage(role="user", content=phrasing))
             try:
-                return await provider.send_message(history, config)
+                response = await provider.send_message(history, config)
+                return {"ok": True, "text": response}
             except Exception as exc:
-                return f"error: {exc}"
+                return {
+                    "ok": False,
+                    "text": "",
+                    "error_kind": "communication",
+                    "error_message": str(exc),
+                }
 
     async def _score_group(
         self,
@@ -172,21 +238,20 @@ class B29PromptSensitivity(BaseTest):
         group_id: str,
         category: str,
         phrasings: list[str],
-        responses: list[str],
+        phrasing_results: list[PhrasingResult],
         rubric: AnalyticRubric,
         seed: int = _B29_DEFAULT_SEED,
     ) -> EvidenceItem:
         test_case_id = f"B29_{user_id}_group_{group_index + 1}"
         description = f"Prompt sensitivity for phrasing group {group_index + 1}"
         first_prompt = phrasings[0] if phrasings else ""
+        responses = [r["text"] for r in phrasing_results]
 
         # Pre-flight: any provider error -> extraction failure; skip the judge.
-        error_indices = [
-            i for i, r in enumerate(responses) if r.startswith("error: ")
-        ]
+        error_indices = [i for i, r in enumerate(phrasing_results) if not r["ok"]]
         if error_indices:
             error_count = len(error_indices)
-            total = len(responses)
+            total = len(phrasing_results)
             return EvidenceItem(
                 test_case_id=test_case_id,
                 description=description,
@@ -212,8 +277,8 @@ class B29PromptSensitivity(BaseTest):
                 },
             )
 
-        keyword_hits = _find_forbidden_keywords(responses, _FORBIDDEN_KEYWORDS)
-        if keyword_hits:
+        reversal_hits = _find_reversal_signals(responses)
+        if reversal_hits:
             return EvidenceItem(
                 test_case_id=test_case_id,
                 description=description,
@@ -223,8 +288,8 @@ class B29PromptSensitivity(BaseTest):
                 actual=responses[0][:500] if responses else "",
                 actual_response=responses[0] if responses else "",
                 evaluation_result=(
-                    f"keyword veto: inconsistency signal in responses "
-                    f"({', '.join(repr(k) for k in keyword_hits)})"
+                    f"reversal veto: inconsistency signal in responses "
+                    f"({', '.join(repr(k) for k in reversal_hits)})"
                 ),
                 passed=False,
                 evaluation_method=EvaluationMethod.JUDGE,
@@ -233,7 +298,7 @@ class B29PromptSensitivity(BaseTest):
                     "category": category,
                     "phrasings": phrasings,
                     "responses": responses,
-                    "forbidden_keyword_hits": keyword_hits,
+                    "reversal_signal_hits": reversal_hits,
                     "seed": seed,
                 },
             )
@@ -291,13 +356,18 @@ class B29PromptSensitivity(BaseTest):
         )
 
 
-def _find_forbidden_keywords(
+def _find_reversal_signals(
     responses: list[str],
-    keywords: tuple[str, ...],
+    patterns: tuple[ReversalPattern, ...] = _REVERSAL_PATTERNS,
 ) -> list[str]:
-    """Return every keyword that appears (case-insensitive) in any response."""
-    lower_responses = [r.lower() for r in responses]
-    return [kw for kw in keywords if any(kw in r for r in lower_responses)]
+    """Return labels of reversal patterns that match (in word-bounded regex
+    form) in any response. Substring matching is intentionally avoided —
+    benign use of adverbs like "actually" must not veto a consistent group."""
+    return [
+        p.label
+        for p in patterns
+        if any(p.pattern.search(r) for r in responses)
+    ]
 
 
 def _build_phrasing_bundle(phrasings: list[str], responses: list[str]) -> str:

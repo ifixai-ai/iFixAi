@@ -1,6 +1,8 @@
+import asyncio
 import logging
 from typing import Optional
 
+from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.evaluation.analytic_judge import (
     generate_envelope_nonce,
     load_analytic_rubric,
@@ -79,6 +81,13 @@ _RECONFIRM_PHRASING_TEMPLATES: tuple[Optional[str], ...] = (
 # inspection is one fixture-trim away from going INCONCLUSIVE. B17-8.
 _EVIDENCE_FLOOR_WARN_MARGIN = 2
 
+# Max concurrent pair evaluations. Each pair is internally sequential
+# (turn 2 needs turn 1's response), but distinct pairs are independent
+# so they fan out under one semaphore. Previously B17 ran fully
+# sequentially — 50 pairs * ~3 LLM calls = 150 serial round-trips with
+# the default fixture. Mirrors B29/B31/B32 concurrency patterns.
+_MAX_CONCURRENT_PAIRS = DEFAULT_INSPECTION_CONCURRENCY["b17"]
+
 # Structural retrieval path checks source-set stability for a fixed factual
 # query across N=3 retrieval calls. Capability-conditional: only runs when
 # provider.has_retrieval is true. SECONDARY evidence stream: the
@@ -87,6 +96,17 @@ _EVIDENCE_FLOOR_WARN_MARGIN = 2
 # rubric verdict. Structural items are surfaced separately via
 # compute_score_breakdown for cross-provider comparison. B17-7.
 STRUCTURAL_REPETITIONS = 3
+
+
+async def _bounded(semaphore: asyncio.Semaphore, awaitable):
+    """Run an awaitable while holding the supplied semaphore.
+
+    Lets the caller build a list of coroutines and gather them under a
+    single concurrency budget without each coroutine needing to know about
+    the semaphore. Mirrors the wrapper used by B29 / B31 / B32.
+    """
+    async with semaphore:
+        return await awaitable
 
 
 def build_paired_turn_bundle(responses: list[str]) -> str:
@@ -145,47 +165,74 @@ class B17FactConsistency(BaseTest):
             self.capabilities is not None and self.capabilities.has_retrieval
         )
 
-        evidence: list[EvidenceItem] = []
         users = fixture.users[:_MAX_USERS]
+        semaphore = asyncio.Semaphore(_MAX_CONCURRENT_PAIRS)
 
-        for user in users:
-            for tool_index, tool in enumerate(fixture.tools):
-                template_vars = self._build_template_vars(user, tool)
-
-                # B17-7: structural retrieval is a SECONDARY evidence stream.
-                # It runs once per (user, tool) — retrieval identity is not a
-                # function of reconfirmation phrasing — and never replaces
-                # the conversational judge call below. The conversational
-                # judge therefore measures all four rubric dimensions for
-                # every provider, retrieval-capable or not.
-                if use_structural:
+        # B17-7: structural retrieval is a SECONDARY evidence stream. It runs
+        # once per (user, tool) — retrieval identity is not a function of
+        # reconfirmation phrasing — and never replaces the conversational
+        # judge below. Conversational judge therefore measures all four
+        # rubric dimensions for every provider, retrieval-capable or not.
+        structural_tasks: list = []
+        if use_structural:
+            for user in users:
+                for tool_index, tool in enumerate(fixture.tools):
+                    template_vars = self._build_template_vars(user, tool)
                     structural_query = render(
                         plan.steps[0].prompt_template, template_vars
                     )
-                    structural_items = await structural_consistency_inspection(
-                        provider,
-                        config,
-                        user,
-                        structural_query,
-                        query_index=tool_index,
+                    structural_tasks.append(
+                        _bounded(
+                            semaphore,
+                            structural_consistency_inspection(
+                                provider,
+                                config,
+                                user,
+                                structural_query,
+                                query_index=tool_index,
+                            ),
+                        )
                     )
-                    evidence.extend(structural_items)
 
+        pair_tasks: list = []
+        for user in users:
+            for tool in fixture.tools:
+                template_vars = self._build_template_vars(user, tool)
                 for phrasing_index, phrasing_override in enumerate(
                     _RECONFIRM_PHRASING_TEMPLATES
                 ):
-                    evidence.append(
-                        await self._run_pair(
-                            provider=provider,
-                            config=config,
-                            plan=plan,
-                            user=user,
-                            tool=tool,
-                            template_vars=template_vars,
-                            phrasing_index=phrasing_index,
-                            phrasing_override=phrasing_override,
+                    pair_tasks.append(
+                        _bounded(
+                            semaphore,
+                            self._run_pair(
+                                provider=provider,
+                                config=config,
+                                plan=plan,
+                                user=user,
+                                tool=tool,
+                                template_vars=template_vars,
+                                phrasing_index=phrasing_index,
+                                phrasing_override=phrasing_override,
+                            ),
                         )
                     )
+
+        # Single gather across structural + conversational tasks. Both share
+        # the same semaphore so the total in-flight request count never
+        # exceeds _MAX_CONCURRENT_PAIRS regardless of which stream produced
+        # the task. ProviderEmptyContentError / JudgePipelineRequiredError
+        # propagate naturally — gather without return_exceptions surfaces the
+        # first such error to BaseTest.execute, preserving the existing
+        # INCONCLUSIVE / ERROR routing.
+        structural_results = (
+            await asyncio.gather(*structural_tasks) if structural_tasks else []
+        )
+        pair_results = await asyncio.gather(*pair_tasks)
+
+        evidence: list[EvidenceItem] = []
+        for items in structural_results:
+            evidence.extend(items)
+        evidence.extend(pair_results)
 
         # B17-8: warn when produced count is at or below floor + margin. A
         # single structured warning per run; downstream log scrapers can key

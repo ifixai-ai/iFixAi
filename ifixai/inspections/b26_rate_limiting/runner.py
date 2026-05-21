@@ -4,7 +4,13 @@ import time
 from typing import Optional, TypedDict
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.providers.base import ChatProvider, ProviderError, ProviderRateLimitError
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderConnectionError,
+    ProviderError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
@@ -61,6 +67,18 @@ _ROUND_TRIP_TIMEOUT_SECONDS = 30.0
 _INSPECTION_MESSAGE = [
     ChatMessage(role="user", content="B26 rate-limit inspection ping")
 ]
+
+# Provider exceptions that represent infrastructure-level transient failures
+# (network outage, request timeout). These are excluded from the rate-limit
+# signal denominator so a flaky network does not poison the ratio. Unexpected
+# errors (auth, contract, etc.) remain in the denominator and surface as
+# fail_unexpected — the adapter is misbehaving in a non-transient way.
+_TRANSIENT_PROVIDER_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    ProviderConnectionError,
+    ProviderTimeoutError,
+    asyncio.TimeoutError,
+    TimeoutError,
+)
 
 
 class B26RateLimiting(BaseTest):
@@ -136,28 +154,42 @@ class B26RateLimiting(BaseTest):
             return []
         elapsed = time.monotonic() - start
 
-        pass_typed = sum(1 for r in raw if isinstance(r, ProviderRateLimitError))
-        fail_other = sum(
-            1
-            for r in raw
-            if isinstance(r, Exception) and not isinstance(r, ProviderRateLimitError)
-        )
-        no_signal = sum(1 for r in raw if isinstance(r, str))
+        buckets = _classify_rapid_fire_results(raw)
+        pass_typed = buckets["pass_typed"]
+        unexpected_error = buckets["unexpected_error"]
+        transient_failure = buckets["transient_failure"]
+        no_signal = buckets["no_signal"]
 
-        if pass_typed == 0 and fail_other == 0:
-            _logger.info(
-                "B26: all %d rapid-fire calls returned strings — no rate-limit "
-                "signal observed; skipping structural evidence item",
+        if transient_failure:
+            _logger.warning(
+                "B26: %d/%d rapid-fire calls hit transient infrastructure "
+                "errors — excluded from rate-limit signal denominator",
+                transient_failure,
                 concurrency,
+            )
+
+        if pass_typed == 0 and unexpected_error == 0:
+            _logger.info(
+                "B26: no rate-limit signal observed across %d calls "
+                "(pass_typed=0, unexpected=0, transient=%d, no_signal=%d); "
+                "skipping structural evidence item",
+                concurrency,
+                transient_failure,
+                no_signal,
             )
             return []
 
-        bucket = "pass" if pass_typed >= 1 else "fail_other"
+        # Pass-on-signal: any typed rate-limit error is a positive signal even
+        # when unexpected errors also occurred — the adapter DID surface the
+        # contract. The ratio still penalises mixed adapters.
         passed = pass_typed >= 1
-        structural_ratio: Optional[float] = None
-        denominator = pass_typed + fail_other
-        if denominator > 0:
-            structural_ratio = pass_typed / denominator
+        # ``fail_other`` retained for backward-compatible evidence drill-down;
+        # equals ``unexpected_error`` after the bucket split.
+        bucket = "pass" if passed else "fail_unexpected"
+        denominator = pass_typed + unexpected_error
+        structural_ratio: Optional[float] = (
+            pass_typed / denominator if denominator > 0 else None
+        )
 
         return [
             EvidenceItem(
@@ -168,14 +200,20 @@ class B26RateLimiting(BaseTest):
                     "signals into a typed ProviderRateLimitError"
                 ),
                 expected="ProviderRateLimitError raised at least once",
-                actual=f"pass_typed={pass_typed}, fail_other={fail_other}, elapsed={elapsed:.3f}s",
+                actual=(
+                    f"pass_typed={pass_typed}, unexpected_error={unexpected_error}, "
+                    f"transient_failure={transient_failure}, no_signal={no_signal}, "
+                    f"elapsed={elapsed:.3f}s"
+                ),
                 passed=passed,
                 inspection_method=InspectionMethod.STRUCTURAL,
                 evaluation_method=EvaluationMethod.STRUCTURAL,
                 details={
                     "concurrency": concurrency,
                     "pass_typed": pass_typed,
-                    "fail_other": fail_other,
+                    "unexpected_error": unexpected_error,
+                    "transient_failure": transient_failure,
+                    "fail_other": unexpected_error,
                     "no_signal": no_signal,
                     "elapsed_seconds": elapsed,
                     "bucket": bucket,
@@ -224,6 +262,44 @@ class B26RateLimiting(BaseTest):
         if structural_ratio is not None:
             breakdown["structural_ratio"] = structural_ratio
         return breakdown
+
+
+class _RapidFireBuckets(TypedDict):
+    pass_typed: int
+    transient_failure: int
+    unexpected_error: int
+    no_signal: int
+
+
+def _classify_rapid_fire_results(
+    results: list[object],
+) -> _RapidFireBuckets:
+    """Sort raw rapid-fire outcomes into four mutually-exclusive buckets.
+
+    ``pass_typed`` and ``transient_failure`` short-circuit before the generic
+    ``unexpected_error`` check so a ``ProviderRateLimitError`` subclass (if any
+    is ever introduced) and the transient-error union are classified by their
+    most-specific category, not by ``Exception`` membership.
+    """
+    pass_typed = 0
+    transient_failure = 0
+    unexpected_error = 0
+    no_signal = 0
+    for outcome in results:
+        if isinstance(outcome, ProviderRateLimitError):
+            pass_typed += 1
+        elif isinstance(outcome, _TRANSIENT_PROVIDER_EXCEPTIONS):
+            transient_failure += 1
+        elif isinstance(outcome, BaseException):
+            unexpected_error += 1
+        elif isinstance(outcome, str):
+            no_signal += 1
+    return {
+        "pass_typed": pass_typed,
+        "transient_failure": transient_failure,
+        "unexpected_error": unexpected_error,
+        "no_signal": no_signal,
+    }
 
 
 def _validate_fixture_requirements(

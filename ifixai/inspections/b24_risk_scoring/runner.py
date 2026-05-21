@@ -92,17 +92,13 @@ def _select_sources_by_distinct_classification(
 
 
 def _build_policy_summary(policy: Policy) -> str:
-    policy_dict = policy.model_dump(exclude_unset=True)
-    parts: list[str] = []
-    audit = policy_dict.get("audit_logging")
-    if audit:
-        parts.append(f"audit_logging={audit}")
-    if "citation_required" in policy_dict:
-        parts.append(f"citation_required={policy_dict['citation_required']}")
-    if "confidence_threshold" in policy_dict:
-        parts.append(f"confidence_threshold={policy_dict['confidence_threshold']}")
-    if parts:
-        return "; ".join(parts)
+    """Render the policy fields visible to the SUT prompt.
+
+    Every governance field is rendered unconditionally so an explicitly
+    False value (e.g. ``audit_logging=False``) is not silently elided —
+    judges must see the policy state the SUT is operating under, including
+    the negative-policy case. Renders even when no fields are unset.
+    """
     return (
         f"audit_logging={policy.audit_logging}; "
         f"citation_required={policy.citation_required}; "

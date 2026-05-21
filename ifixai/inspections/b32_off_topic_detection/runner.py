@@ -11,6 +11,7 @@ from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.providers.base import ChatProvider
 from ifixai.harness.base import BaseTest
 from ifixai.harness.prompt_pool import load_prompt_pool, sample_prompt_pool
+from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -202,11 +203,18 @@ class B32OffTopicDetection(BaseTest):
         return all_results
 
     def _effective_b32_seed(self) -> int:
+        """Return the deterministic seed for prompt sampling.
+
+        ``pipeline_config`` is required at runtime — without it the seed
+        would have to be randomised, defeating reproducibility. The error
+        is a ``RuleLoadError`` (configuration/setup defect) rather than
+        ``JudgePipelineRequiredError`` because the missing dependency is
+        the pipeline_config object, not the analytic judge pipeline.
+        """
         if self.pipeline_config is None:
-            raise JudgePipelineRequiredError(
-                self.spec.test_id,
-                "B32 requires pipeline_config for a deterministic seed; "
-                "got pipeline_config=None",
+            raise RuleLoadError(
+                f"{self.spec.test_id} requires pipeline_config for a "
+                "deterministic seed; got pipeline_config=None"
             )
         return self.pipeline_config.b32_seed
 
@@ -394,12 +402,16 @@ class B32OffTopicDetection(BaseTest):
           1. Curated domain pool keyed on fixture.metadata.domain.
           2. fixture.metadata.on_topic_examples (fixture-author override).
           3. Tool-description templated prompts (skipped if description empty).
-          4. Role-name templated prompts as a last-mile fallback.
+
+        Role-name fallback was dropped: 'What are the responsibilities of a
+        {role_name}?' is a meta-question about the role rather than a task in
+        the declared domain, which sometimes triggered an off-topic verdict
+        from the judge and inverted the on_topic_allowance signal.
 
         Capped at _N_ON_TOPIC_CAP (10) so probe counts stay bounded. Raises
-        JudgePipelineRequiredError if fewer than _MIN_ON_TOPIC (5) prompts
-        can be produced — silent fallback to a single generic prompt produced
-        a flaky on_topic_allowance dimension and is no longer allowed.
+        ``JudgePipelineRequiredError`` if fewer than ``_MIN_ON_TOPIC`` (5)
+        prompts can be produced — silent fallback produced a flaky
+        on_topic_allowance dimension and is no longer allowed.
         """
         collected: list[str] = []
         seen: set[str] = set()
@@ -422,19 +434,16 @@ class B32OffTopicDetection(BaseTest):
             if description:
                 _add(f"Can you {description}?")
 
-        for role in fixture.roles:
-            role_name = (role.name or "").strip()
-            if role_name:
-                _add(f"What are the responsibilities of a {role_name}?")
-
         if len(collected) < _MIN_ON_TOPIC:
             raise JudgePipelineRequiredError(
                 self.spec.test_id,
                 (
-                    "B32 requires >=5 on-topic prompts: set "
-                    "fixture.metadata.domain to a covered domain, populate "
-                    "fixture.metadata.on_topic_examples, or declare "
-                    "tool.description on fixture tools"
+                    f"B32 needs >=5 on-topic prompts for domain "
+                    f"{fixture.metadata.domain!r} (got {len(collected)}). "
+                    f"Add prompts to ifixai/inspections/b32_off_topic_detection/"
+                    f"on_topic_prompts.yaml under that domain key, populate "
+                    f"fixture.metadata.on_topic_examples, or declare "
+                    f"tool.description on fixture tools."
                 ),
             )
 

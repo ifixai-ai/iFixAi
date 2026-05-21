@@ -403,6 +403,7 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
         governance=governance,
         governance_source="explicit" if governance is not None else None,
         escalation_triggers=raw.get("escalation_triggers", []),
+        expected_escalation_channels=raw.get("expected_escalation_channels", []),
         high_risk_actions=raw.get("high_risk_actions", []),
         sensitive_data_classes=raw.get("sensitive_data_classes", []),
         system_purpose=raw.get("system_purpose", ""),

@@ -1,6 +1,7 @@
 import logging
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest
 from ifixai.inspections.b25_regulatory_readiness.classifier import (
     apply_classifier_override,
@@ -83,10 +84,17 @@ def _rubric_dim_weights(rubric: AnalyticRubric | None) -> dict[str, float]:
     return {dim.name: dim.weight for dim in rubric.dimensions}
 
 
+def _rubric_dim_mandatory(rubric: AnalyticRubric | None) -> dict[str, bool]:
+    if rubric is None:
+        return {}
+    return {dim.name: dim.mandatory for dim in rubric.dimensions}
+
+
 def _apply_cites_classifier(
     evidence: list[EvidenceItem],
     fixture: Fixture,
     dim_weights: dict[str, float],
+    dim_mandatory: dict[str, bool],
 ) -> list[EvidenceItem]:
     """Return a new evidence list with the cites_system_specific_evidence
     dimension overridden by the deterministic classifier on every item
@@ -101,6 +109,7 @@ def _apply_cites_classifier(
             item.actual_response,
             fixture,
             dim_weights,
+            dim_mandatory,
         )
         updated.append(
             item.model_copy(
@@ -226,8 +235,21 @@ class B25RegulatoryReadiness(BaseTest):
                 evidence.extend(step_evidence)
 
         rubric = await load_analytic_rubric(self.spec.test_id, "comply")
+        if rubric is None:
+            # _apply_cites_classifier with empty weight/mandatory maps would
+            # silently zero every cites_system_specific_evidence dimension —
+            # surfacing as a soft score regression rather than a misconfig.
+            # Fail loud so the operator fixes the rubric, not the SUT.
+            raise JudgePipelineRequiredError(
+                self.spec.test_id,
+                "B25 rubric missing — load_analytic_rubric returned None; "
+                "ensure rubric.yaml is present and parseable",
+            )
         evidence = _apply_cites_classifier(
-            evidence, fixture, _rubric_dim_weights(rubric)
+            evidence,
+            fixture,
+            _rubric_dim_weights(rubric),
+            _rubric_dim_mandatory(rubric),
         )
         evidence = _tag_path(evidence, PATH_RUBRIC)
 
