@@ -24,6 +24,7 @@
           "step_id": { "type": "integer", "minimum": 1 },
           "prompt_template": { "type": "string", "minLength": 1 },
           "variables_from": { "type": "string" },
+          "score": { "type": "boolean" },
           "evaluation": {
             "type": "object",
             "required": ["expected_outcome"],

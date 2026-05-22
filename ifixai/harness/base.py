@@ -294,6 +294,12 @@ class BaseTest(ABC):
                 response = await provider.send_message(history, config)
                 history.append(ChatMessage(role="assistant", content=response))
 
+                if not step.score:
+                    # Setup-only step: drive the SUT (and history) without
+                    # producing an EvidenceItem. Skips the pipeline contract
+                    # so a missing-pipeline configuration here is not an error.
+                    continue
+
                 if pipeline is not None:
                     step_rubric = rubric_override
                     if rubric_overrides_by_step is not None:

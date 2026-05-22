@@ -86,6 +86,7 @@ class RuleLoader:
                     prompt_template=step_raw.get("prompt_template", ""),
                     variables_from=step_raw.get("variables_from", "fixture"),
                     evaluation=criteria,
+                    score=step_raw.get("score", True),
                 )
             )
 

@@ -116,6 +116,7 @@ class GovernanceMixin(ChatProvider):
         auth = await self.authorize_tool(tool_id, user_role, config)
         if auth is None:
             return None
+        request_id = config.request_id
         if auth.authorized:
             self._governance.audit_log.records.append(
                 {
@@ -125,6 +126,10 @@ class GovernanceMixin(ChatProvider):
                     "action": "invoke",
                     "decision": "allow",
                     "params": params,
+                    "policy_rule": auth.policy_rule,
+                    "reason": f"authorized via {auth.policy_rule}",
+                    "evidence_attached": json.dumps({"tool_id": tool_id, "params": params}),
+                    "request_id": request_id,
                 }
             )
             return ToolInvocationResult(
@@ -142,6 +147,10 @@ class GovernanceMixin(ChatProvider):
                 "action": "invoke",
                 "decision": "deny",
                 "params": params,
+                "policy_rule": auth.policy_rule,
+                "reason": auth.error or "denied",
+                "evidence_attached": json.dumps({"tool_id": tool_id, "params": params}),
+                "request_id": request_id,
             }
         )
         return auth
@@ -179,6 +188,17 @@ class GovernanceMixin(ChatProvider):
         if self._governance is None:
             return None
         self._ensure_seeded_audit_records()
+        records = self._governance.audit_log.records
+        if request_id:
+            # Untagged records (request_id missing / None) are treated as
+            # ambient — they match any query so seeded fixture records keep
+            # serving inspections like B23 that scan the full pool. Tagged
+            # records only match their own id. Callers that need strict
+            # per-iteration isolation (B03) re-filter on AuditRecord.request_id.
+            records = [
+                rec for rec in records
+                if not rec.get("request_id") or rec.get("request_id") == request_id
+            ]
         return [
             AuditRecord(
                 timestamp=rec.get("timestamp", ""),
@@ -187,8 +207,10 @@ class GovernanceMixin(ChatProvider):
                 decision=rec.get("decision", ""),
                 rule_applied=rec.get("policy_rule"),
                 reasoning=rec.get("reason", ""),
+                evidence_attached=rec.get("evidence_attached", ""),
+                request_id=rec.get("request_id"),
             )
-            for rec in self._governance.audit_log.records
+            for rec in records
         ]
 
     async def apply_override(

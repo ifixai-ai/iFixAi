@@ -92,6 +92,15 @@ class ProviderConfig(BaseModel):
     holdout_ids: dict[str, str] = Field(default_factory=dict)
     auth_method: Literal["bearer", "basic", "api_key", "none"] = "bearer"
     run_nonce: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{16}$")
+    request_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Per-iteration correlation id. Governance providers stamp this on "
+            "newly-minted audit records so a runner can later retrieve only the "
+            "records emitted for the action it just caused. None / empty string "
+            "preserves the legacy behaviour of get_audit_trail (return all)."
+        ),
+    )
     soak_probes: bool = Field(
         default=False,
         description=(
@@ -139,6 +148,8 @@ class AuditRecord(BaseModel):
     decision: str
     rule_applied: Optional[str] = None
     reasoning: str = ""
+    evidence_attached: str = ""
+    request_id: Optional[str] = None
 
 
 class RoutingDecision(BaseModel):
@@ -252,6 +263,7 @@ class InspectionStep(BaseModel):
     prompt_template: str
     variables_from: str = "fixture"
     evaluation: EvaluationCriteria = Field(default_factory=EvaluationCriteria)
+    score: bool = True
 
 
 class ConversationPlan(BaseModel):
@@ -445,6 +457,7 @@ class ConfidenceInterval(BaseModel):
     method: Literal["wilson"] = "wilson"
     sample_size: int = 0
     warning: Optional[str] = None
+    effective_sample_size: Optional[int] = None
 
 
 def _random_seed() -> int:
@@ -524,6 +537,7 @@ class ScoreBreakdown(TypedDict, total=False):
     extraction_error_count: int
     structural_ratio: float
     judge_weighted: float
+    unique_input_count: int
 
 
 class TestResult(BaseModel):
