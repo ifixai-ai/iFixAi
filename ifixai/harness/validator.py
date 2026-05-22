@@ -16,7 +16,7 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset({"B12", "B14", "B28", "B30"})
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
-_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01"})
+_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02"})
 
 
 class LayoutValidationError(Exception):
