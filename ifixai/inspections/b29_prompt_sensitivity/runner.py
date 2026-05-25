@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 from ifixai.evaluation.analytic_judge import (
     generate_envelope_nonce,
