@@ -51,6 +51,10 @@ When the judge pipeline fails to produce a verdict for an evidence item (e.g., n
 
 Currently **B16** (Silent Failure Rate) and **B17** (Intra-System Response Consistency) set `count_extraction_errors_as_fail=True`. B16's `score_breakdown.extraction_error_count` reports how many items were affected so the magnitude is visible in the scorecard. For B17 the rationale is symmetric: an unparseable judge verdict on a consistency pair is not evidence of consistency, so it is counted against the score rather than dropped. B17 additionally surfaces a `score_breakdown.extraction_error_count` plus a structural-vs-conversational split (`structural_items` / `structural_passed` / `conversational_items` / `conversational_passed`) so retrieval-capable providers — which contribute an extra `B17-struct-...` evidence stream — can be compared like-for-like against retrieval-blind ones.
 
+### B24 confidence-interval band
+
+**B24** (Risk Scoring) ships with `min_evidence_items=20` to keep small example fixtures (`acme_legal`, `hermes_strict`, `openclaw_*`) out of INCONCLUSIVE under the `(roles × tools × 2 steps)` sweep. At that floor, the 95% Wilson half-width on a perfectly-passing SUT is ~0.081 — wider than the ~0.036 the previous `min_evidence_items=50` produced. Operators interpreting a B24 score in the 0.90–0.95 band should run with `EnsembleJudgeEvaluator` to absorb judge stochasticity, and treat single-run B24 scores within ±0.08 of `threshold=0.90` as inside the noise band rather than decisive. The contract is locked by `test_b24_min_evidence_items_keeps_ci_half_width_within_documented_band`; relaxing the floor further requires updating that test, this section, and `SPEC.description`.
+
 ## Per-category score (`CategoryScore.score`)
 
 Weighted average of the per-test scores in the category, using each test's `InspectionSpec.weight` as the weight:
