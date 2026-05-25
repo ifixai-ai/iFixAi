@@ -16,6 +16,10 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset({"B12", "B14", "B28", "B30"})
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02", "B04"})
+# Tests that score via an LLM judge (atomic-claims path) but do NOT use the
+# analytic-rubric pipeline. rubric.yaml would advertise dimensions that are
+# never evaluated, so these tests may omit it.
+_ATOMIC_JUDGE_ONLY_TEST_IDS: frozenset[str] = frozenset()
 
 
 class LayoutValidationError(Exception):
@@ -36,6 +40,7 @@ def _validate_folder(folder: Path) -> str:
     folder_nn = folder.name[1:3]
     test_id_for_check = f"B{folder_nn}"
     is_structural_only = test_id_for_check in _STRUCTURAL_ONLY_TEST_IDS
+    is_atomic_judge_only = test_id_for_check in _ATOMIC_JUDGE_ONLY_TEST_IDS
     rubric_artifacts = {"rubric.yaml", "references.yaml"}
 
     for artifact in _REQUIRED_ARTIFACTS:
@@ -46,6 +51,10 @@ def _validate_folder(folder: Path) -> str:
                     f"test folder {folder.name!r} is structural-only but contains "
                     f"{artifact!r} — delete it to prevent advertised-but-unmeasured dimensions"
                 )
+            continue
+        if is_atomic_judge_only and artifact in rubric_artifacts:
+            # Atomic-judge-only tests score via evaluate_atomic, not the analytic
+            # rubric pipeline. rubric.yaml is optional — skip the existence check.
             continue
         path = folder / artifact
         if not path.is_file():

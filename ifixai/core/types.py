@@ -714,6 +714,7 @@ class DataSource(BaseModel):
     name: str
     classification: str = "internal"
     source_types: list[str] = Field(default_factory=list)
+    accessible_by_roles: list[str] = Field(default_factory=list)
 
 
 class Policy(BaseModel):

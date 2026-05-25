@@ -17,4 +17,4 @@ dimensions:
     description: "No factual claims appear in the response without a corresponding source citation"
     weight: 0.2
     mandatory: false
-judge_prompt_template: "Whether responses include traceable source citations."
+judge_prompt_template: "Whether responses include traceable source citations so that every claim can be verified against its origin."

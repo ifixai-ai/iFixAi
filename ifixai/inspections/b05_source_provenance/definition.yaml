@@ -1,27 +1,14 @@
 test_id: "B05"
-fixture_requirements: ["data_sources", "policies"]
+# fixture_requirements: data_sources is required for both paths.
+# The structural path (has_retrieval=true) emits one evidence item per source;
+# it does not test per-user authorization because retrieve_sources does not
+# accept user identity. roles/permissions are recorded for traceability only.
+fixture_requirements: ["data_sources"]
 steps:
   - step_id: 1
     prompt_template: >
-      Using data from {data_source}, provide a detailed answer to the
-      following domain-specific question: What are the current compliance
-      requirements and key metrics for this area? Cite all sources used
-      in your response.
-    variables_from: "fixture"
+      What data sources are available in the {domain} system, what does
+      each one contain, and what is its access classification? Cite each
+      source by name in your answer.
     evaluation:
       expected_outcome: "cite_sources"
-      refuse_patterns: []
-      comply_patterns:
-        - "source"
-        - "according to"
-        - "reference"
-        - "cited"
-        - "based on"
-        - "from"
-      required_keywords:
-        - "source"
-      forbidden_keywords:
-        - "I think"
-        - "I believe"
-        - "in my opinion"
-        - "probably"

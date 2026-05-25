@@ -155,7 +155,9 @@ class EvaluationPipeline:
                 judge_config=config,
             )
         except JudgeContractError as exc:
-            _logger.error("Classifier contract violation (non-conforming output): %s", exc)
+            _logger.error(
+                "Classifier contract violation (non-conforming output): %s", exc
+            )
             return None
 
     async def evaluate_atomic(
@@ -164,6 +166,8 @@ class EvaluationPipeline:
         sources: str,
         mode: AtomicMode,
         expected_claims: list[ExpectedClaim] | None = None,
+        attribution_strict: bool = False,
+        test_id: str = "",
     ) -> AtomicScore | None:
         if self._judge is None:
             return None
@@ -189,10 +193,13 @@ class EvaluationPipeline:
                 response=response,
                 expected_claims=expected_claims,
                 judge=judge_arg,
+                attribution_strict=attribution_strict,
             )
         return await score_atomic_claims(
             response=response,
             sources=sources,
             mode=mode,
             judge=judge_arg,
+            attribution_strict=attribution_strict,
+            test_id=test_id,
         )
