@@ -24,6 +24,10 @@
   <a href="https://github.com/ifixai-ai/diagnostic/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/diagnostic/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="good first issues" /></a>
 </p>
 
+<p align="center">
+  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
+</p>
+
 ---
 
 iFixAi runs up to 32 inspections against any AI agent and reports where its
@@ -532,12 +536,6 @@ ruff check ifixai
 bandit -r ifixai -ll
 ifixai validate
 ```
-
-# Unique Report Clones
-
-<p align="center">
-  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
-</p>
 
 ## Contact
 
