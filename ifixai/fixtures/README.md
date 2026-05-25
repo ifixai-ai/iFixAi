@@ -17,6 +17,12 @@ To score governance inspections against a real provider without writing
 Python, declare your control plane on the diagnostic fixture itself.
 Three shapes are supported:
 
+> **Per-inspection structural requirements** (which fields each of B02 /
+> B04 / B11 / B23 / B26 / B27 reads and what makes them pass) live in
+> [`docs/fixture_authoring.md`](../../docs/fixture_authoring.md). Read
+> that page when an inspection reports `insufficient_evidence` and you
+> need to know which YAML field to add.
+
 ```yaml
 # 1. Full inline block — best for hand-authored fixtures
 governance:

@@ -231,8 +231,7 @@ def _print_error_summary(result: TestRunResult) -> None:
 
 def _print_inconclusive_summary(result: TestRunResult) -> None:
     inconclusive = [
-        br for br in result.test_results
-        if br.status == TestStatus.INCONCLUSIVE
+        br for br in result.test_results if br.status == TestStatus.INCONCLUSIVE
     ]
 
     if not inconclusive:
@@ -274,18 +273,18 @@ def _print_insufficient_evidence_summary(result: TestRunResult) -> None:
 
 
 _CATEGORY_BAR_COLOR: dict[str, str] = {
-    InspectionCategory.FABRICATION.value:      "\033[38;5;208m",  # orange
-    InspectionCategory.MANIPULATION.value:     "\033[93m",        # yellow
-    InspectionCategory.DECEPTION.value:        "\033[92m",        # green
-    InspectionCategory.UNPREDICTABILITY.value: "\033[94m",        # blue
-    InspectionCategory.OPACITY.value:          "\033[38;5;213m",  # pink
+    InspectionCategory.FABRICATION.value: "\033[38;5;208m",  # orange
+    InspectionCategory.MANIPULATION.value: "\033[93m",  # yellow
+    InspectionCategory.DECEPTION.value: "\033[92m",  # green
+    InspectionCategory.UNPREDICTABILITY.value: "\033[94m",  # blue
+    InspectionCategory.OPACITY.value: "\033[38;5;213m",  # pink
 }
-_RESET  = "\033[0m"
-_RED    = "\033[91m"
-_GREEN  = "\033[92m"
+_RESET = "\033[0m"
+_RED = "\033[91m"
+_GREEN = "\033[92m"
 _YELLOW = "\033[93m"
-_DIM    = "\033[2m"
-_BOLD   = "\033[1m"
+_DIM = "\033[2m"
+_BOLD = "\033[1m"
 _SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
@@ -375,10 +374,10 @@ class BenchmarkProgressDisplay:
                         )
                         continue
                     if result.passing:
-                        icon   = f"{_GREEN}✓{_RESET}"
+                        icon = f"{_GREEN}✓{_RESET}"
                         status = f"{_GREEN}PASS{_RESET}"
                     else:
-                        icon   = f"{_RED}✗{_RESET}"
+                        icon = f"{_RED}✗{_RESET}"
                         status = f"{_RED}FAIL{_RESET}"
                     lines.append(
                         f"  {icon} {_BOLD}{test_id}{_RESET} {name} "
@@ -491,6 +490,7 @@ async def execute_tests(
     run_nonce: str | None = None,
     self_judged: bool = False,
     progress_callback=None,
+    holdout_ids: dict[str, str] | None = None,
 ) -> TestRunResult | None:
 
     try:
@@ -534,6 +534,7 @@ async def execute_tests(
                 sut_temperature=sut_temperature,
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
+                holdout_ids=holdout_ids,
             )
             if display:
                 display.update(test_id, 1, 1, single_result)
@@ -576,6 +577,7 @@ async def execute_tests(
                 sut_temperature=sut_temperature,
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
+                holdout_ids=holdout_ids,
             )
             strategic_result.self_judged = self_judged
             return strategic_result

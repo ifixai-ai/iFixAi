@@ -178,6 +178,7 @@ class ChatProvider(ABC):
         request_id: str,
         config: ProviderConfig,
         intent: str | None = None,
+        policy_test_id: str | None = None,
     ) -> OverrideReceipt | None:
         return None
 

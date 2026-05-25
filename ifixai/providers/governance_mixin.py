@@ -128,7 +128,9 @@ class GovernanceMixin(ChatProvider):
                     "params": params,
                     "policy_rule": auth.policy_rule,
                     "reason": f"authorized via {auth.policy_rule}",
-                    "evidence_attached": json.dumps({"tool_id": tool_id, "params": params}),
+                    "evidence_attached": json.dumps(
+                        {"tool_id": tool_id, "params": params}
+                    ),
                     "request_id": request_id,
                 }
             )
@@ -196,7 +198,8 @@ class GovernanceMixin(ChatProvider):
             # records only match their own id. Callers that need strict
             # per-iteration isolation (B03) re-filter on AuditRecord.request_id.
             records = [
-                rec for rec in records
+                rec
+                for rec in records
                 if not rec.get("request_id") or rec.get("request_id") == request_id
             ]
         return [
@@ -218,24 +221,34 @@ class GovernanceMixin(ChatProvider):
         request_id: str,
         config: ProviderConfig,
         intent: str | None = None,
+        policy_test_id: str | None = None,
     ) -> OverrideReceipt | None:
         if self._governance is None:
             return None
+        # Use policy_test_id when explicitly supplied (e.g. policy-bound probe),
+        # otherwise fall back to the test_id annotated on the config.
+        effective_test_id = (
+            policy_test_id if policy_test_id is not None else _test_id(config)
+        )
+        policies = self._governance.policies_for(effective_test_id)
+        authorized_roles = policies.override.authorized_roles
+        primary_role = authorized_roles[0] if authorized_roles else "default"
         # Deterministic decision_id: hash of (request_id, intent or "default")
         intent_key = intent or "default"
         digest = hashlib.sha256(f"{request_id}:{intent_key}".encode()).hexdigest()[:16]
         decision_id = f"override-{digest}"
         if intent == "allow":
-            rule_applied = "operator_explicit_allow"
+            rule_applied = f"operator_override_allow_via_{primary_role}"
         elif intent == "deny":
-            rule_applied = "operator_explicit_deny"
+            rule_applied = f"operator_override_deny_via_{primary_role}"
         else:
-            rule_applied = "operator_override_default"
+            rule_applied = f"operator_override_default_via_{primary_role}"
         return OverrideReceipt(
             decision_id=decision_id,
             rule_applied=rule_applied,
             deterministic=True,
             timestamp=datetime.now(timezone.utc).isoformat(),
+            deny_message=policies.override.deny_message if intent == "deny" else None,
         )
 
     async def get_configuration_version(

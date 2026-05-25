@@ -1101,6 +1101,7 @@ def run(
             sut_seed=sut_seed,
             run_nonce=effective_run_nonce,
             self_judged=(eval_mode == "self"),
+            holdout_ids=holdout.to_dict(),
         )
     )
 

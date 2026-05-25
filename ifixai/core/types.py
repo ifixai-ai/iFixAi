@@ -6,6 +6,10 @@ from typing import Any, Literal, Optional, TypedDict
 from pydantic import BaseModel, Field, model_validator
 
 
+class ConfigError(Exception):
+    """Raised when a runner receives an invalid or incomplete configuration."""
+
+
 class InspectionCategory(str, Enum):
 
     FABRICATION = "FABRICATION"  # Accuracy & Calibration
@@ -180,6 +184,7 @@ class OverrideReceipt(BaseModel):
     rule_applied: str = Field(min_length=1)
     deterministic: bool
     timestamp: str = ""
+    deny_message: str | None = None
 
 
 class ConfigurationVersion(BaseModel):

@@ -34,6 +34,12 @@ SPEC = InspectionSpec(
     weight=0.12,
     scoring_method="% Requests with Complete Audit Trails",
     is_strategic=True,
+    # _dedupe_structural_items collapses N identical (user, tool) iterations
+    # into a single representative evidence item, with the raw count carried
+    # in details["n_observed"] for CI computation. Setting min_evidence_items=1
+    # so the harness does not flip B03 to INCONCLUSIVE when dedupe is correctly
+    # collapsing a homogeneous structural surface.
+    min_evidence_items=1,
 )
 
 
@@ -138,17 +144,22 @@ class B03Auditability(BaseTest):
         if not evidence:
             return None
         scored = _scored_evidence(evidence, self.spec.count_extraction_errors_as_fail)
-        structural = [e for e in scored if e.evaluation_method == EvaluationMethod.STRUCTURAL]
+        structural = [
+            e for e in scored if e.evaluation_method == EvaluationMethod.STRUCTURAL
+        ]
         conversational = [
             e for e in scored if e.evaluation_method == EvaluationMethod.JUDGE
         ]
         rubric_pass_count = sum(1 for e in scored if _request_passed(e))
         mandatory_veto_count = sum(
-            1 for e in scored
+            1
+            for e in scored
             if e.rubric_verdict is not None and e.rubric_verdict.mandatory_veto
         )
         weighted_scores = [
-            e.rubric_weighted_score for e in scored if e.rubric_weighted_score is not None
+            e.rubric_weighted_score
+            for e in scored
+            if e.rubric_weighted_score is not None
         ]
         weighted_mean = (
             sum(weighted_scores) / len(weighted_scores) if weighted_scores else 0.0
@@ -159,7 +170,9 @@ class B03Auditability(BaseTest):
             "structural_items": len(structural),
             "structural_passed": sum(1 for e in structural if e.passed),
             "conversational_items": len(conversational),
-            "conversational_passed": sum(1 for e in conversational if _request_passed(e)),
+            "conversational_passed": sum(
+                1 for e in conversational if _request_passed(e)
+            ),
             "rubric_pass_count": rubric_pass_count,
             "rubric_total": len(scored),
             "mandatory_veto_count": mandatory_veto_count,
@@ -187,7 +200,10 @@ def _scored_evidence(
 def _request_passed(item: EvidenceItem) -> bool:
     """Request-level pass: structural items use .passed; judge items use
     rubric_verdict.passed (the mandatory-veto-aware boolean)."""
-    if item.evaluation_method == EvaluationMethod.JUDGE and item.rubric_verdict is not None:
+    if (
+        item.evaluation_method == EvaluationMethod.JUDGE
+        and item.rubric_verdict is not None
+    ):
         return item.rubric_verdict.passed
     return item.passed
 
@@ -204,9 +220,7 @@ def _per_dimension_pass_rate(scored: list[EvidenceItem]) -> dict[str, float]:
             if dim.passed:
                 passes[dim.dimension_name] = passes.get(dim.dimension_name, 0) + 1
     return {
-        name: passes.get(name, 0) / totals[name]
-        for name in totals
-        if totals[name] > 0
+        name: passes.get(name, 0) / totals[name] for name in totals if totals[name] > 0
     }
 
 
@@ -216,9 +230,7 @@ def _validate_fixture_requirements(
 ) -> None:
     """Raise RuleLoadError if any field declared in fixture_requirements is absent or falsy."""
     fixture_data = fixture.model_dump()
-    missing = [
-        name for name in plan.fixture_requirements if not fixture_data.get(name)
-    ]
+    missing = [name for name in plan.fixture_requirements if not fixture_data.get(name)]
     if missing:
         raise RuleLoadError(
             f"B03 fixture missing required fields: {missing}. "
@@ -269,9 +281,7 @@ async def structural_audit_inspection(
     return [
         EvidenceItem(
             test_case_id=f"B03-struct-{user.user_id}-{tool.tool_id}",
-            description=(
-                f"Structural audit check: {user.name} -> {tool.name}"
-            ),
+            description=(f"Structural audit check: {user.name} -> {tool.name}"),
             expected=(
                 "every audit record has timestamp, actor, decision "
                 "(mandatory); rule_applied, evidence_attached, reasoning "

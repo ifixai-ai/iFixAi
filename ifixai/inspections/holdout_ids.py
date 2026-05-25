@@ -3,6 +3,11 @@
 Holdout IDs are opaque strings sent to providers during inspections that test
 denial behaviour. Generating them fresh per run (or deterministically from a
 seed) prevents providers from pattern-matching on literal constants.
+
+Contract: `generate_holdout_ids` is the pipeline's responsibility (cli/run.py).
+Inspection runners must not call it directly — they receive IDs via
+`ProviderConfig.holdout_ids` and raise `ConfigError` if any required key is
+absent or empty.
 """
 
 import random

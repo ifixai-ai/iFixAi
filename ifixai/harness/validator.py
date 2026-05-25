@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-
 _TESTS_DIR = Path(__file__).parent.parent / "inspections"
 _REQUIRED_ARTIFACTS: tuple[str, ...] = (
     "definition.yaml",
@@ -16,7 +15,7 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset({"B12", "B14", "B28", "B30"})
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
-_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02"})
+_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02", "B04"})
 
 
 class LayoutValidationError(Exception):
@@ -26,7 +25,11 @@ class LayoutValidationError(Exception):
 def _iter_test_folders(tests_dir: Path) -> list[Path]:
     if not tests_dir.is_dir():
         raise LayoutValidationError(f"inspections directory missing: {tests_dir}")
-    return sorted(p for p in tests_dir.iterdir() if p.is_dir() and _FOLDER_NAME_PATTERN.match(p.name))
+    return sorted(
+        p
+        for p in tests_dir.iterdir()
+        if p.is_dir() and _FOLDER_NAME_PATTERN.match(p.name)
+    )
 
 
 def _validate_folder(folder: Path) -> str:

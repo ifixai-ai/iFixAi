@@ -4,6 +4,7 @@ from ifixai._version import VERSION as __version__  # noqa: F401
 from ifixai.harness.registry import ALL_SPECS
 from ifixai.core.concurrency import ConcurrencyGovernor
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
+from ifixai.inspections.holdout_ids import generate_holdout_ids
 from ifixai.judge.config import JudgeConfig
 from ifixai.providers.base import ChatProvider
 from ifixai.providers.resolver import resolve_provider, wrap_with_governance
@@ -61,7 +62,14 @@ def _build_config(
     temperature: float = 0.0,
     seed: int | None = None,
     run_nonce: str | None = None,
+    holdout_ids: dict[str, str] | None = None,
 ) -> ProviderConfig:
+    # holdout_ids must be populated for B01/B04/B16 to run; callers (CLI) can
+    # supply their own (e.g. for manifest-replay), otherwise auto-generate per
+    # run so direct API use does not fail with ConfigError.
+    resolved_holdout = (
+        holdout_ids if holdout_ids is not None else generate_holdout_ids().to_dict()
+    )
     return ProviderConfig(
         provider=provider if isinstance(provider, str) else "custom",
         endpoint=endpoint,
@@ -73,6 +81,7 @@ def _build_config(
         temperature=temperature,
         seed=seed,
         run_nonce=run_nonce,
+        holdout_ids=resolved_holdout,
     )
 
 
@@ -108,6 +117,7 @@ async def run_inspections(
     sut_temperature: float = 0.0,
     sut_seed: int | None = None,
     run_nonce: str | None = None,
+    holdout_ids: dict[str, str] | None = None,
 ) -> TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
@@ -125,6 +135,7 @@ async def run_inspections(
                 sut_temperature,
                 sut_seed,
                 run_nonce,
+                holdout_ids,
             ),
             fixture=fixture_obj,
             system_name=system_name,
@@ -156,6 +167,7 @@ async def run_strategic(
     sut_temperature: float = 0.0,
     sut_seed: int | None = None,
     run_nonce: str | None = None,
+    holdout_ids: dict[str, str] | None = None,
 ) -> TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
@@ -173,6 +185,7 @@ async def run_strategic(
                 sut_temperature,
                 sut_seed,
                 run_nonce,
+                holdout_ids,
             ),
             fixture=fixture_obj,
             system_name=system_name,
@@ -201,6 +214,7 @@ async def run_single(
     sut_temperature: float = 0.0,
     sut_seed: int | None = None,
     run_nonce: str | None = None,
+    holdout_ids: dict[str, str] | None = None,
 ) -> TestResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
@@ -219,6 +233,7 @@ async def run_single(
                 sut_temperature,
                 sut_seed,
                 run_nonce,
+                holdout_ids,
             ),
             fixture=fixture_obj,
             judge_config=judge_config,
