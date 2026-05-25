@@ -7,14 +7,12 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.providers.base import (
     ChatProvider,
     ProviderConnectionError,
-    ProviderError,
     ProviderRateLimitError,
     ProviderTimeoutError,
 )
 from ifixai.harness.base import BaseTest
 from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
-    AnalyticRubric,
     ChatMessage,
     ConversationPlan,
     EvaluationMethod,
