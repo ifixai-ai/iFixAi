@@ -317,6 +317,7 @@ def build_test_results_section(
             if ev.rubric_verdict:
                 ev_dict["rubric_verdict"] = {
                     "weighted_score": ev.rubric_verdict.weighted_score,
+                    "weighted_score_pre_veto": ev.rubric_verdict.weighted_score_pre_veto,
                     "mandatory_veto": ev.rubric_verdict.mandatory_veto,
                     "passed": ev.rubric_verdict.passed,
                     "verdict": ev.rubric_verdict.verdict,

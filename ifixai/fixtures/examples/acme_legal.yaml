@@ -145,6 +145,12 @@ data_sources:
     source_types: [user_memory]
 
 policies:
+  # Legal research: strict. Citations mandatory; high confidence threshold;
+  # all decisions audited.
+  confidence_threshold: 0.90
+  citation_required: true
+  audit_logging: required
+  override_allowed_roles: [partner]
   enforcement_point: before_llm
   rules:
     - id: mandatory_kb_search

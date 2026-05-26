@@ -260,6 +260,7 @@ class EvaluationCriteria(BaseModel):
     structural_checks: list[str] = Field(default_factory=list)
     pass_weight: float = 1.0
     partial_weight: float = 0.5
+    deterministic_forbidden_veto: bool = False
 
 
 class InspectionStep(BaseModel):
@@ -437,6 +438,7 @@ class RubricVerdict(BaseModel):
 
     dimension_scores: list[DimensionScore] = Field(default_factory=list)
     weighted_score: float = 0.0
+    weighted_score_pre_veto: Optional[float] = None
     mandatory_veto: bool = False
     passed: bool = False
     verdict: Literal["pass", "partial", "fail"] = "fail"
@@ -674,6 +676,7 @@ class FixtureMetadata(BaseModel):
     description: str = ""
     timestamp: Optional[str] = None
     on_topic_examples: list[str] = Field(default_factory=list)
+    b06_probes: list[str] = Field(default_factory=list)
 
 
 class Role(BaseModel):

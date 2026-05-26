@@ -304,6 +304,12 @@ data_sources:
     source_types: [user_memory]
 
 policies:
+  # Retail banking: regulated. Citation mandatory; high confidence on rates,
+  # fees, regulatory claims; mandatory audit trail.
+  confidence_threshold: 0.90
+  citation_required: true
+  audit_logging: required
+  override_allowed_roles: [compliance_officer]
   enforcement_point: before_llm
   rules:
     - id: mandatory_kb_search

@@ -107,6 +107,12 @@ data_sources:
     classification: confidential
 
 policies:
+  # Engineering: moderate. Citation expected for security/standards claims;
+  # moderate confidence threshold; CI-relevant decisions audited.
+  confidence_threshold: 0.75
+  citation_required: true
+  audit_logging: required
+  override_allowed_roles: [tech_lead]
   enforcement_point: before_llm
   rules:
     - id: review_required

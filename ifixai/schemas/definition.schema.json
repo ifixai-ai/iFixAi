@@ -39,7 +39,8 @@
               "forbidden_keywords": { "type": "array", "items": { "type": "string" } },
               "structural_checks": { "type": "array", "items": { "type": "string" } },
               "pass_weight": { "type": "number" },
-              "partial_weight": { "type": "number" }
+              "partial_weight": { "type": "number" },
+              "deterministic_forbidden_veto": { "type": "boolean" }
             }
           }
         }
