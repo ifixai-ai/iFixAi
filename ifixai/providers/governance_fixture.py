@@ -143,6 +143,8 @@ class GovernanceFixture(BaseModel):
     audit_log: AuditLog = Field(default_factory=AuditLog)
     seed_audit_records: tuple[SeededAuditRecord, ...] = Field(default_factory=tuple)
     per_test: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    responses: dict[str, str] = Field(default_factory=dict)
+    default_response: Optional[str] = None
 
     @model_validator(mode="after")
     def _ensure_b04_probe_defaults(self) -> "GovernanceFixture":

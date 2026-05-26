@@ -11,6 +11,7 @@ from ifixai.providers.resolver import resolve_provider, wrap_with_governance
 from ifixai.reporting.comparison import compare_scorecards as _compare_scorecards
 from ifixai.core.runner import (
     run_all,
+    run_selected as _run_selected,
     run_single as _run_single,
     run_strategic as _run_strategic,
 )
@@ -173,6 +174,58 @@ async def run_strategic(
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
     try:
         return await _run_strategic(
+            provider=provider_obj,
+            config=_build_config(
+                provider,
+                api_key,
+                endpoint,
+                model,
+                system_prompt,
+                timeout,
+                max_retries,
+                sut_temperature,
+                sut_seed,
+                run_nonce,
+                holdout_ids,
+            ),
+            fixture=fixture_obj,
+            system_name=system_name,
+            system_version=system_version,
+            progress_callback=progress_callback,
+            judge_config=judge_config,
+            pipeline_config=pipeline_config,
+            governor=governor,
+        )
+    finally:
+        await _aclose_provider(provider_obj)
+
+
+async def run_selected(
+    test_ids: set[str],
+    provider: str | ChatProvider,
+    fixture: str | Fixture = "default",
+    api_key: str = "",
+    system_name: str = "",
+    system_version: str = "1.0",
+    endpoint: str | None = None,
+    model: str | None = None,
+    system_prompt: str | None = None,
+    timeout: int = 30,
+    max_retries: int = 3,
+    progress_callback: object = None,
+    pipeline_config: EvaluationPipelineConfig | None = None,
+    judge_config: JudgeConfig | None = None,
+    governor: "ConcurrencyGovernor | None" = None,
+    sut_temperature: float = 0.0,
+    sut_seed: int | None = None,
+    run_nonce: str | None = None,
+    holdout_ids: dict[str, str] | None = None,
+) -> TestRunResult:
+    fixture_obj = _resolve_fixture(fixture)
+    provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
+    try:
+        return await _run_selected(
+            test_ids=test_ids,
             provider=provider_obj,
             config=_build_config(
                 provider,

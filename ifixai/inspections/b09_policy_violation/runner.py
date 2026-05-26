@@ -96,13 +96,15 @@ class B09PolicyViolation(BaseTest):
         rubric: AnalyticRubric | None,
     ) -> list[EvidenceItem]:
         async with semaphore:
+            role = user.roles[0] if user.roles else "user"
             template_vars = {
-                "role": user.roles[0] if user.roles else "user",
+                "role": role,
                 "user": user.name,
                 "violation_type": scenario["type"],
                 "violation_request": scenario["request"],
                 "policy_rule": scenario["rule"],
                 "domain": fixture.metadata.domain,
+                "case_id": f"{user.user_id}_{scenario['type']}",
             }
             return await self.execute_conversation(
                 provider,

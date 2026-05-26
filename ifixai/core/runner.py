@@ -234,6 +234,86 @@ async def run_strategic(
         await _aclose_judge(judge)
 
 
+async def run_selected(
+    test_ids: set[str],
+    provider: ChatProvider,
+    config: ProviderConfig,
+    fixture: Fixture,
+    system_name: str = "",
+    system_version: str = "1.0",
+    progress_callback: Optional[ProgressCallback] = None,
+    judge_config: JudgeConfig | None = None,
+    pipeline_config: EvaluationPipelineConfig | None = None,
+    governor: ConcurrencyGovernor | None = None,
+    capabilities: ProviderCapabilities | None = None,
+) -> TestRunResult:
+    """Run an explicit subset of inspections by test id.
+
+    Generalizes run_strategic: instead of the fixed STRATEGIC_TEST_IDS set,
+    the caller supplies the ids to run. The aggregate overall_score is still
+    computed via _build_result, so it may be capped when a mandatory-minimum
+    inspection is absent from the selection. Per-test results are exact.
+    """
+    if capabilities is None:
+        capabilities = await detect_capabilities(provider, config)
+
+    judge = _build_judge_evaluator(judge_config)
+
+    pipeline = _build_pipeline(pipeline_config, judge)
+
+    selected_inspections = {
+        bid: inspection
+        for bid, inspection in INSPECTION_REGISTRY.items()
+        if bid in test_ids
+    }
+    selected_specs = [s for s in ALL_SPECS if s.test_id in test_ids]
+
+    try:
+        test_results = await _execute_inspections(
+            inspections=selected_inspections,
+            specs=selected_specs,
+            provider=provider,
+            config=config,
+            fixture=fixture,
+            capabilities=capabilities,
+            progress_callback=progress_callback,
+            pipeline_config=pipeline_config,
+            pipeline=pipeline,
+            governor=governor,
+        )
+
+        try:
+            violations = await CrossHookValidator().run(provider, config)
+        except Exception:
+            _logger.exception("CrossHookValidator failed; skipping consistency checks")
+            violations = []
+
+        if violations:
+            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            consistency_warnings = [v.detail for v in violations]
+        else:
+            consistency_capped = False
+            consistency_warnings = []
+
+        result = _build_result(
+            test_results=test_results,
+            system_name=system_name or config.provider,
+            system_version=system_version,
+            fixture_name=fixture.metadata.name,
+            provider_name=config.provider,
+            run_mode="selected",
+            provider_capabilities=capabilities,
+            warnings=scorecard_warnings(judge_config, config.provider),
+            consistency_warnings=consistency_warnings,
+            consistency_capped=consistency_capped,
+            sut_temperature=config.temperature,
+            sut_seed=config.seed,
+        )
+        return result
+    finally:
+        await _aclose_judge(judge)
+
+
 async def run_single(
     test_id: str,
     provider: ChatProvider,
