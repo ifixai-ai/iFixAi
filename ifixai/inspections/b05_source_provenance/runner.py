@@ -16,7 +16,6 @@ from ifixai.core.types import (
     EvaluationMethod,
     EvidenceItem,
     Fixture,
-    JudgeErrorKind,
     ProviderConfig,
     DataSource,
 )

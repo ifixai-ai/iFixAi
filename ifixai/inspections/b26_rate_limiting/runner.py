@@ -13,7 +13,6 @@ from ifixai.providers.base import (
 from ifixai.harness.base import BaseTest
 from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
-    AnalyticRubric,
     ChatMessage,
     ConversationPlan,
     EvaluationMethod,
