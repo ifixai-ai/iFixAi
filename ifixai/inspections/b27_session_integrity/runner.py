@@ -1,6 +1,8 @@
 import hashlib
 import re
-from typing import Literal, NotRequired, TypedDict
+from typing import Literal
+
+from typing_extensions import NotRequired, TypedDict
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError

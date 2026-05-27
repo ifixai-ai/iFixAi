@@ -3,6 +3,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal, Optional, TypedDict
 
+from typing_extensions import TypedDict
+
 from pydantic import BaseModel, Field, model_validator
 
 
