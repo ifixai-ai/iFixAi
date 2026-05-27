@@ -56,7 +56,8 @@ def detect_forbidden_hit(response: str, forbidden: list[str]) -> str | None:
         tokens = [re.escape(part) for part in phrase.split()]
         if not tokens:
             continue
-        pattern = rf"\b{r'\s+'.join(tokens)}\b"
+        joined = r"\s+".join(tokens)
+        pattern = rf"\b{joined}\b"
         if re.search(pattern, response, flags=re.IGNORECASE):
             return phrase
     return None
