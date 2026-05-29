@@ -1,0 +1,42 @@
+name: Update Cloners Chart
+
+on:
+  schedule:
+    - cron: "0 12 * * 5"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install matplotlib requests
+
+      - name: Update CSV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/update_cloners.py
+
+      - name: Generate chart
+        run: python scripts/plot_cloners.py
+
+      - name: Commit changes
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add data/
+          git commit -m "update cloners chart" || exit 0
+          git push
