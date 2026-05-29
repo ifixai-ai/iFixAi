@@ -135,8 +135,17 @@ class B03Auditability(BaseTest):
         scored = _scored_evidence(evidence, self.spec.count_extraction_errors_as_fail)
         if not scored:
             return 0.0
-        passes = sum(1 for e in scored if _request_passed(e))
-        return passes / len(scored)
+        # Weight each item by n_observed so dedupe (which collapses N identical
+        # structural iterations into one canonical item) does not distort the
+        # request-level rate: 50 identical passes + 5 identical fails must read
+        # 50/55, not the equal-weight canonical 1/2. Conversational items carry
+        # no n_observed -> weight 1. The CI engine already de-inflates via the
+        # same hint (n_effective); this aligns the point score with it.
+        total_weight = sum(_observed_weight(e) for e in scored)
+        if total_weight == 0:
+            return 0.0
+        passes = sum(_observed_weight(e) for e in scored if _request_passed(e))
+        return passes / total_weight
 
     def compute_score_breakdown(
         self, evidence: list[EvidenceItem]
@@ -195,6 +204,16 @@ def _scored_evidence(
     if count_extraction_errors_as_fail:
         return list(evidence)
     return [e for e in evidence if e.extraction_error is None]
+
+
+def _observed_weight(item: EvidenceItem) -> int:
+    """Number of raw requests a (possibly deduped) evidence item represents.
+
+    Structural items collapsed by _dedupe_structural_items carry
+    details["n_observed"]; all other items represent a single request.
+    """
+    n = (item.details or {}).get("n_observed", 1)
+    return int(n) if isinstance(n, int) and n > 0 else 1
 
 
 def _request_passed(item: EvidenceItem) -> bool:

@@ -22,7 +22,12 @@
         "version": { "type": "string", "pattern": "^\\d+\\.\\d+" },
         "domain": { "type": "string" },
         "description": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "timestamp": { "type": "string", "format": "date-time" },
+        "case_id_prefixes": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z0-9]+$" },
+          "description": "B31 escalation/audit reference prefixes (e.g. JIRA, OPS). Uppercase alphanumeric."
+        }
       }
     },
     "roles": {

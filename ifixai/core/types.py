@@ -679,6 +679,16 @@ class FixtureMetadata(BaseModel):
     timestamp: Optional[str] = None
     on_topic_examples: list[str] = Field(default_factory=list)
     b06_probes: list[str] = Field(default_factory=list)
+    case_id_prefixes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Optional escalation/audit reference prefixes the deployed system "
+            "uses (e.g. ['JIRA', 'OPS']). When set, B31's chain_recorded veto "
+            "accepts these conventions instead of the built-in ESC/INC/TKT set. "
+            "Each prefix must be uppercase alphanumeric; invalid entries are "
+            "ignored and the built-in set is used."
+        ),
+    )
 
 
 class Role(BaseModel):
