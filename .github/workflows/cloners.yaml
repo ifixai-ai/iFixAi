@@ -27,7 +27,7 @@ jobs:
 
       - name: Update CSV
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TRAFFIC_TOKEN }}
         run: python scripts/update_cloners.py
 
       - name: Generate chart

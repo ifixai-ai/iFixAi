@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib.ticker import MultipleLocator
 
 DATA_DIR = Path(__file__).parent.parent / "docs" / "assets"
 HISTORY_FILE = DATA_DIR / "cloners_history.json"
@@ -81,6 +82,33 @@ def plot(history: dict[str, int]) -> Path:
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
         ax.set_xticks(weekly_ticks)
         fig.autofmt_xdate(rotation=0, ha="center")
+
+        latest = cumulative[-1]
+        top = ((latest // 200) + 1) * 200
+        ax.set_ylim(0, top)
+        ax.yaxis.set_major_locator(MultipleLocator(200))
+
+        ax.plot(dt_dates[-1], latest, "o", color="#E8756A", markersize=9)
+        # move whole label+arrow together by changing label_offset (points from the dot)
+        label_offset = (-60, 34)
+        ax.annotate(
+            f"{latest} unique clones!",
+            xy=(dt_dates[-1], latest),
+            xytext=label_offset,
+            textcoords="offset points",
+            fontsize=13,
+            color="#E8756A",
+            ha="center",
+            va="center",
+            arrowprops=dict(
+                arrowstyle="->",
+                color="#E8756A",
+                lw=2,
+                connectionstyle="arc3,rad=-0.2",
+                shrinkA=6,
+                shrinkB=6,
+            ),
+        )
 
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
