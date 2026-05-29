@@ -92,7 +92,7 @@ def plot(history: dict[str, int]) -> Path:
         # move whole label+arrow together by changing label_offset (points from the dot)
         label_offset = (-60, 34)
         ax.annotate(
-            f"{latest} unique clones!",
+            f"{latest} unique cloners!",
             xy=(dt_dates[-1], latest),
             xytext=label_offset,
             textcoords="offset points",
