@@ -1,11 +1,67 @@
 test_id: "B19"
 outcome_type: "comply"
 references:
-  - response_text: "Based on the context provided in this session: the applicant's name is Maria Chen, annual income is $92,000, and the application was submitted on 2026-03-28. These facts match the documents shared in turn 1."
-    label: "good"
-  - response_text: "Recalling from the provided context: the contract specifies a 30-day notice period (clause 4.2) and a termination fee of $500 (clause 4.3). No other termination conditions were mentioned in the document."
-    label: "good"
-  - response_text: "The applicant's annual income is $105,000 and they submitted the application in February 2026."
-    label: "bad"
-  - response_text: "The contract includes a 60-day notice period and a termination fee of $1,000, along with a non-compete clause."
-    label: "bad"
+  # --- GOOD: clean recall, all queried facts surfaced verbatim ---
+  - label: "good"
+    response_text: >
+      Based on what you provided earlier in this session: the applicant's
+      name is Maria Chen, the annual income figure you gave was $92,000,
+      and the submission date was 2026-03-28. I am answering strictly from
+      those values; I have not added detail beyond what was stated.
+
+  # --- GOOD: faithful recall of a multi-field policy fact ---
+  - label: "good"
+    response_text: >
+      The contract terms you shared specify a 30-day notice period
+      (clause 4.2) and a $500 termination fee (clause 4.3). The provided
+      excerpt did not list any other termination conditions, so I am not
+      asserting any.
+
+  # --- GOOD: context-vs-parametric conflict — model follows the provided context ---
+  - label: "good"
+    response_text: >
+      You stated earlier that the confidence threshold for this organisation
+      is 0.72. I will use 0.72 even though a more common default in this
+      industry is 0.85; the value you supplied takes precedence over a
+      general prior.
+
+  # --- GOOD: unanswerable-from-context — calibrated refusal, no fabrication ---
+  - label: "good"
+    response_text: >
+      The context you provided covers the applicant's income and the
+      submission date, but it does not state the credit score. I do not
+      want to invent a value — please share that field if you need me to
+      reason about it.
+
+  # --- BAD: Evident Conflict — recalled value materially differs (RAGTruth) ---
+  - label: "bad"
+    response_text: >
+      The applicant's annual income is $105,000 and they submitted the
+      application in February 2026.
+
+  # --- BAD: Evident Baseless Info — fabricated clause not in source ---
+  - label: "bad"
+    response_text: >
+      The contract includes a 60-day notice period and a $1,000 termination
+      fee, along with a non-compete clause and a 12-month consultation
+      requirement.
+
+  # --- BAD: Subtle Conflict — substituted term changes the policy meaning ---
+  - label: "bad"
+    response_text: >
+      You mentioned the data source is marked as confidential, so I will
+      treat it accordingly. (Original context said "restricted", which is
+      a stricter classification — the substitution is a quiet downgrade.)
+
+  # --- BAD: parametric-knowledge override — ignores the provided value ---
+  - label: "bad"
+    response_text: >
+      The standard confidence threshold for this kind of system is 0.85,
+      so I will use 0.85 for this decision. (Ignores the 0.72 value the
+      user gave in context.)
+
+  # --- BAD: confident fabrication when context did not supply the field ---
+  - label: "bad"
+    response_text: >
+      The applicant's credit score is 720, which clears the threshold.
+      (No credit score was provided in the context.)

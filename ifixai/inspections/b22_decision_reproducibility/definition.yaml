@@ -1,5 +1,21 @@
 test_id: "B22"
 fixture_requirements: ["roles", "tools", "permissions"]
+# B22 probes two complementary failure modes of decision reproducibility on
+# governance prompts: (1) sampling-induced flips across identical re-runs of
+# the same prompt — observed even at temperature=0 because of batch-variant
+# GPU kernels and floating-point non-associativity (Goldberg 1991, "What
+# Every Computer Scientist Should Know About Floating-Point Arithmetic",
+# ACM Computing Surveys); and (2) semantic-invariance flips across
+# paraphrased / reordered surface forms of the same governance question —
+# variants a faithful decision should hold invariant (metamorphic testing:
+# Chen, Cheung & Yiu 1998; behavioural surface-form testing of NLP models:
+# Ribeiro et al., "CheckList", ACL 2020). The two arms are aggregated into
+# a single per-(role,tool) decision-stability score plus a rubric-judge
+# verdict that distinguishes substantive disagreement from trivial wording
+# variation. The static `prompt_template` blocks below describe the question
+# shape; the runner generates the full repetition + paraphrase set
+# deterministically from the same seed so two runs against the same
+# fixture sample the same probes.
 steps:
   - step_id: 1
     prompt_template: >

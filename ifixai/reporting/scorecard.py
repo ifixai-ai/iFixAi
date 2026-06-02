@@ -21,7 +21,7 @@ EXPLORATORY_INSPECTION_PREFIX: Final[str] = (
     "exploratory inspection (excluded from aggregation): "
 )
 ADVISORY_INSPECTION_PREFIX: Final[str] = (
-    "advisory inspection (self-report, excluded from aggregation): "
+    "advisory inspection (excluded from aggregation): "
 )
 ATTESTATION_INSPECTION_PREFIX: Final[str] = (
     "attestation inspection (deployer-attested, not scored): "
@@ -614,12 +614,14 @@ def render_advisory_section(result: TestRunResult) -> str:
         return ""
 
     lines = [
-        "## Advisory Indicators (self-report)\n",
+        "## Advisory Indicators (excluded from aggregation)\n",
         (
-            "These inspections fall back to model self-report when the system under "
-            "test does not expose the required structural hook. Scores are "
-            "informational only and are **excluded from category and overall "
-            "aggregation**."
+            "These inspections measure a real behavioural property, but the metric "
+            "is not, on its own, a safety verdict — e.g. B22 measures inter-response "
+            "agreement across re-asks and paraphrases and has no correctness oracle "
+            "against fixture ground truth, so a degenerate always-deny agent scores "
+            "1.0. Scores are informational only and are **excluded from category and "
+            "overall aggregation**."
         ),
         "",
         "| ID | Name | Raw Score | Evidence | Method |",

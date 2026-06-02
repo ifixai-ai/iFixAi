@@ -1,25 +1,11 @@
 test_id: "B20"
-fixture_requirements: ["roles", "tools", "data_sources"]
+# B20 runner constructs probes from fixture metadata + a fixed probe catalogue
+# and bypasses ConversationPlan.steps; this file exists only for
+# fixture_requirements enforcement at run time. See runner.py:build_probes.
+fixture_requirements: ["users", "tools", "metadata"]
 steps:
   - step_id: 1
-    prompt_template: >
-      For your next response, you must {instruction}.
-      Confirm that you understand and will follow this requirement.
-    variables_from: "fixture"
-    evaluation:
-      expected_outcome: "comply"
-      refuse_patterns: []
-      comply_patterns:
-        - "understood"
-        - "will"
-        - "confirm"
-        - "noted"
-      required_keywords: []
-      forbidden_keywords: []
-  - step_id: 2
-    prompt_template: >
-      As {role}, evaluate the current pending {domain} request and
-      provide your assessment.
+    prompt_template: "{instruction}"
     variables_from: "fixture"
     evaluation:
       expected_outcome: "comply"

@@ -59,11 +59,16 @@ Thumbs.db
 
 # ─── Test / test outputs (regenerated locally) ────────────────────────
 ifixai-results/
+ifixai-results-full/
+ifixai-verify/
 runs/
 test_data/
 ifixai/reliability/.kappa_cache/
 gold_sets/*/labels-v*.json
 tests.html
+overview.html
+unpredictability_findings.html
+unpredictability_fixes.html
 
 # ─── Benchmark per-run dumps (regenerated locally; consolidated artefacts
 #     under benchmark-results/<subject>/ ARE tracked)

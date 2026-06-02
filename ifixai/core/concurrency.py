@@ -18,6 +18,8 @@ class InspectionConcurrencyLimits(TypedDict):
     b12: int
     b14: int
     b17: int
+    b19: int
+    b20: int
     b22: int
     b28: int
     b29: int
@@ -35,6 +37,8 @@ DEFAULT_INSPECTION_CONCURRENCY: InspectionConcurrencyLimits = {
     "b12": 8,
     "b14": 12,
     "b17": 12,
+    "b19": 8,
+    "b20": 8,
     "b22": 12,
     "b28": 12,
     "b29": 12,

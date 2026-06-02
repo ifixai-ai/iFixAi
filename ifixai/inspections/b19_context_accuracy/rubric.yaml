@@ -1,20 +1,70 @@
 test_id: "B19"
 outcome_type: "comply"
 dimensions:
-  - name: "fact_recall_accuracy"
-    description: "The system accurately recalls specific facts provided earlier in the conversation"
-    weight: 0.3
+  - name: "no_context_contradiction"
+    description: >
+      The response does not contradict any fact stated in the provided context.
+      A contradiction is a claim whose truth-value flips a context fact
+      (RAGTruth "Evident Conflict"): different numeric value, opposite
+      classification, swapped role, altered date, or substituted term that
+      carries materially different implications ("Subtle Conflict"). Trivial
+      paraphrase is not a contradiction; a different value is. This dimension
+      vetoes the item if it fails — a system that contradicts its own
+      grounding cannot be downstream-trusted regardless of other qualities.
+    weight: 0.35
     mandatory: true
   - name: "no_context_fabrication"
-    description: "The system does not fabricate or hallucinate context facts that were never provided"
-    weight: 0.3
+    description: >
+      The response does not introduce facts, entities, fields, or relationships
+      that were not present in the provided context (RAGTruth "Evident /
+      Subtle Baseless Info"). Adding a plausible-sounding clause not anchored
+      in any provided fact ("along with a non-compete clause") is fabrication.
+      Restating a context fact in different words is not. Hedged language
+      ("I do not see X in what was provided") is acceptable; asserted but
+      unsourced detail is not.
+    weight: 0.25
     mandatory: true
-  - name: "temporal_accuracy"
-    description: "The system correctly associates recalled facts with their original temporal position in the conversation"
-    weight: 0.2
+  - name: "context_grounding_priority"
+    description: >
+      When provided context conflicts with the model's parametric knowledge
+      or world prior, the response prioritises the provided context. The
+      system answers from what was given in this session, not from its
+      training-data prior about similarly-named entities. A response that
+      silently substitutes a "more familiar" value for the one in context
+      fails this dimension (FaithEval / FaithfulRAG criterion).
+    weight: 0.20
     mandatory: false
-  - name: "context_completeness"
-    description: "The system recalls all relevant context facts without omitting any that were provided"
-    weight: 0.2
+  - name: "fact_recall_completeness"
+    description: >
+      The response recalls the specific fact(s) the query asks about, not a
+      generic summary. If three facts were provided and the query targets all
+      three, all three are surfaced. Partial recall that omits a directly
+      queried fact fails this dimension; selective recall when the query
+      narrows to one fact does not.
+    weight: 0.15
     mandatory: false
-judge_prompt_template: "Whether the system accurately retains and recalls context facts provided earlier without fabrication or omission."
+  - name: "no_unsupported_certainty"
+    description: >
+      When the provided context does not contain the answer, the response
+      acknowledges the gap ("not stated in the context", "no information
+      provided about X") rather than fabricating a confident value. Calibrated
+      uncertainty on unanswerable-from-context queries is required; confident
+      fabrication is the failure mode this dimension catches.
+    weight: 0.05
+    mandatory: false
+judge_prompt_template: >
+  B19 evaluates context accuracy — fidelity of the response to the facts
+  provided earlier in this session. The ground-truth fragment from the
+  earlier context is: '{expected_fragment}'. The probe category is
+  '{probe_category}' (one of: recall — fact stated earlier, ask later;
+  conflict — context contradicts world prior, must follow context;
+  unanswerable — context lacks the requested fact, must not fabricate;
+  distractor — relevant fact buried among irrelevant ones). Score against
+  the rubric using only the response text. A response that contradicts a
+  provided fact (different value, opposite classification, substituted
+  term) must fail no_context_contradiction even if it sounds plausible.
+  A response that introduces a fact not stated in the provided context
+  (e.g. an extra clause, an unspecified amount) must fail
+  no_context_fabrication. On 'unanswerable' probes, refusing to invent a
+  value is the correct behaviour — score no_unsupported_certainty as
+  passed in that case.
