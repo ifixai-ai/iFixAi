@@ -6,7 +6,7 @@ from collections import Counter
 
 import click
 
-from ifixai.api import run_inspections, run_single, run_strategic
+from ifixai.api import run_inspections, run_selected, run_single, run_strategic
 from ifixai.core.concurrency import ConcurrencyGovernor
 from ifixai.core.fixture_loader import load_fixture
 from ifixai.harness.registry import ALL_SPECS, SPEC_BY_ID
@@ -231,8 +231,7 @@ def _print_error_summary(result: TestRunResult) -> None:
 
 def _print_inconclusive_summary(result: TestRunResult) -> None:
     inconclusive = [
-        br for br in result.test_results
-        if br.status == TestStatus.INCONCLUSIVE
+        br for br in result.test_results if br.status == TestStatus.INCONCLUSIVE
     ]
 
     if not inconclusive:
@@ -274,18 +273,18 @@ def _print_insufficient_evidence_summary(result: TestRunResult) -> None:
 
 
 _CATEGORY_BAR_COLOR: dict[str, str] = {
-    InspectionCategory.FABRICATION.value:      "\033[38;5;208m",  # orange
-    InspectionCategory.MANIPULATION.value:     "\033[93m",        # yellow
-    InspectionCategory.DECEPTION.value:        "\033[92m",        # green
-    InspectionCategory.UNPREDICTABILITY.value: "\033[94m",        # blue
-    InspectionCategory.OPACITY.value:          "\033[38;5;213m",  # pink
+    InspectionCategory.FABRICATION.value: "\033[38;5;208m",  # orange
+    InspectionCategory.MANIPULATION.value: "\033[93m",  # yellow
+    InspectionCategory.DECEPTION.value: "\033[92m",  # green
+    InspectionCategory.UNPREDICTABILITY.value: "\033[94m",  # blue
+    InspectionCategory.OPACITY.value: "\033[38;5;213m",  # pink
 }
-_RESET  = "\033[0m"
-_RED    = "\033[91m"
-_GREEN  = "\033[92m"
+_RESET = "\033[0m"
+_RED = "\033[91m"
+_GREEN = "\033[92m"
 _YELLOW = "\033[93m"
-_DIM    = "\033[2m"
-_BOLD   = "\033[1m"
+_DIM = "\033[2m"
+_BOLD = "\033[1m"
 _SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
@@ -375,10 +374,10 @@ class BenchmarkProgressDisplay:
                         )
                         continue
                     if result.passing:
-                        icon   = f"{_GREEN}✓{_RESET}"
+                        icon = f"{_GREEN}✓{_RESET}"
                         status = f"{_GREEN}PASS{_RESET}"
                     else:
-                        icon   = f"{_RED}✗{_RESET}"
+                        icon = f"{_RED}✗{_RESET}"
                         status = f"{_RED}FAIL{_RESET}"
                     lines.append(
                         f"  {icon} {_BOLD}{test_id}{_RESET} {name} "
@@ -459,12 +458,15 @@ def _progress_callback_plain(
 
 def _build_display_tests(
     strategic: bool,
-    test_id: str | None,
+    test_ids: tuple[str, ...],
 ) -> list[tuple[str, str]]:
-    if test_id:
-        uid = test_id.upper()
-        spec = SPEC_BY_ID.get(uid)
-        return [(uid, spec.name if spec else uid)]  # type: ignore[union-attr]
+    if test_ids:
+        display: list[tuple[str, str]] = []
+        for raw_id in test_ids:
+            uid = raw_id.upper()
+            spec = SPEC_BY_ID.get(uid)
+            display.append((uid, spec.name if spec else uid))
+        return display
     if strategic:
         strategic_set = set(STRATEGIC_TEST_IDS)
         return [(s.test_id, s.name) for s in ALL_SPECS if s.test_id in strategic_set]
@@ -479,7 +481,7 @@ async def execute_tests(
     model: str | None,
     system_prompt: str | None,
     strategic: bool,
-    test_id: str | None,
+    test_ids: tuple[str, ...],
     timeout: int,
     system_name: str,
     system_version: str,
@@ -491,6 +493,7 @@ async def execute_tests(
     run_nonce: str | None = None,
     self_judged: bool = False,
     progress_callback=None,
+    holdout_ids: dict[str, str] | None = None,
 ) -> TestRunResult | None:
 
     try:
@@ -512,14 +515,15 @@ async def execute_tests(
     display: BenchmarkProgressDisplay | None = None
 
     if use_display:
-        display = BenchmarkProgressDisplay(_build_display_tests(strategic, test_id))
+        display = BenchmarkProgressDisplay(_build_display_tests(strategic, test_ids))
         display.start()
         effective_callback = display.update
     else:
         effective_callback = progress_callback or _progress_callback_plain
 
     try:
-        if test_id:
+        if len(test_ids) == 1:
+            test_id = test_ids[0]
             single_result = await run_single(
                 test_id=test_id,
                 provider=provider,
@@ -534,6 +538,7 @@ async def execute_tests(
                 sut_temperature=sut_temperature,
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
+                holdout_ids=holdout_ids,
             )
             if display:
                 display.update(test_id, 1, 1, single_result)
@@ -558,6 +563,30 @@ async def execute_tests(
                 run_mode="single",
             )
 
+        if len(test_ids) >= 2:
+            selected_result = await run_selected(
+                test_ids={tid.upper() for tid in test_ids},
+                provider=provider,
+                api_key=api_key,
+                fixture=fixture,
+                system_name=system_name,
+                system_version=system_version,
+                endpoint=endpoint,
+                model=model,
+                system_prompt=system_prompt,
+                timeout=timeout,
+                progress_callback=effective_callback,
+                pipeline_config=pipeline_config,
+                judge_config=judge_config,
+                governor=governor,
+                sut_temperature=sut_temperature,
+                sut_seed=sut_seed,
+                run_nonce=run_nonce,
+                holdout_ids=holdout_ids,
+            )
+            selected_result.self_judged = self_judged
+            return selected_result
+
         if strategic:
             strategic_result = await run_strategic(
                 provider=provider,
@@ -576,6 +605,7 @@ async def execute_tests(
                 sut_temperature=sut_temperature,
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
+                holdout_ids=holdout_ids,
             )
             strategic_result.self_judged = self_judged
             return strategic_result

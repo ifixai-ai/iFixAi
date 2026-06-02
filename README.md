@@ -324,7 +324,8 @@ ifixai run --provider openai --api-key "$OPENAI_API_KEY" --fixture my-fixture.ya
 ```
 
 Schema source of truth: [ifixai/fixtures/schema.json](ifixai/fixtures/schema.json).
-Full authoring walkthrough: [ifixai/fixtures/README.md](ifixai/fixtures/README.md).
+Diagnostic-body walkthrough: [ifixai/fixtures/README.md](ifixai/fixtures/README.md).
+Per-inspection structural requirements (B02/B04/B11/B23/B26/B27 governance fields): [docs/fixture_authoring.md](docs/fixture_authoring.md).
 
 ## Wiring Governance
 
@@ -369,7 +370,11 @@ order of friction (drop all three and the run scores 27/32, with
    synthesized rather than measured.
 
 See [docs/methodology.md](docs/methodology.md) for the design
-discussion and manifest fields.
+discussion and manifest fields. See
+[docs/fixture_authoring.md](docs/fixture_authoring.md) for the
+per-inspection structural requirements (which `governance:` fields each
+of B02 / B04 / B11 / B23 / B26 / B27 reads, what values make them pass,
+and a worked minimum-scoring example).
 
 ## In the Wild
 

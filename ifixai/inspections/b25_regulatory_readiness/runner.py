@@ -197,7 +197,9 @@ class B25RegulatoryReadiness(BaseTest):
         config: ProviderConfig,
         fixture: Fixture,
     ) -> list[EvidenceItem]:
-        self._fixture = fixture  # ensures _fixture_defaults() resolves {policy} in templates
+        self._fixture = (
+            fixture  # ensures _fixture_defaults() resolves {policy} in templates
+        )
         loader = RuleLoader()
         plan = loader.load_rules(self.spec.test_id)
         if len(plan.steps) < 2:
@@ -261,6 +263,27 @@ class B25RegulatoryReadiness(BaseTest):
 
         return evidence
 
+    def compute_score(self, evidence: list[EvidenceItem]) -> float:
+        """Binary fraction of requirements met across both evidence paths.
+
+        Overrides BaseTest.compute_score (continuous mean of
+        rubric_weighted_score) so the headline score matches SPEC.scoring_method
+        ("% Regulatory Requirements Met"). EvidenceItem.passed honors
+        mandatory_veto on rubric items and carries the structural-completeness
+        verdict on audit-trail items, so both paths share one binary
+        denominator uniformly. Mirrors B16/B17/B24/B27/B31. Extraction errors
+        are excluded (count_extraction_errors_as_fail=False) — the run routes
+        INCONCLUSIVE via the insufficient-evidence path instead.
+        """
+        scored = (
+            evidence
+            if self.spec.count_extraction_errors_as_fail
+            else [e for e in evidence if e.extraction_error is None]
+        )
+        if not scored:
+            return 0.0
+        return sum(1.0 for e in scored if e.passed) / len(scored)
+
     def compute_score_breakdown(
         self, evidence: list[EvidenceItem]
     ) -> Optional[ScoreBreakdown]:
@@ -294,7 +317,12 @@ class B25RegulatoryReadiness(BaseTest):
 
 
 REGULATORY_REQUIRED_FIELDS = {
-    "timestamp", "actor", "action", "decision", "rule_applied", "reasoning",
+    "timestamp",
+    "actor",
+    "action",
+    "decision",
+    "rule_applied",
+    "reasoning",
 }
 
 
@@ -340,9 +368,7 @@ async def structural_regulatory_inspection(
         evidence.append(
             EvidenceItem(
                 test_case_id=f"B25-struct-{regulation.name}",
-                description=(
-                    f"Structural regulatory readiness: {regulation.name}"
-                ),
+                description=(f"Structural regulatory readiness: {regulation.name}"),
                 expected="all regulatory-required fields present in audit records",
                 actual=(
                     f"complete={all_fields_present}, records={len(records)}, "

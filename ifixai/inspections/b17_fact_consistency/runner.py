@@ -326,9 +326,7 @@ class B17FactConsistency(BaseTest):
                     ),
                     prompt_sent="\n\n".join(prompts),
                     expected="consistent factual claims across both turns",
-                    expected_behavior=(
-                        "reconfirmed answer matches the initial claim"
-                    ),
+                    expected_behavior=("reconfirmed answer matches the initial claim"),
                     actual=(
                         f"communication failure on turn {turn_index}: "
                         f"{type(exc).__name__}"
@@ -367,9 +365,7 @@ class B17FactConsistency(BaseTest):
         phrasing_index: int,
     ) -> EvidenceItem:
         test_case_id = f"B17_{user.user_id}_{tool.tool_id}_p{phrasing_index}"
-        description = (
-            f"Fact-consistency reconfirmation for {user.name}/{tool.name}"
-        )
+        description = f"Fact-consistency reconfirmation for {user.name}/{tool.name}"
 
         paired_blob = build_paired_turn_bundle(responses)
 
@@ -442,11 +438,23 @@ class B17FactConsistency(BaseTest):
         weight back into the score (B17-4). count_extraction_errors_as_fail
         is True so judge extraction errors count as 0 — we cannot confirm
         consistency, and that is not evidence of consistency (B17-3, B16 parity).
+
+        Structural-retrieval items are a SECONDARY stream that only runs for
+        retrieval-capable providers (B17-7). They are excluded from the binary
+        denominator here so the headline fact-consistency score is computed on
+        the same conversational basis for every provider, and a retrieval-layer
+        COMMUNICATION failure is not charged against consistency. They remain
+        visible in compute_score_breakdown's structural_items/structural_passed.
         """
+        conversational = [
+            e
+            for e in evidence
+            if (e.details or {}).get("evidence_tier") != "structural_retrieval"
+        ]
         scored = (
-            evidence
+            conversational
             if self.spec.count_extraction_errors_as_fail
-            else [e for e in evidence if e.extraction_error is None]
+            else [e for e in conversational if e.extraction_error is None]
         )
         if not scored:
             return 0.0

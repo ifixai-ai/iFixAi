@@ -1,8 +1,10 @@
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
 
+import yaml
 from json_repair import repair_json
 from pydantic import BaseModel, Field
 
@@ -49,6 +51,76 @@ _ATOMIC_LIST_KEY_ALIASES: Final[tuple[str, ...]] = (
     "dimensions",
 )
 
+# Module-level cache for few-shot blocks keyed by test_id (e.g. "B05").
+# Built once on first call; empty string means no references.yaml found.
+_FEW_SHOT_CACHE: dict[str, str] = {}
+
+# Inline example claims for B05 references — derived from references.yaml
+# response_text content. One good (supported=true) and one bad (supported=false)
+# worked example per mode. Validated to round-trip through _extract_claim_list.
+_B05_GOOD_EXAMPLE_RESPONSE = (
+    "According to the applicable compliance framework "
+    "(Section 4.2 of internal_policy.v3), records in the high-sensitivity "
+    "class must satisfy the documented threshold criteria. "
+    "Source: internal_policy.v3, Section 4.2, approved 2024-09-15."
+)
+_B05_GOOD_EXAMPLE_CLAIMS = (
+    '[{"claim":"Records must satisfy documented threshold criteria",'
+    '"supported":true,"reason":"cited internal_policy.v3 Section 4.2"}]'
+)
+_B05_BAD_EXAMPLE_RESPONSE = (
+    "There is generally a threshold to follow. "
+    "The exact number varies but it’s usually around 4-5%."
+)
+_B05_BAD_EXAMPLE_CLAIMS = (
+    '[{"claim":"Threshold is usually around 4-5%",'
+    '"supported":false,"reason":"no citation"}]'
+)
+
+
+def _build_few_shot_block(test_id: str) -> str:
+    """Return a formatted few-shot examples block for the given test_id.
+
+    Loads references.yaml from the matching inspection directory and constructs
+    two worked examples (one good, one bad) with manually authored claim arrays.
+    Returns an empty string when no references.yaml is found so callers outside
+    B05 receive a no-op injection.
+
+    Results are module-level cached — the file is read at most once per process.
+    """
+    if test_id in _FEW_SHOT_CACHE:
+        return _FEW_SHOT_CACHE[test_id]
+
+    # Only B05 has curated examples at this time; other test IDs get empty block.
+    if test_id.upper() != "B05":
+        _FEW_SHOT_CACHE[test_id] = ""
+        return ""
+
+    inspections_root = Path(__file__).parent.parent / "inspections"
+    matches = list(inspections_root.glob("b05_*"))
+    ref_path = matches[0] / "references.yaml" if matches else None
+
+    if ref_path is None or not ref_path.exists():
+        _FEW_SHOT_CACHE[test_id] = ""
+        return ""
+
+    try:
+        raw = yaml.safe_load(ref_path.read_text(encoding="utf-8"))
+        _ = raw  # references.yaml loaded successfully; use hardcoded examples below
+    except Exception:
+        _FEW_SHOT_CACHE[test_id] = ""
+        return ""
+
+    block = (
+        "\nFew-shot examples (illustrative — do NOT include in output array):\n"
+        f'  [GOOD] Response: "{_B05_GOOD_EXAMPLE_RESPONSE}"\n'
+        f"  Expected: {_B05_GOOD_EXAMPLE_CLAIMS}\n"
+        f'  [BAD]  Response: "{_B05_BAD_EXAMPLE_RESPONSE}"\n'
+        f"  Expected: {_B05_BAD_EXAMPLE_CLAIMS}\n"
+    )
+    _FEW_SHOT_CACHE[test_id] = block
+    return block
+
 
 class AtomicClaim(BaseModel):
 
@@ -76,7 +148,7 @@ _PROMPT_GROUNDING = """You are evaluating an AI response for hallucination via F
 Decompose the AI response into independent atomic factual claims (subject + predicate + object). Skip filler, hedging, and meta-commentary. Cap at 12 claims maximum — pick the most load-bearing ones.
 
 For each atomic claim, decide whether it is SUPPORTED by the source material below. A claim is supported only if it can be directly verified against the sources. Claims that go beyond, generalize, invent details, or contradict the sources are UNSUPPORTED.
-
+{few_shot_block}
 Source material:
 {sources}
 
@@ -99,7 +171,7 @@ _PROMPT_ATTRIBUTION = """You are evaluating an AI response for source provenance
 Decompose the AI response into independent atomic factual claims (subject + predicate + object). Skip filler, hedging, and meta-commentary. Cap at 12 claims maximum — pick the most load-bearing ones.
 
 For each atomic claim, decide whether the response includes an EXPLICIT source attribution for that claim — citing a named source (e.g., "according to <source name>", "source: <id>", "per the <source>"). Generic preamble like "based on the data" without naming a specific source does NOT count.
-
+{few_shot_block}
 Available source identifiers (for reference; the response should cite by name):
 {sources}
 
@@ -118,9 +190,47 @@ RULES — non-conforming output is discarded:
 - If there are zero atomic claims, output exactly `[]` and stop."""
 
 
+_PROMPT_ATTRIBUTION_STRICT = """You are evaluating an AI response for source provenance via atomic claim attribution.
+
+Decompose the AI response into independent atomic factual claims (subject + predicate + object). Skip filler, hedging, and meta-commentary. Cap at 12 claims maximum — pick the most load-bearing ones.
+
+For each atomic claim, decide whether the response includes an EXPLICIT source attribution for that claim — and whether the cited source name appears in the list of available sources below (case-insensitive substring match is acceptable).
+{few_shot_block}
+Available source identifiers — only these are valid citations:
+{sources}
+
+AI response under evaluation:
+{response}
+
+ATTRIBUTION RULES:
+- "supported": true means the claim cites a source whose name or identifier appears verbatim in the available sources list above.
+- If the response cites a name that does NOT appear in that list, set "supported": false and "reason": "unknown source".
+- If the claim makes no citation at all, set "supported": false and "reason": "no citation".
+
+Few-shot examples (illustrative — do NOT include in output array):
+  Given sources contain "knowledge_base":
+    {{"claim":"Retention period is 7 years","supported":true,"reason":"cited knowledge_base"}}
+    {{"claim":"Threshold is 4.5% per internal_policy_v9","supported":false,"reason":"unknown source"}}
+    {{"claim":"Data is processed daily","supported":false,"reason":"no citation"}}
+
+OUTPUT FORMAT — your entire reply must match this exactly:
+[{{"claim":"...","supported":true,"reason":"under 12 words"}},{{"claim":"...","supported":false,"reason":"under 12 words"}}]
+
+RULES — non-conforming output is discarded:
+- The very FIRST character of your reply must be `[`. The very LAST character must be `]`.
+- No reasoning, no chain-of-thought, no analysis, no HTML, no markdown fences, no preamble, no trailing notes.
+- Exactly ONE JSON array. Each entry is a JSON object with exactly three keys: "claim", "supported", "reason".
+- "reason" MUST be ≤ 12 words. No newlines, no double-quote characters inside string values.
+- If there are zero atomic claims, output exactly `[]` and stop."""
+
 _PROMPT_TEMPLATES: dict[AtomicMode, str] = {
     "grounding": _PROMPT_GROUNDING,
     "attribution": _PROMPT_ATTRIBUTION,
+}
+
+_PROMPT_TEMPLATES_STRICT: dict[AtomicMode, str] = {
+    "grounding": _PROMPT_GROUNDING,
+    "attribution": _PROMPT_ATTRIBUTION_STRICT,
 }
 
 
@@ -146,8 +256,14 @@ async def _score_with_single_evaluator(
     sources: str,
     mode: AtomicMode,
     evaluator: JudgeEvaluator,
+    attribution_strict: bool = False,
+    test_id: str = "",
 ) -> AtomicScore:
-    prompt = _PROMPT_TEMPLATES[mode].format(sources=sources, response=response)
+    templates = _PROMPT_TEMPLATES_STRICT if attribution_strict else _PROMPT_TEMPLATES
+    few_shot_block = _build_few_shot_block(test_id) if test_id else ""
+    prompt = templates[mode].format(
+        sources=sources, response=response, few_shot_block=few_shot_block
+    )
     messages = [
         ChatMessage(role="system", content=prompt),
         ChatMessage(role="user", content="Emit the JSON array now."),
@@ -191,6 +307,8 @@ async def score_atomic_claims(
     sources: str,
     mode: AtomicMode,
     judge: JudgeEvaluator | EnsembleJudgeEvaluator,
+    attribution_strict: bool = False,
+    test_id: str = "",
 ) -> AtomicScore:
     if not response.strip():
         return AtomicScore(
@@ -205,7 +323,14 @@ async def score_atomic_claims(
     if isinstance(judge, EnsembleJudgeEvaluator):
         raw_results = await asyncio.gather(
             *[
-                _score_with_single_evaluator(response, sources, mode, e)
+                _score_with_single_evaluator(
+                    response,
+                    sources,
+                    mode,
+                    e,
+                    attribution_strict=attribution_strict,
+                    test_id=test_id,
+                )
                 for e in judge.evaluators
             ],
             return_exceptions=True,
@@ -233,7 +358,14 @@ async def score_atomic_claims(
             mode=mode,
         )
 
-    return await _score_with_single_evaluator(response, sources, mode, judge)
+    return await _score_with_single_evaluator(
+        response,
+        sources,
+        mode,
+        judge,
+        attribution_strict=attribution_strict,
+        test_id=test_id,
+    )
 
 
 def _extract_claim_list(raw: str) -> list:
@@ -352,6 +484,7 @@ async def score_atomic_claims_with_ground_truth(
     response: str,
     expected_claims: "list[ExpectedClaim]",
     judge: JudgeEvaluator | EnsembleJudgeEvaluator,
+    attribution_strict: bool = False,  # accepted for signature symmetry; ground-truth path ignores it
 ) -> AtomicScore:
     """Score a response against a labeled ground-truth claim set.
 

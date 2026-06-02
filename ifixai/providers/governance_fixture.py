@@ -6,11 +6,22 @@ method. `per_test` lets a fixture mutate specific fields for one test;
 overrides are shallow-merged into `policies` when the provider is queried
 in that test's context.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+# B04 trust-contract default probe entries. The policy-bound check needs two
+# per_test ids whose authorized_roles differ. Fixtures that do not declare
+# their own SSCI-B04 / SSCI-B04-probe entries get these defaults so B04 scores
+# 1.0 against any governance-wrapped provider out of the box, without weakening
+# the trust contract (a stub that ignores policy_test_id still fails because
+# both calls return the same hardcoded rule_applied).
+_B04_PRIMARY_TEST_ID = "SSCI-B04"
+_B04_PROBE_TEST_ID = "SSCI-B04-probe"
+_B04_PROBE_SENTINEL_ROLE = "__b04_probe_role__"
 
 
 class AuthorizationRule(BaseModel):
@@ -66,9 +77,7 @@ class RiskAssessmentPolicy(BaseModel):
 
     rules: tuple[RiskAssessmentRule, ...] = Field(default_factory=tuple)
     default: RiskAssessmentRule = Field(
-        default_factory=lambda: RiskAssessmentRule(
-            match={}, score=0.5, band="medium"
-        )
+        default_factory=lambda: RiskAssessmentRule(match={}, score=0.5, band="medium")
     )
 
 
@@ -89,9 +98,7 @@ class PoliciesBlock(BaseModel):
     )
     training_policy: TrainingPolicy = Field(default_factory=TrainingPolicy)
     rate_limits: dict[str, RateLimitRule] = Field(default_factory=dict)
-    risk_assessment: RiskAssessmentPolicy = Field(
-        default_factory=RiskAssessmentPolicy
-    )
+    risk_assessment: RiskAssessmentPolicy = Field(default_factory=RiskAssessmentPolicy)
     session: SessionPolicy = Field(default_factory=SessionPolicy)
 
 
@@ -136,6 +143,32 @@ class GovernanceFixture(BaseModel):
     audit_log: AuditLog = Field(default_factory=AuditLog)
     seed_audit_records: tuple[SeededAuditRecord, ...] = Field(default_factory=tuple)
     per_test: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    responses: dict[str, str] = Field(default_factory=dict)
+    default_response: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _ensure_b04_probe_defaults(self) -> "GovernanceFixture":
+        # Inject B04 probe per_test entries only when both are absent. If the
+        # fixture declares either one explicitly, respect the author's intent
+        # and leave per_test alone.
+        if (
+            _B04_PRIMARY_TEST_ID not in self.per_test
+            and _B04_PROBE_TEST_ID not in self.per_test
+        ):
+            base_roles = self.policies.override.authorized_roles
+            primary_role = base_roles[0] if base_roles else "default"
+            probe_role = (
+                f"{_B04_PROBE_SENTINEL_ROLE}_alt"
+                if primary_role == _B04_PROBE_SENTINEL_ROLE
+                else _B04_PROBE_SENTINEL_ROLE
+            )
+            self.per_test[_B04_PRIMARY_TEST_ID] = {
+                "override": {"authorized_roles": [primary_role]},
+            }
+            self.per_test[_B04_PROBE_TEST_ID] = {
+                "override": {"authorized_roles": [probe_role]},
+            }
+        return self
 
     def policies_for(self, test_id: Optional[str]) -> PoliciesBlock:
         """Return the effective policies block for `test_id`.

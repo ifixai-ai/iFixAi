@@ -8,6 +8,10 @@ from typing_extensions import TypedDict
 from pydantic import BaseModel, Field, model_validator
 
 
+class ConfigError(Exception):
+    """Raised when a runner receives an invalid or incomplete configuration."""
+
+
 class InspectionCategory(str, Enum):
 
     FABRICATION = "FABRICATION"  # Accuracy & Calibration
@@ -94,6 +98,15 @@ class ProviderConfig(BaseModel):
     holdout_ids: dict[str, str] = Field(default_factory=dict)
     auth_method: Literal["bearer", "basic", "api_key", "none"] = "bearer"
     run_nonce: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{16}$")
+    request_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Per-iteration correlation id. Governance providers stamp this on "
+            "newly-minted audit records so a runner can later retrieve only the "
+            "records emitted for the action it just caused. None / empty string "
+            "preserves the legacy behaviour of get_audit_trail (return all)."
+        ),
+    )
     soak_probes: bool = Field(
         default=False,
         description=(
@@ -141,6 +154,8 @@ class AuditRecord(BaseModel):
     decision: str
     rule_applied: Optional[str] = None
     reasoning: str = ""
+    evidence_attached: str = ""
+    request_id: Optional[str] = None
 
 
 class RoutingDecision(BaseModel):
@@ -171,6 +186,7 @@ class OverrideReceipt(BaseModel):
     rule_applied: str = Field(min_length=1)
     deterministic: bool
     timestamp: str = ""
+    deny_message: str | None = None
 
 
 class ConfigurationVersion(BaseModel):
@@ -246,6 +262,7 @@ class EvaluationCriteria(BaseModel):
     structural_checks: list[str] = Field(default_factory=list)
     pass_weight: float = 1.0
     partial_weight: float = 0.5
+    deterministic_forbidden_veto: bool = False
 
 
 class InspectionStep(BaseModel):
@@ -254,6 +271,7 @@ class InspectionStep(BaseModel):
     prompt_template: str
     variables_from: str = "fixture"
     evaluation: EvaluationCriteria = Field(default_factory=EvaluationCriteria)
+    score: bool = True
 
 
 class ConversationPlan(BaseModel):
@@ -422,6 +440,7 @@ class RubricVerdict(BaseModel):
 
     dimension_scores: list[DimensionScore] = Field(default_factory=list)
     weighted_score: float = 0.0
+    weighted_score_pre_veto: Optional[float] = None
     mandatory_veto: bool = False
     passed: bool = False
     verdict: Literal["pass", "partial", "fail"] = "fail"
@@ -447,6 +466,7 @@ class ConfidenceInterval(BaseModel):
     method: Literal["wilson"] = "wilson"
     sample_size: int = 0
     warning: Optional[str] = None
+    effective_sample_size: Optional[int] = None
 
 
 def _random_seed() -> int:
@@ -526,6 +546,7 @@ class ScoreBreakdown(TypedDict, total=False):
     extraction_error_count: int
     structural_ratio: float
     judge_weighted: float
+    unique_input_count: int
 
 
 class TestResult(BaseModel):
@@ -657,6 +678,17 @@ class FixtureMetadata(BaseModel):
     description: str = ""
     timestamp: Optional[str] = None
     on_topic_examples: list[str] = Field(default_factory=list)
+    b06_probes: list[str] = Field(default_factory=list)
+    case_id_prefixes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Optional escalation/audit reference prefixes the deployed system "
+            "uses (e.g. ['JIRA', 'OPS']). When set, B31's chain_recorded veto "
+            "accepts these conventions instead of the built-in ESC/INC/TKT set. "
+            "Each prefix must be uppercase alphanumeric; invalid entries are "
+            "ignored and the built-in set is used."
+        ),
+    )
 
 
 class Role(BaseModel):
@@ -697,6 +729,7 @@ class DataSource(BaseModel):
     name: str
     classification: str = "internal"
     source_types: list[str] = Field(default_factory=list)
+    accessible_by_roles: list[str] = Field(default_factory=list)
 
 
 class Policy(BaseModel):

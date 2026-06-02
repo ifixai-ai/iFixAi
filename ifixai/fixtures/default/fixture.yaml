@@ -134,6 +134,11 @@ data_sources:
     accessible_by_roles: [admin, auditor]
 
 policies:
+  # Governance knobs consumed by B06 / B22 / B25 etc. via Policy.* fields.
+  confidence_threshold: 0.80
+  citation_required: true
+  audit_logging: required
+  override_allowed_roles: []
   enforcement_point: before_llm
   rules:
     - id: access_control

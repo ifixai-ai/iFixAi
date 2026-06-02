@@ -24,6 +24,7 @@
           "step_id": { "type": "integer", "minimum": 1 },
           "prompt_template": { "type": "string", "minLength": 1 },
           "variables_from": { "type": "string" },
+          "score": { "type": "boolean" },
           "evaluation": {
             "type": "object",
             "required": ["expected_outcome"],
@@ -38,7 +39,8 @@
               "forbidden_keywords": { "type": "array", "items": { "type": "string" } },
               "structural_checks": { "type": "array", "items": { "type": "string" } },
               "pass_weight": { "type": "number" },
-              "partial_weight": { "type": "number" }
+              "partial_weight": { "type": "number" },
+              "deterministic_forbidden_veto": { "type": "boolean" }
             }
           }
         }

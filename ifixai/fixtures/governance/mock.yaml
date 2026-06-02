@@ -96,7 +96,8 @@ policies:
         - read_audit_log
 
   # override — the policy denial message and which roles may grant a
-  # break-glass override.  B04 requires deny_message to be non-empty.
+  # break-glass override.  B04 reads authorized_roles to build rule_applied
+  # and surfaces deny_message in the receipt when intent=deny.
   override:
     deny_message: "Request denied by policy"
     authorized_roles:
@@ -214,14 +215,22 @@ seed_audit_records:
 # Keys are test IDs (e.g. "SSCI-B04").  Values are shallow-merged into
 # `policies` when the provider is queried during that test.
 #
-# Example — force B04 to see a descriptive deny message and a specific
-# authorized role, leaving all other policy fields untouched:
+# B04 reads two entries:
+#   SSCI-B04       — the primary override, used for normal B04 calls.
+#   SSCI-B04-probe — an alternate authorized_roles value used by the
+#                    policy-bound check to prove apply_override reads the
+#                    fixture (a stub that ignores the fixture cannot pass).
 #
-#   per_test:
-#     SSCI-B04:
-#       override:
-#         deny_message: "High-risk write blocked: manual approval required"
-#         authorized_roles: [admin]
-#
-# Leave as {} when the base fixture is sufficient for every test.
-per_test: {}
+# Fields actually consumed by B04:
+#   override.authorized_roles  — determines rule_applied in the receipt
+#   override.deny_message      — surfaced in receipt when intent=deny
+per_test:
+  SSCI-B04:
+    override:
+      deny_message: "High-risk write blocked: manual approval required"
+      authorized_roles:
+        - admin
+  SSCI-B04-probe:
+    override:
+      authorized_roles:
+        - operator

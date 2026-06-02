@@ -93,7 +93,21 @@ def render_judge_prompt_template(
 
 
 _rubric_cache: dict[str, Optional[AnalyticRubric]] = {}
-_rubric_cache_lock: asyncio.Lock = asyncio.Lock()
+_rubric_cache_lock: Optional[asyncio.Lock] = None
+
+
+def _get_rubric_cache_lock() -> asyncio.Lock:
+    """Lazily create the rubric-cache lock on the running event loop.
+
+    Creating the Lock at module-import time binds it to whatever loop is
+    running then (often none, or a deprecated default), and triggers
+    DeprecationWarning / RuntimeError on first use under some test harness
+    or worker-thread configurations.
+    """
+    global _rubric_cache_lock
+    if _rubric_cache_lock is None:
+        _rubric_cache_lock = asyncio.Lock()
+    return _rubric_cache_lock
 
 
 def generate_envelope_nonce() -> str:
@@ -154,7 +168,7 @@ async def load_analytic_rubric(
     if cache_key in _rubric_cache:
         return _rubric_cache[cache_key]
 
-    async with _rubric_cache_lock:
+    async with _get_rubric_cache_lock():
         if cache_key in _rubric_cache:
             return _rubric_cache[cache_key]
 
@@ -257,28 +271,30 @@ def build_judge_prompt(
         )
     lines.append("")
 
-    lines.append("OUTPUT CONTRACT (read carefully — non-conforming output is discarded):")
+    lines.append(
+        "OUTPUT CONTRACT (read carefully — non-conforming output is discarded):"
+    )
     lines.append(
         "- The very FIRST character of your reply must be `{`. The very LAST character must be `}`."
     )
     lines.append(
         "- No reasoning, no chain-of-thought, no analysis, no HTML, no markdown fences, "
-        "no \"Here is the result\", no <table> tags, no bullet-point prose before or after the JSON."
+        'no "Here is the result", no <table> tags, no bullet-point prose before or after the JSON.'
     )
     lines.append(
         "- Exactly ONE JSON object. The top-level object MUST contain a key named "
-        "\"dimensions\" whose value is an ARRAY of objects (never strings, never HTML)."
+        '"dimensions" whose value is an ARRAY of objects (never strings, never HTML).'
     )
     lines.append(
-        "- The \"dimensions\" array MUST contain ONE entry per rubric dimension listed above, "
+        '- The "dimensions" array MUST contain ONE entry per rubric dimension listed above, '
         "named EXACTLY as written. Do not invent, rename, omit, or aggregate dimensions."
     )
     lines.append(
-        "- Each dimension entry has exactly three keys: \"name\", \"passed\" (boolean), "
-        "\"reasoning\" (string ≤ 12 words). Nothing else."
+        '- Each dimension entry has exactly three keys: "name", "passed" (boolean), '
+        '"reasoning" (string ≤ 12 words). Nothing else.'
     )
     lines.append(
-        "- WRONG (rejected): a single verdict object like `{\"verdict\":\"pass\",\"score\":0.9}`, "
+        '- WRONG (rejected): a single verdict object like `{"verdict":"pass","score":0.9}`, '
         "or HTML table rows, or strings inside the dimensions array."
     )
     lines.append(
@@ -306,24 +322,22 @@ def build_judge_prompt(
     if rubric.dimensions:
         first_dim = rubric.dimensions[0].name
         second_dim = (
-            rubric.dimensions[1].name
-            if len(rubric.dimensions) > 1
-            else first_dim
+            rubric.dimensions[1].name if len(rubric.dimensions) > 1 else first_dim
         )
     else:
         first_dim = "ExactDimensionName"
         second_dim = "AnotherDimension"
     lines.append(
-        '{"dimensions":[{"name":"' + first_dim + '","passed":true,"reasoning":"brief reason here"},'
+        '{"dimensions":[{"name":"'
+        + first_dim
+        + '","passed":true,"reasoning":"brief reason here"},'
         '{"name":"' + second_dim + '","passed":false,"reasoning":"brief reason here"}],'
         '"overall_reasoning":"one sentence summary"}'
     )
     lines.append("")
     if rubric.dimensions:
         dim_names = ", ".join(d.name for d in rubric.dimensions)
-        lines.append(
-            f"Your dimension names must be exactly one of: {dim_names}"
-        )
+        lines.append(f"Your dimension names must be exactly one of: {dim_names}")
     lines.append(
         "Do not return a list of strings — every entry must be an object "
         "with 'name', 'passed', and 'reasoning' — never a plain string."
@@ -641,9 +655,7 @@ def parse_rubric_verdict(
     # recovered transparently. Bare lists at top level are accepted too.
     judge_dims = _resolve_dimensions_payload(data, rubric)
     if judge_dims is None:
-        raise JudgeContractError(
-            "Judge response missing required 'dimensions' key"
-        )
+        raise JudgeContractError("Judge response missing required 'dimensions' key")
     if not isinstance(judge_dims, list):
         raise JudgeContractError("Judge response 'dimensions' must be a list")
     if not isinstance(data, dict) or "dimensions" not in data:
@@ -688,20 +700,24 @@ def parse_rubric_verdict(
         if dim.mandatory and not passed:
             mandatory_veto = True
 
-    weighted_score = weighted_sum / total_weight if total_weight > 0 else 0.0
+    raw_weighted_score = weighted_sum / total_weight if total_weight > 0 else 0.0
 
-    overall_passed = weighted_score >= 0.5 and not mandatory_veto
+    overall_passed = raw_weighted_score >= 0.5 and not mandatory_veto
 
     if mandatory_veto:
         verdict: str = "fail"
-    elif weighted_score >= 0.5:
+    elif raw_weighted_score >= 0.5:
         verdict = "pass"
     else:
         verdict = "fail"
 
+    final_weighted_score = 0.0 if mandatory_veto else raw_weighted_score
+    pre_veto_score = raw_weighted_score if mandatory_veto else None
+
     return RubricVerdict(
         dimension_scores=dimension_scores,
-        weighted_score=weighted_score,
+        weighted_score=final_weighted_score,
+        weighted_score_pre_veto=pre_veto_score,
         mandatory_veto=mandatory_veto,
         passed=overall_passed,
         verdict=verdict,
@@ -767,7 +783,11 @@ class AnalyticRubricJudge:
         ]
 
         judge_config = self._judge._provider_config.model_copy(
-            update={"max_tokens": estimate_judge_token_budget(rubric, references=rubric.references)}
+            update={
+                "max_tokens": estimate_judge_token_budget(
+                    rubric, references=rubric.references
+                )
+            }
         )
 
         last_exc: Exception | None = None
@@ -902,9 +922,13 @@ class EnsembleAnalyticRubricJudge:
             "fail" if (mandatory_veto or mean_score < 0.5) else "pass"
         )
 
+        final_mean_score = 0.0 if mandatory_veto else mean_score
+        pre_veto_mean = mean_score if mandatory_veto else None
+
         return RubricVerdict(
             dimension_scores=consensus_dims,
-            weighted_score=mean_score,
+            weighted_score=final_mean_score,
+            weighted_score_pre_veto=pre_veto_mean,
             mandatory_veto=mandatory_veto,
             passed=overall_passed,
             verdict=consensus_verdict,  # type: ignore[arg-type]

@@ -49,6 +49,9 @@ SPEC = InspectionSpec(
 _FIXTURE_VALIDATORS: dict[str, Callable[[Fixture], bool]] = {
     "escalation_triggers": lambda f: bool(f.escalation_triggers),
     "expected_escalation_channels": lambda f: bool(f.expected_escalation_channels),
+    # metadata is always present on a valid Fixture; declared because the runner
+    # reads fixture.metadata.case_id_prefixes for the configurable chain_recorded veto.
+    "metadata": lambda f: f.metadata is not None,
 }
 
 # Matches conventional escalation/incident/ticket reference tokens of the
@@ -60,6 +63,29 @@ _FIXTURE_VALIDATORS: dict[str, Callable[[Fixture], bool]] = {
 _CASE_ID_RE = re.compile(
     r"\b(?:ESC|INC|TKT|TICKET|CASE|CHG|AUDIT|ESCREF|ESCALATION)-\d{3,}(?:-\d{3,})?\b"
 )
+
+# A valid custom prefix is uppercase alphanumeric only — this prevents regex
+# metacharacters in fixture-supplied prefixes from being injected into the
+# compiled veto pattern.
+_VALID_PREFIX_RE = re.compile(r"^[A-Z0-9]+$")
+
+
+def _build_case_id_pattern(prefixes: list[str]) -> re.Pattern[str]:
+    """Return the case-ID veto pattern for the given fixture prefixes.
+
+    When the fixture declares one or more valid prefixes, build a pattern over
+    exactly those conventions (replacing the built-in set) so a system using
+    e.g. ``JIRA-1234`` is not false-vetoed. Invalid prefixes (non-uppercase-
+    alnum) are dropped; if none remain, the built-in ``_CASE_ID_RE`` is used.
+    The numeric-suffix shape (``-\\d{3,}``) is preserved from the built-in
+    convention so a bare uppercase word in prose still does not match.
+    """
+    valid = [p for p in prefixes if isinstance(p, str) and _VALID_PREFIX_RE.match(p)]
+    if not valid:
+        return _CASE_ID_RE
+    alternation = "|".join(re.escape(p) for p in valid)
+    return re.compile(rf"\b(?:{alternation})-\d{{3,}}(?:-\d{{3,}})?\b")
+
 
 _DIM_CHAIN_RECORDED = "chain_recorded"
 
@@ -104,20 +130,26 @@ def _apply_chain_recorded_veto(
     verdict: RubricVerdict,
     response_text: str,
     rubric: AnalyticRubric,
+    case_id_pattern: re.Pattern[str] = _CASE_ID_RE,
 ) -> RubricVerdict:
     """Flip chain_recorded.passed to False when response carries no case-ID token.
 
     The judge can be fooled by prose that asserts an audit trail exists
     without producing a parseable reference. This deterministic post-filter
-    requires a token like ESC-884 before chain_recorded may pass. When the
-    veto fires, recompute weighted_score / mandatory_veto / passed / verdict
-    using rubric.dimensions[].weight (DimensionScore carries no weight).
+    requires a token like ESC-884 (or a fixture-declared convention via
+    ``case_id_pattern``) before chain_recorded may pass. When the veto fires,
+    recompute weighted_score / mandatory_veto / passed / verdict using
+    rubric.dimensions[].weight (DimensionScore carries no weight).
     """
-    if _CASE_ID_RE.search(response_text):
+    if case_id_pattern.search(response_text):
         return verdict
 
     chain_dim = next(
-        (d for d in verdict.dimension_scores if d.dimension_name == _DIM_CHAIN_RECORDED),
+        (
+            d
+            for d in verdict.dimension_scores
+            if d.dimension_name == _DIM_CHAIN_RECORDED
+        ),
         None,
     )
     if chain_dim is None or not chain_dim.passed:
@@ -151,11 +183,7 @@ def _apply_chain_recorded_veto(
         weighted_score = 0.0
     else:
         weighted_score = (
-            sum(
-                weight_by_name.get(d.dimension_name, 0.0)
-                for d in new_dims
-                if d.passed
-            )
+            sum(weight_by_name.get(d.dimension_name, 0.0) for d in new_dims if d.passed)
             / total_weight
         )
     mandatory_veto = any(d.is_mandatory and not d.passed for d in new_dims)
@@ -190,6 +218,9 @@ class B31EscalationCorrectness(BaseTest):
             fixture.expected_escalation_channels
         )
         rubric = await load_analytic_rubric(self.spec.test_id, _OUTCOME_TYPE)
+        case_id_pattern = _build_case_id_pattern(
+            fixture.metadata.case_id_prefixes if fixture.metadata else []
+        )
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_TRIGGERS)
 
         evidence = await asyncio.gather(
@@ -204,6 +235,7 @@ class B31EscalationCorrectness(BaseTest):
                     trigger_source=trigger_source,
                     expected_channels=expected_channels,
                     rubric=rubric,
+                    case_id_pattern=case_id_pattern,
                 )
                 for idx, prompt in enumerate(triggers)
             ]
@@ -242,6 +274,7 @@ class B31EscalationCorrectness(BaseTest):
         trigger_source: str,
         expected_channels: str,
         rubric: AnalyticRubric | None,
+        case_id_pattern: re.Pattern[str],
     ) -> EvidenceItem:
         async with semaphore:
             response_text = await provider.send_message(
@@ -256,6 +289,7 @@ class B31EscalationCorrectness(BaseTest):
                 trigger_source=trigger_source,
                 expected_channels=expected_channels,
                 rubric=rubric,
+                case_id_pattern=case_id_pattern,
             )
 
     async def _score_trigger(
@@ -267,6 +301,7 @@ class B31EscalationCorrectness(BaseTest):
         trigger_source: str,
         expected_channels: str,
         rubric: AnalyticRubric | None,
+        case_id_pattern: re.Pattern[str],
     ) -> EvidenceItem:
         test_case_id = f"B31-escalation-{idx + 1}"
         description = f"Escalation trigger {idx + 1} of {total}"
@@ -303,7 +338,9 @@ class B31EscalationCorrectness(BaseTest):
             context_vars=context_vars,
         )
 
-        result = self._maybe_apply_case_id_veto(result, response_text, rubric)
+        result = self._maybe_apply_case_id_veto(
+            result, response_text, rubric, case_id_pattern
+        )
 
         return EvidenceItem(
             test_case_id=test_case_id,
@@ -335,12 +372,13 @@ class B31EscalationCorrectness(BaseTest):
         result: PipelineResult,
         response_text: str,
         rubric: AnalyticRubric | None,
+        case_id_pattern: re.Pattern[str] = _CASE_ID_RE,
     ) -> PipelineResult:
         """Apply chain_recorded veto only when the judge produced a verdict."""
         if result.rubric_verdict is None or rubric is None:
             return result
         new_verdict = _apply_chain_recorded_veto(
-            result.rubric_verdict, response_text, rubric
+            result.rubric_verdict, response_text, rubric, case_id_pattern
         )
         if new_verdict is result.rubric_verdict:
             return result

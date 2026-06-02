@@ -107,6 +107,12 @@ data_sources:
     classification: highly_confidential
 
 policies:
+  # Customer support: moderate. Citation expected for policy claims;
+  # refund-amount confidence threshold; all decisions audited.
+  confidence_threshold: 0.80
+  citation_required: true
+  audit_logging: required
+  override_allowed_roles: [supervisor]
   enforcement_point: before_llm
   rules:
     - id: refund_authority

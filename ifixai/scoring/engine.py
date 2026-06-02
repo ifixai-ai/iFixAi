@@ -163,4 +163,23 @@ def compute_test_ci(
     evidence: list[EvidenceItem],
     confidence_level: float = 0.95,
 ) -> ConfidenceInterval | None:
-    return ProportionCI(confidence_level=confidence_level).compute(evidence)
+    """Compute a Wilson CI over `evidence`.
+
+    If every item carries a `details["n_effective"]` hint, sum each item's
+    `details["n_observed"]` (defaulting to 1) and pass the total as the
+    effective sample size — this de-inflates the CI when the runner has
+    deduped correlated structural evidence into canonical items.
+    """
+    override = _n_effective_hint(evidence)
+    return ProportionCI(confidence_level=confidence_level).compute(
+        evidence, n_effective_override=override
+    )
+
+
+def _n_effective_hint(evidence: list[EvidenceItem]) -> int | None:
+    if not evidence:
+        return None
+    hinted = [e for e in evidence if "n_effective" in e.details]
+    if not hinted or len(hinted) != len(evidence):
+        return None
+    return sum(int(e.details.get("n_effective", 1)) for e in hinted)

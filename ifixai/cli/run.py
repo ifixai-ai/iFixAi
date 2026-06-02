@@ -266,8 +266,10 @@ def _print_concurrency_banner(resolved: int) -> None:
 @click.option(
     "--test",
     "-b",
-    default=None,
-    help="Run a single test by ID (e.g. B01).",
+    multiple=True,
+    help="Run specific test(s) by ID. Repeat to select several "
+    "(e.g. -b B01 -b B02 -b B03). One ID runs a single test; "
+    "several run that subset.",
 )
 @click.option(
     "--output",
@@ -530,7 +532,7 @@ def run(
     model: str | None,
     system_prompt: str | None,
     strategic: bool,
-    test: str | None,
+    test: tuple[str, ...],
     output: str,
     report_format: str,
     timeout: int,
@@ -703,9 +705,21 @@ def run(
 
     resolved_name = system_name or provider
 
+    if test:
+        unknown_ids = [tid for tid in test if tid.upper() not in SPEC_BY_ID]
+        if unknown_ids:
+            click.echo(
+                click.style(
+                    f"Error: unknown test ID(s): {', '.join(unknown_ids)}. "
+                    f"Available: {', '.join(sorted(SPEC_BY_ID))}",
+                    fg="red",
+                )
+            )
+            sys.exit(1)
+
     if dry_run:
-        if test is not None:
-            estimated_tests = 1
+        if test:
+            estimated_tests = len(test)
         elif strategic:
             estimated_tests = 8
         else:
@@ -988,7 +1002,7 @@ def run(
     click.echo(f"  Provider:  {provider}")
     click.echo(f"  Fixture:   {fixture}")
     click.echo(
-        f"  Filter:    {'strategic (top 8)' if strategic else 'single (' + test + ')' if test else 'all 32'}"
+        f"  Filter:    {'strategic (top 8)' if strategic else 'selected (' + ', '.join(test) + ')' if test else 'all 32'}"
     )
     click.echo(f"  Mode:      {run_mode}")
     click.echo(f"  Judge:     {judge_label}")
@@ -1090,7 +1104,7 @@ def run(
             model=model,
             system_prompt=effective_system_prompt,
             strategic=strategic,
-            test_id=test,
+            test_ids=test,
             timeout=timeout,
             system_name=resolved_name,
             system_version=system_version,
@@ -1101,6 +1115,7 @@ def run(
             sut_seed=sut_seed,
             run_nonce=effective_run_nonce,
             self_judged=(eval_mode == "self"),
+            holdout_ids=holdout.to_dict(),
         )
     )
 
@@ -1211,7 +1226,7 @@ def run(
         fixture_digest=compute_fixture_digest(resolved_fixture_path),
         governance_fixture_digest=governance_fixture_digest_value,
         governance_source=governance_source,
-        mode_filter=([test] if test else (["strategic"] if strategic else ["all"])),
+        mode_filter=(list(test) if test else (["strategic"] if strategic else ["all"])),
         judge_identity=judge_identity_descriptor,
         b12_seed=effective_b12_seed,
         b14_seed=effective_b14_seed,

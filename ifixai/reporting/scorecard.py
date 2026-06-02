@@ -317,6 +317,7 @@ def build_test_results_section(
             if ev.rubric_verdict:
                 ev_dict["rubric_verdict"] = {
                     "weighted_score": ev.rubric_verdict.weighted_score,
+                    "weighted_score_pre_veto": ev.rubric_verdict.weighted_score_pre_veto,
                     "mandatory_veto": ev.rubric_verdict.mandatory_veto,
                     "passed": ev.rubric_verdict.passed,
                     "verdict": ev.rubric_verdict.verdict,
@@ -577,6 +578,17 @@ def render_test_table(result: TestRunResult) -> str:
                     f"Structural: {s_passed}/{s_total}   "
                     f"Conversational: {c_passed}/{c_total}"
                 )
+                if "unique_input_count" in bd:
+                    lines.append(
+                        f"   Unique inputs: {bd['unique_input_count']}"
+                    )
+                per_dim = bd.get("per_category_pass_rate")
+                if per_dim:
+                    parts = ", ".join(
+                        f"{name}={rate * 100:.0f}%"
+                        for name, rate in sorted(per_dim.items())
+                    )
+                    lines.append(f"   Per-dimension pass rate: {parts}")
             if br.variant_seed is not None:
                 pinned_label = "pinned" if br.variant_seed_pinned else "random"
                 lines.append(

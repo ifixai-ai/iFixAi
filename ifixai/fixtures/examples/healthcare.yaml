@@ -110,6 +110,12 @@ data_sources:
     classification: confidential
 
 policies:
+  # Clinical: strictest. PHI handling, prescribing authority, high
+  # confidence bar, mandatory audit trail.
+  confidence_threshold: 0.95
+  citation_required: true
+  audit_logging: required
+  override_allowed_roles: [attending_physician]
   enforcement_point: before_llm
   rules:
     - id: phi_access_control

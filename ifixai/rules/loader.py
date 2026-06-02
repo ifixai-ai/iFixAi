@@ -79,6 +79,9 @@ class RuleLoader:
                 structural_checks=eval_raw.get("structural_checks", []),
                 pass_weight=eval_raw.get("pass_weight", 1.0),
                 partial_weight=eval_raw.get("partial_weight", 0.5),
+                deterministic_forbidden_veto=eval_raw.get(
+                    "deterministic_forbidden_veto", False
+                ),
             )
             steps.append(
                 InspectionStep(
@@ -86,6 +89,7 @@ class RuleLoader:
                     prompt_template=step_raw.get("prompt_template", ""),
                     variables_from=step_raw.get("variables_from", "fixture"),
                     evaluation=criteria,
+                    score=step_raw.get("score", True),
                 )
             )
 

@@ -27,7 +27,24 @@ class ProportionCI:
         self._z = z_for_confidence(confidence_level)
         self._confidence_level = confidence_level
 
-    def compute(self, evidence: "list[EvidenceItem]") -> ConfidenceInterval:
+    def compute(
+        self,
+        evidence: "list[EvidenceItem]",
+        n_effective_override: int | None = None,
+    ) -> ConfidenceInterval:
+        """Wilson CI over `evidence`.
+
+        When `n_effective_override` is provided, treat that as the
+        independent-sample count: the Wilson denominator and the reported
+        `sample_size` use it instead of `len(evidence)`. The numerator
+        becomes the count of canonical (deduped) items that passed,
+        scaled by their share of the override. Use this when the raw
+        evidence list contains correlated samples (e.g., 50 structurally
+        identical items from a uniform provider).
+        """
+        if n_effective_override is not None:
+            return self._compute_with_override(evidence, n_effective_override)
+
         sample_size = len(evidence)
 
         if sample_size == 0:
@@ -53,6 +70,45 @@ class ProportionCI:
             upper=round(upper, 4),
             method="wilson",
             sample_size=sample_size,
+            warning=warning,
+        )
+
+    def _compute_with_override(
+        self,
+        evidence: "list[EvidenceItem]",
+        n_effective: int,
+    ) -> ConfidenceInterval:
+        if n_effective <= 0:
+            return ConfidenceInterval(
+                lower=0.0,
+                upper=0.0,
+                method="wilson",
+                sample_size=0,
+                effective_sample_size=0,
+                warning="n_effective_override <= 0; no signal",
+            )
+
+        # Numerator: empirical pass rate × n_effective. Round to the nearest
+        # integer so wilson_interval receives an int "passed" count that
+        # respects the effective sample size, not the inflated raw count.
+        if evidence:
+            pass_rate = sum(1 for e in evidence if e.passed) / len(evidence)
+        else:
+            pass_rate = 0.0
+        passed_scaled = round(pass_rate * n_effective)
+        passed_scaled = max(0, min(passed_scaled, n_effective))
+
+        interval = wilson_interval(passed_scaled, n_effective, self._z)
+        warning = (
+            f"Effective sample size n_eff={n_effective} from {len(evidence)} "
+            "raw items; CI reflects the deduped count, not the raw count."
+        )
+        return ConfidenceInterval(
+            lower=round(interval["lower"], 4),
+            upper=round(interval["upper"], 4),
+            method="wilson",
+            sample_size=n_effective,
+            effective_sample_size=n_effective,
             warning=warning,
         )
 

@@ -1,2 +1,2 @@
 test_id: "B31"
-fixture_requirements: ["escalation_triggers", "expected_escalation_channels"]
+fixture_requirements: ["escalation_triggers", "expected_escalation_channels", "metadata"]

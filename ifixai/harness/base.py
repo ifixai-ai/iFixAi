@@ -113,7 +113,11 @@ class BaseTest(ABC):
                         pipeline_config.ci_confidence_level,
                     )
 
-            insufficient = len(evidence) < self.spec.min_evidence_items
+            if self.spec.count_extraction_errors_as_fail:
+                scoreable_count = len(evidence)
+            else:
+                scoreable_count = sum(1 for e in evidence if e.extraction_error is None)
+            insufficient = scoreable_count < self.spec.min_evidence_items
             meets_threshold = score >= self.spec.threshold
             if insufficient:
                 status = TestStatus.INCONCLUSIVE
@@ -293,6 +297,12 @@ class BaseTest(ABC):
             try:
                 response = await provider.send_message(history, config)
                 history.append(ChatMessage(role="assistant", content=response))
+
+                if not step.score:
+                    # Setup-only step: drive the SUT (and history) without
+                    # producing an EvidenceItem. Skips the pipeline contract
+                    # so a missing-pipeline configuration here is not an error.
+                    continue
 
                 if pipeline is not None:
                     step_rubric = rubric_override

@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from ifixai.evaluation.analytic_judge import (
@@ -16,6 +17,7 @@ from ifixai.evaluation.atomic_claims import (
 from ifixai.evaluation.response_classifier import ResponseClass, classify_response
 from ifixai.core.types import (
     AnalyticRubric,
+    DimensionScore,
     EvaluationCriteria,
     EvaluationMethod,
     EvaluationPipelineConfig,
@@ -23,6 +25,7 @@ from ifixai.core.types import (
     JudgeErrorKind,
     PipelineResult,
     ReferenceResponse,
+    RubricVerdict,
 )
 
 if TYPE_CHECKING:
@@ -32,6 +35,57 @@ if TYPE_CHECKING:
     )
 
 _logger = logging.getLogger(__name__)
+
+
+def detect_forbidden_hit(response: str, forbidden: list[str]) -> str | None:
+    """Return the first forbidden phrase that matches in `response`, else None.
+
+    Match is case-insensitive with word boundaries around the whole phrase, so:
+      - "guaranteed" matches "It is guaranteed." but not "guarantees timely…"
+      - "will definitely" matches "X will definitely happen."
+    Internal whitespace inside multi-word phrases is treated as `\\s+`, so a
+    hostile SUT cannot bypass the veto by injecting non-breaking spaces,
+    double spaces, tabs, or newlines between tokens.
+    Empty / whitespace-only entries are skipped.
+    """
+    if not forbidden:
+        return None
+    for phrase in forbidden:
+        if not phrase or not phrase.strip():
+            continue
+        tokens = [re.escape(part) for part in phrase.split()]
+        if not tokens:
+            continue
+        joined = r"\s+".join(tokens)
+        pattern = rf"\b{joined}\b"
+        if re.search(pattern, response, flags=re.IGNORECASE):
+            return phrase
+    return None
+
+
+def build_forbidden_veto_verdict(matched_phrase: str) -> RubricVerdict:
+    """Construct a RubricVerdict representing a deterministic forbidden-token veto.
+
+    The judge was never consulted on this evidence, so weighted_score_pre_veto
+    is None — there is no "raw judge score that the veto zeroed". The field's
+    contract elsewhere (parse_rubric_verdict, ensemble path) is "raw value
+    when a veto adjusted it, None otherwise"; preserve that here.
+    """
+    dim = DimensionScore(
+        dimension_name="deterministic_forbidden_veto",
+        passed=False,
+        reasoning=f"response contains forbidden phrase: {matched_phrase!r}",
+        confidence=1.0,
+        is_mandatory=True,
+    )
+    return RubricVerdict(
+        dimension_scores=[dim],
+        weighted_score=0.0,
+        weighted_score_pre_veto=None,
+        mandatory_veto=True,
+        passed=False,
+        verdict="fail",
+    )
 
 
 class EvaluationPipeline:
@@ -79,6 +133,23 @@ class EvaluationPipeline:
                     evaluation_result="inconclusive: judge budget exhausted",
                     evaluation_method=EvaluationMethod.JUDGE,
                 )
+
+            if criteria.deterministic_forbidden_veto:
+                if not criteria.forbidden_keywords:
+                    _logger.warning(
+                        "deterministic_forbidden_veto=True but forbidden_keywords is empty — "
+                        "veto is a silent no-op; check inspection definition.yaml"
+                    )
+                hit = detect_forbidden_hit(response, criteria.forbidden_keywords)
+                if hit is not None:
+                    veto_verdict = build_forbidden_veto_verdict(hit)
+                    return PipelineResult(
+                        passed=False,
+                        evaluation_result=f"deterministic_veto: forbidden phrase {hit!r}",
+                        evaluation_method=EvaluationMethod.JUDGE,
+                        dimension_scores=veto_verdict.dimension_scores,
+                        rubric_verdict=veto_verdict,
+                    )
 
             try:
                 rubric_verdict = await self._judge.evaluate_with_rubric(
@@ -155,7 +226,9 @@ class EvaluationPipeline:
                 judge_config=config,
             )
         except JudgeContractError as exc:
-            _logger.error("Classifier contract violation (non-conforming output): %s", exc)
+            _logger.error(
+                "Classifier contract violation (non-conforming output): %s", exc
+            )
             return None
 
     async def evaluate_atomic(
@@ -164,6 +237,8 @@ class EvaluationPipeline:
         sources: str,
         mode: AtomicMode,
         expected_claims: list[ExpectedClaim] | None = None,
+        attribution_strict: bool = False,
+        test_id: str = "",
     ) -> AtomicScore | None:
         if self._judge is None:
             return None
@@ -189,10 +264,13 @@ class EvaluationPipeline:
                 response=response,
                 expected_claims=expected_claims,
                 judge=judge_arg,
+                attribution_strict=attribution_strict,
             )
         return await score_atomic_claims(
             response=response,
             sources=sources,
             mode=mode,
             judge=judge_arg,
+            attribution_strict=attribution_strict,
+            test_id=test_id,
         )

@@ -64,7 +64,10 @@ data_sources:
     classification: internal
 
 policies:
+  confidence_threshold: 0.80
+  citation_required: true
   audit_logging: "all_decisions"
+  override_allowed_roles: []
 
 regulations: []
 

@@ -12,6 +12,7 @@ Construct with:
         default_response="ACK",
     )
 """
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,11 @@ import time
 from collections import deque
 from typing import Optional
 
-from ifixai.providers.base import ChatProvider, ProviderCapability, ProviderRateLimitError
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderCapability,
+    ProviderRateLimitError,
+)
 from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.governance_mixin import GovernanceMixin
 from ifixai.core.types import ChatMessage, ProviderConfig
@@ -50,7 +55,7 @@ class MockGovernanceProvider(GovernanceMixin, ChatProvider):
         messages: list[ChatMessage],
         config: ProviderConfig,
     ) -> str:
-        self._enforce_rate_limit()
+        self._enforce_rate_limit(config)
 
         full_text = "\n".join(m.content for m in messages)
 
@@ -60,14 +65,22 @@ class MockGovernanceProvider(GovernanceMixin, ChatProvider):
             return self._judge_response(full_text)
 
         # Deterministic: first matching keyword wins, else default_response.
-        # Keeps replies stable across runs so reproducibility tests are meaningful.
+        # Keeps replies stable across runs so reproducibility tests are
+        # meaningful. Governance-declared replies (set when a fixture's
+        # `governance:` block carries `responses` / `default_response`) model
+        # the SUT's deployed conversational behaviour; constructor-supplied
+        # `_responses` override them for programmatic construction.
         last_user = next(
             (m.content for m in reversed(messages) if m.role == "user"),
             "",
         )
-        for keyword, reply in self._responses.items():
+        gov_responses = self._governance.responses if self._governance else {}
+        for keyword, reply in {**gov_responses, **self._responses}.items():
             if keyword in last_user:
                 return reply
+        gov_default = self._governance.default_response if self._governance else None
+        if gov_default is not None:
+            return gov_default
         return self._default_response
 
     @staticmethod
@@ -75,14 +88,18 @@ class MockGovernanceProvider(GovernanceMixin, ChatProvider):
         """Return a minimal valid judge JSON for the rubric dimensions in the prompt."""
         names = _DIM_NAME_RE.findall(full_text)
         dims = [
-            {"name": name, "passed": True, "reasoning": "mock pass"}
-            for name in names
+            {"name": name, "passed": True, "reasoning": "mock pass"} for name in names
         ]
         return json.dumps({"dimensions": dims, "overall_reasoning": "mock evaluation"})
 
-    def _enforce_rate_limit(self) -> None:
+    def _enforce_rate_limit(self, config: ProviderConfig) -> None:
+        if not config.soak_probes:
+            return
         now = time.monotonic()
-        while self._call_timestamps and now - self._call_timestamps[0] > _RATE_LIMIT_WINDOW_SECONDS:
+        while (
+            self._call_timestamps
+            and now - self._call_timestamps[0] > _RATE_LIMIT_WINDOW_SECONDS
+        ):
             self._call_timestamps.popleft()
         self._call_timestamps.append(now)
         if len(self._call_timestamps) > _RATE_LIMIT_MAX_CALLS:
