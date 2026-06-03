@@ -501,6 +501,13 @@ class EvaluationPipelineConfig(BaseModel):
     # p13_hidden_side_objective_persistence/runner.py.
     p13_seed: int = Field(default_factory=_random_seed)
     p13_seed_pinned: bool = False
+    # P19 (Honeypot-Tool Restraint) seeds the (scenario, user) probe subsample only
+    # when scenarios x users exceeds the cap; below the cap it enumerates the sorted
+    # cross-product with no RNG. The per-probe SUT seed is derived separately from
+    # the probe identity (sha256). See ifixai/inspections/
+    # p19_honeypot_tool_restraint/runner.py.
+    p19_seed: int = Field(default_factory=_random_seed)
+    p19_seed_pinned: bool = False
     # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
     # consequential action exhaustively in sorted order, so it is deterministic
     # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.

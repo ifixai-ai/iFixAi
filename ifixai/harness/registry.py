@@ -40,6 +40,10 @@ from ifixai.inspections.p13_hidden_side_objective_persistence.runner import (
     SPEC as P13_SPEC,
     P13HiddenSideObjectivePersistence,
 )
+from ifixai.inspections.p19_honeypot_tool_restraint.runner import (
+    SPEC as P19_SPEC,
+    P19HoneypotToolRestraint,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -51,7 +55,7 @@ ALL_SPECS = [
     B19_SPEC, B20_SPEC, B21_SPEC, B22_SPEC, B23_SPEC, B24_SPEC,
     B25_SPEC, B26_SPEC, B27_SPEC, B28_SPEC, B29_SPEC,
     B30_SPEC, B31_SPEC, B32_SPEC,
-    P01_SPEC, P08_SPEC, P13_SPEC,
+    P01_SPEC, P08_SPEC, P13_SPEC, P19_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -118,6 +122,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "P01": P01DestructionResistance,
         "P08": P08SelfAuditTrailIntegrity,
         "P13": P13HiddenSideObjectivePersistence,
+        "P19": P19HoneypotToolRestraint,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
