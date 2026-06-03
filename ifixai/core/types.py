@@ -21,6 +21,7 @@ class InspectionCategory(str, Enum):
     OPACITY = "OPACITY"  # Transparency & Auditability
     SABOTAGE = "SABOTAGE"  # Operational Harm to the Organization (Category VI)
     SUBVERSION = "SUBVERSION"  # Oversight Evasion & Audit Integrity (Category VII)
+    CONCEALMENT = "CONCEALMENT"  # Hidden Agendas & Long-Horizon Deception (Category VIII)
 
 
 class TestGrade(str, Enum):
@@ -494,6 +495,12 @@ class EvaluationPipelineConfig(BaseModel):
     b32_seed: int = Field(default_factory=_random_seed)
     b29_seed_pinned: bool = False
     b32_seed_pinned: bool = False
+    # P13 (Hidden Side-Objective Persistence) seeds the trajectory subsample only
+    # when seeds x users exceeds the cap; below the cap it enumerates the sorted
+    # cross-product with no RNG. See ifixai/inspections/
+    # p13_hidden_side_objective_persistence/runner.py.
+    p13_seed: int = Field(default_factory=_random_seed)
+    p13_seed_pinned: bool = False
     # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
     # consequential action exhaustively in sorted order, so it is deterministic
     # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.

@@ -36,6 +36,10 @@ from ifixai.inspections.b31_escalation_correctness.runner import SPEC as B31_SPE
 from ifixai.inspections.b32_off_topic_detection.runner import SPEC as B32_SPEC, B32OffTopicDetection
 from ifixai.inspections.p01_destruction_resistance.runner import SPEC as P01_SPEC, P01DestructionResistance
 from ifixai.inspections.p08_self_audit_trail_integrity.runner import SPEC as P08_SPEC, P08SelfAuditTrailIntegrity
+from ifixai.inspections.p13_hidden_side_objective_persistence.runner import (
+    SPEC as P13_SPEC,
+    P13HiddenSideObjectivePersistence,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -47,13 +51,14 @@ ALL_SPECS = [
     B19_SPEC, B20_SPEC, B21_SPEC, B22_SPEC, B23_SPEC, B24_SPEC,
     B25_SPEC, B26_SPEC, B27_SPEC, B28_SPEC, B29_SPEC,
     B30_SPEC, B31_SPEC, B32_SPEC,
-    P01_SPEC, P08_SPEC,
+    P01_SPEC, P08_SPEC, P13_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 
-# B-series: B01..B32 (Categories I–V). P-series: P01.. (Category VI — SABOTAGE).
-_TEST_ID_PATTERN = re.compile(r"^(B(0[1-9]|[12][0-9]|3[0-2])|P0[1-9])$")
+# B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI+ —
+# SABOTAGE / SUBVERSION / CONCEALMENT). Both ranges share the NN shape.
+_TEST_ID_PATTERN = re.compile(r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2]))$")
 _LEGACY_PREFIXES = ("SSCI-",)
 
 
@@ -71,7 +76,7 @@ def normalize_test_id(value: str) -> str:
             break
     if not _TEST_ID_PATTERN.match(candidate):
         raise ValueError(
-            f"Unknown test id: {value!r}. Expected B01..B32 or P01 (bare form)."
+            f"Unknown test id: {value!r}. Expected B01..B32 or P01..P32 (bare form)."
         )
     return candidate
 
@@ -112,6 +117,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "B32": B32OffTopicDetection,
         "P01": P01DestructionResistance,
         "P08": P08SelfAuditTrailIntegrity,
+        "P13": P13HiddenSideObjectivePersistence,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -133,6 +139,7 @@ CATEGORIES = {
     5: InspectionCategory.OPACITY,
     6: InspectionCategory.SABOTAGE,
     7: InspectionCategory.SUBVERSION,
+    8: InspectionCategory.CONCEALMENT,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -143,6 +150,7 @@ CATEGORY_DESCRIPTIONS = {
     5: "OPACITY — Transparency & Auditability",
     6: "SABOTAGE — Operational Harm to the Organization",
     7: "SUBVERSION — Oversight Evasion & Audit Integrity",
+    8: "CONCEALMENT — Hidden Agendas & Long-Horizon Deception",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS
