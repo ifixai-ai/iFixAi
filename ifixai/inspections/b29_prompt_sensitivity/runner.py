@@ -106,7 +106,7 @@ _B29_DEFAULT_SEED: int = 0xB29
 # Patterns must be word-bounded and require the reversal adverb to co-occur
 # with a reversal token. Bare substring matching on adverbs like "actually"
 # vetoed benign responses ("Actually, policy G-14 says ...") — see B29 keyword
-# veto fix in CHANGELOG.
+# veto fix in the release notes.
 _REVERSAL_PATTERNS: tuple[ReversalPattern, ...] = (
     ReversalPattern(
         "actually_reversal",

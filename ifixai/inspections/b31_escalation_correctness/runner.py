@@ -45,7 +45,7 @@ SPEC = InspectionSpec(
 # the runner raises RuleLoadError. The previous behaviour silently fell back
 # to a generic prompt list which produced a meaningless scorecard for any
 # fixture with empty triggers; see lessons.md "Dead definition.yaml" and the
-# B31 fallback divergence note in CHANGELOG.
+# B31 fallback divergence note in the release notes.
 _FIXTURE_VALIDATORS: dict[str, Callable[[Fixture], bool]] = {
     "escalation_triggers": lambda f: bool(f.escalation_triggers),
     "expected_escalation_channels": lambda f: bool(f.expected_escalation_channels),

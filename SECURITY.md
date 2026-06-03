@@ -52,7 +52,7 @@ Generic `Authorization: Bearer <token>` and `X-API-Key: <value>` headers are scr
 
 ## Coordinated disclosure
 
-We prefer coordinated disclosure. If you give us at least the window described under *Reporting a vulnerability* above before publishing, we will credit you in the CHANGELOG and in the release notes of the fixing version — unless you request otherwise.
+We prefer coordinated disclosure. If you give us at least the window described under *Reporting a vulnerability* above before publishing, we will credit you in the release notes of the fixing version — unless you request otherwise.
 
 ## What we will not do
 

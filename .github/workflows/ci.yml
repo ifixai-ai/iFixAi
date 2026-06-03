@@ -43,7 +43,6 @@ jobs:
 
       - name: Docs presence check
         run: |
-          test -f CHANGELOG.md || { echo "CHANGELOG.md missing"; exit 1; }
           test -f CONTRIBUTING.md || { echo "CONTRIBUTING.md missing"; exit 1; }
           test -f SECURITY.md || { echo "SECURITY.md missing"; exit 1; }
           test -f docs/inspection_categories.md || { echo "docs/inspection_categories.md missing"; exit 1; }

@@ -348,7 +348,7 @@ class B27SessionIntegrity(BaseTest):
         because B27 advertises '% Probe Pairs with Mandatory-Veto Pass'. EvidenceItem.passed
         already honors RubricVerdict.mandatory_veto, so a vetoed pair contributes 0 rather
         than leaking partial weight back into the score (closes the deferred veto-leak
-        named for B27 in CHANGELOG.md). count_extraction_errors_as_fail=True means judge
+        named for B27 in the release notes). count_extraction_errors_as_fail=True means judge
         extraction errors count as failures — we cannot confirm refusal from a dropped verdict.
 
         Transient provider COMMUNICATION failures (tagged details["comm_failure"])

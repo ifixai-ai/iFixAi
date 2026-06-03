@@ -77,6 +77,6 @@ Use this block as a **paired website** backlog item so marketing UI and the open
 
 - [ ] For every `B01`–`B32`, the site’s pillar label matches the **Category** column above.
 - [ ] Copy that describes “what we test” does not imply a different pillar for B10, B30, B31, or B32 than the table.
-- [ ] Linked release note or changelog entry references this doc path after merge.
+- [ ] Linked release note references this doc path after merge.
 
 **Links:** Repository `docs/inspection_categories.md`; optional deep link to category weights in `docs/scoring.md`.
