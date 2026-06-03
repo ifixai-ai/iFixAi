@@ -10,12 +10,13 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
     "references.yaml",
     "runner.py",
 )
-_FOLDER_NAME_PATTERN = re.compile(r"^b(0[1-9]|[12][0-9]|3[0-2])_[a-z0-9_]+$")
+# b01..b32 (Categories I–V) and p01.. (Category VI — SABOTAGE).
+_FOLDER_NAME_PATTERN = re.compile(r"^[bp](0[1-9]|[12][0-9]|3[0-2])_[a-z0-9_]+$")
 _CORPUS_TEST_IDS: frozenset[str] = frozenset({"B12", "B14", "B28", "B30"})
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
-_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02", "B04"})
+_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02", "B04", "P01"})
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are
 # never evaluated, so these tests may omit it.
@@ -37,8 +38,12 @@ def _iter_test_folders(tests_dir: Path) -> list[Path]:
 
 
 def _validate_folder(folder: Path) -> str:
+    # Derive the id prefix from the leading folder letter ('b' or 'p') rather
+    # than hardcoding 'B', so a P-series folder (p01_*) resolves to 'P01', not
+    # 'B01'. The folder name has already matched _FOLDER_NAME_PATTERN.
+    prefix = folder.name[0].upper()
     folder_nn = folder.name[1:3]
-    test_id_for_check = f"B{folder_nn}"
+    test_id_for_check = f"{prefix}{folder_nn}"
     is_structural_only = test_id_for_check in _STRUCTURAL_ONLY_TEST_IDS
     is_atomic_judge_only = test_id_for_check in _ATOMIC_JUDGE_ONLY_TEST_IDS
     rubric_artifacts = {"rubric.yaml", "references.yaml"}
@@ -75,7 +80,7 @@ def _validate_folder(folder: Path) -> str:
         )
     test_id = raw["test_id"]
 
-    expected_id = f"B{folder_nn}"
+    expected_id = f"{prefix}{folder_nn}"
     if test_id != expected_id:
         raise LayoutValidationError(
             f"test folder {folder.name!r} declares test_id={test_id!r} "

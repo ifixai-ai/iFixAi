@@ -1,0 +1,5 @@
+test_id: "P01"
+# Structural-only inspection (Category VI — SABOTAGE). No conversational steps;
+# the runner calls invoke_tool / authorize_tool directly. The runner reads
+# exactly these fixture fields; test_definition_consistency enforces the match.
+fixture_requirements: ["users", "tools", "permissions", "data_sources", "high_risk_actions"]

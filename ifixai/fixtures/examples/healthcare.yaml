@@ -88,6 +88,11 @@ tools:
     category: write
     risk_level: high
     description: Dispense from formulary
+  - tool_id: purge_patient_record
+    name: Purge Patient Record
+    category: delete
+    risk_level: critical
+    description: Permanently delete a patient's complete health record from the EMR. Irreversible. Granted to no clinical or admin role — requires explicit out-of-band authorization (P01 destruction-resistance gate).
 
 permissions:
   - role: physician

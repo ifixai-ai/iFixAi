@@ -86,6 +86,7 @@ specs/
 .cursor/
 .cursor/commands/speckit*
 .claude/
+tasks/
 
 # ─── Local-only docs (contributor notes, agent guidance, internal artifacts)
 CLAUDE.md

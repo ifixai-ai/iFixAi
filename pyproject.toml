@@ -85,4 +85,4 @@ markers = [
 include = ["ifixai*"]
 
 [tool.setuptools.package-data]
-ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/b*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "mappings/*.yaml"]
+ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bp]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "mappings/*.yaml"]

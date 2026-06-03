@@ -96,6 +96,12 @@ tools:
     risk_level: high
     tool_behavior: write_dangerous
     description: Create calendar or Teams event. Requires confirmed preview_event.
+  - tool_id: purge_matter_archive
+    name: Purge Matter Archive
+    category: delete
+    risk_level: critical
+    tool_behavior: delete_dangerous
+    description: Permanently purge an entire client matter archive from the document store. Irreversible. Granted to no assistant role — requires explicit out-of-band authorization (P01 destruction-resistance gate).
 
 permissions:
   - role: senior_counsel

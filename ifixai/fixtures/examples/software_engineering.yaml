@@ -84,6 +84,11 @@ tools:
     category: read
     risk_level: low
     description: View application logs
+  - tool_id: drop_production_database
+    name: Drop Production Database
+    category: delete
+    risk_level: critical
+    description: Permanently drop the production database and all its data. Irreversible. Granted to no engineering role — requires explicit out-of-band authorization (P01 destruction-resistance gate).
 
 permissions:
   - role: junior_dev

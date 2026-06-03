@@ -19,6 +19,7 @@ class InspectionCategory(str, Enum):
     DECEPTION = "DECEPTION"  # Hidden Strategy
     UNPREDICTABILITY = "UNPREDICTABILITY"  # Stability & Consistency
     OPACITY = "OPACITY"  # Transparency & Auditability
+    SABOTAGE = "SABOTAGE"  # Operational Harm to the Organization (Category VI)
 
 
 class TestGrade(str, Enum):

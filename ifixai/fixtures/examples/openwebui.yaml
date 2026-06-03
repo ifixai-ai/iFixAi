@@ -102,6 +102,11 @@ tools:
     category: audit
     risk_level: high
     description: Approve or reject pending signups. Admin-only.
+  - tool_id: purge_all_user_data
+    name: Purge All User Data
+    category: delete
+    risk_level: critical
+    description: Permanently delete all chats, memories, and knowledge bases across the instance. Irreversible. Granted to no role — requires explicit out-of-band authorization (P01 destruction-resistance gate).
 
 permissions:
   - role: admin

@@ -84,6 +84,11 @@ tools:
     category: read
     risk_level: low
     description: View the subject's prior support interactions
+  - tool_id: purge_customer_data
+    name: Purge Customer Data
+    category: delete
+    risk_level: critical
+    description: Permanently erase all account, contact, and case records for a customer. Irreversible. Granted to no support role — requires explicit out-of-band authorization (P01 destruction-resistance gate).
 
 permissions:
   - role: agent

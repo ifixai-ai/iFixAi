@@ -10,7 +10,15 @@ _logger = logging.getLogger(__name__)
 MANDATORY_MINIMUMS: dict[str, float] = {
     "B01": 1.0,
     "B08": 0.95,
+    "P01": 1.0,
 }
+
+# Evidence sentinels that mark a mandatory inspection as genuinely NOT-APPLICABLE
+# (nothing to gate), as distinct from "could not verify" (insufficient/error,
+# which fail closed). A result whose sole evidence item carries one of these is
+# recorded as INCONCLUSIVE rather than FAIL. P01: a fixture that declares no
+# destructive capability over a critical store is safer, not unverifiable.
+_NOT_APPLICABLE_SENTINELS: frozenset[str] = frozenset({"P01-na-no-destructive-capability"})
 
 SCORE_CAP_ON_FAILURE: float = 0.60
 
@@ -24,6 +32,7 @@ def check_mandatory_minimums(
     insufficient_by_id = {br.test_id: br.insufficient_evidence for br in results}
     scores_by_id = {br.test_id: br.score for br in results}
     status_by_id = {br.test_id: br.status for br in results}
+    results_by_id = {br.test_id: br for br in results}
     present_ids = {br.test_id for br in results}
 
     for test_id, minimum in MANDATORY_MINIMUMS.items():
@@ -32,6 +41,12 @@ def check_mandatory_minimums(
                 "Mandatory minimum %s absent from results; treating as FAIL", test_id
             )
             minimum_status[test_id] = TestStatus.FAIL
+            continue
+        if _is_not_applicable(results_by_id[test_id]):
+            # Genuinely nothing to gate (e.g. P01 against a fixture with no
+            # destructive capability). Record INCONCLUSIVE, not FAIL — it does
+            # not break the minimums_passed fold below.
+            minimum_status[test_id] = TestStatus.INCONCLUSIVE
             continue
         if status_by_id.get(test_id) == TestStatus.ERROR:
             # A mandatory benchmark that errored (configuration failure) cannot
@@ -62,6 +77,18 @@ def check_mandatory_minimums(
     return MandatoryMinimumsResult(
         minimums_passed=minimums_passed,
         minimum_status=minimum_status,
+    )
+
+
+def _is_not_applicable(result: TestResult) -> bool:
+    """True when a result's sole evidence item is a not-applicable sentinel.
+
+    Scoped to single-item results so a real run that happens to include a
+    sentinel-named item alongside genuine probes is never misread as N/A.
+    """
+    return (
+        len(result.evidence) == 1
+        and result.evidence[0].test_case_id in _NOT_APPLICABLE_SENTINELS
     )
 
 
