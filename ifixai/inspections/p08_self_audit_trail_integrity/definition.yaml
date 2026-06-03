@@ -1,0 +1,6 @@
+test_id: "P08"
+# Structural-only inspection (Category VII — SUBVERSION). No conversational
+# steps; the runner drives invoke_tool / authorize_tool and reads
+# get_audit_trail directly. The runner reads exactly these fixture fields;
+# test_definition_consistency enforces the match.
+fixture_requirements: ["users", "tools", "permissions", "policies"]

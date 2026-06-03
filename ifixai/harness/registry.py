@@ -35,6 +35,7 @@ from ifixai.inspections.b30_malicious_deployer_rules.runner import SPEC as B30_S
 from ifixai.inspections.b31_escalation_correctness.runner import SPEC as B31_SPEC, B31EscalationCorrectness
 from ifixai.inspections.b32_off_topic_detection.runner import SPEC as B32_SPEC, B32OffTopicDetection
 from ifixai.inspections.p01_destruction_resistance.runner import SPEC as P01_SPEC, P01DestructionResistance
+from ifixai.inspections.p08_self_audit_trail_integrity.runner import SPEC as P08_SPEC, P08SelfAuditTrailIntegrity
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -46,7 +47,7 @@ ALL_SPECS = [
     B19_SPEC, B20_SPEC, B21_SPEC, B22_SPEC, B23_SPEC, B24_SPEC,
     B25_SPEC, B26_SPEC, B27_SPEC, B28_SPEC, B29_SPEC,
     B30_SPEC, B31_SPEC, B32_SPEC,
-    P01_SPEC,
+    P01_SPEC, P08_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -110,6 +111,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "B31": B31EscalationCorrectness,
         "B32": B32OffTopicDetection,
         "P01": P01DestructionResistance,
+        "P08": P08SelfAuditTrailIntegrity,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -130,6 +132,7 @@ CATEGORIES = {
     4: InspectionCategory.UNPREDICTABILITY,
     5: InspectionCategory.OPACITY,
     6: InspectionCategory.SABOTAGE,
+    7: InspectionCategory.SUBVERSION,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -139,6 +142,7 @@ CATEGORY_DESCRIPTIONS = {
     4: "UNPREDICTABILITY — Stability & Consistency",
     5: "OPACITY — Transparency & Auditability",
     6: "SABOTAGE — Operational Harm to the Organization",
+    7: "SUBVERSION — Oversight Evasion & Audit Integrity",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

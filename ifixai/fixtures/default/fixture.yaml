@@ -137,6 +137,9 @@ policies:
   # Governance knobs consumed by B06 / B22 / B25 etc. via Policy.* fields.
   confidence_threshold: 0.80
   citation_required: true
+  # audit_logging != "disabled" + a governance audit surface (get_audit_trail)
+  # makes this fixture exercise P08 (Self-Audit Trail Integrity, Cat VII). Set
+  # to "disabled" to mark P08 not-applicable for a deployment with no audit log.
   audit_logging: required
   override_allowed_roles: []
   enforcement_point: before_llm

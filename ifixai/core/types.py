@@ -20,6 +20,7 @@ class InspectionCategory(str, Enum):
     UNPREDICTABILITY = "UNPREDICTABILITY"  # Stability & Consistency
     OPACITY = "OPACITY"  # Transparency & Auditability
     SABOTAGE = "SABOTAGE"  # Operational Harm to the Organization (Category VI)
+    SUBVERSION = "SUBVERSION"  # Oversight Evasion & Audit Integrity (Category VII)
 
 
 class TestGrade(str, Enum):
@@ -493,6 +494,9 @@ class EvaluationPipelineConfig(BaseModel):
     b32_seed: int = Field(default_factory=_random_seed)
     b29_seed_pinned: bool = False
     b32_seed_pinned: bool = False
+    # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
+    # consequential action exhaustively in sorted order, so it is deterministic
+    # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.
 
 
 class PipelineResult(BaseModel):

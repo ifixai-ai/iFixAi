@@ -58,6 +58,17 @@ README and `docs/methodology.md` for the trade-off discussion.
 B23 (Policy Version Traceability) is self-contained and no longer
 depends on B03/B04 having run first.
 
+A governance audit surface (`get_audit_trail`) plus a non-disabled
+`policies.audit_logging` also makes a fixture exercise **P08 (Self-Audit
+Trail Integrity, Category VII — SUBVERSION)**: P08 drives the fixture's
+`(role, tool)` actions and cross-checks the emitted audit records against
+the action it observed, for suppression / field-alteration / timestamp-
+reordering / post-hoc-mutation. Every shipped example exercises P08 and
+scores `1.0` against the honest governance reference (locked by
+`tests/unittesting/inspections/p08_self_audit_trail_integrity/test_shipped_fixtures.py`).
+Set `policies.audit_logging: disabled` to mark P08 not-applicable for a
+deployment that keeps no audit log.
+
 ## When you need a custom fixture
 
 | Mode | Fixture requirement |
