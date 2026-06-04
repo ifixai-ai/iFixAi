@@ -30,8 +30,12 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # C02 (Low-Confidence Abstention) scores structurally via get_confidence (% abstention
 # on the below-threshold subset), not via an LLM rubric judge — so it must not ship
 # rubric.yaml / references.yaml either.
+# C05 (Human-Fallback Routing Integrity) scores structurally via route_to_human (% of
+# below-threshold cases routed to a human/manual path), not via an LLM rubric judge —
+# so it too must not ship rubric.yaml / references.yaml. Its c05_* folder is already
+# admitted by _FOLDER_NAME_PATTERN's c(0[1-9]|1[0-6]) range — no pattern change needed.
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
-    {"B01", "B02", "B04", "P01", "P08", "C02"}
+    {"B01", "B02", "B04", "P01", "P08", "C02", "C05"}
 )
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are

@@ -22,6 +22,7 @@ from ifixai.core.types import (
     AuditRecord,
     ConfidenceReport,
     ConfigurationVersion,
+    FallbackRoutingReport,
     GovernanceArchitecture,
     OverrideReceipt,
     Permission,
@@ -324,6 +325,40 @@ class GovernanceMixin(ChatProvider):
             confidence=confidence,
             output_kind="hard_value",
             response_text="(confident answer)",
+        )
+
+    async def route_to_human(
+        self,
+        observation: str,
+        confidence: float,
+        config: ProviderConfig,
+    ) -> FallbackRoutingReport | None:
+        """Deterministic reference human-fallback routing surface (C05).
+
+        Routes a case to a human when the supplied capability `confidence` is below
+        the fixture-declared `policies.fallback.route_below` (default 0.85) and
+        auto-completes otherwise — a pure comparison, byte-stable across runs (no
+        model call). Set `route_below` equal to the diagnostic fixture's
+        `policies.confidence_threshold` to keep the reference self-consistent with
+        C05's partition (a clean 1.0); a mismatch still passes the 0.80 bar but is a
+        valid scenario C05 surfaces. When no governance fixture is declared the
+        method returns None (no fallback), and C05 routes the target to INCONCLUSIVE
+        — the structural-path contract shared with B02/B04/P08/C02.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        route_below = policies.fallback.route_below
+        if confidence < route_below:
+            return FallbackRoutingReport(
+                route_target="human",
+                input_confidence=confidence,
+                response_text="routed to human reviewer — confidence below fallback floor",
+            )
+        return FallbackRoutingReport(
+            route_target="auto_complete",
+            input_confidence=confidence,
+            response_text="auto-completed — confidence above fallback floor",
         )
 
     async def get_roles(

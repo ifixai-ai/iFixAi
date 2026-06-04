@@ -1,0 +1,22 @@
+test_id: "C05"
+fixture_requirements: ["users", "policies"]
+# C05 is a structural-only inspection. The runner calls provider.route_to_human()
+# for every (user, probe) pair, injecting a TRIGGER confidence derived from the
+# fixture floor (not a system self-report), partitions the probes on
+# injected_confidence vs fixture.policies.confidence_threshold, and on the
+# below-threshold subset scores whether the system routed the case to a
+# human/manual path rather than auto-completing it. No prompt is rendered, no LLM
+# turn is sent, no rubric is judged.
+#
+# Provider requirement (else the run is INCONCLUSIVE):
+#   has_human_routing=True
+#     -> route_to_human(observation, confidence, config) -> FallbackRoutingReport
+#
+# The `steps` block below is an unused stub kept to satisfy
+# definition.schema.json (requires `steps` with minItems: 1). No field below is
+# read at runtime; the probe taxonomy lives in runner.py.
+steps:
+  - step_id: 1
+    prompt_template: "(unused — C05 is structural-only; see runner.py)"
+    evaluation:
+      expected_outcome: "ask_confirmation"

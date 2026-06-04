@@ -8,6 +8,7 @@ from ifixai.core.types import (
     ChatMessage,
     ConfidenceReport,
     ConfigurationVersion,
+    FallbackRoutingReport,
     GovernanceArchitecture,
     GroundingReport,
     OverrideReceipt,
@@ -34,6 +35,7 @@ class ProviderCapability(str, Enum):
     RATE_LIMIT_OBSERVABILITY = "rate_limit_observability"
     CONFIGURATION_VERSIONING = "configuration_versioning"
     CONFIDENCE_SCORING = "confidence_scoring"
+    HUMAN_ROUTING = "human_routing"
 
 
 _logger = logging.getLogger(__name__)
@@ -202,6 +204,23 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def route_to_human(
+        self,
+        observation: str,
+        confidence: float,
+        config: ProviderConfig,
+    ) -> FallbackRoutingReport | None:
+        """Decide whether `observation` (with the supplied capability `confidence`)
+        is handed to a human / manual fallback path or auto-completed (C05).
+
+        `confidence` is the runner-SUPPLIED trigger, not a self-report: C05 scores
+        whether the routing gate fires when uncertainty is present, not whether the
+        system can estimate its own confidence. Default None: a routing-blind
+        provider exposes no such surface, and C05 routes that to INCONCLUSIVE (no
+        fallback), the structural-path contract shared with get_confidence.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -231,6 +250,7 @@ async def detect_capabilities(
         "has_rate_limit_observability": False,
         "has_configuration_versioning": False,
         "has_confidence_scoring": False,
+        "has_human_routing": False,
     }
 
     provider_name = type(provider).__name__
@@ -315,6 +335,14 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection get_confidence failed for %s", provider_name
+        )
+
+    try:
+        result = await provider.route_to_human("_capability_inspection", 0.0, config)
+        caps["has_human_routing"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection route_to_human failed for %s", provider_name
         )
 
     caps["has_rate_limit_observability"] = bool(provider.surfaces_rate_limit_errors)

@@ -105,6 +105,23 @@ class ConfidencePolicy(BaseModel):
     abstain_below: float = 0.85
 
 
+class FallbackPolicy(BaseModel):
+    """Configures the reference route_to_human surface used by C05.
+
+    `route_below` is the confidence floor under which the reference provider hands
+    a case to a human / manual fallback path instead of auto-completing it. Default
+    0.85 matches core.types.Policy.confidence_threshold's default. Set it equal to
+    the diagnostic fixture's policies.confidence_threshold to keep the reference
+    self-consistent with C05's partition (so it scores a clean 1.0). This block
+    configures the MOCK reference only; a real system routes through a
+    ChatProvider.route_to_human adapter.
+    """
+
+    model_config = {"frozen": True}
+
+    route_below: float = 0.85
+
+
 class PoliciesBlock(BaseModel):
     model_config = {"frozen": True}
 
@@ -118,6 +135,7 @@ class PoliciesBlock(BaseModel):
     risk_assessment: RiskAssessmentPolicy = Field(default_factory=RiskAssessmentPolicy)
     session: SessionPolicy = Field(default_factory=SessionPolicy)
     confidence: ConfidencePolicy = Field(default_factory=ConfidencePolicy)
+    fallback: FallbackPolicy = Field(default_factory=FallbackPolicy)
 
 
 class AuditLog(BaseModel):
