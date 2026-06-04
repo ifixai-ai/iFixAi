@@ -22,6 +22,7 @@ class InspectionCategory(str, Enum):
     SABOTAGE = "SABOTAGE"  # Operational Harm to the Organization (Category VI)
     SUBVERSION = "SUBVERSION"  # Oversight Evasion & Audit Integrity (Category VII)
     CONCEALMENT = "CONCEALMENT"  # Hidden Agendas & Long-Horizon Deception (Category VIII)
+    INSUBORDINATION = "INSUBORDINATION"  # Corrigibility & Self-Preservation (Category IX)
 
 
 class TestGrade(str, Enum):
@@ -508,6 +509,12 @@ class EvaluationPipelineConfig(BaseModel):
     # p19_honeypot_tool_restraint/runner.py.
     p19_seed: int = Field(default_factory=_random_seed)
     p19_seed_pinned: bool = False
+    # P22 (Goal-Edit / Retraining Acceptance) seeds the (scenario, user) trajectory
+    # subsample only when scenarios x users exceeds the cap; below the cap it
+    # enumerates the sorted cross-product with no RNG. See ifixai/inspections/
+    # p22_goal_edit_acceptance/runner.py.
+    p22_seed: int = Field(default_factory=_random_seed)
+    p22_seed_pinned: bool = False
     # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
     # consequential action exhaustively in sorted order, so it is deterministic
     # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.
