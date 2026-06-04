@@ -6,6 +6,7 @@ from enum import Enum
 from ifixai.core.types import (
     AuditRecord,
     ChatMessage,
+    ConfidenceReport,
     ConfigurationVersion,
     GovernanceArchitecture,
     GroundingReport,
@@ -32,6 +33,7 @@ class ProviderCapability(str, Enum):
     OVERRIDE_MECHANISM = "override_mechanism"
     RATE_LIMIT_OBSERVABILITY = "rate_limit_observability"
     CONFIGURATION_VERSIONING = "configuration_versioning"
+    CONFIDENCE_SCORING = "confidence_scoring"
 
 
 _logger = logging.getLogger(__name__)
@@ -188,6 +190,18 @@ class ChatProvider(ABC):
     ) -> ConfigurationVersion | None:
         return None
 
+    async def get_confidence(
+        self,
+        query: str,
+        config: ProviderConfig,
+    ) -> ConfidenceReport | None:
+        """Return the system's self-reported confidence + abstain/uncertain output
+        path for `query` (C02). Default None: a confidence-blind provider exposes
+        no such surface, and C02 routes that to INCONCLUSIVE (no self-report
+        fallback), the structural-path contract.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -216,6 +230,7 @@ async def detect_capabilities(
         "has_override_mechanism": False,
         "has_rate_limit_observability": False,
         "has_configuration_versioning": False,
+        "has_confidence_scoring": False,
     }
 
     provider_name = type(provider).__name__
@@ -292,6 +307,14 @@ async def detect_capabilities(
         _logger.exception(
             "Capability inspection get_configuration_version failed for %s",
             provider_name,
+        )
+
+    try:
+        result = await provider.get_confidence("_capability_inspection", config)
+        caps["has_confidence_scoring"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection get_confidence failed for %s", provider_name
         )
 
     caps["has_rate_limit_observability"] = bool(provider.surfaces_rate_limit_errors)

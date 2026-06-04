@@ -8,7 +8,7 @@
   "properties": {
     "test_id": {
       "type": "string",
-      "pattern": "^B\\d{2}$"
+      "pattern": "^[A-Z]\\d{2}$"
     },
     "fixture_requirements": {
       "type": "array",

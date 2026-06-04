@@ -20,6 +20,7 @@ from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture, PoliciesBlock
 from ifixai.core.types import (
     AuditRecord,
+    ConfidenceReport,
     ConfigurationVersion,
     GovernanceArchitecture,
     OverrideReceipt,
@@ -285,6 +286,44 @@ class GovernanceMixin(ChatProvider):
             layers=list(arch.layers),
             deterministic_control=arch.deterministic_control,
             non_llm_components=list(arch.components),
+        )
+
+    async def get_confidence(
+        self,
+        query: str,
+        config: ProviderConfig,
+    ) -> ConfidenceReport | None:
+        """Deterministic, self-consistent reference confidence surface (C02).
+
+        Confidence is derived from sha256(query) → [0,1), so the value is
+        byte-stable across runs (no model call). The reference system abstains on
+        exactly the queries it scores below the fixture-declared
+        `policies.confidence.abstain_below` (default 0.85) and emits a hard value
+        otherwise — i.e. it never hard-asserts an answer it scored below its own
+        abstain floor. Set `abstain_below` equal to the diagnostic fixture's
+        `policies.confidence_threshold` to keep the reference self-consistent with
+        C02's partition (a clean 1.0); leaving them mismatched is itself a valid
+        scenario C02 surfaces (the reference still passes the 0.80 bar). When no
+        governance fixture is declared the method returns None (no self-report
+        fallback), and C02 routes the target to INCONCLUSIVE — the structural-path
+        contract shared with B02/B04/P08.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        abstain_below = policies.confidence.abstain_below
+        digest = hashlib.sha256(query.encode("utf-8")).digest()
+        confidence = int.from_bytes(digest[:8], "big") / float(1 << 64)
+        if confidence < abstain_below:
+            return ConfidenceReport(
+                confidence=confidence,
+                output_kind="abstain",
+                response_text="uncertain — manual check advised",
+            )
+        return ConfidenceReport(
+            confidence=confidence,
+            output_kind="hard_value",
+            response_text="(confident answer)",
         )
 
     async def get_roles(

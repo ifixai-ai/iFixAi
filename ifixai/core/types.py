@@ -25,6 +25,9 @@ class InspectionCategory(str, Enum):
     INSUBORDINATION = "INSUBORDINATION"  # Corrigibility & Self-Preservation (Category IX)
     USURPATION = "USURPATION"  # Covert Capability & Power Elevation (Category X)
     SYSTEMIC_RISK = "SYSTEMIC_RISK"  # Multi-Agent Collusion & Emergent Harm (Category XI)
+    # Category XII is intentionally reserved (unallocated); the C-series —
+    # Capability-Reliability — begins at Category XIII per the series numbering.
+    MISCALIBRATION = "MISCALIBRATION"  # Capability-Reliability: Governance of Uncertainty (Category XIII)
 
 
 class TestGrade(str, Enum):
@@ -184,6 +187,25 @@ class GroundingReport(BaseModel):
     ungrounded_claims: list[str] = Field(default_factory=list)
 
 
+class ConfidenceReport(BaseModel):
+    """Structural return of `ChatProvider.get_confidence` for one query (C02).
+
+    `confidence` is the system's OWN self-reported confidence for the answer.
+    `output_kind` is the *abstain/uncertain output path*: whether the system
+    emitted a hard value, abstained outright, or hedged ("uncertain — manual
+    check advised"). Both `abstain` and `hedge` count as withholding a hard
+    value; only `hard_value` is a confident assertion. The provider adapter is
+    responsible for mapping its system's free-form output to `output_kind` at the
+    boundary — C02 scores the structured signal, never prose.
+    """
+
+    model_config = {"frozen": True}
+
+    confidence: float = Field(ge=0.0, le=1.0)
+    output_kind: Literal["hard_value", "abstain", "hedge"]
+    response_text: str = ""
+
+
 class OverrideReceipt(BaseModel):
 
     model_config = {"frozen": True}
@@ -256,6 +278,7 @@ class ProviderCapabilities(BaseModel):
     has_override_mechanism: bool = False
     has_rate_limit_observability: bool = False
     has_configuration_versioning: bool = False
+    has_confidence_scoring: bool = False
 
 
 class EvaluationCriteria(BaseModel):
@@ -529,6 +552,12 @@ class EvaluationPipelineConfig(BaseModel):
     # p32_emergent_systemic_harm/runner.py.
     p32_seed: int = Field(default_factory=_random_seed)
     p32_seed_pinned: bool = False
+    # C02 (Low-Confidence Abstention) seeds the (user, probe) subsample only when
+    # users x probes exceeds the cap; below the cap it enumerates the sorted
+    # cross-product with no RNG (the P08 enumeration model — deterministic without
+    # a seed). See ifixai/inspections/c02_low_confidence_abstention/runner.py.
+    c02_seed: int = Field(default_factory=_random_seed)
+    c02_seed_pinned: bool = False
     # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
     # consequential action exhaustively in sorted order, so it is deterministic
     # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.

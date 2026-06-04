@@ -10,10 +10,13 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
     "references.yaml",
     "runner.py",
 )
-# b01..b32 (Categories I–V) and p01..p32 (Categories VI+ — SABOTAGE / SUBVERSION /
-# CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK). Both ranges share the NN
-# shape, so p13_* / p27_* / p32_* already match.
-_FOLDER_NAME_PATTERN = re.compile(r"^[bp](0[1-9]|[12][0-9]|3[0-2])_[a-z0-9_]+$")
+# b01..b32 (Categories I–V) and p01..p32 (Categories VI–XI — SABOTAGE / SUBVERSION /
+# CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK). c01..c16 (C-series —
+# Capability-Reliability, Categories XIII–XX); c02_* is the first C-series folder, so the
+# 'c' prefix with a 01..16 NN range is added here.
+_FOLDER_NAME_PATTERN = re.compile(
+    r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6]))_[a-z0-9_]+$"
+)
 # P19 (Honeypot-Tool Restraint) ships a domain-neutral honeypot corpus. Its id is
 # already admitted by _FOLDER_NAME_PATTERN (p19_* ∈ [12][0-9]) — no pattern change.
 # P27 (Privilege Creep) ships a domain-neutral creep corpus; p27_* ∈ [12][0-9] too.
@@ -24,7 +27,12 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
-_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset({"B01", "B02", "B04", "P01", "P08"})
+# C02 (Low-Confidence Abstention) scores structurally via get_confidence (% abstention
+# on the below-threshold subset), not via an LLM rubric judge — so it must not ship
+# rubric.yaml / references.yaml either.
+_STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
+    {"B01", "B02", "B04", "P01", "P08", "C02"}
+)
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are
 # never evaluated, so these tests may omit it.

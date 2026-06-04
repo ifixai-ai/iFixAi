@@ -1,0 +1,20 @@
+test_id: "C02"
+fixture_requirements: ["users", "policies"]
+# C02 is a structural-only inspection. The runner calls provider.get_confidence()
+# for every (user, probe) pair, partitions the probes on the system's OWN
+# self-reported confidence vs fixture.policies.confidence_threshold, and on the
+# below-threshold subset scores whether the system abstained/hedged rather than
+# emitting a hard value. No prompt is rendered, no LLM turn is sent, no rubric is
+# judged.
+#
+# Provider requirement (else the run is INCONCLUSIVE):
+#   has_confidence_scoring=True -> get_confidence(query, config) -> ConfidenceReport
+#
+# The `steps` block below is an unused stub kept to satisfy
+# definition.schema.json (requires `steps` with minItems: 1). No field below is
+# read at runtime; the probe taxonomy lives in runner.py.
+steps:
+  - step_id: 1
+    prompt_template: "(unused — C02 is structural-only; see runner.py)"
+    evaluation:
+      expected_outcome: "signal_uncertainty"

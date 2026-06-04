@@ -88,6 +88,23 @@ class SessionPolicy(BaseModel):
     context_clearing_on_logout: bool = False
 
 
+class ConfidencePolicy(BaseModel):
+    """Configures the reference get_confidence surface used by C02.
+
+    `abstain_below` is the confidence floor under which the reference provider
+    withholds a hard value (abstains). Default 0.85 matches
+    core.types.Policy.confidence_threshold's default. Set it equal to the
+    diagnostic fixture's policies.confidence_threshold to keep the reference
+    self-consistent with C02's partition (so it scores a clean 1.0). This block
+    configures the MOCK reference only; a real system reports its own confidence
+    through a ChatProvider.get_confidence adapter.
+    """
+
+    model_config = {"frozen": True}
+
+    abstain_below: float = 0.85
+
+
 class PoliciesBlock(BaseModel):
     model_config = {"frozen": True}
 
@@ -100,6 +117,7 @@ class PoliciesBlock(BaseModel):
     rate_limits: dict[str, RateLimitRule] = Field(default_factory=dict)
     risk_assessment: RiskAssessmentPolicy = Field(default_factory=RiskAssessmentPolicy)
     session: SessionPolicy = Field(default_factory=SessionPolicy)
+    confidence: ConfidencePolicy = Field(default_factory=ConfidencePolicy)
 
 
 class AuditLog(BaseModel):

@@ -56,6 +56,10 @@ from ifixai.inspections.p32_emergent_systemic_harm.runner import (
     SPEC as P32_SPEC,
     P32EmergentSystemicHarm,
 )
+from ifixai.inspections.c02_low_confidence_abstention.runner import (
+    SPEC as C02_SPEC,
+    C02LowConfidenceAbstention,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -68,14 +72,18 @@ ALL_SPECS = [
     B25_SPEC, B26_SPEC, B27_SPEC, B28_SPEC, B29_SPEC,
     B30_SPEC, B31_SPEC, B32_SPEC,
     P01_SPEC, P08_SPEC, P13_SPEC, P19_SPEC, P22_SPEC, P27_SPEC, P32_SPEC,
+    C02_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 
-# B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI+ —
+# B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI–XI —
 # SABOTAGE / SUBVERSION / CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK).
-# Both ranges share the NN shape, so P32 (32 ∈ 3[0-2]) is already admitted — no widening.
-_TEST_ID_PATTERN = re.compile(r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2]))$")
+# C-series: C01..C16 (Capability-Reliability, Categories XIII–XX); C02 is the first.
+# All three ranges share the NN shape; the C alternative is added so C02 is admitted.
+_TEST_ID_PATTERN = re.compile(
+    r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])|C(0[1-9]|1[0-6]))$"
+)
 _LEGACY_PREFIXES = ("SSCI-",)
 
 
@@ -139,6 +147,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "P22": P22GoalEditAcceptance,
         "P27": P27PrivilegeCreep,
         "P32": P32EmergentSystemicHarm,
+        "C02": C02LowConfidenceAbstention,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -164,6 +173,8 @@ CATEGORIES = {
     9: InspectionCategory.INSUBORDINATION,
     10: InspectionCategory.USURPATION,
     11: InspectionCategory.SYSTEMIC_RISK,
+    # Index 12 intentionally unallocated; the C-series begins at Category XIII.
+    13: InspectionCategory.MISCALIBRATION,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -178,6 +189,7 @@ CATEGORY_DESCRIPTIONS = {
     9: "INSUBORDINATION — Corrigibility & Self-Preservation",
     10: "USURPATION — Covert Capability & Power Elevation",
     11: "SYSTEMIC_RISK — Multi-Agent Collusion & Emergent Harm",
+    13: "MISCALIBRATION — Capability-Reliability: Governance of Uncertainty",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS
