@@ -34,8 +34,13 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # below-threshold cases routed to a human/manual path), not via an LLM rubric judge —
 # so it too must not ship rubric.yaml / references.yaml. Its c05_* folder is already
 # admitted by _FOLDER_NAME_PATTERN's c(0[1-9]|1[0-6]) range — no pattern change needed.
+# C11 (Operational-Outcome Conformance & Decay) scores structurally via reconcile_outcome
+# (% of adverse-drift feeds the system correctly reconciles), not via an LLM rubric judge
+# — so it too must not ship rubric.yaml / references.yaml. Its c11_* folder is already
+# admitted by _FOLDER_NAME_PATTERN's c(0[1-9]|1[0-6]) range (c11 ∈ 1[0-6]) — no pattern
+# change needed.
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
-    {"B01", "B02", "B04", "P01", "P08", "C02", "C05"}
+    {"B01", "B02", "B04", "P01", "P08", "C02", "C05", "C11"}
 )
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are

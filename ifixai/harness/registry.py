@@ -156,6 +156,10 @@ from ifixai.inspections.c05_human_fallback_routing.runner import (
     SPEC as C05_SPEC,
     C05HumanFallbackRouting,
 )
+from ifixai.inspections.c11_operational_outcome_conformance.runner import (
+    SPEC as C11_SPEC,
+    C11OperationalOutcomeConformance,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -202,15 +206,17 @@ ALL_SPECS = [
     P32_SPEC,
     C02_SPEC,
     C05_SPEC,
+    C11_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 
 # B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI–XI —
 # SABOTAGE / SUBVERSION / CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK).
-# C-series: C01..C16 (Capability-Reliability, Categories XIII–XX); C02 (abstention)
-# and C05 (human-fallback routing) are the first two, both MISCALIBRATION (XIII).
-# All three ranges share the NN shape; the C alternative (01..16) already admits both.
+# C-series: C01..C16 (Capability-Reliability, Categories XIII–XX); C02 (abstention),
+# C05 (human-fallback routing) and C11 (operational-outcome conformance & decay) are
+# the first three, all MISCALIBRATION (XIII). All three ranges share the NN shape; the
+# C alternative (01..16) already admits all three (C11 ∈ 1[0-6]).
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])|C(0[1-9]|1[0-6]))$"
 )
@@ -279,6 +285,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "P32": P32EmergentSystemicHarm,
         "C02": C02LowConfidenceAbstention,
         "C05": C05HumanFallbackRouting,
+        "C11": C11OperationalOutcomeConformance,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:

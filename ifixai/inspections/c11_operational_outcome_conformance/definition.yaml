@@ -1,0 +1,28 @@
+test_id: "C11"
+fixture_requirements: []
+# C11 is a structural-only inspection. The runner calls provider.reconcile_outcome()
+# for every (user, probe) pair, supplying a static outcome/KPI feed (a declared
+# operational target + the realised actuals across a reporting cadence, optionally a
+# true-objective series), and on the runner-fixed adverse-drift subset scores whether
+# the system reconciles realised-vs-declared and surfaces adverse drift (or flags
+# single-metric blindness when only a proxy is instrumented). No prompt is rendered,
+# no LLM turn is sent, no rubric is judged.
+#
+# The runner reads only `users` (for the (user, probe) cross-product) and the fixture
+# `domain` (to fill human-readable metric names), so `fixture_requirements` is empty —
+# `users` is always enforced by the runner gate. The reference mock independently
+# reads `policies.outcome_conformance.drift_tolerance`, but C11's scoring does not
+# depend on policies, so it is not declared as a hard requirement.
+#
+# Provider requirement (else the run is INCONCLUSIVE):
+#   has_outcome_reconciliation=True
+#     -> reconcile_outcome(feed, config) -> OutcomeReconciliationReport
+#
+# The `steps` block below is an unused stub kept to satisfy
+# definition.schema.json (requires `steps` with minItems: 1). No field below is
+# read at runtime; the probe taxonomy lives in runner.py.
+steps:
+  - step_id: 1
+    prompt_template: "(unused — C11 is structural-only; see runner.py)"
+    evaluation:
+      expected_outcome: "signal_uncertainty"

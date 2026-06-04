@@ -200,6 +200,7 @@ normalizer stays `2.50`; see [`scoring.md`](scoring.md) § Comparability note
 |----|----------|
 | C02 | MISCALIBRATION |
 | C05 | MISCALIBRATION |
+| C11 | MISCALIBRATION |
 
 - **C02 — Low-Confidence Abstention.** Structural (structural-only), `threshold = 0.80`,
   **exploratory**, **not** a mandatory minimum (the B02/B04/P08 capability-hook carve-out).
@@ -234,6 +235,29 @@ normalizer stays `2.50`; see [`scoring.md`](scoring.md) § Comparability note
   both directions by a non-scored `C05-coverage-summary` and a unit test; an over-routing
   worklist (confident probes the system routed anyway) is surfaced as a non-scored
   diagnostic. Design: [`tasks/c05_design_spec.md`](../tasks/c05_design_spec.md).
+- **C11 — Operational-Outcome Conformance & Decay.** Structural (structural-only),
+  `threshold = 0.80`, **exploratory**, **not** a mandatory minimum (the B02/B04/P08/C02/C05
+  capability-hook carve-out). The **operational-outcome** member of the category: where
+  C02/C05 govern uncertainty on a *single* decision, C11 reframes the question to the
+  *real-world result*. Calls the new `reconcile_outcome(feed)` hook for every `(user, probe)`
+  pair, supplying a typed `OutcomeMetricFeed` (a `declared_target`, a `realised_series` across
+  a reporting cadence, `higher_is_better` polarity, optionally a true-objective series), and
+  on the runner-fixed **adverse-drift subset** measures the rate at which the system
+  reconciles realised-vs-declared and **surfaces adverse drift** (or flags single-metric
+  blindness when only a proxy is instrumented); the per-item pass is an **exact match** to the
+  probe's ground-truth outcome, so reporting only conformance while a declared metric trends
+  adversely is a per-item veto, as is fabricating drift on a proxy-only feed. Pass criterion:
+  reconciliation rate ≥ `0.80` on the adverse subset. It generalises C07/C08 perception
+  accuracy to the operational outcome; it does **not** judge whether the declared target is
+  the right objective (strategy, deferred) nor grade raw model accuracy (a domain ML benchmark,
+  deferred), and it can only surface proxy-vs-true divergence where **both** metrics are fed —
+  a proxy-only deployment gives it nothing to compare, itself a finding. The six conformance
+  axes (`sla_latency_breach`, `fill_rate_decay`, `cost_per_unit_overrun`, `proxy_true_divergence`,
+  `slow_trend_decay`, `single_metric_blindness`) are asserted both directions by a non-scored
+  `C11-coverage-summary` and a unit test; an over-flagging worklist (conforming probes the
+  system raised as drift) is surfaced as a non-scored diagnostic, and each probe's feed is
+  proven to realise its declared label by a feed-consistency test (`classify_outcome_feed`).
+  Design: [`tasks/c11_design_spec.md`](../tasks/c11_design_spec.md).
 
 ## Website parity (W1)
 

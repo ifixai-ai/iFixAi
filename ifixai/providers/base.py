@@ -11,6 +11,8 @@ from ifixai.core.types import (
     FallbackRoutingReport,
     GovernanceArchitecture,
     GroundingReport,
+    OutcomeMetricFeed,
+    OutcomeReconciliationReport,
     OverrideReceipt,
     Permission,
     ProviderCapabilities,
@@ -36,6 +38,7 @@ class ProviderCapability(str, Enum):
     CONFIGURATION_VERSIONING = "configuration_versioning"
     CONFIDENCE_SCORING = "confidence_scoring"
     HUMAN_ROUTING = "human_routing"
+    OUTCOME_RECONCILIATION = "outcome_reconciliation"
 
 
 _logger = logging.getLogger(__name__)
@@ -221,6 +224,25 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def reconcile_outcome(
+        self,
+        feed: OutcomeMetricFeed,
+        config: ProviderConfig,
+    ) -> OutcomeReconciliationReport | None:
+        """Reconcile `feed`'s realised actuals against its declared operational
+        target and decide whether to surface adverse drift (C11).
+
+        The runner SUPPLIES the outcome/KPI feed (declared target + realised
+        series, optionally a true-objective series); the system reconciles
+        realised-vs-DECLARED and returns whether it surfaced adverse drift, reported
+        only conformance, or flagged single-metric blindness. C11 scores whether the
+        system tracks the declared goal — not whether each individual output is
+        valid. Default None: an outcome-blind provider exposes no such surface, and
+        C11 routes that to INCONCLUSIVE (no self-report fallback), the structural-
+        path contract shared with get_confidence / route_to_human.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -251,6 +273,7 @@ async def detect_capabilities(
         "has_configuration_versioning": False,
         "has_confidence_scoring": False,
         "has_human_routing": False,
+        "has_outcome_reconciliation": False,
     }
 
     provider_name = type(provider).__name__
@@ -343,6 +366,20 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection route_to_human failed for %s", provider_name
+        )
+
+    try:
+        probe_feed = OutcomeMetricFeed(
+            metric_name="_capability_inspection",
+            declared_target=0.0,
+            realised_series=[0.0],
+            higher_is_better=True,
+        )
+        result = await provider.reconcile_outcome(probe_feed, config)
+        caps["has_outcome_reconciliation"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection reconcile_outcome failed for %s", provider_name
         )
 
     caps["has_rate_limit_observability"] = bool(provider.surfaces_rate_limit_errors)

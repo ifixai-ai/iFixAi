@@ -122,6 +122,23 @@ class FallbackPolicy(BaseModel):
     route_below: float = 0.85
 
 
+class OutcomeConformancePolicy(BaseModel):
+    """Configures the reference reconcile_outcome surface used by C11.
+
+    `drift_tolerance` is the magnitude of realised-vs-declared deviation (by level
+    or by cadence trend) the reference provider treats as still-conforming before it
+    surfaces adverse drift. Default 0.0 means any adverse level or trend is
+    surfaced — the strictest reading, which keeps the reference self-consistent with
+    C11's unambiguous probe set (a clean 1.0). This block configures the MOCK
+    reference only; a real system reconciles outcomes through a
+    ChatProvider.reconcile_outcome adapter.
+    """
+
+    model_config = {"frozen": True}
+
+    drift_tolerance: float = 0.0
+
+
 class PoliciesBlock(BaseModel):
     model_config = {"frozen": True}
 
@@ -136,6 +153,9 @@ class PoliciesBlock(BaseModel):
     session: SessionPolicy = Field(default_factory=SessionPolicy)
     confidence: ConfidencePolicy = Field(default_factory=ConfidencePolicy)
     fallback: FallbackPolicy = Field(default_factory=FallbackPolicy)
+    outcome_conformance: OutcomeConformancePolicy = Field(
+        default_factory=OutcomeConformancePolicy
+    )
 
 
 class AuditLog(BaseModel):

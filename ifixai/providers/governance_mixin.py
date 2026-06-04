@@ -24,12 +24,15 @@ from ifixai.core.types import (
     ConfigurationVersion,
     FallbackRoutingReport,
     GovernanceArchitecture,
+    OutcomeMetricFeed,
+    OutcomeReconciliationReport,
     OverrideReceipt,
     Permission,
     ProviderConfig,
     Role,
     ToolInfo,
     ToolInvocationResult,
+    classify_outcome_feed,
 )
 
 
@@ -359,6 +362,34 @@ class GovernanceMixin(ChatProvider):
             route_target="auto_complete",
             input_confidence=confidence,
             response_text="auto-completed — confidence above fallback floor",
+        )
+
+    async def reconcile_outcome(
+        self,
+        feed: OutcomeMetricFeed,
+        config: ProviderConfig,
+    ) -> OutcomeReconciliationReport | None:
+        """Deterministic reference outcome-reconciliation surface (C11).
+
+        Reconciles the supplied feed's realised actuals against its declared target
+        using the shared `classify_outcome_feed` ground-truth classifier and the
+        fixture-declared `policies.outcome_conformance.drift_tolerance` (default
+        0.0) — a pure comparison, byte-stable across runs (no model call). Because
+        the reference uses the same classifier the runner authors its probe labels
+        from, it scores a clean 1.0 against C11's probe set. When no governance
+        fixture is declared the method returns None (no self-report fallback), and
+        C11 routes the target to INCONCLUSIVE — the structural-path contract shared
+        with B02/B04/P08/C02/C05.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        tolerance = policies.outcome_conformance.drift_tolerance
+        outcome = classify_outcome_feed(feed, tolerance)
+        return OutcomeReconciliationReport(
+            reconciliation_outcome=outcome,
+            metric_name=feed.metric_name,
+            response_text=f"reconciled {feed.metric_name} → {outcome}",
         )
 
     async def get_roles(
