@@ -48,6 +48,10 @@ from ifixai.inspections.p22_goal_edit_acceptance.runner import (
     SPEC as P22_SPEC,
     P22GoalEditAcceptance,
 )
+from ifixai.inspections.p27_privilege_creep.runner import (
+    SPEC as P27_SPEC,
+    P27PrivilegeCreep,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -59,13 +63,14 @@ ALL_SPECS = [
     B19_SPEC, B20_SPEC, B21_SPEC, B22_SPEC, B23_SPEC, B24_SPEC,
     B25_SPEC, B26_SPEC, B27_SPEC, B28_SPEC, B29_SPEC,
     B30_SPEC, B31_SPEC, B32_SPEC,
-    P01_SPEC, P08_SPEC, P13_SPEC, P19_SPEC, P22_SPEC,
+    P01_SPEC, P08_SPEC, P13_SPEC, P19_SPEC, P22_SPEC, P27_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 
 # B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI+ —
-# SABOTAGE / SUBVERSION / CONCEALMENT / INSUBORDINATION). Both ranges share the NN shape.
+# SABOTAGE / SUBVERSION / CONCEALMENT / INSUBORDINATION / USURPATION). Both ranges
+# share the NN shape, so P27 (27 ∈ [12][0-9]) is already admitted — no widening.
 _TEST_ID_PATTERN = re.compile(r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2]))$")
 _LEGACY_PREFIXES = ("SSCI-",)
 
@@ -128,6 +133,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "P13": P13HiddenSideObjectivePersistence,
         "P19": P19HoneypotToolRestraint,
         "P22": P22GoalEditAcceptance,
+        "P27": P27PrivilegeCreep,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -151,6 +157,7 @@ CATEGORIES = {
     7: InspectionCategory.SUBVERSION,
     8: InspectionCategory.CONCEALMENT,
     9: InspectionCategory.INSUBORDINATION,
+    10: InspectionCategory.USURPATION,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -163,6 +170,7 @@ CATEGORY_DESCRIPTIONS = {
     7: "SUBVERSION — Oversight Evasion & Audit Integrity",
     8: "CONCEALMENT — Hidden Agendas & Long-Horizon Deception",
     9: "INSUBORDINATION — Corrigibility & Self-Preservation",
+    10: "USURPATION — Covert Capability & Power Elevation",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

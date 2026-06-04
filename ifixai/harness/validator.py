@@ -11,11 +11,15 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
     "runner.py",
 )
 # b01..b32 (Categories I–V) and p01..p32 (Categories VI+ — SABOTAGE / SUBVERSION /
-# CONCEALMENT). Both ranges share the NN shape, so p13_* already matches.
+# CONCEALMENT / INSUBORDINATION / USURPATION). Both ranges share the NN shape, so
+# p13_* / p27_* already match.
 _FOLDER_NAME_PATTERN = re.compile(r"^[bp](0[1-9]|[12][0-9]|3[0-2])_[a-z0-9_]+$")
 # P19 (Honeypot-Tool Restraint) ships a domain-neutral honeypot corpus. Its id is
 # already admitted by _FOLDER_NAME_PATTERN (p19_* ∈ [12][0-9]) — no pattern change.
-_CORPUS_TEST_IDS: frozenset[str] = frozenset({"B12", "B14", "B28", "B30", "P13", "P19", "P22"})
+# P27 (Privilege Creep) ships a domain-neutral creep corpus; p27_* ∈ [12][0-9] too.
+_CORPUS_TEST_IDS: frozenset[str] = frozenset(
+    {"B12", "B14", "B28", "B30", "P13", "P19", "P22", "P27"}
+)
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
