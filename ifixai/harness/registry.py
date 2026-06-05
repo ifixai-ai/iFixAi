@@ -160,6 +160,10 @@ from ifixai.inspections.c11_operational_outcome_conformance.runner import (
     SPEC as C11_SPEC,
     C11OperationalOutcomeConformance,
 )
+from ifixai.inspections.s02_configurer_stakeholder_conflict.runner import (
+    SPEC as S02_SPEC,
+    S02ConfigurerStakeholderConflict,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -207,6 +211,7 @@ ALL_SPECS = [
     C02_SPEC,
     C05_SPEC,
     C11_SPEC,
+    S02_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -215,10 +220,12 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # SABOTAGE / SUBVERSION / CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK).
 # C-series: C01..C16 (Capability-Reliability, Categories XIII–XX); C02 (abstention),
 # C05 (human-fallback routing) and C11 (operational-outcome conformance & decay) are
-# the first three, all MISCALIBRATION (XIII). All three ranges share the NN shape; the
-# C alternative (01..16) already admits all three (C11 ∈ 1[0-6]).
+# the first three, all MISCALIBRATION (XIII). S-series: S01..S08 (Stakeholder &
+# Multi-Principal Integrity, Category XVII); S02 (configurer-vs-stakeholder conflict) is the
+# first. All ranges share the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8].
 _TEST_ID_PATTERN = re.compile(
-    r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])|C(0[1-9]|1[0-6]))$"
+    r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
+    r"|C(0[1-9]|1[0-6])|S(0[1-8]))$"
 )
 _LEGACY_PREFIXES = ("SSCI-",)
 
@@ -286,6 +293,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "C02": C02LowConfidenceAbstention,
         "C05": C05HumanFallbackRouting,
         "C11": C11OperationalOutcomeConformance,
+        "S02": S02ConfigurerStakeholderConflict,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -313,6 +321,8 @@ CATEGORIES = {
     11: InspectionCategory.SYSTEMIC_RISK,
     # Index 12 intentionally unallocated; the C-series begins at Category XIII.
     13: InspectionCategory.MISCALIBRATION,
+    # Indices 14–16 intentionally unallocated; the S-series begins at Category XVII.
+    17: InspectionCategory.STAKEHOLDER_CONFLICT,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -328,6 +338,7 @@ CATEGORY_DESCRIPTIONS = {
     10: "USURPATION — Covert Capability & Power Elevation",
     11: "SYSTEMIC_RISK — Multi-Agent Collusion & Emergent Harm",
     13: "MISCALIBRATION — Capability-Reliability: Governance of Uncertainty",
+    17: "STAKEHOLDER_CONFLICT — Stakeholder & Multi-Principal Integrity",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

@@ -13,16 +13,21 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
 # b01..b32 (Categories I–V) and p01..p32 (Categories VI–XI — SABOTAGE / SUBVERSION /
 # CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK). c01..c16 (C-series —
 # Capability-Reliability, Categories XIII–XX); c02_* is the first C-series folder, so the
-# 'c' prefix with a 01..16 NN range is added here.
+# 'c' prefix with a 01..16 NN range is added here. s01..s08 (S-series — Stakeholder &
+# Multi-Principal Integrity, Category XVII); s02_* is the first S-series folder, so the
+# 's' prefix with a 01..08 NN range is added here.
 _FOLDER_NAME_PATTERN = re.compile(
-    r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6]))_[a-z0-9_]+$"
+    r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8]))_[a-z0-9_]+$"
 )
 # P19 (Honeypot-Tool Restraint) ships a domain-neutral honeypot corpus. Its id is
 # already admitted by _FOLDER_NAME_PATTERN (p19_* ∈ [12][0-9]) — no pattern change.
 # P27 (Privilege Creep) ships a domain-neutral creep corpus; p27_* ∈ [12][0-9] too.
 # P32 (Emergent Systemic-Harm) ships a domain-neutral systemic-risk corpus; p32_* ∈ 3[0-2].
+# S02 (Configurer-vs-Stakeholder Conflict) ships a domain-neutral conflict corpus (configurer
+# objective + stakeholder map per scenario); its s02_* folder is admitted by
+# _FOLDER_NAME_PATTERN's s(0[1-8]) range — no pattern change beyond the one above.
 _CORPUS_TEST_IDS: frozenset[str] = frozenset(
-    {"B12", "B14", "B28", "B30", "P13", "P19", "P22", "P27", "P32"}
+    {"B12", "B14", "B28", "B30", "P13", "P19", "P22", "P27", "P32", "S02"}
 )
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply

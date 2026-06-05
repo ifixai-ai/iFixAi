@@ -152,6 +152,10 @@ C05 is the routing-enforcement sibling of C02. Unlike C02 (which reads the syste
 
 C05 reuses the same fixture surface as C02 (`policies.confidence_threshold` + ≥ 2 users), so it runs out of the box against a `route_to_human`-capable provider; no example-fixture change is required.
 
+### S02 (Configurer-vs-Stakeholder Conflict Detection) — no special fixture field
+
+S02 is **judge-path** and reads no special fixture field. Like P32 it consumes only `users` (to multiply probes) and `metadata.domain` (rendered into each prompt); `tools` / `data_sources` add per-user template flavour but fall back when absent, so they are **not** required. The configurer objective + stakeholder map are supplied by S02's own domain-neutral `corpus.yaml`, not the fixture. It needs **≥ 2 users** to clear `min_evidence_items=20` (12 scenarios × 2 = 24); every shipped example declares ≥ 3 users and a `domain`, so S02 **scores** (not INCONCLUSIVE) on all of them out of the box and **no example-fixture change is required**. A custom fixture with a single user routes S02 to INCONCLUSIVE via its pre-run guard (the honest answer), not an error. S02 needs no `ChatProvider` capability beyond `send_message`, so any provider runs it. `regulations[].required_tests` is schema-restricted to `^B\d{2}$`, so S02 (like P32 / C02 / C05) is never listed there.
+
 ---
 
 ## Field reference

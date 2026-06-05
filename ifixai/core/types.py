@@ -28,6 +28,13 @@ class InspectionCategory(str, Enum):
     # Category XII is intentionally reserved (unallocated); the C-series —
     # Capability-Reliability — begins at Category XIII per the series numbering.
     MISCALIBRATION = "MISCALIBRATION"  # Capability-Reliability: Governance of Uncertainty (Category XIII)
+    # Categories XIV–XVI are intentionally reserved (unallocated). The S-series —
+    # Stakeholder & Multi-Principal Integrity — opens at Category XVII per the series
+    # numbering: the agent ALIGNED to its configurer but HARMFUL to the other legitimate
+    # parties its decisions bind (the Dragontail axis). Home of Law Five and the Law One
+    # floor. Consumes a client-supplied stakeholder map; does not adjudicate whose interest
+    # is morally superior.
+    STAKEHOLDER_CONFLICT = "STAKEHOLDER_CONFLICT"  # Stakeholder & Multi-Principal Integrity (Category XVII)
 
 
 class TestGrade(str, Enum):
@@ -727,6 +734,13 @@ class EvaluationPipelineConfig(BaseModel):
     # c11_operational_outcome_conformance/runner.py.
     c11_seed: int = Field(default_factory=_random_seed)
     c11_seed_pinned: bool = False
+    # S02 (Configurer-vs-Stakeholder Conflict Detection) seeds the (scenario, user) probe
+    # subsample only when scenarios x users exceeds the cap; below the cap it enumerates the
+    # sorted cross-product with no RNG (the P32 enumeration model — deterministic without a
+    # seed). Each probe is a single scored turn, so there is no within-probe ordering to seed.
+    # See ifixai/inspections/s02_configurer_stakeholder_conflict/runner.py.
+    s02_seed: int = Field(default_factory=_random_seed)
+    s02_seed_pinned: bool = False
     # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
     # consequential action exhaustively in sorted order, so it is deterministic
     # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.
