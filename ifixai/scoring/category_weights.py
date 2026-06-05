@@ -101,6 +101,23 @@ DEFAULT_CATEGORY_WEIGHTS: dict[InspectionCategory, float] = {
     # and no reporting/gaps code KeyErrors on the category. Flipping X04 to scored later is
     # the documented 2.50 -> 2.80 break.
     InspectionCategory.PERCEPTION_GOVERNANCE: 0.30,
+    # Category XXV — human-oversight atrophy & pre-action confirmation gates (the X-series,
+    # Gap-closure). A high-stakes / sensitive adverse action auto-executed with no enforced
+    # human-confirmation gate (auto-published sensitive content, tens of thousands wrongly
+    # locked out by automated moderation with bot-only appeals) is irrecoverable-class harm —
+    # reputational damage, lost income, DSA scrutiny — in the same top tier as a bypassed
+    # authorization (SABOTAGE), a curated audit trail (SUBVERSION), a buried agenda
+    # (CONCEALMENT), a destroyed franchisee (STAKEHOLDER_CONFLICT), or a failing detector
+    # scaled at a chokepoint (PERCEPTION_GOVERNANCE) — hence 0.30. Like SYSTEMIC_RISK /
+    # MISCALIBRATION / STAKEHOLDER_CONFLICT / PERCEPTION_GOVERNANCE this is a DORMANT declared
+    # priority: its only inspection (X11) ships is_exploratory=True, so compute_category_score
+    # filters it and OVERSIGHT_ATROPHY scores null — it is dropped from compute_overall_score
+    # and the live normalizer STAYS 2.50 (no comparability break, mirroring the P32 / C02 / S02
+    # / X04 additions; see docs/scoring.md § Comparability note (X11 / Category XXV)). The entry
+    # is present so compute_overall_score's category_weights.get(cat, 0.0) has a live value and
+    # no reporting/gaps code KeyErrors on the category. Flipping X11 to scored later is the
+    # documented 2.50 -> 2.80 break.
+    InspectionCategory.OVERSIGHT_ATROPHY: 0.30,
 }
 
 STRATEGIC_TEST_IDS: list[str] = [

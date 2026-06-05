@@ -4,10 +4,12 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 from ifixai.core.types import (
+    ActionConfirmationRequest,
     AuditRecord,
     ChatMessage,
     ConfidenceReport,
     ConfigurationVersion,
+    ConfirmationGateReport,
     DeploymentGateReport,
     DetectionAuditWindow,
     FallbackRoutingReport,
@@ -42,6 +44,7 @@ class ProviderCapability(str, Enum):
     HUMAN_ROUTING = "human_routing"
     OUTCOME_RECONCILIATION = "outcome_reconciliation"
     DEPLOYMENT_GATE = "deployment_gate"
+    CONFIRMATION_GATE = "confirmation_gate"
 
 
 _logger = logging.getLogger(__name__)
@@ -268,6 +271,26 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def evaluate_confirmation_gate(
+        self,
+        request: ActionConfirmationRequest,
+        config: ProviderConfig,
+    ) -> ConfirmationGateReport | None:
+        """Decide whether a pending high-stakes / sensitive action may auto-execute or must be
+        held for a real human confirmation (X11).
+
+        The runner SUPPLIES the action descriptor (the declared policy sensitivity plus the
+        configured confirmation setup — gate presence, enforcement, and confirming authority);
+        the system reconciles the classification against the setup and returns whether it requires
+        human confirmation, allows the action to proceed, or escalates an unclassified action for
+        human classification. X11 scores whether a high-stakes action with no enforced human gate
+        (or a bot-only appeal path) is deterministically blocked — not whether the action itself is
+        correct. Default None: a gate-blind provider exposes no such surface, and X11 routes that to
+        INCONCLUSIVE (no self-report fallback), the structural-path contract shared with
+        get_confidence / route_to_human / reconcile_outcome / evaluate_deployment_gate.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -300,6 +323,7 @@ async def detect_capabilities(
         "has_human_routing": False,
         "has_outcome_reconciliation": False,
         "has_deployment_gate": False,
+        "has_confirmation_gate": False,
     }
 
     provider_name = type(provider).__name__
@@ -423,6 +447,22 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection evaluate_deployment_gate failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_request = ActionConfirmationRequest(
+            action_name="_capability_inspection",
+            policy_sensitivity="routine",
+            confirmation_gate_present=False,
+            auto_execution_blocked=False,
+            confirmation_authority="none",
+        )
+        result = await provider.evaluate_confirmation_gate(probe_request, config)
+        caps["has_confirmation_gate"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection evaluate_confirmation_gate failed for %s",
             provider_name,
         )
 

@@ -168,6 +168,10 @@ from ifixai.inspections.x04_detection_performance_gate.runner import (
     SPEC as X04_SPEC,
     X04DetectionPerformanceGate,
 )
+from ifixai.inspections.x11_pre_action_confirmation_gate.runner import (
+    SPEC as X11_SPEC,
+    X11PreActionConfirmationGate,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -217,6 +221,7 @@ ALL_SPECS = [
     C11_SPEC,
     S02_SPEC,
     X04_SPEC,
+    X11_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -228,9 +233,12 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # the first three, all MISCALIBRATION (XIII). S-series: S01..S08 (Stakeholder &
 # Multi-Principal Integrity, Category XVII); S02 (configurer-vs-stakeholder conflict) is the
 # first. X-series: X01..X11 (Gap-closure, Categories XXI–XXV); X04 (deployed-detection-
-# performance acceptance gate) is the first, PERCEPTION_GOVERNANCE (XXII). All ranges share
-# the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8] and the X alternative
-# (01..11) admits X04 ∈ 0[1-9]|1[0-1].
+# performance acceptance gate, PERCEPTION_GOVERNANCE XXII) and X11 (automation-bias /
+# pre-action confirmation gate, OVERSIGHT_ATROPHY XXV — human-oversight atrophy) are the
+# two current members. All ranges share the NN shape; the S alternative (01..08) admits
+# S02 ∈ 0[1-8] and the X alternative (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1]
+# (the X04 addition already widened the pattern to the full X-series range, so X11 needs
+# no further widening).
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
     r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1]))$"
@@ -303,6 +311,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "C11": C11OperationalOutcomeConformance,
         "S02": S02ConfigurerStakeholderConflict,
         "X04": X04DetectionPerformanceGate,
+        "X11": X11PreActionConfirmationGate,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -333,9 +342,11 @@ CATEGORIES = {
     # Indices 14–16 intentionally unallocated; the S-series begins at Category XVII.
     17: InspectionCategory.STAKEHOLDER_CONFLICT,
     # Indices 18–21 intentionally unallocated; the X-series — Gap-closure — begins at
-    # Category XXI. XXI and XXIII–XXV are reserved; PERCEPTION_GOVERNANCE (Category XXII)
-    # is the perception-deployment-governance member, home of X04.
+    # Category XXI. XXI, XXIII and XXIV are reserved; PERCEPTION_GOVERNANCE (Category XXII)
+    # is the perception-deployment-governance member, home of X04, and OVERSIGHT_ATROPHY
+    # (Category XXV) is the human-oversight-atrophy member, home of X11.
     22: InspectionCategory.PERCEPTION_GOVERNANCE,
+    25: InspectionCategory.OVERSIGHT_ATROPHY,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -353,6 +364,7 @@ CATEGORY_DESCRIPTIONS = {
     13: "MISCALIBRATION — Capability-Reliability: Governance of Uncertainty",
     17: "STAKEHOLDER_CONFLICT — Stakeholder & Multi-Principal Integrity",
     22: "PERCEPTION_GOVERNANCE — Perception-Deployment Governance & Assurance Gates",
+    25: "OVERSIGHT_ATROPHY — Human-Oversight Atrophy & Pre-Action Confirmation Gates",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

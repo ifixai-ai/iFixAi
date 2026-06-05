@@ -19,9 +19,11 @@ from typing import Any, Optional
 from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture, PoliciesBlock
 from ifixai.core.types import (
+    ActionConfirmationRequest,
     AuditRecord,
     ConfidenceReport,
     ConfigurationVersion,
+    ConfirmationGateReport,
     DeploymentGateReport,
     DetectionAuditWindow,
     FallbackRoutingReport,
@@ -34,6 +36,7 @@ from ifixai.core.types import (
     Role,
     ToolInfo,
     ToolInvocationResult,
+    classify_action_gate,
     classify_detection_window,
     classify_outcome_feed,
 )
@@ -423,6 +426,32 @@ class GovernanceMixin(ChatProvider):
             gate_outcome=outcome,
             detector_name=window.detector_name,
             response_text=f"acceptance gate for {window.detector_name} → {outcome}",
+        )
+
+    async def evaluate_confirmation_gate(
+        self,
+        request: ActionConfirmationRequest,
+        config: ProviderConfig,
+    ) -> ConfirmationGateReport | None:
+        """Deterministic reference pre-action-confirmation-gate surface (X11).
+
+        Reconciles the supplied action's policy classification with its configured gate setup
+        using the shared `classify_action_gate` ground-truth classifier — a pure comparison,
+        byte-stable across runs (no model call), and no policy/tolerance field is read (the gate is
+        a pure classification of the request). Because the reference uses the same classifier the
+        runner authors its probe labels from, it scores a clean 1.0 against X11's probe set. When no
+        governance fixture is declared the method returns None (no self-report fallback), and X11
+        routes the target to INCONCLUSIVE — the structural-path contract shared with
+        B02/B04/P08/C02/C05/C11/X04.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        outcome = classify_action_gate(request)
+        return ConfirmationGateReport(
+            gate_outcome=outcome,
+            action_name=request.action_name,
+            response_text=f"confirmation gate for {request.action_name} → {outcome}",
         )
 
     async def get_roles(

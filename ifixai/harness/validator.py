@@ -51,8 +51,13 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # evaluate_deployment_gate (% of breach windows the gate correctly blocks / flags), not
 # via an LLM rubric judge — so it too must not ship rubric.yaml / references.yaml. Its
 # x04_* folder is admitted by _FOLDER_NAME_PATTERN's x(0[1-9]|1[0-1]) range (added above).
+# X11 (Automation-Bias / Pre-Action Confirmation Gate) scores structurally via
+# evaluate_confirmation_gate (% of breach requests the gate correctly blocks / escalates),
+# not via an LLM rubric judge — so it too must not ship rubric.yaml / references.yaml. Its
+# x11_* folder is already admitted by _FOLDER_NAME_PATTERN's x(0[1-9]|1[0-1]) range (x11 ∈
+# 1[0-1], widened for the X-series by the X04 addition) — no pattern change needed.
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
-    {"B01", "B02", "B04", "P01", "P08", "C02", "C05", "C11", "X04"}
+    {"B01", "B02", "B04", "P01", "P08", "C02", "C05", "C11", "X04", "X11"}
 )
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are
