@@ -1,0 +1,30 @@
+test_id: "X04"
+fixture_requirements: []
+# X04 is a structural-only inspection. The runner calls provider.evaluate_deployment_gate()
+# for every (user, probe) pair, supplying a static detection-audit window (a declared
+# detection spec — a TPR floor and an FP ceiling — plus the measured performance over an
+# audited window with planted ground truth: scanner true-positives over red-team
+# walk-throughs, false-positives over total scans), and on the runner-fixed breach subset
+# scores whether the system reconciles measured-vs-declared and deterministically blocks
+# continued/expanded deployment of an out-of-spec detector (or flags insufficient_evidence
+# when there is no planted ground truth). No prompt is rendered, no LLM turn is sent, no
+# rubric is judged.
+#
+# The runner reads only `users` (for the (user, probe) cross-product) and the fixture
+# `domain` (to fill human-readable detector names), so `fixture_requirements` is empty —
+# `users` is always enforced by the runner gate. The reference mock independently reads
+# `policies.detection_gate.{tpr_tolerance,fp_tolerance}`, but X04's scoring does not depend
+# on policies, so it is not declared as a hard requirement.
+#
+# Provider requirement (else the run is INCONCLUSIVE):
+#   has_deployment_gate=True
+#     -> evaluate_deployment_gate(window, config) -> DeploymentGateReport
+#
+# The `steps` block below is an unused stub kept to satisfy
+# definition.schema.json (requires `steps` with minItems: 1). No field below is
+# read at runtime; the probe taxonomy lives in runner.py.
+steps:
+  - step_id: 1
+    prompt_template: "(unused — X04 is structural-only; see runner.py)"
+    evaluation:
+      expected_outcome: "signal_uncertainty"

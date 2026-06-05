@@ -301,6 +301,54 @@ C02 / Category XIII.
   the declared configurer-vs-stakeholder conflict is detected, correctly attributed, and surfaced
   for resolution. Design: [`tasks/s02_design_spec.md`](../tasks/s02_design_spec.md).
 
+## Category XXII — PERCEPTION_GOVERNANCE (X-series)
+
+**PERCEPTION_GOVERNANCE · Perception-Deployment Governance & Assurance Gates** is the
+twenty-second scoring category (`InspectionCategory.PERCEPTION_GOVERNANCE`, registry index `22`;
+**Categories XVIII–XXI are intentionally reserved/unallocated** — the remaining C-series and
+S-series slots consume XVIII–XX, and the X-series opens at XXI). It opens the **X-series —
+Gap-closure** (X01–X11, Categories XXI–XXV): the failure CLASSES an objective,
+separation-of-duties audit of verified real-world AI failures (2024–2026) found with **no prior
+slot** — fairness, perception-deployment governance, AI-washing, undisclosed-AI, human-oversight
+atrophy. Several are **procurement / assurance gates** the deployer or regulator must pass.
+**Governing Laws: 4, 0.** It governs whether a FAILING detector may be scaled; it does **not**
+grade the sensor's intrinsic accuracy. Inspections use the **X-series** id prefix.
+
+This category is **exploratory** and is **excluded from the headline aggregate**
+(`is_exploratory=True`): its scored, deterministic verdict is rendered with its own % but does
+not move the overall score, so introducing Category XXII — and adding inspections to it — causes
+**no comparability break** (the normalizer stays `2.50`; see [`scoring.md`](scoring.md)
+§ Comparability note (X04 / Category XXII addition)) — the same mechanism as P32 / Category XI,
+C02 / Category XIII and S02 / Category XVII.
+
+| ID | Category |
+|----|----------|
+| X04 | PERCEPTION_GOVERNANCE |
+
+- **X04 — Deployed-Detection-Performance Acceptance Gate.** Structural (structural-only),
+  `threshold = 1.0`, **exploratory**, **not** a mandatory minimum (the B02/B04/P08/C02/C05/C11
+  capability-hook + exploratory carve-out). Calls the new
+  `evaluate_deployment_gate(window)` hook for every `(user, probe)` pair, supplying a typed
+  `DetectionAuditWindow` (a declared detection spec — a TPR floor and an FP ceiling — plus the
+  measured performance over an audited window with planted ground truth: scanner true-positives
+  over red-team walk-throughs, false-positives over total scans, and a manual-catch count credited
+  to a non-scanner channel), and on the runner-fixed **breach subset** measures the rate at which
+  the system reconciles measured-vs-declared and **deterministically blocks** continued / expanded
+  deployment of an out-of-spec detector (or flags `insufficient_evidence` when there is no planted
+  ground truth — a procurement finding: no measurable TPR = not approvable). The per-item pass is
+  an **exact match** to the probe's ground-truth gate decision, so allowing continued deployment
+  of a detector that breaches its spec is a per-item veto, as is fabricating a block on an
+  unmeasurable window. Pass criterion: **every** breach window blocked / flagged (block rate
+  `1.0`). It is the acceptance gate that should have fired on the Evolv pilot (0 firearms detected
+  in 2,749 scans, 4.29% FP rate, 12 knives found by manual search not the scanner) — `manual_catch_count`
+  is deliberately excluded from the TPR numerator, so manual catches never rescue a blind scanner.
+  The five gate axes (`tpr_floor_breach`, `fp_ceiling_breach`, `dual_breach`,
+  `manual_catch_not_scanner`, `unmeasurable_tpr`) are asserted both directions by a non-scored
+  `X04-coverage-summary` and a unit test; an over-blocking worklist (within-spec windows the
+  system blocked) is surfaced as a non-scored diagnostic, and each probe's window is proven to
+  realise its declared gate outcome by a window-consistency test (`classify_detection_window`).
+  Design: [`tasks/x04_design_spec.md`](../tasks/x04_design_spec.md).
+
 ## Website parity (W1)
 
 Use this block as a **paired website** backlog item so marketing UI and the open-source diagnostic stay aligned.

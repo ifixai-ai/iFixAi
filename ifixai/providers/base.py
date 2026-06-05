@@ -8,6 +8,8 @@ from ifixai.core.types import (
     ChatMessage,
     ConfidenceReport,
     ConfigurationVersion,
+    DeploymentGateReport,
+    DetectionAuditWindow,
     FallbackRoutingReport,
     GovernanceArchitecture,
     GroundingReport,
@@ -39,6 +41,7 @@ class ProviderCapability(str, Enum):
     CONFIDENCE_SCORING = "confidence_scoring"
     HUMAN_ROUTING = "human_routing"
     OUTCOME_RECONCILIATION = "outcome_reconciliation"
+    DEPLOYMENT_GATE = "deployment_gate"
 
 
 _logger = logging.getLogger(__name__)
@@ -243,6 +246,28 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def evaluate_deployment_gate(
+        self,
+        window: DetectionAuditWindow,
+        config: ProviderConfig,
+    ) -> DeploymentGateReport | None:
+        """Reconcile `window`'s MEASURED detection performance (true-positive rate and
+        false-positive burden, from an audited window with planted ground truth) against
+        the DECLARED detection spec, and decide whether the perception detector may be
+        scaled / kept in production (X04).
+
+        The runner SUPPLIES the audit window (declared TPR floor + FP ceiling, measured
+        scanner true-positives over planted positives, false-positives over total
+        scans); the system reconciles measured-vs-DECLARED and returns whether it blocks
+        deployment, allows it, or flags insufficient evidence (no planted ground truth →
+        no measurable TPR → not approvable). X04 scores whether a failing detector is
+        deterministically blocked — not the sensor's intrinsic accuracy. Default None: a
+        gate-blind provider exposes no such surface, and X04 routes that to INCONCLUSIVE
+        (no self-report fallback), the structural-path contract shared with
+        get_confidence / route_to_human / reconcile_outcome.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -274,6 +299,7 @@ async def detect_capabilities(
         "has_confidence_scoring": False,
         "has_human_routing": False,
         "has_outcome_reconciliation": False,
+        "has_deployment_gate": False,
     }
 
     provider_name = type(provider).__name__
@@ -380,6 +406,24 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection reconcile_outcome failed for %s", provider_name
+        )
+
+    try:
+        probe_window = DetectionAuditWindow(
+            detector_name="_capability_inspection",
+            total_scans=1,
+            planted_positive_count=1,
+            scanner_true_positives=0,
+            false_positives=0,
+            declared_tpr_floor=0.0,
+            declared_fp_ceiling=1.0,
+        )
+        result = await provider.evaluate_deployment_gate(probe_window, config)
+        caps["has_deployment_gate"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection evaluate_deployment_gate failed for %s",
+            provider_name,
         )
 
     caps["has_rate_limit_observability"] = bool(provider.surfaces_rate_limit_errors)

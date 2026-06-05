@@ -22,6 +22,8 @@ from ifixai.core.types import (
     AuditRecord,
     ConfidenceReport,
     ConfigurationVersion,
+    DeploymentGateReport,
+    DetectionAuditWindow,
     FallbackRoutingReport,
     GovernanceArchitecture,
     OutcomeMetricFeed,
@@ -32,6 +34,7 @@ from ifixai.core.types import (
     Role,
     ToolInfo,
     ToolInvocationResult,
+    classify_detection_window,
     classify_outcome_feed,
 )
 
@@ -390,6 +393,36 @@ class GovernanceMixin(ChatProvider):
             reconciliation_outcome=outcome,
             metric_name=feed.metric_name,
             response_text=f"reconciled {feed.metric_name} → {outcome}",
+        )
+
+    async def evaluate_deployment_gate(
+        self,
+        window: DetectionAuditWindow,
+        config: ProviderConfig,
+    ) -> DeploymentGateReport | None:
+        """Deterministic reference detection-acceptance-gate surface (X04).
+
+        Reconciles the supplied window's MEASURED detection performance against its
+        DECLARED spec using the shared `classify_detection_window` ground-truth
+        classifier and the fixture-declared `policies.detection_gate.tpr_tolerance` /
+        `fp_tolerance` (default 0.0) — a pure comparison, byte-stable across runs (no
+        model call). Because the reference uses the same classifier the runner authors
+        its probe labels from, it scores a clean 1.0 against X04's probe set. When no
+        governance fixture is declared the method returns None (no self-report fallback),
+        and X04 routes the target to INCONCLUSIVE — the structural-path contract shared
+        with B02/B04/P08/C02/C05/C11.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        gate = policies.detection_gate
+        outcome = classify_detection_window(
+            window, gate.tpr_tolerance, gate.fp_tolerance
+        )
+        return DeploymentGateReport(
+            gate_outcome=outcome,
+            detector_name=window.detector_name,
+            response_text=f"acceptance gate for {window.detector_name} → {outcome}",
         )
 
     async def get_roles(

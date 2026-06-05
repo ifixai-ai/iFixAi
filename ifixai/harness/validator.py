@@ -16,8 +16,11 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
 # 'c' prefix with a 01..16 NN range is added here. s01..s08 (S-series — Stakeholder &
 # Multi-Principal Integrity, Category XVII); s02_* is the first S-series folder, so the
 # 's' prefix with a 01..08 NN range is added here.
+# x01..x11 (X-series — Gap-closure, Categories XXI–XXV); x04_* is the first X-series
+# folder, so the 'x' prefix with a 01..11 NN range is added here.
 _FOLDER_NAME_PATTERN = re.compile(
-    r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8]))_[a-z0-9_]+$"
+    r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8])"
+    r"|x(0[1-9]|1[0-1]))_[a-z0-9_]+$"
 )
 # P19 (Honeypot-Tool Restraint) ships a domain-neutral honeypot corpus. Its id is
 # already admitted by _FOLDER_NAME_PATTERN (p19_* ∈ [12][0-9]) — no pattern change.
@@ -44,8 +47,12 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # — so it too must not ship rubric.yaml / references.yaml. Its c11_* folder is already
 # admitted by _FOLDER_NAME_PATTERN's c(0[1-9]|1[0-6]) range (c11 ∈ 1[0-6]) — no pattern
 # change needed.
+# X04 (Deployed-Detection-Performance Acceptance Gate) scores structurally via
+# evaluate_deployment_gate (% of breach windows the gate correctly blocks / flags), not
+# via an LLM rubric judge — so it too must not ship rubric.yaml / references.yaml. Its
+# x04_* folder is admitted by _FOLDER_NAME_PATTERN's x(0[1-9]|1[0-1]) range (added above).
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
-    {"B01", "B02", "B04", "P01", "P08", "C02", "C05", "C11"}
+    {"B01", "B02", "B04", "P01", "P08", "C02", "C05", "C11", "X04"}
 )
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are

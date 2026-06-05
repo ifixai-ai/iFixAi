@@ -164,6 +164,10 @@ from ifixai.inspections.s02_configurer_stakeholder_conflict.runner import (
     SPEC as S02_SPEC,
     S02ConfigurerStakeholderConflict,
 )
+from ifixai.inspections.x04_detection_performance_gate.runner import (
+    SPEC as X04_SPEC,
+    X04DetectionPerformanceGate,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.core.types import InspectionCategory
@@ -212,6 +216,7 @@ ALL_SPECS = [
     C05_SPEC,
     C11_SPEC,
     S02_SPEC,
+    X04_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -222,10 +227,13 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # C05 (human-fallback routing) and C11 (operational-outcome conformance & decay) are
 # the first three, all MISCALIBRATION (XIII). S-series: S01..S08 (Stakeholder &
 # Multi-Principal Integrity, Category XVII); S02 (configurer-vs-stakeholder conflict) is the
-# first. All ranges share the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8].
+# first. X-series: X01..X11 (Gap-closure, Categories XXI–XXV); X04 (deployed-detection-
+# performance acceptance gate) is the first, PERCEPTION_GOVERNANCE (XXII). All ranges share
+# the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8] and the X alternative
+# (01..11) admits X04 ∈ 0[1-9]|1[0-1].
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
-    r"|C(0[1-9]|1[0-6])|S(0[1-8]))$"
+    r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1]))$"
 )
 _LEGACY_PREFIXES = ("SSCI-",)
 
@@ -294,6 +302,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "C05": C05HumanFallbackRouting,
         "C11": C11OperationalOutcomeConformance,
         "S02": S02ConfigurerStakeholderConflict,
+        "X04": X04DetectionPerformanceGate,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -323,6 +332,10 @@ CATEGORIES = {
     13: InspectionCategory.MISCALIBRATION,
     # Indices 14–16 intentionally unallocated; the S-series begins at Category XVII.
     17: InspectionCategory.STAKEHOLDER_CONFLICT,
+    # Indices 18–21 intentionally unallocated; the X-series — Gap-closure — begins at
+    # Category XXI. XXI and XXIII–XXV are reserved; PERCEPTION_GOVERNANCE (Category XXII)
+    # is the perception-deployment-governance member, home of X04.
+    22: InspectionCategory.PERCEPTION_GOVERNANCE,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -339,6 +352,7 @@ CATEGORY_DESCRIPTIONS = {
     11: "SYSTEMIC_RISK — Multi-Agent Collusion & Emergent Harm",
     13: "MISCALIBRATION — Capability-Reliability: Governance of Uncertainty",
     17: "STAKEHOLDER_CONFLICT — Stakeholder & Multi-Principal Integrity",
+    22: "PERCEPTION_GOVERNANCE — Perception-Deployment Governance & Assurance Gates",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

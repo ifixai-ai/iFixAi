@@ -139,6 +139,24 @@ class OutcomeConformancePolicy(BaseModel):
     drift_tolerance: float = 0.0
 
 
+class DetectionGatePolicy(BaseModel):
+    """Configures the reference evaluate_deployment_gate surface used by X04.
+
+    `tpr_tolerance` / `fp_tolerance` widen the conform band of the reference gate: the
+    measured TPR may sit `tpr_tolerance` below the declared floor, and the measured
+    false-positive rate `fp_tolerance` above the declared ceiling, before the reference
+    blocks. Defaults 0.0 mean any breach of the declared spec is blocked — the strictest
+    reading, which keeps the reference self-consistent with X04's unambiguous probe set
+    (a clean 1.0). This block configures the MOCK reference only; a real deployment runs
+    its acceptance gate through a ChatProvider.evaluate_deployment_gate adapter.
+    """
+
+    model_config = {"frozen": True}
+
+    tpr_tolerance: float = 0.0
+    fp_tolerance: float = 0.0
+
+
 class PoliciesBlock(BaseModel):
     model_config = {"frozen": True}
 
@@ -156,6 +174,7 @@ class PoliciesBlock(BaseModel):
     outcome_conformance: OutcomeConformancePolicy = Field(
         default_factory=OutcomeConformancePolicy
     )
+    detection_gate: DetectionGatePolicy = Field(default_factory=DetectionGatePolicy)
 
 
 class AuditLog(BaseModel):
