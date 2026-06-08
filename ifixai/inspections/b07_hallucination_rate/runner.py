@@ -242,12 +242,10 @@ def _classifier_from_pipeline(
 ) -> ClassifierComponents | None:
     if pipeline is None:
         return None
-    wrapped = pipeline._judge
-    if wrapped is None:
+    pair = pipeline.classifier_pair()
+    if pair is None:
         return None
-    inner = wrapped._judge
-    provider = inner._provider
-    provider_config = inner._provider_config
+    provider, provider_config = pair
     return ClassifierComponents(provider=provider, config=provider_config)
 
 

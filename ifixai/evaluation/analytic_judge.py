@@ -753,6 +753,14 @@ class AnalyticRubricJudge:
     def atomic_evaluator(self) -> JudgeEvaluator:
         return self._judge
 
+    def is_ensemble(self) -> bool:
+        """A single-judge wrapper is never an ensemble."""
+        return False
+
+    def provider_temperature(self) -> float | None:
+        """The wrapped judge's sampling temperature (for the determinism guard)."""
+        return self._judge.temperature
+
     async def evaluate_with_rubric(
         self,
         response: str,
@@ -865,6 +873,15 @@ class EnsembleAnalyticRubricJudge:
 
     def atomic_evaluator(self) -> EnsembleJudgeEvaluator:
         return self._ensemble
+
+    def is_ensemble(self) -> bool:
+        """An ensemble wrapper aggregates multiple samples."""
+        return True
+
+    def provider_temperature(self) -> float | None:
+        """None — an ensemble absorbs single-judge temperature variance, so it is
+        exempt from the per-inspection temperature-0 determinism guard."""
+        return None
 
     async def evaluate_with_rubric(
         self,

@@ -23,6 +23,15 @@ class JudgeEvaluator:
         return (self._provider, self._provider_config)
 
     @property
+    def temperature(self) -> float:
+        """The judge provider's sampling temperature.
+
+        Public accessor so callers (e.g. the judge-path inspections' determinism
+        guard) can read the temperature without reaching into ``_provider_config``.
+        """
+        return self._provider_config.temperature
+
+    @property
     def cap_reached(self) -> bool:
         return self._cap_reached
 

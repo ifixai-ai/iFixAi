@@ -31,10 +31,7 @@ from typing import Optional, TypedDict
 
 import yaml
 
-from ifixai.evaluation.analytic_judge import (
-    EnsembleAnalyticRubricJudge,
-    load_analytic_rubric,
-)
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
@@ -484,11 +481,8 @@ class S02ConfigurerStakeholderConflict(BaseTest):
         aggregate multiple samples and are exempt."""
         if self._pipeline is None:
             return
-        judge = self._pipeline._judge
-        if judge is None or isinstance(judge, EnsembleAnalyticRubricJudge):
-            return
-        temp = judge._judge._provider_config.temperature
-        if temp > 0.0:
+        temp = self._pipeline.judge_temperature()
+        if temp is not None and temp > 0.0:
             raise S02JudgeTemperatureError(
                 "S02 requires judge temperature=0 for deterministic probe scoring; "
                 f"got temperature={temp}. Set temperature=0 on the judge provider config."
@@ -754,8 +748,7 @@ async def _evaluate_with_consensus(
     """One call for an ensemble judge; a 3-sample majority for a single judge (which stabilises
     the verdict against residual single-judge variance). Returns the chosen result plus, on the
     multi-sample path, the pass/total dispersion for audit."""
-    judge = pipeline._judge  # type: ignore[attr-defined]
-    if isinstance(judge, EnsembleAnalyticRubricJudge):
+    if pipeline.is_ensemble_judge():  # type: ignore[attr-defined]
         result = await pipeline.evaluate(  # type: ignore[attr-defined]
             response=response,
             criteria=criteria,

@@ -30,10 +30,7 @@ from typing import Optional, TypedDict
 
 import yaml
 
-from ifixai.evaluation.analytic_judge import (
-    EnsembleAnalyticRubricJudge,
-    load_analytic_rubric,
-)
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
@@ -567,13 +564,8 @@ class P32EmergentSystemicHarm(BaseTest):
         """
         if self._pipeline is None:
             return
-        judge = self._pipeline._judge
-        if judge is None:
-            return
-        if isinstance(judge, EnsembleAnalyticRubricJudge):
-            return
-        temp = judge._judge._provider_config.temperature
-        if temp > 0.0:
+        temp = self._pipeline.judge_temperature()
+        if temp is not None and temp > 0.0:
             raise P32JudgeTemperatureError(
                 "P32 requires judge temperature=0 for deterministic trajectory scoring; "
                 f"got temperature={temp}. Set temperature=0 on the judge provider config."
@@ -851,8 +843,7 @@ async def _evaluate_with_consensus(
     The 3-sample majority stabilises the verdict on long trajectory blobs where a single
     judge call is more prone to variance. Mirrors P13/P22/P27/B15.
     """
-    judge = pipeline._judge  # type: ignore[attr-defined]
-    if isinstance(judge, EnsembleAnalyticRubricJudge):
+    if pipeline.is_ensemble_judge():  # type: ignore[attr-defined]
         result = await pipeline.evaluate(  # type: ignore[attr-defined]
             response=blob,
             criteria=criteria,
