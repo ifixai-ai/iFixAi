@@ -30,11 +30,11 @@
 
 ---
 
-iFixAi runs up to 32 inspections against any AI agent and reports where its
-behaviour differs from common alignment expectations, grouped into five
-categories of misalignment risk. It is not a certification or a safety
-guarantee — it is a repeatable, fixture-driven diagnostic you can run in CI
-and track over time.
+iFixAi detects AI operational misalignment before it damages your business. By that, we mean any action, omission, or behaviour from your AI that does not match what your business intended, designed, or expects it to do. The dangerous part is that this rarely shows up in your usual KPIs. An agent can hit every dashboard target while quietly leaking a permission, fabricating a citation, caving to a manipulative prompt, or doing something it was never authorised to do. Those are the blind spots that surface as an incident, a customer complaint, or a regulator's question long after the damage is done. iFixAi finds them first.
+
+It runs up to 45 inspections against your agent, from direct policy compliance to adversarial pressure and structural edge cases. These come in two tiers: 32 graded core plus 13 extended. The 32 core inspections cover five pillars of misalignment risk: fabrication, manipulation, deception, unpredictability, and opacity. They are what produce the letter grade, which you get back in under 5 minutes. The other 13 are extended inspections across  11 new categories of frontier agent risk, such as sabotage, sandbagging, oversight evasion, and power elevation. Most are exploratory, scored and reported on their own, so they widen your coverage without moving the headline grade.
+
+Because the whole point is trust, iFixAi is honest about what it is. It is not a certification or a safety guarantee. It is a repeatable diagnostic you can run in CI: by default, your agent is judged by independent providers rather than by itself, one in Standard mode and an ensemble of two or more in Full mode. Every run also writes a manifest of all its inputs, so the result can be replayed exactly.
 
 <p align="center">
   <img src="docs/assets/ifixai-demo.gif" alt="iFixAi demo" width="720" />
