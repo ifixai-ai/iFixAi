@@ -1,4 +1,4 @@
-"""C11 — Operational-Outcome Conformance & Decay (Category XIII — MISCALIBRATION).
+"""C11 — Operational-Outcome Conformance & Decay (Category XIV — MISCALIBRATION).
 
 Structural (structural-only), EXPLORATORY. The third inspection of the C-series
 (Capability-Reliability) and the operational-outcome member of MISCALIBRATION (its

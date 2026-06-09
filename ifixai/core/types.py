@@ -36,37 +36,41 @@ class InspectionCategory(str, Enum):
     SABOTAGE = "SABOTAGE"  # Operational Harm to the Organization (Category VI)
     SUBVERSION = "SUBVERSION"  # Oversight Evasion & Audit Integrity (Category VII)
     CONCEALMENT = "CONCEALMENT"  # Hidden Agendas & Long-Horizon Deception (Category VIII)
-    INSUBORDINATION = "INSUBORDINATION"  # Corrigibility & Self-Preservation (Category IX)
-    USURPATION = "USURPATION"  # Covert Capability & Power Elevation (Category X)
-    SYSTEMIC_RISK = "SYSTEMIC_RISK"  # Multi-Agent Collusion & Emergent Harm (Category XI)
-    # Category XII is intentionally reserved (unallocated); the C-series —
-    # Capability-Reliability — begins at Category XIII per the series numbering.
-    MISCALIBRATION = "MISCALIBRATION"  # Capability-Reliability: Governance of Uncertainty (Category XIII)
-    # Categories XIV–XVI are intentionally reserved (unallocated). The S-series —
-    # Stakeholder & Multi-Principal Integrity — opens at Category XVII per the series
+    # Category IX — capability concealment & evaluation gaming. From the Sabotage
+    # Report's sandbagging axis and the Mythos evaluation-gaming finding: the agent
+    # hides capability and detects / defeats the evaluation. Governing Laws: 4, 2.
+    SANDBAGGING = "SANDBAGGING"  # Capability Concealment & Evaluation Gaming (Category IX)
+    INSUBORDINATION = "INSUBORDINATION"  # Corrigibility & Self-Preservation (Category X)
+    USURPATION = "USURPATION"  # Covert Capability & Power Elevation (Category XI)
+    SYSTEMIC_RISK = "SYSTEMIC_RISK"  # Multi-Agent Collusion & Emergent Harm (Category XII)
+    # Category XIII is intentionally reserved (unallocated); the C-series —
+    # Capability-Reliability — begins at Category XIV per the series numbering.
+    MISCALIBRATION = "MISCALIBRATION"  # Capability-Reliability: Governance of Uncertainty (Category XIV)
+    # Categories XV–XVII are intentionally reserved (unallocated). The S-series —
+    # Stakeholder & Multi-Principal Integrity — opens at Category XVIII per the series
     # numbering: the agent ALIGNED to its configurer but HARMFUL to the other legitimate
     # parties its decisions bind (the Dragontail axis). Home of Law Five and the Law One
     # floor. Consumes a client-supplied stakeholder map; does not adjudicate whose interest
     # is morally superior.
-    STAKEHOLDER_CONFLICT = "STAKEHOLDER_CONFLICT"  # Stakeholder & Multi-Principal Integrity (Category XVII)
-    # Categories XVIII–XX are intentionally reserved (unallocated) — the remaining
-    # C-series slots (C01–C16 span XIII–XX) and the remaining S-series slots
-    # (S01–S08, opened at XVII) consume them as those inspections graduate. The
-    # X-series — Gap-closure — opens at Category XXI per the series numbering: the
+    STAKEHOLDER_CONFLICT = "STAKEHOLDER_CONFLICT"  # Stakeholder & Multi-Principal Integrity (Category XVIII)
+    # Categories XIX–XXII are intentionally reserved (unallocated) — the remaining
+    # C-series slots (C01–C16 span XIV–XXI) and the remaining S-series slots
+    # (S01–S08, opened at XVIII) consume them as those inspections graduate. The
+    # X-series — Gap-closure — opens at Category XXII per the series numbering: the
     # failure CLASSES an objective separation-of-duties audit of verified real-world
     # AI failures found with no prior slot (fairness, perception-deployment
     # governance, AI-washing, undisclosed-AI, human-oversight atrophy). Several are
     # procurement / assurance gates the deployer or regulator must pass. Categories
-    # XXI and XXIII–XXV are reserved; PERCEPTION_GOVERNANCE (Category XXII) is the
+    # XXII and XXIV–XXV are reserved; PERCEPTION_GOVERNANCE (Category XXIII) is the
     # perception-deployment-governance member, home of X04.
-    PERCEPTION_GOVERNANCE = "PERCEPTION_GOVERNANCE"  # Perception-Deployment Governance & Assurance Gates (Category XXII)
-    # Category XXV — human-oversight atrophy, the fifth and final X-series failure
-    # class. The X-series' five classes map to Categories XXI–XXV in list order:
-    # XXI fairness, XXII perception-deployment governance (X04), XXIII AI-washing,
-    # XXIV undisclosed-AI, XXV human-oversight atrophy (X11). XXI, XXIII and XXIV stay
-    # reserved; OVERSIGHT_ATROPHY (Category XXV) is the automation-bias / pre-action
+    PERCEPTION_GOVERNANCE = "PERCEPTION_GOVERNANCE"  # Perception-Deployment Governance & Assurance Gates (Category XXIII)
+    # Category XXVI — human-oversight atrophy, the fifth and final X-series failure
+    # class. The X-series' five classes map to Categories XXII–XXVI in list order:
+    # XXII fairness, XXIII perception-deployment governance (X04), XXIV AI-washing,
+    # XXV undisclosed-AI, XXVI human-oversight atrophy (X11). XXII, XXIV and XXV stay
+    # reserved; OVERSIGHT_ATROPHY (Category XXVI) is the automation-bias / pre-action
     # confirmation-gate member, home of X11 — a deployer / regulator assurance gate.
-    OVERSIGHT_ATROPHY = "OVERSIGHT_ATROPHY"  # Human-Oversight Atrophy & Pre-Action Confirmation Gates (Category XXV)
+    OVERSIGHT_ATROPHY = "OVERSIGHT_ATROPHY"  # Human-Oversight Atrophy & Pre-Action Confirmation Gates (Category XXVI)
 
 
 class TestGrade(str, Enum):

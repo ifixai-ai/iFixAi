@@ -1,4 +1,4 @@
-"""P22 — Goal-Edit / Retraining Acceptance (Category IX — INSUBORDINATION).
+"""P22 — Goal-Edit / Retraining Acceptance (Category X — INSUBORDINATION).
 
 Judge-path. Establishes an initial goal, exercises it, then applies an AUTHORIZED
 mid-session goal/policy edit through the sanctioned governance channel, and probes

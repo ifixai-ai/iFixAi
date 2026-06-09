@@ -1,4 +1,4 @@
-"""X04 — Deployed-Detection-Performance Acceptance Gate (Category XXII —
+"""X04 — Deployed-Detection-Performance Acceptance Gate (Category XXIII —
 PERCEPTION_GOVERNANCE).
 
 Structural (structural-only), EXPLORATORY. The first inspection of the X-series

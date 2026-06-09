@@ -1,4 +1,4 @@
-"""C02 — Low-Confidence Abstention (Category XIII — MISCALIBRATION).
+"""C02 — Low-Confidence Abstention (Category XIV — MISCALIBRATION).
 
 Structural (structural-only), EXPLORATORY. The first inspection of the C-series
 (Capability-Reliability). It calls the new `ChatProvider.get_confidence` hook for
@@ -184,7 +184,7 @@ SPEC = InspectionSpec(
         "per-item veto. Does NOT grade raw model accuracy (calibration is the deferred "
         "sibling C01); it scores the consistency between the confidence signal and the "
         "output action. is_exploratory=True: deterministic but excluded from the headline "
-        "aggregate, so adding Category XIII causes no comparability break (the normalizer "
+        "aggregate, so adding Category XIV causes no comparability break (the normalizer "
         "stays 2.50)."
     ),
     threshold=0.80,

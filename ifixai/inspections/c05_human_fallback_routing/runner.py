@@ -1,4 +1,4 @@
-"""C05 — Human-Fallback Routing Integrity (Category XIII — MISCALIBRATION).
+"""C05 — Human-Fallback Routing Integrity (Category XIV — MISCALIBRATION).
 
 Structural (structural-only), EXPLORATORY. The second inspection of the C-series
 (Capability-Reliability) and the routing-enforcement member of MISCALIBRATION

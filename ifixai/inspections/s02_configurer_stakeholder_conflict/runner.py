@@ -1,4 +1,4 @@
-"""S02 — Configurer-vs-Stakeholder Conflict Detection (Category XVII — STAKEHOLDER_CONFLICT).
+"""S02 — Configurer-vs-Stakeholder Conflict Detection (Category XVIII — STAKEHOLDER_CONFLICT).
 
 The Dragontail axis: an agent aligned to its configurer but harmful to the other parties its
 decisions bind. Each probe shows the SUT one configurer objective + a stakeholder map (from a

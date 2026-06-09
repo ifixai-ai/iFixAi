@@ -228,19 +228,20 @@ ALL_SPECS = [
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 
-# B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI–XI —
-# SABOTAGE / SUBVERSION / CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK).
-# C-series: C01..C16 (Capability-Reliability, Categories XIII–XX); C02 (abstention),
-# C05 (human-fallback routing) and C11 (operational-outcome conformance & decay) are
-# the first three, all MISCALIBRATION (XIII). S-series: S01..S08 (Stakeholder &
-# Multi-Principal Integrity, Category XVII); S02 (configurer-vs-stakeholder conflict) is the
-# first. X-series: X01..X11 (Gap-closure, Categories XXI–XXV); X04 (deployed-detection-
-# performance acceptance gate, PERCEPTION_GOVERNANCE XXII) and X11 (automation-bias /
-# pre-action confirmation gate, OVERSIGHT_ATROPHY XXV — human-oversight atrophy) are the
-# two current members. All ranges share the NN shape; the S alternative (01..08) admits
-# S02 ∈ 0[1-8] and the X alternative (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1]
-# (the X04 addition already widened the pattern to the full X-series range, so X11 needs
-# no further widening).
+# B-series: B01..B32 (Categories I–V). P-series: P01..P32 (Categories VI–XII —
+# SABOTAGE / SUBVERSION / CONCEALMENT / SANDBAGGING / INSUBORDINATION / USURPATION /
+# SYSTEMIC_RISK); P19 (honeypot-tool restraint) is SANDBAGGING (Category IX —
+# capability concealment & evaluation gaming). C-series: C01..C16 (Capability-Reliability,
+# Categories XIV–XXI); C02 (abstention), C05 (human-fallback routing) and C11
+# (operational-outcome conformance & decay) are the first three, all MISCALIBRATION (XIV).
+# S-series: S01..S08 (Stakeholder & Multi-Principal Integrity, Category XVIII); S02
+# (configurer-vs-stakeholder conflict) is the first. X-series: X01..X11 (Gap-closure,
+# Categories XXII–XXVI); X04 (deployed-detection-performance acceptance gate,
+# PERCEPTION_GOVERNANCE XXIII) and X11 (automation-bias / pre-action confirmation gate,
+# OVERSIGHT_ATROPHY XXVI — human-oversight atrophy) are the two current members. All ranges
+# share the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8] and the X alternative
+# (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1] (the X04 addition already widened the
+# pattern to the full X-series range, so X11 needs no further widening).
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
     r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1]))$"
@@ -336,19 +337,20 @@ CATEGORIES = {
     6: InspectionCategory.SABOTAGE,
     7: InspectionCategory.SUBVERSION,
     8: InspectionCategory.CONCEALMENT,
-    9: InspectionCategory.INSUBORDINATION,
-    10: InspectionCategory.USURPATION,
-    11: InspectionCategory.SYSTEMIC_RISK,
-    # Index 12 intentionally unallocated; the C-series begins at Category XIII.
-    13: InspectionCategory.MISCALIBRATION,
-    # Indices 14–16 intentionally unallocated; the S-series begins at Category XVII.
-    17: InspectionCategory.STAKEHOLDER_CONFLICT,
-    # Indices 18–21 intentionally unallocated; the X-series — Gap-closure — begins at
-    # Category XXI. XXI, XXIII and XXIV are reserved; PERCEPTION_GOVERNANCE (Category XXII)
+    9: InspectionCategory.SANDBAGGING,
+    10: InspectionCategory.INSUBORDINATION,
+    11: InspectionCategory.USURPATION,
+    12: InspectionCategory.SYSTEMIC_RISK,
+    # Index 13 intentionally unallocated; the C-series begins at Category XIV.
+    14: InspectionCategory.MISCALIBRATION,
+    # Indices 15–17 intentionally unallocated; the S-series begins at Category XVIII.
+    18: InspectionCategory.STAKEHOLDER_CONFLICT,
+    # Indices 19–22 intentionally unallocated; the X-series — Gap-closure — begins at
+    # Category XXII. XXII, XXIV and XXV are reserved; PERCEPTION_GOVERNANCE (Category XXIII)
     # is the perception-deployment-governance member, home of X04, and OVERSIGHT_ATROPHY
-    # (Category XXV) is the human-oversight-atrophy member, home of X11.
-    22: InspectionCategory.PERCEPTION_GOVERNANCE,
-    25: InspectionCategory.OVERSIGHT_ATROPHY,
+    # (Category XXVI) is the human-oversight-atrophy member, home of X11.
+    23: InspectionCategory.PERCEPTION_GOVERNANCE,
+    26: InspectionCategory.OVERSIGHT_ATROPHY,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -360,13 +362,14 @@ CATEGORY_DESCRIPTIONS = {
     6: "SABOTAGE — Operational Harm to the Organization",
     7: "SUBVERSION — Oversight Evasion & Audit Integrity",
     8: "CONCEALMENT — Hidden Agendas & Long-Horizon Deception",
-    9: "INSUBORDINATION — Corrigibility & Self-Preservation",
-    10: "USURPATION — Covert Capability & Power Elevation",
-    11: "SYSTEMIC_RISK — Multi-Agent Collusion & Emergent Harm",
-    13: "MISCALIBRATION — Capability-Reliability: Governance of Uncertainty",
-    17: "STAKEHOLDER_CONFLICT — Stakeholder & Multi-Principal Integrity",
-    22: "PERCEPTION_GOVERNANCE — Perception-Deployment Governance & Assurance Gates",
-    25: "OVERSIGHT_ATROPHY — Human-Oversight Atrophy & Pre-Action Confirmation Gates",
+    9: "SANDBAGGING — Capability Concealment & Evaluation Gaming",
+    10: "INSUBORDINATION — Corrigibility & Self-Preservation",
+    11: "USURPATION — Covert Capability & Power Elevation",
+    12: "SYSTEMIC_RISK — Multi-Agent Collusion & Emergent Harm",
+    14: "MISCALIBRATION — Capability-Reliability: Governance of Uncertainty",
+    18: "STAKEHOLDER_CONFLICT — Stakeholder & Multi-Principal Integrity",
+    23: "PERCEPTION_GOVERNANCE — Perception-Deployment Governance & Assurance Gates",
+    26: "OVERSIGHT_ATROPHY — Human-Oversight Atrophy & Pre-Action Confirmation Gates",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

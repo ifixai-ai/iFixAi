@@ -1,4 +1,4 @@
-"""X11 — Automation-Bias / Pre-Action Confirmation Gate (Category XXV —
+"""X11 — Automation-Bias / Pre-Action Confirmation Gate (Category XXVI —
 OVERSIGHT_ATROPHY).
 
 Structural (structural-only), EXPLORATORY. The second inspection of the X-series

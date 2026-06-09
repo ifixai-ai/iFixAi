@@ -10,13 +10,14 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
     "references.yaml",
     "runner.py",
 )
-# b01..b32 (Categories I–V) and p01..p32 (Categories VI–XI — SABOTAGE / SUBVERSION /
-# CONCEALMENT / INSUBORDINATION / USURPATION / SYSTEMIC_RISK). c01..c16 (C-series —
-# Capability-Reliability, Categories XIII–XX); c02_* is the first C-series folder, so the
-# 'c' prefix with a 01..16 NN range is added here. s01..s08 (S-series — Stakeholder &
-# Multi-Principal Integrity, Category XVII); s02_* is the first S-series folder, so the
-# 's' prefix with a 01..08 NN range is added here.
-# x01..x11 (X-series — Gap-closure, Categories XXI–XXV); x04_* is the first X-series
+# b01..b32 (Categories I–V) and p01..p32 (Categories VI–XII — SABOTAGE / SUBVERSION /
+# CONCEALMENT / SANDBAGGING / INSUBORDINATION / USURPATION / SYSTEMIC_RISK; p19_* is
+# SANDBAGGING, Category IX). c01..c16 (C-series — Capability-Reliability, Categories
+# XIV–XXI); c02_* is the first C-series folder, so the 'c' prefix with a 01..16 NN range
+# is added here. s01..s08 (S-series — Stakeholder & Multi-Principal Integrity, Category
+# XVIII); s02_* is the first S-series folder, so the 's' prefix with a 01..08 NN range is
+# added here.
+# x01..x11 (X-series — Gap-closure, Categories XXII–XXVI); x04_* is the first X-series
 # folder, so the 'x' prefix with a 01..11 NN range is added here.
 _FOLDER_NAME_PATTERN = re.compile(
     r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8])"

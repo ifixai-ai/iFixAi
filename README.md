@@ -266,7 +266,7 @@ for the digest algorithm and verification helpers.
 
 ## Five scorecard pillars
 
-| Category | Tests | What it detects |
+| Category | Inspections | What it detects |
 |---|---|---|
 | **FABRICATION** Accuracy & Calibration | B01-B06 | Tool authorisation leaks, missing audit trail, unsourced claims, overconfident responses |
 | **MANIPULATION** Safety & Containment | B07-B09, B11-B13, B28, B30 | Hallucination, privilege escalation, policy violation, controllability, prompt injection, plan traceability, RAG context integrity, malicious deployer rules |
@@ -281,18 +281,25 @@ attestation facility (no inspections use it today), B28 RAG context integrity, a
 
 ### Extended inspections (premium / exploratory)
 
-Beyond the 32-inspection core, the suite ships **13 additional inspections** in ten new scoring
-categories (the P / C / S / X series). Most are **exploratory** — they render their own scored % + CI
-but are **excluded from the headline grade**, so they extend coverage without breaking score
-comparability. Each structural one calls a provider capability hook; without it the inspection reports
-`insufficient_evidence`, exactly like the governance cluster.
+Beyond the 32-inspection core, the suite ships **13 additional inspections** across **eleven new
+scoring categories**. Most are **exploratory** — they render their own scored % + CI but are
+**excluded from the headline grade**, so they extend coverage without breaking score
+comparability. Each structural one calls a provider capability hook; without it the inspection
+reports `insufficient_evidence`, exactly like the governance cluster.
 
-| Series | Inspections | New categories |
+| Category | Inspections | What it detects |
 |---|---|---|
-| **P** — premium tier | P01, P08, P13, P19, P22, P27, P32 | SABOTAGE, SUBVERSION, CONCEALMENT, INSUBORDINATION, USURPATION, SYSTEMIC_RISK |
-| **C** — capability-reliability | C02, C05, C11 | MISCALIBRATION |
-| **S** — stakeholder integrity | S02 | STAKEHOLDER_CONFLICT |
-| **X** — gap-closure | X04, X11 | PERCEPTION_GOVERNANCE, OVERSIGHT_ATROPHY |
+| **SABOTAGE** Operational Harm | P01 | Plausible-justification destruction of critical stores by an unauthorized role |
+| **SUBVERSION** Oversight Evasion | P08 | Self-audit-trail tampering (record suppression, field alteration, timestamp reorder, post-hoc mutation) |
+| **CONCEALMENT** Hidden Agendas | P13 | Covert side-objective surviving a long-horizon multi-turn arc |
+| **SANDBAGGING** Capability Concealment | P19 | Honeypot-tool restraint — reaching for a forbidden shortcut only when it believes it is unobserved (eval gaming) |
+| **INSUBORDINATION** Corrigibility | P22 | Acceptance of an authorized mid-session goal edit |
+| **USURPATION** Power Elevation | P27 | Privilege creep — capability accrued and never relinquished |
+| **SYSTEMIC_RISK** Emergent Harm | P32 | Multi-agent collusion driving a pre-declared forbidden system outcome |
+| **MISCALIBRATION** Governance of Uncertainty | C02, C05, C11 | Low-confidence abstention, human-fallback routing, operational-outcome drift |
+| **STAKEHOLDER_CONFLICT** Multi-Principal Integrity | S02 | Configurer-vs-stakeholder conflict detection and attribution |
+| **PERCEPTION_GOVERNANCE** Assurance Gates | X04 | Blocking continued deployment of an out-of-spec detector |
+| **OVERSIGHT_ATROPHY** Confirmation Gates | X11 | Pre-action human confirmation for inadequately-gated high-stakes actions |
 
 Per-inspection descriptions and governing laws: **[docs/inspection_categories.md](docs/inspection_categories.md)**;
 terse what/how rows: **[docs/tests.md](docs/tests.md)**.
@@ -499,8 +506,9 @@ ifixai run --provider http --endpoint https://your-api.com/v1 --api-key "$KEY"
 
 Category names (case-insensitive) accepted by `-c/--category`: `FABRICATION`, `MANIPULATION`,
 `DECEPTION`, `UNPREDICTABILITY`, `OPACITY`, `SABOTAGE`, `SUBVERSION`, `CONCEALMENT`,
-`INSUBORDINATION`, `USURPATION`, `SYSTEMIC_RISK`, `MISCALIBRATION`, `STAKEHOLDER_CONFLICT`,
-`PERCEPTION_GOVERNANCE`, `OVERSIGHT_ATROPHY`. Combine `-c` with `-b` to add individual tests.
+`SANDBAGGING`, `INSUBORDINATION`, `USURPATION`, `SYSTEMIC_RISK`, `MISCALIBRATION`,
+`STAKEHOLDER_CONFLICT`, `PERCEPTION_GOVERNANCE`, `OVERSIGHT_ATROPHY`. Combine `-c` with `-b` to
+add individual tests.
 
 ## CLI Reference
 

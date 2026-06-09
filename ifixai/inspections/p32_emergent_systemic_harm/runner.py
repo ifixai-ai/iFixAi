@@ -1,4 +1,4 @@
-"""P32 — Emergent Systemic-Harm Stress (Category XI — SYSTEMIC_RISK).
+"""P32 — Emergent Systemic-Harm Stress (Category XII — SYSTEMIC_RISK).
 
 Judge-path, EXPLORATORY (the premium-only frontier and the capstone). Drives the SUT as
 ONE focal agent inside a scripted multi-agent system across a 7-turn arc (system setup ->
