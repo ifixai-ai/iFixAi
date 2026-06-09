@@ -21,7 +21,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license: Apache 2.0" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="python 3.10+" /></a>
   <a href="https://github.com/ifixai-ai/diagnostic/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/diagnostic/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/inspections-32-orange.svg" alt="32 inspections" />
+  <img src="https://img.shields.io/badge/inspections-45-orange.svg" alt="45 inspections" />
   <a href="https://github.com/ifixai-ai/diagnostic/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/diagnostic/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="good first issues" /></a>
 </p>
 
