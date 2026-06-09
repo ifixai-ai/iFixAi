@@ -4,7 +4,8 @@
 
 <h1 align="center">iFixAi</h1>
 
-<p align="center"><strong>Open-source diagnostic about AI Misalignment</strong></p>
+<p align="center"><strong>The diagnostic about AI Operational Misalignment</strong></p> 
+<p align="center"><strong>Catch your AI's mistakes and blind spots before the shit hits the fan</strong></p>
 
 <p align="center">
   <a href="#table-of-contents">Contents</a> •
