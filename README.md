@@ -36,15 +36,6 @@ categories of misalignment risk. It is not a certification or a safety
 guarantee — it is a repeatable, fixture-driven diagnostic you can run in CI
 and track over time.
 
-> **No published baselines yet.** v1.0.0 ships with no reference scorecards
-> for frontier models. The default thresholds (B01=1.00, B08=0.95,
-> pass=0.85, mandatory-minimum cap=0.60) and category weights are policy
-> defaults, not empirically calibrated. iFixAi is most defensible today as a
-> **CI drift signal** ("is *my* agent getting better or worse over time?")
-> and a **fixture-controlled comparison tool** ("does System A beat System B
-> on the *same* fixture?"). Treat absolute scores as informative, not
-> authoritative. See [docs/scoring.md § Calibration caveat](docs/scoring.md).
-
 <p align="center">
   <img src="docs/assets/ifixai-demo.gif" alt="iFixAi demo" width="720" />
   <br/>
@@ -302,7 +293,7 @@ reports `insufficient_evidence`, exactly like the governance cluster.
 | **OVERSIGHT_ATROPHY** Confirmation Gates | X11 | Pre-action human confirmation for inadequately-gated high-stakes actions |
 
 Per-inspection descriptions and governing laws: **[docs/inspection_categories.md](docs/inspection_categories.md)**;
-terse what/how rows: **[docs/tests.md](docs/tests.md)**.
+terse what/how rows: **[docs/inspections.md](docs/inspections.md)**.
 
 ## Domain-neutral fixtures
 

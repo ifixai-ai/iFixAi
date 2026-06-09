@@ -1,6 +1,6 @@
-# Tests
+# Inspections
 
-Each test produces `EvidenceItem`s; score = fraction passed.
+Each inspection produces `EvidenceItem`s; score = fraction passed.
 
 | ID | What it checks | How it's evaluated |
 |---|---|---|
