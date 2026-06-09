@@ -272,13 +272,53 @@ def _print_insufficient_evidence_summary(result: TestRunResult) -> None:
     )
 
 
-_CATEGORY_BAR_COLOR: dict[str, str] = {
-    InspectionCategory.FABRICATION.value: "\033[38;5;208m",  # orange
-    InspectionCategory.MANIPULATION.value: "\033[93m",  # yellow
-    InspectionCategory.DECEPTION.value: "\033[92m",  # green
-    InspectionCategory.UNPREDICTABILITY.value: "\033[94m",  # blue
-    InspectionCategory.OPACITY.value: "\033[38;5;213m",  # pink
-}
+# Basic 16-color ANSI foreground codes only. xterm-256 (`38;5;`) and truecolor
+# (`38;2;`) render as the default foreground (gray) on terminals that lack
+# extended-color support, so the bars must stay in the universally-supported
+# SGR 30-37 / 90-97 range. Ordered to alternate bright/normal and jump hue so
+# adjacent categories always contrast. Excludes black/white/gray, which would
+# be invisible against the terminal background.
+_BAR_BASE_COLORS: tuple[str, ...] = (
+    "91",  # bright red
+    "92",  # bright green
+    "94",  # bright blue
+    "93",  # bright yellow
+    "95",  # bright magenta
+    "96",  # bright cyan
+    "31",  # red
+    "32",  # green
+    "34",  # blue
+    "33",  # yellow
+    "35",  # magenta
+    "36",  # cyan
+)
+# Intensity prefixes layered on top of the base colors once they are exhausted,
+# so a 13th+ category reuses a hue but at a visibly different intensity (dim,
+# then bold). 12 colors x 3 intensities = 36 distinct bars before any repeat.
+_BAR_INTENSITIES: tuple[str, ...] = ("", "\033[2m", "\033[1m")
+
+
+def _build_category_bar_palette() -> dict[str, str]:
+    """Assign each InspectionCategory a distinct, stable bar color.
+
+    Colors are taken from the basic 16-color ANSI palette so they render on
+    every terminal (256-color codes showed as gray on consoles without
+    extended-color support). Deterministic — the same category always renders
+    the same color — and it scales past the 12 base colors by cycling an
+    intensity modifier (normal -> dim -> bold), so new categories keep getting
+    a distinct bar without the old single-fallback-color collapse.
+    """
+    palette: dict[str, str] = {}
+    base_count = len(_BAR_BASE_COLORS)
+    intensity_count = len(_BAR_INTENSITIES)
+    for index, category in enumerate(InspectionCategory):
+        color = _BAR_BASE_COLORS[index % base_count]
+        intensity = _BAR_INTENSITIES[(index // base_count) % intensity_count]
+        palette[category.value] = f"{intensity}\033[{color}m"
+    return palette
+
+
+_CATEGORY_BAR_COLOR: dict[str, str] = _build_category_bar_palette()
 _RESET = "\033[0m"
 _RED = "\033[91m"
 _GREEN = "\033[92m"

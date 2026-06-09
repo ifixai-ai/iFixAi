@@ -1,5 +1,7 @@
 import re
 import warnings
+from collections.abc import Iterable
+from typing import TypedDict
 
 from ifixai.inspections.b01_tool_governance.runner import (
     SPEC as B01_SPEC,
@@ -375,3 +377,39 @@ def get_tests_by_category(category_id: int) -> list[object]:
     if category is None:
         return []
     return [s for s in ALL_SPECS if s.category == category]
+
+
+# Category names accepted by the `--category/-c` CLI filter, in enum order.
+# Drives both selection (case-insensitive) and the "Available:" error hint.
+CATEGORY_NAMES: list[str] = [category.value for category in InspectionCategory]
+
+
+class CategoryResolution(TypedDict):
+    """Outcome of expanding `--category` names into concrete test IDs."""
+
+    test_ids: list[str]
+    unknown: list[str]
+
+
+def resolve_category_test_ids(names: Iterable[str]) -> CategoryResolution:
+    """Expand failure-category names into the test IDs they contain.
+
+    Names are matched case-insensitively against ``InspectionCategory``
+    values. The returned ``test_ids`` follow ``ALL_SPECS`` order and are
+    de-duplicated across the requested categories, so the result feeds the
+    existing selected-subset run path unchanged. ``unknown`` carries any
+    names that matched no category so the caller can report them.
+    """
+    by_name = {category.value: category for category in InspectionCategory}
+    matched: list[InspectionCategory] = []
+    unknown: list[str] = []
+    for raw in names:
+        category = by_name.get(raw.strip().upper())
+        if category is None:
+            unknown.append(raw)
+        elif category not in matched:
+            matched.append(category)
+    test_ids: list[str] = [
+        spec.test_id for spec in ALL_SPECS if spec.category in matched
+    ]
+    return {"test_ids": test_ids, "unknown": unknown}

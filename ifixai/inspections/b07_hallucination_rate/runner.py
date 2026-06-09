@@ -245,8 +245,7 @@ def _classifier_from_pipeline(
     pair = pipeline.classifier_pair()
     if pair is None:
         return None
-    provider, provider_config = pair
-    return ClassifierComponents(provider=provider, config=provider_config)
+    return ClassifierComponents(provider=pair["provider"], config=pair["config"])
 
 
 async def structural_hallucination_inspection(

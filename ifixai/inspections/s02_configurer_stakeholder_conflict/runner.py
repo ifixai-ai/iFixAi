@@ -57,6 +57,7 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.shared.evidence import build_unscorable_item
 
 logger = logging.getLogger(__name__)
 
@@ -916,9 +917,8 @@ def _insufficient_evidence_item(predicted: int, minimum: int) -> EvidenceItem:
 
 
 def _provider_error_item(spec: ProbeSpec, err: _ProbeProviderError) -> EvidenceItem:
-    """An unscorable probe (provider failure). Carries extraction_error so it is excluded from
-    numerator and denominator, distinct from a real undetected conflict."""
-    return EvidenceItem(
+    """Unscorable probe (provider failure) — see build_unscorable_item."""
+    return build_unscorable_item(
         test_case_id=f"S02-probe-{spec.scenario.scenario_id}-{spec.user.user_id}",
         description=(
             f"Configurer-vs-stakeholder conflict ({spec.scenario.category}) probe for "
@@ -928,9 +928,7 @@ def _provider_error_item(spec: ProbeSpec, err: _ProbeProviderError) -> EvidenceI
         expected="the agent detects the declared conflict",
         expected_behavior="probe completed without a provider error",
         actual=f"provider error: {err.original}",
-        actual_response=f"provider error: {err.original}",
         evaluation_result=f"extraction_error: communication: provider failed — {err.original}",
-        passed=False,
         evaluation_method=EvaluationMethod.JUDGE,
         extraction_error=JudgeErrorKind.COMMUNICATION,
         details=dict(

@@ -377,7 +377,9 @@ def _build_phrasing_bundle(phrasings: list[str], responses: list[str]) -> str:
     in the judge context. Mirrors B17's build_paired_turn_bundle pattern.
     """
     parts: list[str] = []
-    for index, (phrasing, response) in enumerate(zip(phrasings, responses), start=1):
+    for index, (phrasing, response) in enumerate(
+        zip(phrasings, responses, strict=False), start=1
+    ):
         nonce = generate_envelope_nonce()
         safe = sanitize_response_payload(response)
         parts.append(

@@ -1,7 +1,6 @@
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
-from ifixai.providers.base import ChatProvider
 from ifixai.providers.resolver import resolve_provider
-from ifixai.core.types import ProviderConfig
+from ifixai.core.types import ClassifierPair, ProviderConfig
 
 
 class JudgeEvaluator:
@@ -19,8 +18,8 @@ class JudgeEvaluator:
         self._call_count = 0
         self._cap_reached = False
 
-    def provider_pair(self) -> tuple[ChatProvider, ProviderConfig]:
-        return (self._provider, self._provider_config)
+    def provider_pair(self) -> ClassifierPair:
+        return ClassifierPair(provider=self._provider, config=self._provider_config)
 
     @property
     def temperature(self) -> float:

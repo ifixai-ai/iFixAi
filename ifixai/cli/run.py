@@ -54,7 +54,11 @@ from ifixai.inspections.holdout_ids import generate_holdout_ids
 from ifixai.evaluation.normalizer import NORMALIZER_VERSION
 from ifixai.evaluation.types import ModelDescriptor
 from ifixai.core.fixture_loader import load_fixture, resolve_fixture_path
-from ifixai.harness.registry import SPEC_BY_ID
+from ifixai.harness.registry import (
+    CATEGORY_NAMES,
+    SPEC_BY_ID,
+    resolve_category_test_ids,
+)
 from ifixai.utils.fixture_digest import compute_fixture_digest
 from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
 from ifixai.core.grounding import GroundingMode, compose_system_prompt
@@ -174,6 +178,27 @@ def _format_elapsed(seconds: float) -> str:
     return f"{secs}s"
 
 
+def _describe_filter(
+    strategic: bool,
+    test: tuple[str, ...],
+    categories: tuple[str, ...],
+) -> str:
+    """Human-readable summary of which tests the run will execute.
+
+    ``test`` is the already-merged selection (explicit -b IDs plus any IDs
+    expanded from ``categories``); ``categories`` is the raw, unexpanded set
+    of category names so the label can name them.
+    """
+    if categories:
+        names = ", ".join(name.strip().upper() for name in categories)
+        return f"categories ({names}) -> {len(test)} tests"
+    if strategic:
+        return "strategic (top 8)"
+    if test:
+        return "selected (" + ", ".join(test) + ")"
+    return f"all ({len(SPEC_BY_ID)})"
+
+
 def _print_concurrency_banner(resolved: int) -> None:
     if resolved == 1:
         click.echo(
@@ -270,6 +295,16 @@ def _print_concurrency_banner(resolved: int) -> None:
     help="Run specific test(s) by ID. Repeat to select several "
     "(e.g. -b B01 -b B02 -b B03). One ID runs a single test; "
     "several run that subset.",
+)
+@click.option(
+    "--category",
+    "-c",
+    "categories",
+    multiple=True,
+    help="Run every test in one or more failure categories by name "
+    "(e.g. -c DECEPTION -c SYSTEMIC_RISK). Case-insensitive. Repeat to "
+    "select several categories; combine with -b to add individual tests. "
+    "Takes precedence over --strategic.",
 )
 @click.option(
     "--output",
@@ -533,6 +568,7 @@ def run(
     system_prompt: str | None,
     strategic: bool,
     test: tuple[str, ...],
+    categories: tuple[str, ...],
     output: str,
     report_format: str,
     timeout: int,
@@ -705,6 +741,24 @@ def run(
 
     resolved_name = system_name or provider
 
+    if categories:
+        resolution = resolve_category_test_ids(categories)
+        if resolution["unknown"]:
+            click.echo(
+                click.style(
+                    f"Error: unknown category(ies): "
+                    f"{', '.join(resolution['unknown'])}. "
+                    f"Available: {', '.join(CATEGORY_NAMES)}",
+                    fg="red",
+                )
+            )
+            sys.exit(1)
+        # Merge category-expanded IDs with any explicit -b IDs (dedup, order
+        # preserved) so the run flows through the existing selected-subset path.
+        test = tuple(
+            dict.fromkeys([*(tid.upper() for tid in test), *resolution["test_ids"]])
+        )
+
     if test:
         unknown_ids = [tid for tid in test if tid.upper() not in SPEC_BY_ID]
         if unknown_ids:
@@ -723,7 +777,7 @@ def run(
         elif strategic:
             estimated_tests = 8
         else:
-            estimated_tests = 32
+            estimated_tests = len(SPEC_BY_ID)
         estimated_inspections = estimated_tests * 10
         if profile.lower() == "full":
             judge_calls_per_inspection = 3
@@ -1001,9 +1055,7 @@ def run(
     click.echo(click.style("ifixai Run", bold=True))
     click.echo(f"  Provider:  {provider}")
     click.echo(f"  Fixture:   {fixture}")
-    click.echo(
-        f"  Filter:    {'strategic (top 8)' if strategic else 'selected (' + ', '.join(test) + ')' if test else 'all 32'}"
-    )
+    click.echo(f"  Filter:    {_describe_filter(strategic, test, categories)}")
     click.echo(f"  Mode:      {run_mode}")
     click.echo(f"  Judge:     {judge_label}")
     click.echo(f"  Timeout:   {timeout}s")

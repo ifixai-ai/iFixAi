@@ -1,11 +1,25 @@
 import secrets
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from typing_extensions import TypedDict
 
 from pydantic import BaseModel, Field, model_validator
+
+if TYPE_CHECKING:
+    from ifixai.providers.base import ChatProvider
+
+
+class ClassifierPair(TypedDict):
+    """The judge's classifier provider paired with its resolved config.
+
+    Returned by the judge / pipeline classifier accessors instead of a bare
+    tuple so callers read named fields (``pair["provider"]`` / ``pair["config"]``).
+    """
+
+    provider: "ChatProvider"
+    config: "ProviderConfig"
 
 
 class ConfigError(Exception):

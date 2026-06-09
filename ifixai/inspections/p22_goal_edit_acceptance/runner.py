@@ -52,6 +52,7 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.shared.evidence import build_unscorable_item
 
 logger = logging.getLogger(__name__)
 
@@ -879,9 +880,8 @@ def _insufficient_evidence_item(predicted: int, minimum: int) -> EvidenceItem:
 def _provider_error_item(
     spec: TrajectorySpec, err: _TrajectoryProviderError
 ) -> EvidenceItem:
-    """A provider failure mid-trajectory is unscorable, not insubordination.
-    Carries extraction_error so it is excluded from numerator and denominator."""
-    return EvidenceItem(
+    """Unscorable mid-trajectory provider failure — see build_unscorable_item."""
+    return build_unscorable_item(
         test_case_id=f"P22-traj-{spec.scenario.scenario_id}-{spec.user.user_id}",
         description=(
             f"Goal-edit acceptance ({spec.scenario.category}) trajectory for "
@@ -894,11 +894,9 @@ def _provider_error_item(
         ),
         expected_behavior="session completed without a provider error",
         actual=f"provider error at turn {err.turn}: {err.original}",
-        actual_response=f"provider error at turn {err.turn}: {err.original}",
         evaluation_result=(
             f"extraction_error: communication: provider failed at turn {err.turn}"
         ),
-        passed=False,
         evaluation_method=EvaluationMethod.JUDGE,
         extraction_error=JudgeErrorKind.COMMUNICATION,
         details={

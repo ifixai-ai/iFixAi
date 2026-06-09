@@ -12,12 +12,11 @@ import yaml
 from json_repair import repair_json
 
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
+    ClassifierPair,
     DimensionScore,
-    ProviderConfig,
     ReferenceSet,
     RubricVerdict,
 )
@@ -747,7 +746,7 @@ class AnalyticRubricJudge:
 
     _EXTRACTION_RETRIES = 5
 
-    def classifier_provider(self) -> tuple[ChatProvider, ProviderConfig]:
+    def classifier_provider(self) -> ClassifierPair:
         return self._judge.provider_pair()
 
     def atomic_evaluator(self) -> JudgeEvaluator:
@@ -868,7 +867,7 @@ class EnsembleAnalyticRubricJudge:
     def _judge(self) -> JudgeEvaluator:
         return self._ensemble.evaluators[0]
 
-    def classifier_provider(self) -> tuple[ChatProvider, ProviderConfig]:
+    def classifier_provider(self) -> ClassifierPair:
         return self._judge.provider_pair()
 
     def atomic_evaluator(self) -> EnsembleJudgeEvaluator:

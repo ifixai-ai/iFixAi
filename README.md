@@ -279,6 +279,24 @@ Canonical `B01`–`B32` → pillar mapping: **[docs/inspection_categories.md](do
 See [docs/methodology.md](docs/methodology.md) for evaluation paths,
 attestation facility (no inspections use it today), B28 RAG context integrity, and exploratory inspections (B15).
 
+### Extended inspections (premium / exploratory)
+
+Beyond the 32-inspection core, the suite ships **13 additional inspections** in ten new scoring
+categories (the P / C / S / X series). Most are **exploratory** — they render their own scored % + CI
+but are **excluded from the headline grade**, so they extend coverage without breaking score
+comparability. Each structural one calls a provider capability hook; without it the inspection reports
+`insufficient_evidence`, exactly like the governance cluster.
+
+| Series | Inspections | New categories |
+|---|---|---|
+| **P** — premium tier | P01, P08, P13, P19, P22, P27, P32 | SABOTAGE, SUBVERSION, CONCEALMENT, INSUBORDINATION, USURPATION, SYSTEMIC_RISK |
+| **C** — capability-reliability | C02, C05, C11 | MISCALIBRATION |
+| **S** — stakeholder integrity | S02 | STAKEHOLDER_CONFLICT |
+| **X** — gap-closure | X04, X11 | PERCEPTION_GOVERNANCE, OVERSIGHT_ATROPHY |
+
+Per-inspection descriptions and governing laws: **[docs/inspection_categories.md](docs/inspection_categories.md)**;
+terse what/how rows: **[docs/tests.md](docs/tests.md)**.
+
 ## Domain-neutral fixtures
 
 Test code is domain-neutral. Industry knowledge lives in user-authored
@@ -473,8 +491,16 @@ Full case study: <https://ifixai.ai/docs/diagnostics/openwebui>.
 ```bash
 ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --strategic    # top 8 only
 ifixai run --provider openai --api-key "$OPENAI_API_KEY" --test B01           # single test
+ifixai run --provider openai --api-key "$OPENAI_API_KEY" -b B01 -b B08        # a subset by ID
+ifixai run --provider openai --api-key "$OPENAI_API_KEY" -c DECEPTION         # one whole category
+ifixai run --provider openai --api-key "$OPENAI_API_KEY" -c DECEPTION -c OPACITY  # several categories
 ifixai run --provider http --endpoint https://your-api.com/v1 --api-key "$KEY"
 ```
+
+Category names (case-insensitive) accepted by `-c/--category`: `FABRICATION`, `MANIPULATION`,
+`DECEPTION`, `UNPREDICTABILITY`, `OPACITY`, `SABOTAGE`, `SUBVERSION`, `CONCEALMENT`,
+`INSUBORDINATION`, `USURPATION`, `SYSTEMIC_RISK`, `MISCALIBRATION`, `STAKEHOLDER_CONFLICT`,
+`PERCEPTION_GOVERNANCE`, `OVERSIGHT_ATROPHY`. Combine `-c` with `-b` to add individual tests.
 
 ## CLI Reference
 
@@ -482,9 +508,9 @@ ifixai run --provider http --endpoint https://your-api.com/v1 --api-key "$KEY"
 ifixai init                    # check env for provider keys, suggest a first run
 ifixai run                     # run tests (Standard or Full mode)
 ifixai run --fixture FILE      # run with a custom fixture (YAML or JSON)
-ifixai list tests              # list all 32 tests
+ifixai list tests              # list all 45 inspections (32 core + 13 extended)
 ifixai list fixtures           # list registered named fixtures (examples/ are loaded by path)
-ifixai validate                # validate the per-test layout (32 folders)
+ifixai validate                # validate the per-test layout (45 folders)
 ifixai validate FILE           # validate a fixture against schema.json
 ifixai compare A B             # diff two scorecard reports
 ```
@@ -523,7 +549,7 @@ print(result.overall_score, result.grade)
 
 | Function | Purpose |
 |---|---|
-| `run_inspections(...)` | Run all 32 tests (async) |
+| `run_inspections(...)` | Run all registered inspections (async) |
 | `run_strategic(...)` | Run the top 8 strategic tests (async) |
 | `run_single(test_id, ...)` | Run a single test by ID (async) |
 | `compare_scorecards(baseline, enhanced)` | Vendor-neutral comparison report |

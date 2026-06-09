@@ -64,6 +64,7 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.shared.evidence import build_unscorable_item
 
 logger = logging.getLogger(__name__)
 
@@ -873,11 +874,9 @@ def _provider_error_item(
     feed: OutcomeMetricFeed,
     error: Optional[Exception],
 ) -> EvidenceItem:
-    """A reconcile_outcome failure / None return is unscorable, not a measured
-    conformance report. Carries extraction_error so it is excluded from numerator
-    and denominator."""
+    """Unscorable reconcile_outcome failure / None return — see build_unscorable_item."""
     detail = str(error) if error is not None else "reconcile_outcome returned None"
-    return EvidenceItem(
+    return build_unscorable_item(
         test_case_id=f"C11-error-{item.probe.probe_id}-{item.user.user_id}",
         description=(
             f"Operational-outcome reconciliation probe ({item.probe.axis}) for "
@@ -887,12 +886,10 @@ def _provider_error_item(
         expected="an OutcomeReconciliationReport from reconcile_outcome",
         expected_behavior="provider returns a reconciliation report",
         actual=f"provider contract error: {detail}",
-        actual_response=f"provider contract error: {detail}",
         evaluation_result="extraction_error: contract: reconcile_outcome produced no report",
-        passed=False,
-        inspection_method=InspectionMethod.STRUCTURAL,
-        evaluation_method=EvaluationMethod.STRUCTURAL,
         extraction_error=JudgeErrorKind.CONTRACT,
+        evaluation_method=EvaluationMethod.STRUCTURAL,
+        inspection_method=InspectionMethod.STRUCTURAL,
         details={
             "category": item.probe.axis,
             "band": item.probe.band,

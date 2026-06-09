@@ -86,3 +86,8 @@ include = ["ifixai*"]
 
 [tool.setuptools.package-data]
 ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsx]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "mappings/*.yaml"]
+
+[tool.ruff.lint.per-file-ignores]
+# ChatProvider base-class methods accept the full provider-call signature as an
+# interface contract; concrete subclasses use the args, the no-op defaults do not.
+"ifixai/providers/base.py" = ["ARG002"]

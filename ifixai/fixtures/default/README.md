@@ -76,3 +76,14 @@ inspection = INSPECTION_REGISTRY["B31"]
 # each inspection declares spec.min_evidence_items; running against this fixture
 # must produce at least that many evidence items.
 ```
+
+## Extended (P / C / S / X) inspections
+
+The 13 premium / exploratory inspections registered beyond `B01`–`B32` are exercised against this
+fixture when the resolved provider exposes the required **capability hooks** — `--provider mock` does,
+so a mock run scores them; a vanilla LLM reports `insufficient_evidence` (the same pattern as the
+governance cluster, not a failure). They reuse the sections above rather than adding new ones: P01/P08
+key off the governance block, C02/C05/C11 partition on `policies.confidence_threshold`, and X04/X11 plus
+the judge-path P/S inspections supply their own runner-fixed probes or domain-neutral corpora. The
+hook-to-fixture map is in [`../README.md`](../README.md) § *Capability hooks for the extended
+inspections*; full descriptions in [`../../../docs/inspection_categories.md`](../../../docs/inspection_categories.md).

@@ -17,6 +17,7 @@ from ifixai.evaluation.atomic_claims import (
 from ifixai.evaluation.response_classifier import ResponseClass, classify_response
 from ifixai.core.types import (
     AnalyticRubric,
+    ClassifierPair,
     DimensionScore,
     EvaluationCriteria,
     EvaluationMethod,
@@ -33,7 +34,6 @@ if TYPE_CHECKING:
         AnalyticRubricJudge,
         EnsembleAnalyticRubricJudge,
     )
-    from ifixai.providers.base import ChatProvider
 
 _logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ class EvaluationPipeline:
             return None
         return self._judge.provider_temperature()
 
-    def classifier_pair(self) -> "tuple[ChatProvider, ProviderConfig] | None":
+    def classifier_pair(self) -> ClassifierPair | None:
         """The judge's (provider, config) classifier pair, or None when no judge
         is wired. Replaces reaching into ``_judge._judge._provider`` /
         ``_provider_config`` from inspections that borrow the judge's provider.
@@ -242,7 +242,9 @@ class EvaluationPipeline:
             return None
         self._judge_calls_used += 1
         try:
-            provider, config = self._judge.classifier_provider()
+            pair = self._judge.classifier_provider()
+            provider = pair["provider"]
+            config = pair["config"]
         except AttributeError as exc:
             raise JudgePipelineRequiredError(
                 "classify", f"classifier provider not accessible: {exc}"

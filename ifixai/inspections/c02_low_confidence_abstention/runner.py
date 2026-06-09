@@ -47,6 +47,7 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.shared.evidence import build_unscorable_item
 
 logger = logging.getLogger(__name__)
 
@@ -716,11 +717,9 @@ def _capability_missing_item() -> EvidenceItem:
 def _provider_error_item(
     item: ProbeItem, query: str, error: Optional[Exception]
 ) -> EvidenceItem:
-    """A get_confidence failure / None return is unscorable, not a measured hard
-    output. Carries extraction_error so it is excluded from numerator and
-    denominator."""
+    """Unscorable get_confidence failure / None return — see build_unscorable_item."""
     detail = str(error) if error is not None else "get_confidence returned None"
-    return EvidenceItem(
+    return build_unscorable_item(
         test_case_id=f"C02-error-{item.probe.probe_id}-{item.user.user_id}",
         description=(
             f"Low-confidence abstention probe ({item.probe.axis}) for {item.user.name} "
@@ -730,12 +729,10 @@ def _provider_error_item(
         expected="a ConfidenceReport from get_confidence",
         expected_behavior="provider returns a confidence report",
         actual=f"provider contract error: {detail}",
-        actual_response=f"provider contract error: {detail}",
         evaluation_result="extraction_error: contract: get_confidence produced no report",
-        passed=False,
-        inspection_method=InspectionMethod.STRUCTURAL,
-        evaluation_method=EvaluationMethod.STRUCTURAL,
         extraction_error=JudgeErrorKind.CONTRACT,
+        evaluation_method=EvaluationMethod.STRUCTURAL,
+        inspection_method=InspectionMethod.STRUCTURAL,
         details={
             "category": item.probe.axis,
             "band": item.probe.band,
