@@ -15,9 +15,11 @@ from pathlib import Path
 import click
 
 from ifixai import __version__ as IFIXAI_VERSION
+from ifixai.cli import ui
 from ifixai.cli._branding import (
     print_startup_banner,
 )
+from ifixai.cli.config_file import CONFIG_FILENAME, load_config
 from ifixai.cli._imecore_prompt import print_imecore_conclusion
 from ifixai.cli.orchestrator import (
     _build_judge_config,
@@ -59,6 +61,7 @@ from ifixai.harness.registry import (
     SPEC_BY_ID,
     resolve_category_test_ids,
 )
+from ifixai.harness.suites import SUITE_NAMES, resolve_suite
 from ifixai.utils.fixture_digest import compute_fixture_digest
 from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
 from ifixai.core.grounding import GroundingMode, compose_system_prompt
@@ -161,6 +164,17 @@ def _resolve_concurrency(flag_value: int | None, no_parallel: bool) -> int:
     return DEFAULT_CONCURRENCY
 
 
+def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
+    """Return cfg_value when the flag was left at its default, else current."""
+    from click.core import ParameterSource
+
+    if cfg_value is None:
+        return current
+    if ctx.get_parameter_source(name) == ParameterSource.DEFAULT:
+        return cfg_value
+    return current
+
+
 def _format_elapsed(seconds: float) -> str:
     """Human-readable wall-clock duration: ``1h 23m 4s`` / ``2m 5s`` / ``18s``.
 
@@ -182,16 +196,20 @@ def _describe_filter(
     strategic: bool,
     test: tuple[str, ...],
     categories: tuple[str, ...],
+    suite: str | None = None,
 ) -> str:
     """Human-readable summary of which tests the run will execute.
 
     ``test`` is the already-merged selection (explicit -b IDs plus any IDs
-    expanded from ``categories``); ``categories`` is the raw, unexpanded set
-    of category names so the label can name them.
+    expanded from ``suite`` and ``categories``); ``categories`` and ``suite``
+    are the raw, unexpanded selectors so the label can name them.
     """
+    if suite and not categories:
+        return f"suite '{suite.strip().lower()}' -> {len(test)} tests"
     if categories:
         names = ", ".join(name.strip().upper() for name in categories)
-        return f"categories ({names}) -> {len(test)} tests"
+        prefix = f"suite '{suite.strip().lower()}' + " if suite else ""
+        return f"{prefix}categories ({names}) -> {len(test)} tests"
     if strategic:
         return "strategic (top 8)"
     if test:
@@ -305,6 +323,14 @@ def _print_concurrency_banner(resolved: int) -> None:
     "(e.g. -c DECEPTION -c SYSTEMIC_RISK). Case-insensitive. Repeat to "
     "select several categories; combine with -b to add individual tests. "
     "Takes precedence over --strategic.",
+)
+@click.option(
+    "--suite",
+    default=None,
+    help="Run a named suite. Tiers: smoke, strategic, core (32 graded), "
+    "extended (13 frontier), all. Themes: security, reliability, compliance, "
+    "frontier. Folds into the selection like --category; combine with -b/-c to "
+    "add more. Run `ifixai list suites` to browse.",
 )
 @click.option(
     "--output",
@@ -558,7 +584,9 @@ def _print_concurrency_banner(resolved: int) -> None:
     help="Suppress the startup banner and the post-run iMe Core conclusion. "
     "Stdout still contains scores so CI gates keep working.",
 )
+@click.pass_context
 def run(
+    ctx: click.Context,
     provider: str | None,
     api_key: str | None,
     fixture: str,
@@ -569,6 +597,7 @@ def run(
     strategic: bool,
     test: tuple[str, ...],
     categories: tuple[str, ...],
+    suite: str | None,
     output: str,
     report_format: str,
     timeout: int,
@@ -601,6 +630,55 @@ def run(
 ) -> None:
     """Run ifixai against a target AI assistant."""
     run_start_monotonic = time.monotonic()
+
+    try:
+        config_obj = load_config()
+    except ValueError as exc:
+        click.echo(click.style(f"Config error: {exc}", fg="red"), err=True)
+        sys.exit(1)
+    if config_obj is not None:
+        from click.core import ParameterSource
+
+        provider = _cfg_value(ctx, "provider", provider, config_obj.provider)
+        model = _cfg_value(ctx, "model", model, config_obj.model)
+        fixture = _cfg_value(ctx, "fixture", fixture, config_obj.fixture)
+        explicit_selector = (
+            strategic
+            or bool(test)
+            or bool(categories)
+            or ctx.get_parameter_source("suite") != ParameterSource.DEFAULT
+        )
+        if config_obj.suite and not explicit_selector:
+            suite = config_obj.suite
+        run_mode = _cfg_value(ctx, "run_mode", run_mode, config_obj.mode)
+        eval_mode = _cfg_value(ctx, "eval_mode", eval_mode, config_obj.eval_mode)
+        output = _cfg_value(ctx, "output", output, config_obj.output)
+        report_format = _cfg_value(
+            ctx, "report_format", report_format, config_obj.format
+        )
+        timeout = _cfg_value(ctx, "timeout", timeout, config_obj.timeout)
+        endpoint = _cfg_value(ctx, "endpoint", endpoint, config_obj.endpoint)
+        system_name = _cfg_value(ctx, "system_name", system_name, config_obj.name)
+        if api_key is None and config_obj.api_key_env:
+            api_key = os.environ.get(config_obj.api_key_env)
+        if config_obj.judges and (
+            ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
+        ):
+            judge_provider = tuple(j.provider for j in config_obj.judges)
+            if any(j.model for j in config_obj.judges):
+                judge_model = tuple((j.model or "") for j in config_obj.judges)
+            resolved_judge_keys: list[str] = []
+            for j in config_obj.judges:
+                if j.provider == provider and api_key:
+                    resolved_judge_keys.append(api_key)
+                else:
+                    resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
+            judge_api_key = tuple(resolved_judge_keys)
+        if not quiet:
+            click.echo(
+                click.style(f"Using config: {CONFIG_FILENAME}", fg="cyan"), err=True
+            )
+
     if run_nonce is not None and not is_valid_run_nonce(run_nonce):
         raise click.BadParameter(
             f"--run-nonce must be 16 lowercase hex chars; got {run_nonce!r}",
@@ -740,6 +818,23 @@ def run(
         api_key = click.prompt("API key", hide_input=True)
 
     resolved_name = system_name or provider
+
+    if suite:
+        suite_resolution = resolve_suite(suite)
+        if suite_resolution["unknown"]:
+            click.echo(
+                click.style(
+                    f"Error: unknown suite '{suite}'. "
+                    f"Available: {', '.join(SUITE_NAMES)}",
+                    fg="red",
+                )
+            )
+            sys.exit(1)
+        test = tuple(
+            dict.fromkeys(
+                [*(tid.upper() for tid in test), *suite_resolution["test_ids"]]
+            )
+        )
 
     if categories:
         resolution = resolve_category_test_ids(categories)
@@ -1055,7 +1150,7 @@ def run(
     click.echo(click.style("ifixai Run", bold=True))
     click.echo(f"  Provider:  {provider}")
     click.echo(f"  Fixture:   {fixture}")
-    click.echo(f"  Filter:    {_describe_filter(strategic, test, categories)}")
+    click.echo(f"  Filter:    {_describe_filter(strategic, test, categories, suite)}")
     click.echo(f"  Mode:      {run_mode}")
     click.echo(f"  Judge:     {judge_label}")
     click.echo(f"  Timeout:   {timeout}s")
@@ -1196,37 +1291,42 @@ def run(
             " — score reproducibility increased."
         )
 
-    _print_category_summary(result)
+    if not ui.render_scorecard(result):
+        _print_category_summary(result)
 
-    click.echo()
-    click.echo(click.style("Results", bold=True))
-    scored_categories = sum(1 for cs in result.category_scores if cs.score is not None)
-    total_categories = len(result.category_scores)
-    coverage_suffix = (
-        f"  ({scored_categories}/{total_categories} categories scored)"
-        if 0 < scored_categories < total_categories
-        else ""
-    )
-    score_label = "Partial Score:" if coverage_suffix else "Overall Score:"
-    verdict = (
-        click.style("PASS", fg="green")
-        if result.passed
-        else click.style("FAIL", fg="red")
-    )
-    click.echo(f"  {score_label}    {result.overall_score:.1%}{coverage_suffix}")
-    click.echo(f"  Grade:            {result.grade.value}")
-    click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
-    click.echo(f"  Passed:           {verdict}")
-    if result.self_judged:
-        click.echo(
-            "  "
-            + click.style(
-                "⚠ self-judged — the model graded its own output; "
-                "this grade is a smoke test, not a citable result.",
-                fg="yellow",
-            )
+        click.echo()
+        click.echo(click.style("Results", bold=True))
+        scored_categories = sum(
+            1 for cs in result.category_scores if cs.score is not None
         )
-    click.echo()
+        total_categories = len(result.category_scores)
+        coverage_suffix = (
+            f"  ({scored_categories}/{total_categories} categories scored)"
+            if 0 < scored_categories < total_categories
+            else ""
+        )
+        score_label = "Partial Score:" if coverage_suffix else "Overall Score:"
+        verdict = (
+            click.style("PASS", fg="green")
+            if result.passed
+            else click.style("FAIL", fg="red")
+        )
+        click.echo(
+            f"  {score_label}    {result.overall_score:.1%}{coverage_suffix}"
+        )
+        click.echo(f"  Grade:            {result.grade.value}")
+        click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
+        click.echo(f"  Passed:           {verdict}")
+        if result.self_judged:
+            click.echo(
+                "  "
+                + click.style(
+                    "⚠ self-judged — the model graded its own output; "
+                    "this grade is a smoke test, not a citable result.",
+                    fg="yellow",
+                )
+            )
+        click.echo()
 
     _print_error_summary(result)
     _print_inconclusive_summary(result)

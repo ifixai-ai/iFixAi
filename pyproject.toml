@@ -34,6 +34,8 @@ dependencies = [
     "aiohttp>=3.9",
     "python-dateutil>=2.8.2",
     "json-repair>=0.25",
+    "rich>=13.0",
+    "questionary>=2.0",
 ]
 
 [project.optional-dependencies]

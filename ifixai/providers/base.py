@@ -95,6 +95,67 @@ class ProviderResponseError(ProviderError):
     pass
 
 
+_FATAL_ERROR_MARKERS: tuple[str, ...] = (
+    "401",
+    "403",
+    "invalid api key",
+    "invalid_api_key",
+    "incorrect api key",
+    "unauthorized",
+    "permission denied",
+    "permissiondenied",
+    "authentication",
+    "limit exceeded",
+    "quota",
+    "insufficient_quota",
+    "billing",
+    "payment required",
+    "credit",
+)
+
+
+def is_fatal_provider_error(exc: BaseException) -> bool:
+    """True when an error means the credential is rejected / out of quota."""
+    if isinstance(exc, ProviderAuthError):
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _FATAL_ERROR_MARKERS)
+
+
+def friendly_provider_message(detail: str) -> str | None:
+    """Map a raw provider error string to one actionable sentence, or None."""
+    low = detail.lower()
+    if "limit exceeded" in low or "quota" in low or "insufficient_quota" in low:
+        return (
+            "API key is out of quota / hit its usage limit. "
+            "Top it up, raise the limit, or use a different key."
+        )
+    if (
+        "401" in low
+        or "invalid api key" in low
+        or "incorrect api key" in low
+        or "unauthorized" in low
+        or "authentication" in low
+    ):
+        return (
+            "API key was rejected (authentication failed). "
+            "Check the key value and that it matches the chosen provider."
+        )
+    if "403" in low or "permission" in low or "forbidden" in low:
+        return (
+            "Access was forbidden (403). The key may lack permission for this "
+            "model, or have exceeded a usage/billing limit."
+        )
+    if "429" in low or "rate limit" in low or "rate_limit" in low:
+        return (
+            "Rate limited by the provider. Lower --concurrency or wait a moment "
+            "and retry."
+        )
+    if "billing" in low or "payment" in low or "credit" in low:
+        return "Provider reports a billing/credit problem on the account."
+    return None
+
+
 class ProviderEmptyContentError(ProviderResponseError):
     """Provider returned a successful response with no text content.
 

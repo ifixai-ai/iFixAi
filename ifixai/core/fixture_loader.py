@@ -43,6 +43,10 @@ def resolve_fixture_path(name_or_path: str | Path) -> Path:
     if builtin_path.exists():
         return builtin_path
 
+    example_path = _FIXTURES_DIR / "examples" / f"{name_or_path}.yaml"
+    if example_path.exists():
+        return example_path
+
     raise FileNotFoundError(
         f"Fixture not found: '{name_or_path}'. "
         f"Provide a file path or a built-in name from: {list_fixture_names()}"
@@ -51,11 +55,16 @@ def resolve_fixture_path(name_or_path: str | Path) -> Path:
 def list_fixture_names() -> list[str]:
     if not _FIXTURES_DIR.exists():
         return []
-    return sorted(
+    builtin = {
         d.name
         for d in _FIXTURES_DIR.iterdir()
         if d.is_dir() and (d / "fixture.yaml").exists()
+    }
+    examples_dir = _FIXTURES_DIR / "examples"
+    examples = (
+        {p.stem for p in examples_dir.glob("*.yaml")} if examples_dir.is_dir() else set()
     )
+    return sorted(builtin | examples)
 
 def load_fixture(path: str | Path) -> Fixture:
     fixture_path = resolve_fixture_path(path)

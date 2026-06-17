@@ -35,6 +35,94 @@ B22_SKIPPED_MESSAGE: Final[str] = (
 SEED_UNSUPPORTED_PREFIX: Final[str] = "b12 seed accepted but provider cannot honour: "
 
 
+def compute_insights(result: TestRunResult) -> dict[str, object]:
+    """Derive presentation-ready insights shared by console and file reports."""
+    results = result.test_results
+
+    status_counts = {"pass": 0, "fail": 0, "inconclusive": 0, "error": 0}
+    for br in results:
+        status_counts[br.status.value] = status_counts.get(br.status.value, 0) + 1
+
+    scored = [
+        (cs.category.value, cs.score)
+        for cs in result.category_scores
+        if cs.score is not None
+    ]
+    weakest = sorted(scored, key=lambda pair: pair[1])[:3]
+
+    total_categories = len(result.category_scores)
+    scored_categories = len(scored)
+
+    exploratory = [
+        {
+            "test_id": br.test_id,
+            "name": br.name,
+            "score": br.score,
+            "passing": br.passing,
+        }
+        for br in results
+        if br.spec is not None and br.spec.is_exploratory
+    ]
+
+    delta = None
+    if (
+        not result.self_judged
+        and result.overall_score is not None
+        and result.strategic_score is not None
+    ):
+        delta = result.overall_score - result.strategic_score
+
+    return {
+        "self_judged": result.self_judged,
+        "status_counts": status_counts,
+        "total_tests": len(results),
+        "weakest_pillars": weakest,
+        "scored_categories": scored_categories,
+        "total_categories": total_categories,
+        "exploratory": exploratory,
+        "overall_score": result.overall_score,
+        "strategic_score": result.strategic_score,
+        "grade": result.grade.value,
+        "strategic_overall_delta": delta,
+        "passed": result.passed,
+    }
+
+
+def render_insights(result: TestRunResult) -> str:
+    """Markdown "Insights" section derived from :func:`compute_insights`."""
+    ins = compute_insights(result)
+    sc = ins["status_counts"]
+    lines = ["## Insights", ""]
+    lines.append(
+        f"- **Tests:** {sc['pass']} passed · {sc['fail']} failed · "
+        f"{sc['inconclusive']} inconclusive"
+        + (f" · {sc['error']} error" if sc["error"] else "")
+    )
+    lines.append(
+        f"- **Category coverage:** {ins['scored_categories']}/"
+        f"{ins['total_categories']} categories scored"
+    )
+    if not ins["self_judged"] and ins["weakest_pillars"]:
+        weakest = ", ".join(
+            f"{name} ({score:.0%})" for name, score in ins["weakest_pillars"]
+        )
+        lines.append(f"- **Weakest pillars:** {weakest}")
+    if not ins["self_judged"] and ins["strategic_overall_delta"] is not None:
+        delta = ins["strategic_overall_delta"]
+        sign = "+" if delta >= 0 else ""
+        lines.append(
+            f"- **Overall vs strategic:** {ins['overall_score']:.1%} overall "
+            f"vs {ins['strategic_score']:.1%} strategic ({sign}{delta:.1%})"
+        )
+    if ins["exploratory"]:
+        names = ", ".join(item["test_id"] for item in ins["exploratory"])
+        lines.append(
+            f"- **Exploratory (not scored):** {len(ins['exploratory'])} "
+            f"inspection(s) — {names}"
+        )
+    return "\n".join(lines)
+
+
 def insufficient_evidence_warnings(
     test_results: list[TestResult],
 ) -> list[str]:
@@ -182,6 +270,7 @@ def generate_json_report(result: TestRunResult) -> str:
         "mandatory_minimums": build_mandatory_minimums_section(result),
         "test_results": build_test_results_section(result, frameworks),
         "regulatory": build_regulatory_json_section(result, frameworks),
+        "insights": compute_insights(result),
     }
 
     return json.dumps(report, indent=2, ensure_ascii=False)
@@ -193,6 +282,7 @@ def generate_markdown_report(result: TestRunResult) -> str:
     sections = [
         render_header(result),
         render_summary(result),
+        render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
         render_consistency_warnings(result),
@@ -205,6 +295,44 @@ def generate_markdown_report(result: TestRunResult) -> str:
         render_footer(result),
     ]
 
+    return "\n\n".join(s for s in sections if s) + "\n"
+
+
+def _render_top_failures(result: TestRunResult, limit: int = 8) -> str:
+    """A compact 'where it hurts most' list — lowest-scoring failed inspections."""
+    failed = [
+        br
+        for br in result.test_results
+        if br.status == TestStatus.FAIL and not br.insufficient_evidence
+    ]
+    if not failed:
+        return ""
+    failed.sort(key=lambda br: br.score)
+    lines = ["## Top failures", ""]
+    for br in failed[:limit]:
+        name = br.name or br.test_id
+        lines.append(
+            f"- **{br.test_id}** {name} — {br.score:.0%} "
+            f"(threshold {br.threshold:.0%}, {br.category.value})"
+        )
+    remaining = len(failed) - limit
+    if remaining > 0:
+        lines.append(f"- …and {remaining} more (see the full report).")
+    return "\n".join(lines)
+
+
+def generate_summary_report(result: TestRunResult) -> str:
+    """Short scannable report: headline, insights, categories, top failures."""
+    sections = [
+        render_header(result),
+        render_summary(result),
+        render_insights(result),
+        render_category_table(result),
+        render_mandatory_minimums(result),
+        _render_top_failures(result),
+        "_This is the summary. The full report (with per-inspection evidence) "
+        "is the companion `.md` without the `-summary` suffix._",
+    ]
     return "\n\n".join(s for s in sections if s) + "\n"
 
 

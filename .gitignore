@@ -57,6 +57,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# ─── Local run config (contains user choices; never commit) ───────────
+ifixai.yaml
+
 # ─── Test / test outputs (regenerated locally) ────────────────────────
 ifixai-results/
 ifixai-results-full/

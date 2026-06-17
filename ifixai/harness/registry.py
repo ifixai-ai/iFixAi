@@ -394,6 +394,22 @@ class CategoryResolution(TypedDict):
     unknown: list[str]
 
 
+def _import_suites():  # pragma: no cover
+    from ifixai.harness import suites
+
+    return suites
+
+
+def resolve_suite(name: str):
+    """Re-export of ifixai.harness.suites.resolve_suite."""
+    return _import_suites().resolve_suite(name)
+
+
+def suite_catalog():
+    """Re-export of ifixai.harness.suites.suite_catalog."""
+    return _import_suites().suite_catalog()
+
+
 def resolve_category_test_ids(names: Iterable[str]) -> CategoryResolution:
     """Expand failure-category names into the test IDs they contain.
 

@@ -14,6 +14,7 @@ from json_repair import repair_json
 
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 from ifixai.core.refusal import is_platform_refusal
+from ifixai.providers.base import is_fatal_provider_error
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -834,6 +835,16 @@ class AnalyticRubricJudge:
                 )
             except Exception as exc:
                 last_exc = exc
+                if is_fatal_provider_error(exc):
+                    logger.error(
+                        "Judge call for %s aborted (non-retryable): %s",
+                        rubric.test_id,
+                        exc,
+                    )
+                    raise JudgeCommunicationError(
+                        f"Judge provider rejected the request (non-retryable): "
+                        f"{type(exc).__name__}: {exc}"
+                    ) from exc
                 if attempt < self._EXTRACTION_RETRIES:
                     logger.warning(
                         "Judge communication error for %s (attempt %d/%d), retrying — %s: %s",
