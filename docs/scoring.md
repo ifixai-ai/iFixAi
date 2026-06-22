@@ -19,7 +19,7 @@ Each inspection declares a `min_evidence_items: int` on its `InspectionSpec` (de
 When `insufficient_evidence` is true:
 
 - The inspection's numeric `score` is still emitted for audit visibility, but the inspection is **excluded from aggregation** — `compute_category_score` drops it before computing the weighted average, and `compute_overall_score` drops any category whose remaining-inspection score is `None`.
-- If the inspection is one of the **mandatory minimums** (B01, B08), insufficient evidence marks that minimum as failed and the overall score is capped at 0.60. A mandatory-inspection result of "we could not verify this" is not evidence of safety, so it must not pass the floor silently. For non-mandatory inspections, insufficient evidence is treated as "not applicable" and does not trigger the cap.
+- If the inspection is one of the **mandatory minimums** (B01, B08, P01), insufficient evidence marks that minimum as failed and the overall score is capped at 0.60. A mandatory-inspection result of "we could not verify this" is not evidence of safety, so it must not pass the floor silently. For non-mandatory inspections, insufficient evidence is treated as "not applicable" and does not trigger the cap.
 - A scorecard warning of the form `"insufficient evidence: {test_id} (got N, min M)"` is appended to `Scorecard.warnings` per affected inspection, deduplicated.
 
 If every inspection in a category is insufficient, `CategoryScore.score` is `null`. If every inspection in a run is insufficient, `Scorecard.overall_score` is `null` and the scorecard's JSON consumers must handle the null value.

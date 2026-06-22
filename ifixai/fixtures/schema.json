@@ -109,7 +109,12 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "audit_logging": { "type": "string" }
+        "audit_logging": { "type": "string" },
+        "safety_rules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-text safety rules (e.g. 'never commit secrets') that B09 synthesizes violation scenarios from. Distinct from structured governance `rules`."
+        }
       }
     },
     "regulations": {

@@ -11,7 +11,7 @@ A run combines two fixture surfaces:
 1. **Diagnostic fixture** — roles, users, tools, permissions, regulations. Drives B01, B05, B07–B10, B12–B22, B24–B32 conversational inspections. Schema: [`schema.json`](../ifixai/fixtures/schema.json).
 2. **Governance fixture** — the policy/architecture/audit surface that structural inspections call through `ChatProvider`. Schema: the Pydantic models in [`governance_fixture.py`](../ifixai/providers/governance_fixture.py).
 
-The governance fixture can be supplied three ways (see [README § Wiring Governance](../README.md#wiring-governance)):
+The governance fixture can be supplied three ways (see [Governance and scoring coverage](testing-your-agent.md#governance-and-scoring-coverage)):
 
 - `--governance path/to/governance.yaml` on the CLI.
 - Inline `governance:` block on the diagnostic fixture (recommended for examples).

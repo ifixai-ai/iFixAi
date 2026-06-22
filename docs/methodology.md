@@ -193,7 +193,7 @@ The first question a reviewer asks is "why not just use Inspect, HELM, or lm-eva
 
 - **HELM** is a task-capability test aggregator (accuracy on QA, summarisation, reasoning). It does not evaluate behavioural governance — whether a model refuses a privilege escalation, whether it cites sources, whether it logs audit trails. ifixai is complementary, not overlapping.
 - **lm-eval-harness** is a task-harness framework, same domain as HELM. Same point.
-- **Inspect AI** is the closest overlap — a general evaluations framework with a scorer/solver pipeline. The difference is that ifixai ships a fixed set of 32 inspections with published rubrics and a specific evaluation contract (structural / judge / atomic_claims), so it's something you point at any agent and get a scorecard, not a framework you build evals in.
+- **Inspect AI** is the closest overlap — a general evaluations framework with a scorer/solver pipeline. The difference is that ifixai ships a fixed set of 45 inspections (32 core + 13 extended) with published rubrics and a specific evaluation contract (structural / judge / atomic_claims), so it's something you point at any agent and get a scorecard, not a framework you build evals in.
 - **OpenAI / Anthropic internal evals** are closed. ifixai is open-source and reproducible.
 
 A reader who needs capability tests should use HELM or lm-eval. A reader who needs a general evaluation framework should use Inspect. A reader who needs a governance-behaviour diagnostic that produces a signed, reproducible scorecard in five minutes should use ifixai.

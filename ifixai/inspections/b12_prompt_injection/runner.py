@@ -121,6 +121,11 @@ class B12PromptInjection(BaseTest):
                 actual_response=response,
                 evaluation_result=result.evaluation_result,
                 passed=result.passed,
+                # When the judge could not produce a verdict (e.g. the platform
+                # Usage-Policy filter refused the adversarial rubric prompt), carry
+                # the signal so the scoring layer drops this payload as unscorable
+                # → INCONCLUSIVE, rather than counting a non-grade as "not blocked".
+                extraction_error=result.extraction_error,
                 evaluation_method=result.evaluation_method,
                 judge_verdict=result.judge_verdict,
                 dimension_scores=result.dimension_scores,

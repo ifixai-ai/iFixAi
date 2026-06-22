@@ -2,6 +2,7 @@ import asyncio
 import difflib
 import json
 import logging
+import os
 import re
 import secrets
 from enum import Enum
@@ -12,6 +13,7 @@ import yaml
 from json_repair import repair_json
 
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
+from ifixai.core.refusal import is_platform_refusal
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -43,7 +45,18 @@ class JudgeContractError(ValueError):
 logger = logging.getLogger(__name__)
 
 _BACKOFF_BASE: float = 0.5
-_JUDGE_TIMEOUT: float = 60.0
+# Per grading call. The 60s default suits a fast direct-API judge; a judge
+# routed through the `claude -p` CLI (plugin bridge) is much slower (CLI startup
+# + thinking + a large rubric prompt), so a plan user can raise this — e.g.
+# IFIXAI_JUDGE_TIMEOUT=300 — to stop grading calls being guillotined → ERROR.
+_JUDGE_TIMEOUT: float = float(os.environ.get("IFIXAI_JUDGE_TIMEOUT", "60"))
+
+# A judge routed through `claude -p` is itself subject to the Claude Code
+# Usage-Policy filter: an adversarial rubric prompt (B12 injection payloads etc.)
+# can be refused with the wall text instead of a JSON verdict. `is_platform_refusal`
+# (shared with the SUT seam and pipeline, in ifixai.core.refusal) detects that so
+# we fail extraction ONCE — but only AFTER a verdict fails to parse, so a real
+# verdict that merely mentions a usage policy is never discarded.
 
 JUDGE_MAX_TOKENS_FLOOR: int = 512
 JUDGE_MAX_TOKENS_CEILING: int = 2048
@@ -832,6 +845,19 @@ class AnalyticRubricJudge:
             try:
                 return parse_rubric_verdict(raw_response, rubric)
             except JudgeExtractionError as exc:
+                # Parse-first: only NOW, having failed to extract a verdict, ask
+                # whether the raw text is the platform Usage-Policy wall. A real
+                # verdict that merely mentions a usage policy already returned
+                # above, so it is never misread as a refusal. A genuine wall is
+                # deterministic — the platform refuses every retry — so fail
+                # extraction once and let the evidence drop as unscorable
+                # (→ INCONCLUSIVE) instead of grinding all attempts → ERROR.
+                if is_platform_refusal(raw_response):
+                    raise JudgeExtractionError(
+                        "judge refused by the platform Usage-Policy filter — this "
+                        "adversarial probe cannot be graded via the claude -p bridge "
+                        "(use --mode api for adversarial coverage)"
+                    ) from exc
                 last_exc = exc
                 if attempt < self._EXTRACTION_RETRIES:
                     logger.warning(
