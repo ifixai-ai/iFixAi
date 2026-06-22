@@ -1208,22 +1208,24 @@ def run(
         else ""
     )
     score_label = "Partial Score:" if coverage_suffix else "Overall Score:"
+    verdict = (
+        click.style("PASS", fg="green")
+        if result.passed
+        else click.style("FAIL", fg="red")
+    )
+    click.echo(f"  {score_label}    {result.overall_score:.1%}{coverage_suffix}")
+    click.echo(f"  Grade:            {result.grade.value}")
+    click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
+    click.echo(f"  Passed:           {verdict}")
     if result.self_judged:
-        redacted = click.style("SELF-JUDGED (redacted)", fg="yellow")
-        click.echo(f"  {score_label}    {redacted}{coverage_suffix}")
-        click.echo(f"  Grade:            {redacted}")
-        click.echo(f"  Strategic Score:  {redacted}")
-        click.echo(f"  Passed:           {redacted}")
-    else:
-        click.echo(f"  {score_label}    {result.overall_score:.1%}{coverage_suffix}")
-        click.echo(f"  Grade:            {result.grade.value}")
-        click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
-        verdict = (
-            click.style("PASS", fg="green")
-            if result.passed
-            else click.style("FAIL", fg="red")
+        click.echo(
+            "  "
+            + click.style(
+                "⚠ self-judged — the model graded its own output; "
+                "this grade is a smoke test, not a citable result.",
+                fg="yellow",
+            )
         )
-        click.echo(f"  Passed:           {verdict}")
     click.echo()
 
     _print_error_summary(result)

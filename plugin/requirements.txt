@@ -1,0 +1,5 @@
+# The iFixAi engine the plugin runs. Pinned so the plugin is validated against a
+# known engine build (the version the plugin release was tested with). The
+# [anthropic] extra pulls the SDK needed for --mode api. Bump this in lockstep
+# with the plugin version when the engine is re-released.
+ifixai[anthropic]==3.0.2

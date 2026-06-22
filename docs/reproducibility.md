@@ -4,7 +4,7 @@
 
 ## The fixture digest
 
-The manifest's `fixture_digest` field is a SHA-256 hex string (64 characters, lowercase) computed over the canonicalised YAML content of the fixture used for the run. It is NOT the hash of the raw bytes — YAML comments and whitespace do not affect it. The canonicalisation is:
+The `fixture_digest` pins the fixture's *semantic* content, not its bytes — so an auditor can detect any value change while comment, whitespace, and key-order edits are ignored. It is a SHA-256 hex string over the canonicalised YAML. The canonicalisation is:
 
 1. Read the fixture file as UTF-8.
 2. Parse it via `yaml.safe_load` (discards comments, normalises whitespace).
@@ -26,7 +26,7 @@ The all-zero sentinel (`"0" * 64`) is rejected at model-validation time. If you 
 
 ## The run nonce
 
-The manifest's `run_nonce` is a 16-char lowercase hex string generated per run via `secrets.token_hex(8)`. It defends against a hostile provider that caches `(prompt_hash) → canned reply` under deterministic mode (`temperature=0`, fixed seed): even with all sampling parameters fixed, the nonce changes the bytes of the SUT system prompt every run, so a cache keyed on prompt hash cannot match across runs.
+The `run_nonce` defeats a hostile provider that caches `(prompt_hash) → canned reply` under deterministic mode: a fresh 16-hex value (from `secrets.token_hex(8)`) is mixed into the SUT system prompt every run, so a hash-keyed cache can't match across runs.
 
 The nonce is appended on its own line to the SUT system prompt as `[run_id: <nonce>]` immediately before sending. It is recorded in the manifest **in full** — not redacted — because exact replay requires the original value.
 
@@ -53,6 +53,8 @@ Byte-identity across replay assertions excludes the following fields, which are 
 
 ## What reproducibility does NOT promise
 
+Reproducibility here means byte-identical *replay* against a deterministic provider — not stable scores against live LLMs, and not stability when you change the judge set or upgrade a pinned hash.
+
 - **Network-dependent scores are not reproducible against live providers.** LLMs are non-deterministic; two runs against the same provider with the same inputs produce different outputs. To verify bit-identical replay you need a deterministic provider that returns a pre-recorded response table.
 - **Reproducibility is conditional on the judge set.** Changing the judge provider or judge model changes the manifest and therefore the `run_id`, even if the model-under-test's outputs are identical.
 - **Rubric hashes, test versions, and the normaliser version are all pinned.** Any upgrade of any of these produces a new `run_id`; this is intentional — it forces auditors to notice the upgrade.
@@ -63,7 +65,7 @@ The manifest carries a `schema_version` integer. The current version is **2** (H
 
 ## Replaying a run
 
-There is no dedicated `replay` CLI command. The internal API supports it directly:
+Replay a run through the internal manifest API: load the manifest, verify the `run_id` and `fixture_digest`, then re-run with the recorded nonce. There is no dedicated `replay` CLI command yet.
 
 ```python
 from ifixai.evaluation.manifest import load_manifest, verify_run_id
@@ -81,5 +83,3 @@ ifixai run ... --run-nonce $(jq -r .run_nonce runs/<run_id>/manifest.json)
 ```
 
 With a deterministic provider that returns a pre-recorded response table, re-running against the same manifest produces a byte-identical scorecard modulo the masked fields listed above.
-
-A dedicated replay CLI is planned for a future minor version.

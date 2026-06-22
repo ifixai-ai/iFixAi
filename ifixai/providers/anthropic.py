@@ -14,7 +14,7 @@ from ifixai.providers.base import (
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.schemas import MessageSplit
 
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
+DEFAULT_MODEL = "claude-sonnet-4-6"
 
 INITIAL_BACKOFF_SECONDS = 1.0
 BACKOFF_MULTIPLIER = 2.0

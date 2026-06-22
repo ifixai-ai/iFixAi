@@ -220,7 +220,10 @@ def build_metadata_section(
         "evaluation_date": result.evaluation_date.isoformat(),
         "specification_version": result.specification_version,
         "run_mode": result.run_mode,
+        "self_judged": result.self_judged,
     }
+    if result.judge_relation:
+        meta["judge_relation"] = result.judge_relation
     if result.judge_stats is not None:
         meta["judge_stats"] = result.judge_stats
     if frameworks:
@@ -371,7 +374,8 @@ def render_header(result: TestRunResult) -> str:
             break
 
     header = (
-        f"# ifixai Scorecard — {result.system_name} v{result.system_version}\n\n"
+        f"# ifixai Scorecard — {result.system_name}"
+        f"{f' v{result.system_version}' if result.system_version else ''}\n\n"
         f"**Specification Version:** {result.specification_version}  \n"
         f"**Provider:** {result.provider}  \n"
         f"**Fixture:** {result.fixture_name}  \n"
