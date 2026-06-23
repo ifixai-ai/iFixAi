@@ -7,11 +7,6 @@
             "type": "command",
             "command": "python3",
             "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/bootstrap.py"]
-          },
-          {
-            "type": "command",
-            "command": "python",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/bootstrap.py"]
           }
         ]
       }

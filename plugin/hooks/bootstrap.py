@@ -92,7 +92,10 @@ def main() -> None:
         subprocess.run([*pip, *shlex.split(spec, posix=os.name != "nt")], check=True)
     else:
         subprocess.run([*pip, "-r", str(req)], check=True)
-        stamp.write_text(req.read_text())
+        # Copy bytes verbatim — write_text/read_text would translate newlines (CRLF
+        # on Windows), so the byte-compare above would never match and the engine
+        # would re-provision every session.
+        stamp.write_bytes(req.read_bytes())
 
     print(f"iFixAi: engine ready in {venv} — run /ifixai:ifixai to start.", file=sys.stderr)
 

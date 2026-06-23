@@ -933,6 +933,16 @@ def _print_progress(test_id: str, index: int, total: int, result) -> None:
 
 
 def main() -> None:
+    # The consent screen and progress lines print non-ASCII glyphs (⚠, →). On
+    # native Windows the console/pipe defaults to the legacy code page (cp1252),
+    # which can't encode them, so a bare print would raise UnicodeEncodeError and
+    # abort before the run. Force UTF-8 on our streams; no-op where already UTF-8.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+        except (AttributeError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser(description="iFixAi Phase 2 multi-inspection orchestrator.")
     parser.add_argument(
         "--mode", choices=["stub", "record", "replay", "api"], default="stub",

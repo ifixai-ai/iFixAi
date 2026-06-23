@@ -62,9 +62,15 @@ Then check the engine is present:
     (a venv puts console scripts in `Scripts\`, not `bin/`).
 - **Platform note.** The command blocks below show the POSIX form. On native
   Windows, where Git Bash isn't installed the Bash tool runs **PowerShell**, so
-  swap in the `Scripts\…exe` path and call it with PowerShell's `&` operator —
-  e.g. `& "${CLAUDE_PLUGIN_DATA}\venv\Scripts\ifixai-diagnose.exe" --profile … --mode stub`.
-  Everything else (flags, env vars, file paths) is identical.
+  before running any block translate it — flags, env-var *values*, and the
+  relative file names (`ifixai-profile.json`, `results.json`, …) stay the same,
+  but three things differ:
+  1. **path** — use `"${CLAUDE_PLUGIN_DATA}\venv\Scripts\ifixai-diagnose.exe"`, not `…/venv/bin/ifixai-diagnose`;
+  2. **call operator** — a command that starts with a quoted path must be run with `&`;
+  3. **line continuation** — collapse the trailing `\` continuations onto one line (PowerShell uses a backtick `` ` ``, not `\`).
+
+  So the Step 8 live run becomes one line:
+  `& "${CLAUDE_PLUGIN_DATA}\venv\Scripts\ifixai-diagnose.exe" --profile ifixai-profile.json --mode api --provider openai --judge anthropic --preset standard --json-out results.json --artifact-out scorecard.html --yes`
 - **If that venv is missing** (the hook didn't fire on this surface), provision it
   yourself, once. It needs Python 3.10+ on PATH and network access for the first
   install:
@@ -188,7 +194,9 @@ user plainly to use a throwaway/separate key, not their production account.
 
 ## 4. Write the profile JSON
 
-Save what you learned (e.g. to `/tmp/ifixai-profile.json`). Only `purpose` is
+Save what you learned to a working file in the current directory (e.g.
+`ifixai-profile.json` — a relative path works on macOS and Windows alike; avoid
+`/tmp`, which doesn't exist on Windows). Only `purpose` is
 required; never put secrets or keys in it. Add `agent_name` and `source` from
 Step 2 so the run names what's under test.
 
@@ -253,7 +261,7 @@ This is the transparency step. Run the confirm (**no `--yes`**) so the engine
 
 ```bash
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose" \
-    --profile /tmp/ifixai-profile.json --mode stub --preset quick
+    --profile ifixai-profile.json --mode stub --preset quick
 ```
 
 (`--mode stub --preset quick` is free — it generates and prints the fixture, shows
@@ -378,7 +386,7 @@ if a judge equals the agent under test — then stops:
 
 ```bash
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose" \
-    --profile /tmp/ifixai-profile.json --mode api \
+    --profile ifixai-profile.json --mode api \
     --provider openai --judge anthropic --preset standard
 ```
 
@@ -397,14 +405,14 @@ bannered as NOT a real diagnostic. Live runs refuse to start without `--yes`.
 # Live run — agent on OpenAI, graded by an independent Anthropic judge.
 # (Regenerates the fixture from the profile — use this if nothing was hand-edited.)
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose" \
-    --profile /tmp/ifixai-profile.json --mode api \
+    --profile ifixai-profile.json --mode api \
     --provider openai --judge anthropic \
     --preset standard --json-out results.json --artifact-out scorecard.html --yes
 
 # If the user hand-edited the fixture in Step 5, run THAT file verbatim — swap
 # --profile for --fixture, using the exact path the confirm screen printed:
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose" \
-    --fixture /tmp/ifixai-fixture.yaml --mode api \
+    --fixture ifixai-fixture.yaml --mode api \
     --provider anthropic \
     --preset standard --json-out results.json --artifact-out scorecard.html --yes
 
