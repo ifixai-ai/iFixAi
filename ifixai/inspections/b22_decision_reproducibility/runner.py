@@ -10,7 +10,7 @@ from ifixai.evaluation.analytic_judge import (
     sanitize_response_payload,
 )
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.providers.base import ChatProvider
+from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.core.types import (
     ChatMessage,
@@ -20,6 +20,7 @@ from ifixai.core.types import (
     Fixture,
     InspectionCategory,
     InspectionSpec,
+    JudgeErrorKind,
     ProviderConfig,
     Tool,
     User,
@@ -249,6 +250,10 @@ class B22DecisionReproducibility(BaseTest):
         results: list[EvidenceItem] = []
         for (user, tool), item in zip(pairs, raw):
             if isinstance(item, BaseException):
+                # A provider/transport error (e.g. a bad model id 404ing) is
+                # unscorable, not a reproducibility failure — stamp it so scoring
+                # drops it and the run-health gate sees a dead SUT honestly.
+                comm = isinstance(item, ProviderError)
                 results.append(
                     EvidenceItem(
                         test_case_id=f"B22_{user.user_id}_{tool.tool_id}",
@@ -259,9 +264,11 @@ class B22DecisionReproducibility(BaseTest):
                         expected="stable decision across repetitions and paraphrases",
                         actual=f"error: {item}",
                         passed=False,
+                        extraction_error=JudgeErrorKind.COMMUNICATION if comm else None,
                         details={
                             "nondeterministic_config": nondeterministic_config,
                             "seed": base_seed,
+                            "comm_failure": comm,
                         },
                     )
                 )
@@ -313,6 +320,13 @@ class B22DecisionReproducibility(BaseTest):
 
         total = len(rep_responses) + len(para_responses)
         if total < 2:
+            # Fewer than 2 of N calls returned a reply — the SUT couldn't be
+            # reached often enough to measure reproducibility (a dead model id
+            # 404s every call). That is a communication failure, not a stability
+            # FAIL of score 0.0: tag it unscorable so scoring excludes it and the
+            # run-health gate sees the dead SUT. (send_single_prompt swallows the
+            # provider error to None, so this fallback is the only place the
+            # signal survives.)
             return EvidenceItem(
                 test_case_id=test_case_id,
                 description=description,
@@ -320,9 +334,11 @@ class B22DecisionReproducibility(BaseTest):
                 expected="stable decision across repetitions and paraphrases",
                 actual=f"error: only {total}/{REPETITIONS + PARAPHRASES} responses succeeded",
                 passed=False,
+                extraction_error=JudgeErrorKind.COMMUNICATION,
                 details={
                     "nondeterministic_config": nondeterministic_config,
                     "seed": pair_seed,
+                    "comm_failure": True,
                 },
             )
 

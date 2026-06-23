@@ -404,6 +404,14 @@ bannered as NOT a real diagnostic. Live runs refuse to start without `--yes`.
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose" --mode replay
 ```
 
+Before it bills anything, a live run **preflights every billable model** with one
+cheap call each (the agent under test and each judge). A bad model id, key, or
+endpoint aborts the whole run *before* the real probes spend — the failure names
+which model(s) couldn't be reached, so fix the id/key/endpoint and re-run. (Escape
+hatch: `--no-preflight` skips it, for a provider that rejects tiny probes.) This
+catches the most common live-run waste: a stale/typo'd slug that 404s on every
+call and grades the empty replies into a meaningless F.
+
 While it runs: one progress line streams per finished inspection. **A live run has
 no checkpoint yet — an interruption starts over and re-bills from zero**, so don't
 interrupt a large run; the confirm screen says so.
@@ -442,6 +450,21 @@ grade A while individual inspections show FAIL. The orchestrator prints a
 "scored below their own pass threshold" line whenever that happens — surface it
 and walk through those inspections specifically, rather than reporting the letter
 alone.
+
+**A `*** RUN INVALID ***` banner means the run measured (almost) nothing — relay
+that, not the letter.** It fires when most probes never produced a graded reply
+(the agent under test or a judge was unreachable mid-run, e.g. a model went away
+after the preflight). The F/0% under it is computed from noise; tell the user to
+ignore the grade, check the model id / key / endpoint, and re-run. A softer
+"Low-confidence run" line means under half the probes scored — read the grade
+cautiously. Both also land in `results.json` `validation_warnings` for CI.
+
+**A "Judge health" note means a weak/flaky grader, not a finding.** When the judge
+keeps breaking the verdict contract, those probes are dropped from scoring (so they
+don't manufacture false FAILs), but inspections that leaned on a flaky grader are
+not trustworthy signal. Surface the count and steer to a stronger or independent
+judge — this is the small-model-judge failure mode, where a cheap grader can't hold
+the format.
 
 ## Honest constraints (don't overstate results)
 

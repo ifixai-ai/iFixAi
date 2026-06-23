@@ -30,16 +30,27 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import NamedTuple, cast
 
 from ifixai.api import run_selected
 from ifixai.core.fixture_loader import load_fixture
 from ifixai.evaluation.manifest import generate_run_nonce
 from ifixai.harness.registry import SPEC_BY_ID
 from ifixai.core.types import (
+    ChatMessage,
     EvaluationMode,
     EvaluationPipelineConfig,
+    JudgeErrorKind,
+    ProviderConfig,
     TestRunResult,
     TestStatus,
+)
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderEmptyContentError,
+    ProviderError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
 )
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
 from ifixai.providers.resolver import (
@@ -358,6 +369,109 @@ def _preflight_provider(provider: str) -> None:
         raise SystemExit(str(exc)) from None
 
 
+# --- Live-run model preflight ("canary") --------------------------------------
+# A bad model id (a stale/typo'd slug, an unavailable endpoint) 404s on EVERY
+# call, so without a preflight the whole run bills hundreds of probes against a
+# model that never answers and then grades the empty/errored replies into a
+# meaningless F. One tiny call per distinct billable model catches that at the
+# consent boundary, before anything bills.
+
+class _CanaryTarget(NamedTuple):
+    label: str  # "agent under test" | "judge"
+    provider: str
+    model: str | None
+    api_key: str
+    endpoint: str | None
+
+
+async def _canary_probe(target: _CanaryTarget) -> str | None:
+    """One minimal call confirming (provider, model) resolves and the key
+    authenticates. Returns None when the model is reachable, or a short error
+    string for a deterministic failure (bad slug / key / endpoint) that would
+    repeat on every billed call. Transient conditions (rate limit, timeout) and
+    an empty-but-valid reply count as reachable — they don't prove the model is
+    wrong, so they must not abort a legitimate run."""
+    provider = cast(ChatProvider, resolve_provider(target.provider))
+    config = ProviderConfig(
+        provider=target.provider,
+        api_key=target.api_key,
+        model=target.model,
+        endpoint=target.endpoint,
+        max_tokens=16,
+    )
+    try:
+        await provider.send_message(
+            [ChatMessage(role="user", content="ping")], config
+        )
+        return None
+    except ProviderEmptyContentError:
+        return None  # reached the model; it returned nothing for a 1-token ping
+    except (ProviderRateLimitError, ProviderTimeoutError):
+        return None  # model exists; we're throttled/slow, not misconfigured
+    except ProviderError as exc:
+        return f"{type(exc).__name__}: {exc}"
+    finally:
+        await provider.aclose()
+
+
+def _canary_targets(
+    sut_provider: str,
+    sut_model: str | None,
+    api_key: str,
+    judge_specs: list[tuple[str, str | None]],
+    judge_keys: dict[str, str],
+    endpoint: str | None,
+) -> list[_CanaryTarget]:
+    """The distinct (provider, model) pairs a live run will bill — the agent
+    under test and each judge — deduped so a self-judge probes once. The SUT
+    carries --endpoint (e.g. azure); judges resolve their provider's default
+    URL, matching how run_diagnostic_api wires them."""
+    targets = [
+        _CanaryTarget("agent under test", sut_provider, sut_model, api_key, endpoint)
+    ]
+    targets += [
+        _CanaryTarget("judge", p, m, judge_keys.get(p, ""), None)
+        for p, m in judge_specs
+    ]
+    seen: set[tuple[str, str | None, str | None]] = set()
+    distinct: list[_CanaryTarget] = []
+    for t in targets:
+        key = (t.provider, t.model, t.endpoint)
+        if key in seen:
+            continue
+        seen.add(key)
+        distinct.append(t)
+    return distinct
+
+
+def _preflight_models(targets: list[_CanaryTarget]) -> None:
+    """Probe every billable model once and abort the whole run if any can't be
+    reached — BEFORE billing the real probes. A live run with a bad model id
+    otherwise bills hundreds of 404s and grades the wreckage into a false F."""
+    async def _gather() -> list[str | None]:
+        return await asyncio.gather(*(_canary_probe(t) for t in targets))
+
+    errors = asyncio.run(_gather())
+    failures = [(t, err) for t, err in zip(targets, errors) if err]
+    if not failures:
+        return
+    lines = "\n".join(
+        f"  - {t.label} — {t.provider}:{t.model or '(default)'} — {err}"
+        for t, err in failures
+    )
+    raise SystemExit(
+        "Preflight failed — these model(s) could not be reached, so the run was "
+        "ABORTED before billing any probes:\n"
+        f"{lines}\n\n"
+        "Check the model id, the API key, and the endpoint, then re-run. (A bad "
+        "model id 404s on every call; without this preflight the whole run would "
+        "bill against a model that never answers and grade the empty replies "
+        "into a meaningless F.)\n"
+        "If the model legitimately rejects tiny probes (e.g. a reasoning model "
+        "that needs a large token budget), pass --no-preflight to skip this check."
+    )
+
+
 def _judge_relation(
     sut_provider: str, sut_model: str | None, specs: list[tuple[str, str | None]]
 ) -> str:
@@ -535,6 +649,121 @@ def below_threshold_note(result: TestRunResult) -> str | None:
         f"⚠ {len(failed)} inspection(s) scored below their own pass threshold: "
         f"{parts}. The overall grade is a weighted aggregate — review these "
         "individually; a high letter does not mean every inspection passed."
+    )
+
+
+class _RunHealth(NamedTuple):
+    n_inspections: int  # inspections that ran
+    errored: int  # inspections that crashed before producing evidence (status ERROR)
+    total: int  # evidence items across every inspection
+    scorable: int  # produced a graded result (no extraction_error)
+    unreachable: int  # a model call failed to communicate (agent OR judge)
+    judge_broke: int  # the judge replied but the verdict was unusable
+
+    @property
+    def invalid(self) -> bool:
+        """The run measured (almost) nothing — the letter grade rests on noise
+        and must be read as a measurement failure, not a result. True when most
+        inspections crashed before producing evidence, when every probe was
+        unscorable, or when a model was unreachable on most probes."""
+        if self.n_inspections and self.errored / self.n_inspections >= 0.5:
+            return True  # most inspections crashed (no evidence to grade)
+        if self.total == 0:
+            return False  # nothing errored, but no gradeable probes either
+        if self.scorable == 0:
+            return True  # every probe was unscorable
+        return self.unreachable / self.total >= 0.5
+
+    @property
+    def low_confidence(self) -> bool:
+        """Not outright invalid, but under half the probes produced a graded
+        reply — the grade is thin."""
+        return self.total > 0 and not self.invalid and self.scorable / self.total < 0.5
+
+    @property
+    def judge_attempts(self) -> int:
+        return self.scorable + self.judge_broke
+
+
+def run_health(result: TestRunResult) -> _RunHealth:
+    """Aggregate the failure signals the per-inspection scores hide. The engine
+    already EXCLUDES an unscorable probe from a score (via its ``extraction_error``
+    flag) and reports a crashed inspection as ERROR with no evidence, so a run
+    where the model was unreachable, the judge kept breaking its verdict, or most
+    inspections crashed can still print a confident letter from a handful of
+    survivors. This counts those signals so the operator can flag a measurement
+    failure (model unreachable / inspections crashed) or a weak grader (judge
+    broke the contract) right next to the grade.
+
+    COMMUNICATION is a failed model call on either seam (agent under test or
+    judge); CONTRACT/EXTRACTION mean the judge answered but the verdict was
+    unusable — unambiguously a grader-health problem."""
+    errored = total = scorable = unreachable = judge_broke = 0
+    for br in result.test_results:
+        if br.status == TestStatus.ERROR:
+            errored += 1
+        for ev in br.evidence:
+            total += 1
+            kind = getattr(ev, "extraction_error", None)
+            if kind is None:
+                scorable += 1
+            elif kind == JudgeErrorKind.COMMUNICATION:
+                unreachable += 1
+            elif kind in (JudgeErrorKind.CONTRACT, JudgeErrorKind.EXTRACTION):
+                judge_broke += 1
+            else:
+                unreachable += 1
+    return _RunHealth(len(result.test_results), errored, total, scorable, unreachable, judge_broke)
+
+
+def measurement_failure_banner(health: _RunHealth) -> str | None:
+    """A loud, grade-suppressing banner when the run did not actually measure the
+    agent. Names the dominant cause so the remediation is right — a dead model
+    points at the model id/key/endpoint, a broken grader points at the judge.
+    Returns None for a healthy run."""
+    if not health.invalid:
+        return None
+    if health.scorable == 0 and health.judge_broke and health.unreachable == 0 and not health.errored:
+        # Every probe reached a model but the judge produced no usable verdict —
+        # a broken grader, not a model problem. Don't send the user to the model.
+        cause = (
+            f"the judge returned {health.judge_broke} unusable verdict(s) and not "
+            "one produced a graded reply — a broken grader, not a model problem. "
+            "Switch to a more reliable judge and re-run."
+        )
+    elif health.errored and health.errored >= health.unreachable:
+        cause = (
+            f"{health.errored} of {health.n_inspections} inspections crashed before "
+            "producing any evidence (the agent under test or its configuration "
+            "errored out). Check the model id / key / endpoint and re-run."
+        )
+    else:
+        cause = (
+            f"{health.unreachable} of {health.total} model calls failed to complete "
+            "(the agent under test or a judge was unreachable). Check the model id / "
+            "key / endpoint (the preflight catches a bad model id before billing) "
+            "and re-run."
+        )
+    return (
+        "*** RUN INVALID — measurement failure, not a result. ***\n"
+        f"  {cause} The grade below is computed from almost no evidence — ignore "
+        "the letter."
+    )
+
+
+def judge_health_note(health: _RunHealth) -> str | None:
+    """A note when the judge broke its verdict contract often enough to make the
+    grade untrustworthy. The broken probes were excluded from scoring, but an
+    inspection that leaned on a flaky grader is not a reliable finding. Returns
+    None when the judge held its contract."""
+    if health.judge_broke == 0:
+        return None
+    return (
+        f"⚠ Judge health: the grader returned {health.judge_broke} unusable "
+        f"verdict(s) (broke the scoring contract) of {health.judge_attempts} "
+        "grading attempts. Those probes were dropped, so inspections that leaned "
+        "on a flaky grader are weak signal — prefer a stronger or independent "
+        "judge for a result you can trust."
     )
 
 
@@ -819,6 +1048,12 @@ def main() -> None:
     parser.add_argument(
         "--yes", action="store_true", help="confirm and run after the cost estimate"
     )
+    parser.add_argument(
+        "--no-preflight", action="store_true",
+        help="skip the one-call-per-model preflight that aborts a live run on a "
+        "bad model id before billing (escape hatch for a provider that rejects "
+        "tiny probes)",
+    )
     args = parser.parse_args()
 
     live = args.mode in LIVE_MODES
@@ -1052,6 +1287,18 @@ def main() -> None:
         system_name = system_name[:79] + "…"
 
     if live:
+        # Preflight: one cheap call per distinct billable model. A bad model id
+        # aborts here, before the run bills hundreds of probes that all 404.
+        if not args.no_preflight:
+            targets = _canary_targets(
+                sut_provider, sut_model_eff, api_key, judge_specs, judge_keys, args.endpoint
+            )
+            print(
+                f"Preflighting {len(targets)} model(s) (one cheap call each) before "
+                "billing the run…",
+                flush=True,
+            )
+            _preflight_models(targets)
         judge_config = _judge_config_live(judge_specs, judge_keys)
         result = asyncio.run(
             run_diagnostic_api(
@@ -1114,9 +1361,28 @@ def main() -> None:
 
     # Carry the judge-independence signal into the results JSON (the CI source
     # of truth), so a self-graded run is as honest there as in the artifact.
+    health: _RunHealth | None = None
     if live:
         result.self_judged = relation == "self"
         result.judge_relation = relation
+        # Surface measurement failure (model unreachable) and grader fragility
+        # (judge broke the contract) in the JSON too, so CI sees what the
+        # console banners say — a confident-looking letter atop dead evidence
+        # must not read as clean in automation.
+        health = run_health(result)
+        if health.invalid:
+            result.validation_warnings.append(
+                "run_invalid: measurement failure — "
+                f"errored={health.errored}/{health.n_inspections} inspections, "
+                f"unreachable={health.unreachable}/{health.total} model calls, "
+                f"judge_broke={health.judge_broke}, scorable={health.scorable}. "
+                "Ignore the grade."
+            )
+        if health.judge_broke:
+            result.validation_warnings.append(
+                f"judge_health: {health.judge_broke}/{health.judge_attempts} grading "
+                "attempts broke the verdict contract (excluded from scoring)."
+            )
 
     if not live:
         print(
@@ -1127,6 +1393,18 @@ def main() -> None:
     print("\n--- coverage ---")
     for pillar, score, cov in _coverage_rows(result):
         print(f"  {pillar:18} {score:>5}   {cov}")
+    # A run that measured (almost) nothing must say so LOUDLY, before the letter —
+    # otherwise a false F/0% computed from 404s reads as a real failing grade.
+    if health is not None:
+        banner = measurement_failure_banner(health)
+        if banner:
+            print(f"\n{banner}")
+        elif health.low_confidence:
+            print(
+                f"\n  ⚠ Low-confidence run — only {health.scorable} of {health.total} "
+                "probes produced a graded reply; the rest were unscorable. Read the "
+                "grade cautiously."
+            )
     overall_pct = "n/a" if result.overall_score is None else f"{result.overall_score * 100:.1f}%"
     print(f"\nOverall: {overall_pct}   Grade: {result.grade.value}   [transport: {args.mode}]")
     print(f"  {grade_stability(result.overall_score)['note']}")
@@ -1147,6 +1425,13 @@ def main() -> None:
             f"  ⚠ {len(errored)} inspection(s) errored and were excluded from scoring "
             f"({', '.join(sorted(errored))}); the grade reflects only what ran."
         )
+    # A weak/flaky judge contaminates trust even when the run is otherwise valid —
+    # the broken verdicts were dropped, but the inspections that leaned on them
+    # are not believable findings. Name it next to the grade.
+    if health is not None:
+        jh_note = judge_health_note(health)
+        if jh_note:
+            print(f"  {jh_note}")
     # INCONCLUSIVE inspections aren't in the grade either, so a high letter can sit
     # atop thin coverage. Surface them next to the grade (symmetric with ERROR), and
     # call out a behavioral mandatory minimum here — that signals a fixture without

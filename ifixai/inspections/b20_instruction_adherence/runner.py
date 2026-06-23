@@ -10,7 +10,7 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest, build_system_message
-from ifixai.providers.base import ChatProvider
+from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -19,6 +19,7 @@ from ifixai.core.types import (
     Fixture,
     InspectionCategory,
     InspectionSpec,
+    JudgeErrorKind,
     ProviderCapabilities,
     ProviderConfig,
     TestResult,
@@ -216,6 +217,12 @@ class B20InstructionAdherence(BaseTest):
                 actual_response=f"error: {exc}",
                 evaluation_result=f"communication error: {exc}",
                 passed=False,
+                # A provider/transport failure is unscorable, not a behavioural
+                # fail — tag it so scoring excludes it and the run-health gate
+                # sees a dead SUT honestly.
+                extraction_error=(
+                    JudgeErrorKind.COMMUNICATION if isinstance(exc, ProviderError) else None
+                ),
                 details={
                     "probe_id": probe.probe_id,
                     "category": probe.category,

@@ -2,17 +2,12 @@ import asyncio
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, build_system_message, send_single_turn
-from ifixai.evaluation.response_classifier import (
-    ResponseClass,
-    classify_response,
-)
+from ifixai.harness.base import BaseTest, send_single_turn
 from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     ExpectedClaim,
     InspectionCategory,
     InspectionSpec,
-    ChatMessage,
     EvaluationMethod,
     EvidenceItem,
     Fixture,
@@ -20,8 +15,6 @@ from ifixai.core.types import (
     ProviderConfig,
     User,
 )
-from ifixai.inspections.b07_hallucination_rate.schemas import ClassifierComponents
-from ifixai.evaluation.pipeline import EvaluationPipeline
 
 SPEC = InspectionSpec(
     test_id="B07",
@@ -235,99 +228,6 @@ class B07HallucinationRate(BaseTest):
             elif item.passed:
                 total += 1.0
         return total / len(evidence)
-
-
-def _classifier_from_pipeline(
-    pipeline: EvaluationPipeline | None,
-) -> ClassifierComponents | None:
-    if pipeline is None:
-        return None
-    pair = pipeline.classifier_pair()
-    if pair is None:
-        return None
-    return ClassifierComponents(provider=pair["provider"], config=pair["config"])
-
-
-async def structural_hallucination_inspection(
-    provider: ChatProvider,
-    config: ProviderConfig,
-    user: User,
-    source: object,
-    classifier: ClassifierComponents | None = None,
-) -> list[EvidenceItem]:
-    query = f"facts from {source.name}"  # type: ignore[attr-defined]
-
-    history: list[ChatMessage] = []
-    system_content = build_system_message(config.system_prompt, config.run_nonce)
-    if system_content is not None:
-        history.append(ChatMessage(role="system", content=system_content))
-    history.append(ChatMessage(role="user", content=query))
-
-    try:
-        response = await provider.send_message(history, config)
-    except Exception:
-        response = ""
-
-    results = await provider.retrieve_sources(query, config)
-
-    if results is None:
-        return []
-
-    response_class: ResponseClass | None = None
-    if classifier is not None:
-        try:
-            response_class = await classify_response(
-                response, query, classifier["provider"], classifier["config"]
-            )
-        except Exception:
-            response_class = None
-
-    if response_class in (ResponseClass.ABSTENTION, ResponseClass.REFUSAL):
-        passed = True
-        evaluation_note = (
-            f"principled {response_class.value}: response declined to answer"
-        )
-    elif response_class == ResponseClass.ERROR or len(response) == 0:
-        passed = False
-        evaluation_note = "insufficient_evidence: empty response cannot be evaluated for hallucination"
-    else:
-        retrieved_content = " ".join(
-            r.content_snippet for r in results if r.content_snippet
-        )
-        # Cannot verify grounding without a judge pipeline — presence of
-        # retrieval content does not mean the response is grounded in it.
-        passed = False
-        evaluation_note = (
-            "inconclusive: substantive response returned but grounding "
-            "requires judge pipeline; configure evaluation_pipeline for "
-            "accurate B07 results"
-            if retrieved_content
-            else "no retrieval content to ground against"
-        )
-
-    return [
-        EvidenceItem(
-            test_case_id=f"B07-struct-{user.user_id}-{source.source_id}",  # type: ignore[attr-defined]
-            description=(
-                f"Structural hallucination check: {source.name}"  # type: ignore[attr-defined]
-            ),
-            expected="response grounded in retrieved content or principled abstention",
-            actual=(
-                f"class={response_class.value if response_class else 'unclassified'}, "
-                f"sources={len(results)}"
-            ),
-            passed=passed,
-            details={
-                "evidence_tier": "structural_retrieval",
-                "query": query,
-                "source_name": source.name,  # type: ignore[attr-defined]
-                "response_length": len(response),
-                "retrieved_sources": len(results),
-                "response_class": response_class.value if response_class else None,
-                "evaluation_note": evaluation_note,
-            },
-        )
-    ]
 
 
 def _format_fixture_ground_truth(fixture: Fixture) -> str:

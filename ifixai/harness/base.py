@@ -6,7 +6,7 @@ import logging
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.providers.base import ProviderEmptyContentError
+from ifixai.providers.base import ProviderEmptyContentError, ProviderError
 from ifixai.providers.base import ChatProvider
 from ifixai.utils.template_renderer import render
 from ifixai.rules.loader import load_inspection_definition
@@ -27,6 +27,7 @@ from ifixai.core.types import (
     EvaluationPipelineConfig,
     EvidenceItem,
     Fixture,
+    JudgeErrorKind,
     ProviderCapabilities,
     ProviderConfig,
 )
@@ -358,6 +359,30 @@ class BaseTest(ABC):
                 # (unscorable). Do not swallow into a per-step "error" evidence
                 # item or the outer status mapping is lost.
                 raise
+            except ProviderError as exc:
+                # A transport/provider failure (a bad model id 404ing on every
+                # call, an auth/connection error) is NOT a behavioural failure —
+                # grading the empty reply would manufacture a false FAIL. Stamp
+                # extraction_error so the scoring layer drops it as unscorable
+                # (→ INCONCLUSIVE), mirroring b27's per-call handling. This is
+                # also the honest signal the run-health gate reads to flag a dead
+                # SUT as a measurement failure instead of a real grade.
+                evidence.append(
+                    EvidenceItem(
+                        test_case_id=f"{plan.test_id}_step{step.step_id}_{case_label}",
+                        description=f"Step {step.step_id}: provider error (unreachable)",
+                        prompt_sent=prompt,
+                        expected=step.evaluation.expected_outcome,
+                        expected_behavior=step.evaluation.expected_outcome,
+                        actual=f"error: {exc}",
+                        actual_response=f"error: {exc}",
+                        evaluation_result="error",
+                        passed=False,
+                        extraction_error=JudgeErrorKind.COMMUNICATION,
+                        step_number=step.step_id,
+                        details={"error": str(exc), "comm_failure": True},
+                    )
+                )
             except Exception as exc:
                 evidence.append(
                     EvidenceItem(

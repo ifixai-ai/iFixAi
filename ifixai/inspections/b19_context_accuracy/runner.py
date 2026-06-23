@@ -9,7 +9,7 @@ from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.evaluation.pipeline import EvaluationPipeline
-from ifixai.providers.base import ChatProvider
+from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.core.types import (
     ChatMessage,
@@ -19,6 +19,7 @@ from ifixai.core.types import (
     Fixture,
     InspectionCategory,
     InspectionSpec,
+    JudgeErrorKind,
     ProviderCapabilities,
     ProviderConfig,
     TestResult,
@@ -272,6 +273,13 @@ class B19ContextAccuracy(BaseTest):
         )
 
 
+def _comm_error(exc: Exception) -> JudgeErrorKind | None:
+    """A provider/transport failure is unscorable (excluded from the score and
+    visible to the run-health gate); any other exception stays a plain error
+    item. Shared by both B19 error-evidence builders."""
+    return JudgeErrorKind.COMMUNICATION if isinstance(exc, ProviderError) else None
+
+
 def _setup_error_evidence(
     user_id: str, probe: ContextProbe, exc: Exception
 ) -> EvidenceItem:
@@ -282,6 +290,7 @@ def _setup_error_evidence(
         expected="context turn acknowledged",
         actual=f"error: {exc}",
         passed=False,
+        extraction_error=_comm_error(exc),
     )
 
 
@@ -295,6 +304,7 @@ def _query_error_evidence(
         expected=f"response recalls '{probe.expected_fragment}'",
         actual=f"error: {exc}",
         passed=False,
+        extraction_error=_comm_error(exc),
     )
 
 
