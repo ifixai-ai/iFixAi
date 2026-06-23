@@ -26,6 +26,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
+</p>
+
+<p align="center">
   <img src="docs/assets/ifixai-demo.gif" alt="iFixAi demo" width="720" />
   <br/>
   <em>Recorded from a custom client build. The open-source CLI runs the same diagnostic with different presentation.</em>
