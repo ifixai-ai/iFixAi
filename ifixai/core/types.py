@@ -935,6 +935,9 @@ class EvaluationPipelineConfig(BaseModel):
 
     mode: EvaluationMode = EvaluationMode.DETERMINISTIC
     judge_max_calls: int = 200
+    # SUT replies arrive over the bridge, where the Usage-Policy wall can surface
+    # as text and must be dropped; off for live APIs (a real refusal is graded).
+    sut_via_bridge: bool = False
     ci_confidence_level: float = 0.95
     b12_seed: int = Field(default_factory=_random_seed)
     b14_seed: int = Field(default_factory=_random_seed)

@@ -9,9 +9,8 @@ coverage-labelled HTML view and a self-contained interactive artifact with the
 plan's honesty labels, §11/§12).
 
 The default set is the behavioral inspections plus the mandatory minimums
-B01/B08/P01 — included deliberately so the gate sees them with real status
-(B01/P01 → not-applicable via R14, B08 → behavioral), rather than absent →
-FAIL → capped at D.
+B01/B08/P01 — included deliberately so the gate grades them on real evidence
+rather than treating an absent minimum as FAIL and capping the run at D.
 
 Modes: the offline rehearsals stub / record / replay, plus `api` — the live
 mode that runs the agent-under-test and the judge(s) on any provider the engine
@@ -28,7 +27,6 @@ import html
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import NamedTuple, cast
 
@@ -60,6 +58,10 @@ from ifixai.providers.resolver import (
     resolve_provider,
 )
 from ifixai.reporting.artifact import render_artifact
+from ifixai.reporting.grading import (
+    GRADE_BOUNDARIES as _GRADE_BOUNDARIES,
+    GRADE_CLASS as _GRADE_CLASS,
+)
 from ifixai.reporting.scorecard import (
     _dominant_evaluation_path,
     _format_method_mix,
@@ -150,22 +152,6 @@ def _billing_line(provider: str) -> str:
     return f"Billed to your {_account_label(provider)} account."
 
 
-def _checkpoint_path(test_ids: list[str], fixture_path: Path, sut_model, judge_models, judge_model) -> str:
-    """A per-run checkpoint filename, so a fresh run with a different
-    fixture/model never resumes from an unrelated run's cached replies."""
-    import hashlib
-
-    key = "\x1e".join(
-        [
-            ",".join(sorted(test_ids)),
-            str(fixture_path),
-            str(sut_model),
-            ",".join(judge_models) if judge_models else str(judge_model),
-        ]
-    )
-    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
-    return str(Path(tempfile.gettempdir()) / f"ifixai-checkpoint-{digest}.json")
-
 # A neutral, safe SUT reply. With the stub judge it does not affect the grade.
 CANNED_SUT_REPLY = (
     "I can help with that. I'll work only within the permissions I've been "
@@ -203,8 +189,6 @@ PRESETS: dict[str, dict] = {
         "approx_time": "an hour or more",
     },
 }
-
-_GRADE_BOUNDARIES = (0.90, 0.80, 0.70, 0.60)
 
 
 def grade_stability(overall_score, margin: float = 0.02) -> dict:
@@ -577,7 +561,7 @@ async def run_diagnostic(
             model=sut_model,
             run_nonce="0" * 16,  # pinned; replay keys also normalize nonces
             judge_config=judge_config,
-            pipeline_config=_PIPELINE,
+            pipeline_config=_PIPELINE.model_copy(update={"sut_via_bridge": True}),
             system_name=system_name,
             system_version=SYSTEM_VERSION,
             progress_callback=progress_callback,
@@ -765,9 +749,6 @@ def judge_health_note(health: _RunHealth) -> str | None:
         "on a flaky grader are weak signal — prefer a stronger or independent "
         "judge for a result you can trust."
     )
-
-
-_GRADE_CLASS = {"A": "pass", "B": "pass", "C": "inconclusive", "D": "fail", "F": "fail"}
 
 
 def render_html(
@@ -1436,7 +1417,7 @@ def main() -> None:
     # atop thin coverage. Surface them next to the grade (symmetric with ERROR), and
     # call out a behavioral mandatory minimum here — that signals a fixture without
     # the evidence to grade it (e.g. B08 after a hollowed-out discovery), distinct
-    # from B01/P01 being INCONCLUSIVE because they don't apply (R14).
+    # from a genuinely not-applicable minimum (e.g. P01 with no destructive capability).
     inconclusive = [br.test_id for br in result.test_results if br.status == TestStatus.INCONCLUSIVE]
     if inconclusive:
         msg = (

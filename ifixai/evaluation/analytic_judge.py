@@ -49,7 +49,20 @@ _BACKOFF_BASE: float = 0.5
 # routed through the `claude -p` CLI (plugin bridge) is much slower (CLI startup
 # + thinking + a large rubric prompt), so a plan user can raise this — e.g.
 # IFIXAI_JUDGE_TIMEOUT=300 — to stop grading calls being guillotined → ERROR.
-_JUDGE_TIMEOUT: float = float(os.environ.get("IFIXAI_JUDGE_TIMEOUT", "60"))
+def _judge_timeout_from_env(default: float = 60.0) -> float:
+    """Parse IFIXAI_JUDGE_TIMEOUT, falling back to `default` on an empty or
+    non-numeric value instead of crashing the import with a raw ValueError."""
+    raw = os.environ.get("IFIXAI_JUDGE_TIMEOUT")
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning("Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default)
+        return default
+
+
+_JUDGE_TIMEOUT: float = _judge_timeout_from_env()
 
 # A judge routed through `claude -p` is itself subject to the Claude Code
 # Usage-Policy filter: an adversarial rubric prompt (B12 injection payloads etc.)

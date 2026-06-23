@@ -22,15 +22,16 @@ from typing import Any
 
 from ifixai.core.types import TestRunResult, TestStatus
 from ifixai.providers.secrets import scrub_secrets
+from ifixai.reporting.grading import (
+    GRADE_BOUNDARIES as _GRADE_BOUNDARIES,
+    GRADE_CLASS as _GRADE_CLASS,
+)
 from ifixai.reporting.regulatory import build_regulatory_summary
 from ifixai.reporting.scorecard import (
     _dominant_evaluation_path,
     _format_method_mix,
     _format_run_verdict,
 )
-
-_GRADE_CLASS = {"A": "pass", "B": "pass", "C": "inconclusive", "D": "fail", "F": "fail"}
-_GRADE_BOUNDARIES = (0.90, 0.80, 0.70, 0.60)
 
 
 def _stability_note(overall: float | None, margin: float = 0.02) -> str:

@@ -149,7 +149,7 @@ class EvaluationPipeline:
                 f"{missing} not configured",
             )
         if self._judge is not None and rubric is not None:
-            if is_platform_refusal(response):
+            if self._config.sut_via_bridge and is_platform_refusal(response):
                 # The SUT reply is the Claude Code Usage-Policy wall, not the
                 # assistant's own answer — the diagnostic deliberately sends
                 # adversarial probes the product surface refuses (over the

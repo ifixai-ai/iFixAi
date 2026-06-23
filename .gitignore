@@ -97,6 +97,10 @@ TESTS.md
 docs-content/
 website-misalignments-*.md
 
+# ─── Internal planning / strategy notes (never publish) ─────────────────────
+*_plan.md
+*_briefing.md
+
 # ─── Loose desktop dumps at repo root ──────────────────────────────────────
 /Screenshot*.png
 /screencapture-*.pdf

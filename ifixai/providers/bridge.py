@@ -138,7 +138,7 @@ class ModelRoutedJudgeTransport(Transport):
     async def complete(
         self, messages: list[ChatMessage], config: ProviderConfig, channel: str
     ) -> str:
-        passed = self._by_model.get(config.model, self._default)
+        passed = self._by_model.get(config.model or "", self._default)
         prompt = "\n".join(m.content for m in messages)
         return StubJudgeTransport(passed=passed).verdict_for(prompt)
 
