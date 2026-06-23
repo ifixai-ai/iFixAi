@@ -56,22 +56,36 @@ Then check the engine is present:
 - **The engine runs from the plugin's own managed environment.** When the plugin
   is installed and enabled, a `SessionStart` hook provisions the iFixAi engine
   into `${CLAUDE_PLUGIN_DATA}/venv` (it runs `pip install ifixai[anthropic]` once,
-  then is a no-op). Every command below calls
-  `"${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose"`.
+  then is a no-op). Every command below calls the venv's `ifixai-diagnose`:
+  - macOS / Linux / WSL: `"${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai-diagnose"`
+  - native Windows: `"${CLAUDE_PLUGIN_DATA}\venv\Scripts\ifixai-diagnose.exe"`
+    (a venv puts console scripts in `Scripts\`, not `bin/`).
+- **Platform note.** The command blocks below show the POSIX form. On native
+  Windows, where Git Bash isn't installed the Bash tool runs **PowerShell**, so
+  swap in the `Scripts\…exe` path and call it with PowerShell's `&` operator —
+  e.g. `& "${CLAUDE_PLUGIN_DATA}\venv\Scripts\ifixai-diagnose.exe" --profile … --mode stub`.
+  Everything else (flags, env vars, file paths) is identical.
 - **If that venv is missing** (the hook didn't fire on this surface), provision it
-  yourself, once: `sh "${CLAUDE_PLUGIN_ROOT}/hooks/bootstrap.sh"`. It needs
-  `python3` (3.10+) on PATH and network access for the first install.
+  yourself, once. It needs Python 3.10+ on PATH and network access for the first
+  install:
+  - macOS / Linux / WSL / Git Bash: `sh "${CLAUDE_PLUGIN_ROOT}/hooks/bootstrap.sh"`
+  - native Windows (PowerShell): `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}\hooks\bootstrap.ps1"`
+
+  Both shims just locate a Python (`python3`/`python`, or the `py` launcher on
+  Windows) and run the shared `hooks/bootstrap.py`.
 - **If `ifixai-diagnose` is still missing after that** (the bootstrap ran but the
   install failed): in this developer preview the pinned engine version may not be
   published to PyPI yet, so the `pip install` can't find it. Tell the user, and run
   against a local engine build instead: set `IFIXAI_ENGINE_SPEC` (a wheel path, a
-  directory, or `-e /path/to/iFixAi`) in the environment, then re-run `bootstrap.sh`.
-  Don't silently retry the same failing install.
+  directory, or `-e /path/to/iFixAi`) in the environment, then re-run the bootstrap
+  (`bootstrap.sh` on POSIX / `bootstrap.ps1` on Windows). Don't silently retry the
+  same failing install.
 - **The chosen provider's SDK must be installed.** The bootstrap installs the
   Anthropic SDK only. To test (or judge with) another provider, install its extra
   on demand into the same venv:
   `"${CLAUDE_PLUGIN_DATA}/venv/bin/pip" install "ifixai[openai]"` (or `gemini`,
-  `azure`, `bedrock`, `openrouter`, …). The run pre-flights this at the consent
+  `azure`, `bedrock`, `openrouter`, …) — on Windows that pip is
+  `"${CLAUDE_PLUGIN_DATA}\venv\Scripts\pip.exe"`. The run pre-flights this at the consent
   screen and prints the exact install command if it's missing, so you can install
   then re-run — it never fails halfway through.
 - **Keys live in the environment, never on a command line.** A live run reads each
