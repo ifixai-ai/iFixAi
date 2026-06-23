@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Investigate your agent, author an iFixAi fixture from its setup, and run iFixAi's operational-misalignment diagnostic against it — test any provider's model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) as system-under-test and judge, each billed to its own account via a key in your settings. Developer preview.",
   "author": {
-    "name": "iFixAi Contributors",
+    "name": "iFixAi",
     "url": "https://github.com/ifixai-ai/iFixAi"
   },
   "homepage": "https://github.com/ifixai-ai/iFixAi#readme",
