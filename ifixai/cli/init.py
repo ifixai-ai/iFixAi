@@ -68,7 +68,10 @@ def init(non_interactive: bool) -> None:
     )
 
     click.echo()
-    click.echo(click.style("Suggested first run:", bold=True))
+    click.echo(click.style("Recommended: guided setup (writes ifixai.yaml):", bold=True))
+    click.echo("  ifixai setup")
+    click.echo()
+    click.echo(click.style("Or run directly:", bold=True))
     click.echo(f"  {suggested_command}")
     click.echo()
     click.echo(

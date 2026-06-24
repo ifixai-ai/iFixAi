@@ -90,6 +90,10 @@ Now try it yourself. In three commands you install iFixAi, check that it runs, t
 real model. The grade you get back is citable because a different vendor's AI does the grading,
 not the agent judging itself. Full walkthrough: **[docs/get-started.md](docs/get-started.md)**.
 
+Prefer not to memorize flags? Run `ifixai setup` for a guided wizard that writes a reusable
+`ifixai.yaml`, then just `ifixai run`. It never stores your key; the system-under-test key
+stays explicit at run time.
+
 ```bash
 # 1. Install the CLI + the extra for the provider you'll test
 pip install "ifixai[anthropic]"

@@ -18,6 +18,7 @@ from ifixai import __version__ as IFIXAI_VERSION
 from ifixai.cli._branding import (
     print_startup_banner,
 )
+from ifixai.cli.config_file import CONFIG_FILENAME, load_config
 from ifixai.cli._imecore_prompt import print_imecore_conclusion
 from ifixai.cli.orchestrator import (
     _build_judge_config,
@@ -160,6 +161,20 @@ def _resolve_concurrency(flag_value: int | None, no_parallel: bool) -> int:
         return env_value
 
     return DEFAULT_CONCURRENCY
+
+
+def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
+    """Return cfg_value when the flag was left at its default, else current.
+
+    Implements flag > config > default precedence for non-secret run options.
+    """
+    from click.core import ParameterSource
+
+    if cfg_value is None:
+        return current
+    if ctx.get_parameter_source(name) == ParameterSource.DEFAULT:
+        return cfg_value
+    return current
 
 
 def _format_elapsed(seconds: float) -> str:
@@ -571,7 +586,9 @@ def _print_concurrency_banner(resolved: int) -> None:
     help="Suppress the startup banner and the post-run iMe Core conclusion. "
     "Stdout still contains scores so CI gates keep working.",
 )
+@click.pass_context
 def run(
+    ctx: click.Context,
     provider: str | None,
     api_key: str | None,
     fixture: str,
@@ -615,6 +632,49 @@ def run(
 ) -> None:
     """Run ifixai against a target AI assistant."""
     run_start_monotonic = time.monotonic()
+
+    try:
+        config_obj = load_config()
+    except ValueError as exc:
+        click.echo(click.style(f"Config error: {exc}", fg="red"), err=True)
+        sys.exit(1)
+    if config_obj is not None:
+        from click.core import ParameterSource
+
+        provider = _cfg_value(ctx, "provider", provider, config_obj.provider)
+        model = _cfg_value(ctx, "model", model, config_obj.model)
+        fixture = _cfg_value(ctx, "fixture", fixture, config_obj.fixture)
+        endpoint = _cfg_value(ctx, "endpoint", endpoint, config_obj.endpoint)
+        run_mode = _cfg_value(ctx, "run_mode", run_mode, config_obj.mode)
+        eval_mode = _cfg_value(ctx, "eval_mode", eval_mode, config_obj.eval_mode)
+        output = _cfg_value(ctx, "output", output, config_obj.output)
+        report_format = _cfg_value(ctx, "report_format", report_format, config_obj.format)
+        timeout = _cfg_value(ctx, "timeout", timeout, config_obj.timeout)
+        system_name = _cfg_value(ctx, "system_name", system_name, config_obj.name)
+        explicit_selector = (
+            strategic
+            or bool(test)
+            or bool(categories)
+            or ctx.get_parameter_source("suite") != ParameterSource.DEFAULT
+        )
+        if config_obj.suite and not explicit_selector:
+            suite = config_obj.suite
+        if config_obj.judges and (
+            ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
+        ):
+            judge_provider = tuple(j.provider for j in config_obj.judges)
+            if any(j.model for j in config_obj.judges):
+                judge_model = tuple((j.model or "") for j in config_obj.judges)
+            # Judge keys are env-paired by design (a judge from a different vendor
+            # whose key is in the environment). The SUT key is NOT read here.
+            judge_api_key = tuple(
+                _lookup_env_api_key(j.provider) or "" for j in config_obj.judges
+            )
+        if not quiet:
+            click.echo(
+                click.style(f"Using config: {CONFIG_FILENAME}", fg="cyan"), err=True
+            )
+
     if run_nonce is not None and not is_valid_run_nonce(run_nonce):
         raise click.BadParameter(
             f"--run-nonce must be 16 lowercase hex chars; got {run_nonce!r}",
