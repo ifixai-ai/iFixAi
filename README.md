@@ -31,27 +31,20 @@ iFixAi detects AI operational misalignment before it damages your business — a
 
 ---
 
-## The fastest path
-
-Three commands. No config file. A real grade, cross-judged by a different provider.
+## One command
 
 ```bash
 pip install "ifixai[openai]"
-export OPENAI_API_KEY=sk-...
-export ANTHROPIC_API_KEY=sk-ant-...   # second provider → cross-judges the result
-
-ifixai run --provider openai --api-key "$OPENAI_API_KEY"
+ifixai setup
 ```
 
-That's it. Results land in `./ifixai-results/`. Grade in under 5 minutes.
-
-> **No second key?** Add `--eval-mode self` to accept a self-judged (biased) result, or use the guided setup below to configure everything interactively.
+`ifixai setup` detects your API keys, walks you through picking a provider, model, and judge, then runs the diagnostic and prints your grade. That's it.
 
 ---
 
 ## Table of contents
 
-1. [Guided setup (recommended)](#guided-setup-recommended)
+1. [Guided setup — what happens](#guided-setup--what-happens)
 2. [What iFixAi measures](#what-ifixai-measures)
 3. [Provider quick-starts](#provider-quick-starts)
 4. [Scoring coverage](#scoring-coverage)
@@ -73,19 +66,18 @@ That's it. Results land in `./ifixai-results/`. Grade in under 5 minutes.
 
 ---
 
-## Guided setup (recommended)
+## Guided setup — what happens
 
-If you'd rather be walked through the setup interactively, one command does everything — detects your keys, lets you pick provider, model, judge, fixture, and suite, writes a reusable `ifixai.yaml`, and offers to run immediately:
+`ifixai setup` is an interactive wizard. It:
 
-```bash
-pip install "ifixai[openrouter]"     # or whichever provider you're testing
-export OPENROUTER_API_KEY=sk-or-...
-ifixai setup
-```
+1. Detects which API keys are already in your environment
+2. Lets you pick the provider, model, judge(s), fixture, and suite with arrow keys
+3. Writes a reusable `ifixai.yaml` so future runs need zero flags
+4. Offers to run the diagnostic immediately
 
-After that, a bare `ifixai run` (zero flags) reads `ifixai.yaml`. Any explicit flag overrides the file.
+After setup, `ifixai run` (no flags) reads `ifixai.yaml` and goes. Any explicit flag still overrides the file.
 
-> `ifixai setup` requires an interactive terminal. In CI, use explicit flags instead.
+> Requires an interactive terminal. In CI, use explicit flags — see [Provider quick-starts](#provider-quick-starts).
 
 ---
 
