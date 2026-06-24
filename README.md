@@ -71,7 +71,12 @@ The wizard detects your API keys, walks you through provider / model / judge / s
 ### Fastest test right now — mock, zero credentials, ~1 s
 
 ```bash
-pip install "ifixai"
+# If you already have the repo cloned and a .venv:
+source .venv/bin/activate
+ifixai run --provider mock --api-key not-used --eval-mode self --suite smoke
+
+# Fresh install (use pip3 or python3 -m pip if pip is not found):
+pip3 install "ifixai"
 ifixai run --provider mock --api-key not-used --eval-mode self --suite smoke
 ```
 
