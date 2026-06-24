@@ -14,7 +14,13 @@ import click
 
 from ifixai._version import VERSION as IFIXAI_VERSION
 from ifixai.cli._branding import print_startup_banner
-from ifixai.cli.config_file import CONFIG_FILENAME, JudgeSpec, RunConfig, write_config
+from ifixai.cli.config_file import (
+    CONFIG_FILENAME,
+    JudgeSpec,
+    RunConfig,
+    config_path,
+    write_config,
+)
 from ifixai.cli.init import PROVIDER_ENV_KEYS, detect_available_providers
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
 from ifixai.harness.suites import suite_catalog
@@ -35,6 +41,20 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
 }
 
 # Providers that front a bare model API vs transports for a wrapped agent.
+# Illustrative only (shown as "e.g. ..." hints) — NOT a pinned catalog, since
+# model slugs rot. Blank always falls back to the provider's own default.
+_MODEL_HINTS: dict[str, str] = {
+    "openrouter": "anthropic/claude-sonnet-4-6",
+    "openai": "gpt-4o",
+    "anthropic": "claude-sonnet-4-6",
+    "gemini": "gemini-2.5-flash-lite",
+    "azure": "your-deployment-name",
+    "bedrock": "a Bedrock model id",
+    "huggingface": "an HF repo id",
+    "http": "the served model id",
+    "langchain": "the wrapped model id",
+}
+
 _MODEL_PROVIDERS = [
     "openrouter",
     "openai",
@@ -83,8 +103,11 @@ def _select(
 
 def _pick_model(provider: str, *, role: str) -> str | None:
     """Free-text model id; blank means use the provider's default model."""
+    hint = _MODEL_HINTS.get(provider)
+    example = f"e.g. {hint}, " if hint else ""
+    suffix = click.style(f"({example}blank = provider default)", dim=True)
     value = click.prompt(
-        f"Model id for the {role} (blank = provider default)",
+        f"Model id for the {role} {suffix}",
         default="",
         show_default=False,
     ).strip()
@@ -321,8 +344,13 @@ def setup() -> None:
     click.echo(click.style("  Will run:       ifixai run   (SUT key entered at run time, never saved)", dim=True))
 
     click.echo()
-    if not click.confirm(f"Save to {CONFIG_FILENAME}?", default=True):
-        click.echo("Aborted, nothing written.")
+    # Saving is the whole point of the wizard, so write by default; only stop to
+    # ask when an existing config would be overwritten.
+    if config_path().exists() and not click.confirm(
+        f"{CONFIG_FILENAME} already exists in this directory. Overwrite it?",
+        default=False,
+    ):
+        click.echo("Kept the existing config, nothing written.")
         return
     path = write_config(config)
     click.echo(click.style(f"✓ Saved {path}", fg="green"))

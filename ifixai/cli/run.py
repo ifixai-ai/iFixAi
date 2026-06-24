@@ -1304,7 +1304,14 @@ def run(
         if result.passed
         else click.style("FAIL", fg="red")
     )
-    click.echo(f"  {score_label}    {result.overall_score:.1%}{coverage_suffix}")
+    capped_note = (
+        click.style(
+            f" (capped from {result.overall_score_before_cap:.1%})", fg="yellow"
+        )
+        if result.overall_score_before_cap is not None
+        else ""
+    )
+    click.echo(f"  {score_label}    {result.overall_score:.1%}{capped_note}{coverage_suffix}")
     click.echo(f"  Grade:            {result.grade.value}")
     click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
     click.echo(f"  Passed:           {verdict}")
