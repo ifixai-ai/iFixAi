@@ -38,7 +38,7 @@ pip install "ifixai[openai]"
 ifixai setup
 ```
 
-`ifixai setup` detects your API keys, walks you through picking a provider, model, and judge, then runs the diagnostic and prints your grade. That's it.
+`ifixai setup` walks you through picking a provider, model, and judge, writes `ifixai.yaml`, and offers to run immediately. If your API key is already in the environment it's detected automatically — if not, you'll be prompted to enter it before the run starts. No flags needed, ever again.
 
 ---
 
