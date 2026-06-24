@@ -199,12 +199,30 @@ def _bar(ratio: float, width: int = 18) -> str:
     return "█" * filled + "·" * (width - filled)
 
 
+def _verdict_style(passed: bool) -> str:
+    return "bold white on green" if passed else "bold white on red"
+
+
+def _row_style(score: float | None) -> str:
+    if score is None:
+        return "yellow"
+    if score >= 0.9:
+        return "bright_green"
+    if score >= 0.7:
+        return "yellow"
+    return "red"
+
+
 def render_scorecard(result) -> bool:
     """Render the premium scorecard; False when rich is unavailable (use fallback)."""
     if not use_rich():
         return False
 
+    from rich import box as rich_box
+    from rich.align import Align
+    from rich.columns import Columns
     from rich.panel import Panel
+    from rich.rule import Rule
     from rich.table import Table
     from rich.text import Text
 
@@ -213,115 +231,213 @@ def render_scorecard(result) -> bool:
     ins = compute_insights(result)
     c = console()
 
-    head = Text()
+    c.print()
+
     if ins["self_judged"]:
-        head.append("SELF-JUDGED\n", style="bold yellow")
-        head.append(
-            "score redacted — the provider judged its own output (biased).\n",
+        result_body = Text(justify="center")
+        result_body.append("⚠  SELF-JUDGED\n\n", style="bold yellow")
+        result_body.append(
+            "The provider graded its own output — this result is biased\n"
+            "and not citable. Add a second judge for a real grade:\n",
             style=_DIM,
         )
-        head.append(
-            "Add a second judge for a real grade: ", style=_DIM
+        result_body.append("  --judge-provider … --eval-mode single", style="italic")
+        c.print(
+            Panel(
+                Align.center(result_body),
+                title="[bold]iFixAi Result[/bold]",
+                border_style="yellow",
+                padding=(1, 4),
+                expand=True,
+            )
         )
-        head.append("--judge-provider … --eval-mode single", style="italic")
     else:
         overall = ins["overall_score"]
         if overall is None:
-            head.append("Score: n/a ", style="bold yellow")
-            head.append("(insufficient evidence)", style=_DIM)
+            result_body = Text(justify="center")
+            result_body.append("n/a\n\n", style="bold yellow")
+            result_body.append("Insufficient evidence across all inspections.", style=_DIM)
+            c.print(
+                Panel(
+                    Align.center(result_body),
+                    title="[bold]iFixAi Result[/bold]",
+                    border_style="yellow",
+                    padding=(1, 4),
+                    expand=True,
+                )
+            )
         else:
             grade = ins["grade"]
             gcolor = _grade_color(grade)
-            verdict = "PASS" if ins["passed"] else "FAIL"
-            head.append(f" {grade} ", style=f"bold white on {gcolor}")
-            head.append("   ")
-            head.append(
-                f" {verdict} ",
-                style="bold white on green" if ins["passed"] else "bold white on red",
-            )
-            head.append("\n\n")
-            head.append(_bar(overall, 30), style=_score_style(overall))
-            head.append(f"  {overall:.1%}", style=_score_style(overall))
-            head.append("  overall\n", style=_DIM)
-            head.append(_bar(ins["strategic_score"], 30), style=_DIM)
-            head.append(f"  {ins['strategic_score']:.1%}", style=_DIM)
-            head.append("  strategic", style=_DIM)
-    c.print(
-        Panel(
-            head,
-            title="[bold]iFixAi Scorecard[/bold]",
-            border_style=_ACCENT,
-            expand=False,
-            padding=(1, 3),
-        )
-    )
+            passed = ins["passed"]
+            verdict_label = "PASS" if passed else "FAIL"
+            verdict_color = "green" if passed else "red"
 
-    tbl = Table(box=None, pad_edge=False, header_style="bold")
-    tbl.add_column("Category")
-    tbl.add_column("Coverage")
-    tbl.add_column("Result", justify="right")
-    tbl.add_column("Score", justify="right")
+            grade_txt = Text(f"  {grade}  ", style=f"bold white on {gcolor}", justify="center")
+            verdict_txt = Text(f"  {verdict_label}  ", style=f"bold white on {verdict_color}", justify="center")
+
+            badges = Columns(
+                [
+                    Align.center(grade_txt),
+                    Align.center(verdict_txt),
+                ],
+                equal=True,
+                expand=False,
+            )
+
+            body = Text(justify="center")
+            body.append("\n")
+            bar_overall = _bar(overall, 36)
+            body.append(f"{bar_overall}", style=_score_style(overall))
+            body.append(f"  {overall:.1%}", style=f"bold {_score_style(overall)}")
+            body.append("  overall score\n", style=_DIM)
+
+            strategic = ins["strategic_score"]
+            bar_strategic = _bar(strategic, 36)
+            body.append(f"{bar_strategic}", style=_score_style(strategic))
+            body.append(f"  {strategic:.1%}", style=_score_style(strategic))
+            body.append("  strategic (top 8)\n", style=_DIM)
+
+            from rich.console import Group
+            panel_content = Group(
+                Align.center(badges),
+                Align.center(body),
+            )
+            c.print(
+                Panel(
+                    panel_content,
+                    title=f"[bold {_ACCENT}]iFixAi Result[/bold {_ACCENT}]",
+                    border_style=_ACCENT,
+                    padding=(1, 4),
+                    expand=True,
+                )
+            )
+
+    c.print()
+
+    tbl = Table(
+        title="Scorecard by Category",
+        title_style=f"bold {_ACCENT}",
+        box=rich_box.ROUNDED,
+        border_style="grey42",
+        header_style=f"bold {_ACCENT}",
+        show_lines=True,
+        expand=True,
+    )
+    tbl.add_column("#", style="grey62", justify="center", width=3)
+    tbl.add_column("Category", style="bold", min_width=20)
+    tbl.add_column("Score", justify="center", min_width=8)
+    tbl.add_column("Progress", min_width=24)
+    tbl.add_column("Tests", justify="center", width=12)
+    tbl.add_column("Result", justify="center", min_width=16)
+
+    idx = 0
     for cs in result.category_scores:
         total_in_suite = len(cs.test_ids)
         if total_in_suite == 0:
             continue
+        idx += 1
         failed = cs.test_count - cs.tests_passed
         inconclusive = total_in_suite - cs.test_count
         ratio = cs.tests_passed / total_in_suite if total_in_suite else 0.0
+        row_style = _row_style(cs.score)
+
+        score_txt = Text(
+            "—" if cs.score is None else f"{cs.score:.0%}",
+            style=f"bold {row_style}",
+            justify="center",
+        )
+        bar_txt = Text(_bar(ratio, 20), style=row_style)
+
+        tests_txt = Text(
+            f"{cs.tests_passed}/{total_in_suite}",
+            style=row_style,
+            justify="center",
+        )
+
         if cs.score is None:
-            result_txt = Text("⊘ not scored", style="yellow")
-            score_txt = Text("—", style=_DIM)
+            result_txt = Text("⊘  not scored", style="yellow", justify="center")
         elif failed > 0:
-            result_txt = Text(f"✗ {failed} failed", style="red")
-            score_txt = Text(f"{cs.score:.0%}", style=_score_style(cs.score))
+            result_txt = Text(f"✗  {failed} failed", style="bold red", justify="center")
         elif inconclusive > 0:
-            result_txt = Text(f"⊘ {inconclusive} inconcl.", style="yellow")
-            score_txt = Text(f"{cs.score:.0%}", style=_score_style(cs.score))
+            result_txt = Text(f"⊘  {inconclusive} inconclusive", style="yellow", justify="center")
         else:
-            result_txt = Text("✓ all passed", style="green")
-            score_txt = Text(f"{cs.score:.0%}", style=_score_style(cs.score))
-        bar = Text(_bar(ratio), style=_score_style(cs.score if cs.score else 0.0))
-        coverage = Text.assemble(bar, f"  {cs.tests_passed}/{total_in_suite}")
-        tbl.add_row(cs.category.value, coverage, result_txt, score_txt)
+            result_txt = Text("✓  all passed", style="bold green", justify="center")
+
+        tbl.add_row(
+            str(idx),
+            cs.category.value,
+            score_txt,
+            bar_txt,
+            tests_txt,
+            result_txt,
+        )
+
     c.print(tbl)
+    c.print()
 
     sc = ins["status_counts"]
-    insight = Text()
-    insight.append("Tests  ", style=_DIM)
-    insight.append(f"✓ {sc['pass']}", style="green")
-    insight.append(f"  ✗ {sc['fail']}", style="red")
-    insight.append(f"  ⊘ {sc['inconclusive']}", style="yellow")
+    summary = Table(box=None, pad_edge=False, show_header=False, expand=True)
+    summary.add_column("label", style=_DIM)
+    summary.add_column("value")
+
+    tests_txt = Text()
+    tests_txt.append(f"✓ {sc['pass']} passed", style="green")
+    tests_txt.append("   ")
+    tests_txt.append(f"✗ {sc['fail']} failed", style="red")
+    tests_txt.append("   ")
+    tests_txt.append(f"⊘ {sc['inconclusive']} inconclusive", style="yellow")
     if sc["error"]:
-        insight.append(f"  ⚠ {sc['error']} error", style="red")
-    insight.append(
-        f"      Coverage {ins['scored_categories']}/{ins['total_categories']} "
-        "categories\n",
-        style=_DIM,
-    )
-    if ins["weakest_pillars"] and not ins["self_judged"]:
-        insight.append("Weakest  ", style=_DIM)
-        parts = [
-            f"{name} {score:.0%}" for name, score in ins["weakest_pillars"]
-        ]
-        insight.append("   ".join(parts))
-    c.print(
-        Panel(insight, title="Insights", border_style=_DIM, expand=False)
+        tests_txt.append(f"   ⚠ {sc['error']} error", style="bold red")
+
+    summary.add_row("Tests", tests_txt)
+    summary.add_row(
+        "Coverage",
+        Text(
+            f"{ins['scored_categories']} of {ins['total_categories']} categories scored",
+            style=_DIM,
+        ),
     )
 
+    if ins["weakest_pillars"] and not ins["self_judged"]:
+        weakest_txt = Text()
+        for i, (name, score) in enumerate(ins["weakest_pillars"]):
+            if i:
+                weakest_txt.append("   ")
+            weakest_txt.append(f"{name} ", style="bold")
+            weakest_txt.append(f"{score:.0%}", style=_score_style(score))
+        summary.add_row("Weakest pillars", weakest_txt)
+
+    c.print(Panel(summary, title="Run Summary", border_style=_DIM, expand=True))
+
     if ins["exploratory"]:
-        expl = Text()
+        expl_tbl = Table(
+            box=rich_box.SIMPLE,
+            header_style="bold grey62",
+            show_header=True,
+            expand=True,
+        )
+        expl_tbl.add_column("ID", style=_DIM, width=6)
+        expl_tbl.add_column("Name")
+        expl_tbl.add_column("Score", justify="right", width=8)
+        expl_tbl.add_column("Signal", justify="center", width=8)
         for item in ins["exploratory"]:
-            mark = "✓" if item["passing"] else "·"
-            expl.append(f"  {mark} {item['test_id']} ", style=_DIM)
-            expl.append(f"{item['name']} ", style=_DIM)
-            expl.append(f"{item['score']:.0%}\n", style=_DIM)
+            mark = Text("✓", style="green") if item["passing"] else Text("·", style=_DIM)
+            expl_tbl.add_row(
+                item["test_id"],
+                item["name"],
+                Text(f"{item['score']:.0%}", style=_DIM),
+                mark,
+            )
         c.print(
             Panel(
-                expl,
-                title="Exploratory — frontier signal, not scored",
+                expl_tbl,
+                title="[grey62]Exploratory — frontier signal, excluded from grade[/grey62]",
                 border_style=_DIM,
-                expand=False,
+                expand=True,
             )
         )
 
+    c.print(Rule(style="grey23"))
+    c.print()
     return True
