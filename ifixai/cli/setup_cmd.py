@@ -19,6 +19,8 @@ from ifixai.cli.init import PROVIDER_ENV_KEYS, detect_available_providers
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
 from ifixai.harness.suites import suite_catalog
 
+_TOTAL_STEPS = 5
+
 _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key, many models (OpenAI, Anthropic, Google, Llama, ...)",
     "openai": "OpenAI API (GPT-4o / o-series)",
@@ -27,12 +29,13 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "azure": "Azure OpenAI deployment",
     "bedrock": "AWS Bedrock-hosted models",
     "huggingface": "Hugging Face Inference endpoints",
-    "http": "Any OpenAI-compatible HTTP endpoint",
-    "langchain": "A LangChain-wrapped model",
+    "http": "Any OpenAI-compatible HTTP endpoint (point at your agent)",
+    "langchain": "A LangChain-wrapped agent",
     "mock": "Built-in offline mock (no key, just to try the tool)",
 }
 
-_ALL_PROVIDERS = [
+# Providers that front a bare model API vs transports for a wrapped agent.
+_MODEL_PROVIDERS = [
     "openrouter",
     "openai",
     "anthropic",
@@ -40,10 +43,17 @@ _ALL_PROVIDERS = [
     "azure",
     "bedrock",
     "huggingface",
-    "http",
-    "langchain",
     "mock",
 ]
+_AGENT_PROVIDERS = ["http", "langchain"]
+
+
+def _step(n: int, title: str, subtitle: str = "") -> None:
+    """Print a numbered step header so the flow reads as discrete stages."""
+    click.echo()
+    click.echo(click.style(f"── Step {n} of {_TOTAL_STEPS} · {title} ", bold=True) + click.style("─" * 24, dim=True))
+    if subtitle:
+        click.echo(click.style(subtitle, dim=True))
 
 
 def _select(
@@ -81,6 +91,55 @@ def _pick_model(provider: str, *, role: str) -> str | None:
     return value or None
 
 
+def _judge_note(provider: str, available: list[str]) -> None:
+    """Tell the user to export a judge key if it isn't already in the env."""
+    env = PROVIDER_ENV_KEYS.get(provider)
+    if provider != "mock" and env and provider not in available:
+        click.echo(
+            click.style(
+                f"    Note: export {env} before running (judge keys are read from the env).",
+                fg="yellow",
+            )
+        )
+
+
+def _add_judge(
+    idx: int,
+    sut_provider: str,
+    candidates: list[str],
+    available: list[str],
+) -> JudgeSpec:
+    """Prompt for one judge, steering away from a non-independent same-vendor pick."""
+    desc = {p: _PROVIDER_DESCRIPTIONS.get(p, "") for p in candidates}
+    default = next((p for p in candidates if p != sut_provider), candidates[0])
+    while True:
+        jp = _select(f"Judge #{idx} provider:", candidates, default=default, descriptions=desc)
+        if jp == sut_provider:
+            click.echo(
+                click.style(
+                    f"  ⚠ {jp} is also the system under test — that is not an independent "
+                    "grade, so the score is not citable.",
+                    fg="yellow",
+                    bold=True,
+                )
+            )
+            if not click.confirm("  Use it anyway?", default=False):
+                continue
+        jm = _pick_model(jp, role=f"judge #{idx}")
+        _judge_note(jp, available)
+        click.echo(click.style(f"  ✓ Judge #{idx}: {jp} / {jm or 'provider default'}", fg="green"))
+        return JudgeSpec(provider=jp, model=jm)
+
+
+def _independence(judges: list[JudgeSpec], sut_provider: str) -> str:
+    """One-word verdict on whether the configured judges give a citable grade."""
+    if not judges:
+        return "self-judge (advisory, redacted)"
+    if any(j.provider == sut_provider for j in judges):
+        return "NOT independent (judge shares the SUT vendor)"
+    return "independent ✓"
+
+
 @click.command()
 def setup() -> None:
     """Interactively configure a run and save it to ifixai.yaml."""
@@ -97,7 +156,7 @@ def setup() -> None:
         raise SystemExit(1)
 
     print_startup_banner(IFIXAI_VERSION)
-    click.echo(click.style("Guided setup: a few prompts, then run with no flags.", bold=True))
+    click.echo(click.style("Guided setup: 5 steps, then run with no flags.", bold=True))
 
     available = [p for p, _ in detect_available_providers()]
     if available:
@@ -105,15 +164,38 @@ def setup() -> None:
     else:
         click.echo(click.style("No provider keys detected in your environment.", fg="yellow"))
 
-    provider_choices = available + [p for p in _ALL_PROVIDERS if p not in available]
+    # ── Step 1 · Target ────────────────────────────────────────────────
+    _step(1, "Target", "What you are grading: a bare model API, or your wrapped agent.")
+    target = _select(
+        "What are you testing?",
+        ["a bare model API", "an agent (system prompt, tools, retrieval)"],
+        default="a bare model API",
+    )
+    is_agent = target.startswith("an agent")
+    if is_agent:
+        click.echo(
+            click.style(
+                "  iFixAi reaches your agent as a black box. Point --provider http at an "
+                "OpenAI-compatible endpoint, or use langchain. Exposing capability hooks "
+                "(list_tools, get_audit_trail, authorize_tool, retrieve_sources) lets more "
+                "inspections score instead of 'insufficient_evidence'. See docs/testing-your-agent.md.",
+                dim=True,
+            )
+        )
+        ordered = _AGENT_PROVIDERS + _MODEL_PROVIDERS
+        provider_default = "http"
+    else:
+        ordered = available + [p for p in _MODEL_PROVIDERS if p not in available] + _AGENT_PROVIDERS
+        provider_default = available[0] if available else "openrouter"
+
     provider_desc = {
         p: _PROVIDER_DESCRIPTIONS.get(p, "") + (" [key detected]" if p in available else "")
-        for p in provider_choices
+        for p in ordered
     }
     provider = _select(
-        "Which provider hosts the system under test (the model being graded)?",
-        provider_choices,
-        default=available[0] if available else "openrouter",
+        "Which provider hosts it?",
+        ordered,
+        default=provider_default,
         descriptions=provider_desc,
     )
 
@@ -126,37 +208,29 @@ def setup() -> None:
             )
         )
 
-    model = _pick_model(provider, role="system under test")
-
     endpoint = None
     if provider == "http":
-        endpoint = click.prompt("HTTP endpoint URL").strip() or None
+        endpoint = click.prompt("  Endpoint URL (OpenAI-compatible)").strip() or None
 
-    click.echo()
-    click.echo(
-        click.style(
-            "Judges grade the answers. A judge from a DIFFERENT vendor gives a citable "
-            "score; none = self-judge (advisory, redacted). Judge keys are read from "
-            "your environment at run time.",
-            dim=True,
-        )
+    model = _pick_model(provider, role="system under test")
+
+    # ── Step 2 · Judge ─────────────────────────────────────────────────
+    _step(
+        2,
+        "Judge",
+        "Grades the answers. A DIFFERENT vendor makes the score citable; none = "
+        "self-judge (advisory, redacted). Judge keys come from your env at run time.",
     )
-    judge_candidates = sorted(set(available) | {provider})
+    judge_candidates = sorted(set(available) | set(_MODEL_PROVIDERS) | {provider})
     judges: list[JudgeSpec] = []
     while click.confirm(
         f"Add {'an' if not judges else 'another'} independent judge?",
         default=not judges,
     ):
-        jp = _select(
-            f"Judge #{len(judges) + 1} provider:",
-            judge_candidates,
-            default=next((p for p in judge_candidates if p != provider), provider),
-            descriptions={p: _PROVIDER_DESCRIPTIONS.get(p, "") for p in judge_candidates},
-        )
-        jm = _pick_model(jp, role=f"judge #{len(judges) + 1}")
-        judges.append(JudgeSpec(provider=jp, model=jm))
-        click.echo(click.style(f"  ✓ Judge #{len(judges)}: {jp} / {jm or 'default'}", fg="green"))
+        judges.append(_add_judge(len(judges) + 1, provider, judge_candidates, available))
 
+    # ── Step 3 · Fixture ───────────────────────────────────────────────
+    _step(3, "Fixture", "The deployment profile (role, tools, governance) to test against.")
     fixtures = list_fixture_names()
     fixture_desc = {}
     for name in fixtures:
@@ -166,38 +240,52 @@ def setup() -> None:
         except Exception:
             fixture_desc[name] = name
     fixture = _select(
-        "Fixture (the deployment profile to test against):",
+        "Fixture:",
         fixtures,
         default="default" if "default" in fixtures else fixtures[0],
         descriptions=fixture_desc,
     )
 
+    # ── Step 4 · Suite ─────────────────────────────────────────────────
+    _step(4, "Suite", "Which inspections to run.")
     suite_rows = suite_catalog()
     suite_names = [str(r["name"]) for r in suite_rows]
     suite_desc = {str(r["name"]): f"{r['count']} inspections, {r['description']}" for r in suite_rows}
     suite = _select(
-        "Suite (which inspections to run):",
+        "Suite:",
         suite_names,
         default="core" if "core" in suite_names else suite_names[0],
         descriptions=suite_desc,
     )
 
+    # ── Step 5 · Mode ──────────────────────────────────────────────────
+    _step(5, "Mode", "How rigorous the run is.")
     mode = _select(
         "Run mode:",
         ["standard", "full"],
         default="standard",
         descriptions={
-            "standard": "CI-friendly; one judge auto-paired from your env.",
+            "standard": "CI-friendly; one judge (auto-paired from your env if none set above).",
             "full": "Reference-grade; needs a hand-built fixture and >=2 judges.",
         },
     )
-    if mode == "full" and len(judges) < 2:
+    # Full mode is unrunnable without >=2 judges — fix it here, not at run time.
+    while mode == "full" and len(judges) < 2:
         click.echo(
             click.style(
-                "  Note: --mode full needs >=2 judges; add a second or it is rejected at run time.",
+                f"  Full mode needs >=2 judges; you have {len(judges)}.",
                 fg="yellow",
             )
         )
+        choice = _select(
+            "How do you want to proceed?",
+            ["add a judge now", "switch to standard mode"],
+            default="add a judge now",
+        )
+        if choice == "switch to standard mode":
+            mode = "standard"
+        else:
+            judges.append(_add_judge(len(judges) + 1, provider, judge_candidates, available))
 
     # Leave eval_mode unset unless an ensemble is configured, so `run` picks the
     # best available mode (auto-pairing a judge from the environment) by default.
@@ -214,10 +302,25 @@ def setup() -> None:
         judges=judges,
     )
 
+    # ── Review ─────────────────────────────────────────────────────────
     click.echo()
-    click.echo(click.style("Your configuration:", bold=True))
-    click.echo(config.to_yaml())
+    click.echo(click.style("Review", bold=True))
+    target_kind = "agent" if is_agent else "model"
+    click.echo(f"  Target ({target_kind}):  {provider} / {model or '(provider default)'}"
+               + (f"  @ {endpoint}" if endpoint else ""))
+    if judges:
+        for i, j in enumerate(judges, 1):
+            click.echo(f"  Judge #{i}:       {j.provider} / {j.model or '(provider default)'}")
+    else:
+        click.echo("  Judge:          none")
+    click.echo(f"  Grade:          {_independence(judges, provider)}")
+    suite_count = next((r["count"] for r in suite_rows if str(r["name"]) == suite), "?")
+    click.echo(f"  Fixture:        {fixture}")
+    click.echo(f"  Suite:          {suite} ({suite_count} inspections)")
+    click.echo(f"  Mode:           {mode}")
+    click.echo(click.style("  Will run:       ifixai run   (SUT key entered at run time, never saved)", dim=True))
 
+    click.echo()
     if not click.confirm(f"Save to {CONFIG_FILENAME}?", default=True):
         click.echo("Aborted, nothing written.")
         return
