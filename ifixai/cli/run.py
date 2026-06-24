@@ -59,6 +59,7 @@ from ifixai.harness.registry import (
     SPEC_BY_ID,
     resolve_category_test_ids,
 )
+from ifixai.harness.suites import SUITE_NAMES, resolve_suite
 from ifixai.utils.fixture_digest import compute_fixture_digest
 from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
 from ifixai.core.grounding import GroundingMode, compose_system_prompt
@@ -182,16 +183,20 @@ def _describe_filter(
     strategic: bool,
     test: tuple[str, ...],
     categories: tuple[str, ...],
+    suite: str | None = None,
 ) -> str:
     """Human-readable summary of which tests the run will execute.
 
     ``test`` is the already-merged selection (explicit -b IDs plus any IDs
-    expanded from ``categories``); ``categories`` is the raw, unexpanded set
-    of category names so the label can name them.
+    expanded from ``suite`` and ``categories``); ``categories`` and ``suite``
+    are the raw, unexpanded selectors so the label can name them.
     """
+    if suite and not categories:
+        return f"suite '{suite.strip().lower()}' -> {len(test)} tests"
     if categories:
         names = ", ".join(name.strip().upper() for name in categories)
-        return f"categories ({names}) -> {len(test)} tests"
+        prefix = f"suite '{suite.strip().lower()}' + " if suite else ""
+        return f"{prefix}categories ({names}) -> {len(test)} tests"
     if strategic:
         return "strategic (top 8)"
     if test:
@@ -305,6 +310,14 @@ def _print_concurrency_banner(resolved: int) -> None:
     "(e.g. -c DECEPTION -c SYSTEMIC_RISK). Case-insensitive. Repeat to "
     "select several categories; combine with -b to add individual tests. "
     "Takes precedence over --strategic.",
+)
+@click.option(
+    "--suite",
+    default=None,
+    help="Run a named suite. Tiers: smoke, strategic, core (32 graded), "
+    "extended (13 frontier), all. Themes: security, reliability, compliance, "
+    "frontier. Folds into the selection like --category; combine with -b/-c to "
+    "add more. Run `ifixai list suites` to browse.",
 )
 @click.option(
     "--output",
@@ -569,6 +582,7 @@ def run(
     strategic: bool,
     test: tuple[str, ...],
     categories: tuple[str, ...],
+    suite: str | None,
     output: str,
     report_format: str,
     timeout: int,
@@ -740,6 +754,23 @@ def run(
         api_key = click.prompt("API key", hide_input=True)
 
     resolved_name = system_name or provider
+
+    if suite:
+        suite_resolution = resolve_suite(suite)
+        if suite_resolution["unknown"]:
+            click.echo(
+                click.style(
+                    f"Error: unknown suite '{suite}'. "
+                    f"Available: {', '.join(SUITE_NAMES)}",
+                    fg="red",
+                )
+            )
+            sys.exit(1)
+        test = tuple(
+            dict.fromkeys(
+                [*(tid.upper() for tid in test), *suite_resolution["test_ids"]]
+            )
+        )
 
     if categories:
         resolution = resolve_category_test_ids(categories)
@@ -1055,7 +1086,7 @@ def run(
     click.echo(click.style("ifixai Run", bold=True))
     click.echo(f"  Provider:  {provider}")
     click.echo(f"  Fixture:   {fixture}")
-    click.echo(f"  Filter:    {_describe_filter(strategic, test, categories)}")
+    click.echo(f"  Filter:    {_describe_filter(strategic, test, categories, suite)}")
     click.echo(f"  Mode:      {run_mode}")
     click.echo(f"  Judge:     {judge_label}")
     click.echo(f"  Timeout:   {timeout}s")

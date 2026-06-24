@@ -210,6 +210,8 @@ def _print_error_summary(result: TestRunResult) -> None:
     Listing the affected test IDs lets operators see exactly which
     benchmarks did not execute.
     """
+    from ifixai.providers.base import friendly_provider_message
+
     errored = [br for br in result.test_results if br.status == TestStatus.ERROR]
     if not errored:
         return
@@ -224,9 +226,21 @@ def _print_error_summary(result: TestRunResult) -> None:
             bold=True,
         )
     )
+
+    grouped: dict[str, list[str]] = {}
     for br in errored:
         reason = br.error_message or br.error or "no detail available"
-        click.echo(click.style(f"  - {br.test_id}: {reason}", fg="red"))
+        grouped.setdefault(reason, []).append(br.test_id)
+
+    for reason, ids in grouped.items():
+        friendly = friendly_provider_message(reason)
+        affected = ", ".join(sorted(ids))
+        if friendly is not None:
+            click.echo(click.style(f"  {friendly}", fg="yellow", bold=True))
+            click.echo(click.style(f"    Affected: {affected}", fg="red"))
+            click.echo(click.style(f"    Details:  {reason}", dim=True))
+        else:
+            click.echo(click.style(f"  - {affected}: {reason}", fg="red"))
 
 
 def _print_inconclusive_summary(result: TestRunResult) -> None:

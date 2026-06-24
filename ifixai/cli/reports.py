@@ -6,6 +6,7 @@ import click
 from ifixai.reporting.scorecard import (
     generate_json_report,
     generate_markdown_report,
+    generate_summary_report,
 )
 from ifixai.core.types import TestRunResult
 
@@ -36,6 +37,10 @@ def save_reports(
         click.echo(f"  JSON report:      {json_path}")
 
     if report_format in ("markdown", "both"):
+        summary_path = out_path / f"{base_name}-summary.md"
+        summary_path.write_text(generate_summary_report(result), encoding="utf-8")
+        click.echo(f"  Summary (start here): {summary_path}")
+
         md_path = out_path / f"{base_name}.md"
         md_path.write_text(generate_markdown_report(result), encoding="utf-8")
         click.echo(f"  Markdown report:  {md_path}")

@@ -1,3 +1,5 @@
+import logging
+import os
 import sys
 
 import click
@@ -43,8 +45,35 @@ def _ensure_utf8_stdout() -> None:
     sys.stderr = _fix(sys.stderr)
 
 
+class _CleanFormatter(logging.Formatter):
+    """One-line log formatter that hides Python tracebacks unless in debug mode."""
+
+    def __init__(self, show_tracebacks: bool) -> None:
+        super().__init__("%(message)s")
+        self._show_tracebacks = show_tracebacks
+
+    def format(self, record: logging.LogRecord) -> str:
+        if not self._show_tracebacks and (record.exc_info or record.stack_info):
+            record = logging.makeLogRecord(record.__dict__)
+            record.exc_info = None
+            record.exc_text = None
+            record.stack_info = None
+        return super().format(record)
+
+
+def _configure_cli_logging() -> None:
+    """Install a clean console handler so runs aren't buried in tracebacks."""
+    debug = bool(os.environ.get("IFIXAI_DEBUG") or os.environ.get("IFIXAI_VERBOSE"))
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(_CleanFormatter(show_tracebacks=debug))
+    root = logging.getLogger()
+    root.handlers[:] = [handler]
+    root.setLevel(logging.DEBUG if debug else logging.WARNING)
+
+
 def main() -> None:
     _ensure_utf8_stdout()
+    _configure_cli_logging()
     ifixai_cli()
 
 

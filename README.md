@@ -111,7 +111,8 @@ Every run has **two roles**, and a citable run needs a key for each:
 | **SUT** (system under test) | the agent/model being **graded** | `--provider` + `--api-key`; the SUT key is always passed explicitly, never read from the environment |
 | **Judge** | who **grades** it | auto-paired from a *different* provider whose key is in your environment (the SUT's own vendor is excluded, so it never grades itself) |
 
-Reports land in `./ifixai-results/` as JSON **and** Markdown. Without a second key, add
+Reports land in `./ifixai-results/`: a short `-summary.md` (start here, with an insights
+rollup of the weakest pillars and top failures), the full Markdown report, and JSON. Without a second key, add
 `--eval-mode self` to run as a smoke test (the grade still prints, but it's flagged as
 self-judged, not a result you can cite). Pinning the judge, Full-mode ensembles, and the eval modes:
 **[docs/running.md](docs/running.md)**. Other providers (OpenAI, OpenRouter, Gemini,
@@ -132,6 +133,20 @@ The more of those parts your adapter exposes, the more inspections iFixAi can ac
 score, instead of marking them `insufficient_evidence` (it couldn't see enough of your
 agent to judge; these are reported but don't count for or against your grade). Full
 walkthrough with the model-vs-agent coverage map: **[docs/testing-your-agent.md](docs/testing-your-agent.md)**.
+
+### Pick what to run
+
+A run executes all 45 inspections by default. Narrow it with a named **suite** instead of
+hand-listing IDs:
+
+```bash
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --suite core      # the 32 graded pillars
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --suite security  # injection, privilege escalation, sabotage
+```
+
+Tiers are `smoke`, `strategic`, `core`, `extended`, `all`; themes are `security`,
+`reliability`, `compliance`, `frontier`. Browse them with `ifixai list suites`, and the
+failure categories behind `--category` with `ifixai list categories`.
 
 ## What you get back
 
