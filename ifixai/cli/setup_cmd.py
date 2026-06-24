@@ -7,15 +7,16 @@ for or stores the system-under-test API key: that stays explicit, supplied to
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
+from pathlib import Path
 
 import click
 
 from ifixai._version import VERSION as IFIXAI_VERSION
 from ifixai.cli._branding import print_startup_banner
 from ifixai.cli.config_file import (
-    CONFIG_FILENAME,
     JudgeSpec,
     RunConfig,
     config_path,
@@ -41,19 +42,18 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
 }
 
 # Providers that front a bare model API vs transports for a wrapped agent.
-# Illustrative only (shown as "e.g. ..." hints) — NOT a pinned catalog, since
-# model slugs rot. Blank always falls back to the provider's own default.
-_MODEL_HINTS: dict[str, str] = {
-    "openrouter": "anthropic/claude-sonnet-4-6",
-    "openai": "gpt-4o",
-    "anthropic": "claude-sonnet-4-6",
-    "gemini": "gemini-2.5-flash-lite",
-    "azure": "your-deployment-name",
-    "bedrock": "a Bedrock model id",
-    "huggingface": "an HF repo id",
-    "http": "the served model id",
-    "langchain": "the wrapped model id",
-}
+_PROVIDERS_DIR = Path(__file__).resolve().parents[1] / "providers"
+
+
+def _provider_default_model(provider: str) -> str | None:
+    """The provider's DEFAULT_MODEL, read from source (no SDK import, no drift)."""
+    try:
+        text = (_PROVIDERS_DIR / f"{provider}.py").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r'^DEFAULT_MODEL\s*=\s*["\']([^"\']+)["\']', text, re.MULTILINE)
+    return m.group(1) if m else None
+
 
 _MODEL_PROVIDERS = [
     "openrouter",
@@ -103,11 +103,14 @@ def _select(
 
 def _pick_model(provider: str, *, role: str) -> str | None:
     """Free-text model id; blank means use the provider's default model."""
-    hint = _MODEL_HINTS.get(provider)
-    example = f"e.g. {hint}, " if hint else ""
-    suffix = click.style(f"({example}blank = provider default)", dim=True)
+    default_model = _provider_default_model(provider)
+    label = (
+        f"(blank = provider default: {default_model})"
+        if default_model
+        else "(blank = provider default)"
+    )
     value = click.prompt(
-        f"Model id for the {role} {suffix}",
+        f"Model id for the {role} {click.style(label, dim=True)}",
         default="",
         show_default=False,
     ).strip()
@@ -344,16 +347,11 @@ def setup() -> None:
     click.echo(click.style("  Will run:       ifixai run   (SUT key entered at run time, never saved)", dim=True))
 
     click.echo()
-    # Saving is the whole point of the wizard, so write by default; only stop to
-    # ask when an existing config would be overwritten.
-    if config_path().exists() and not click.confirm(
-        f"{CONFIG_FILENAME} already exists in this directory. Overwrite it?",
-        default=False,
-    ):
-        click.echo("Kept the existing config, nothing written.")
-        return
+    # Saving is the whole point of the wizard, and it must never block the run,
+    # so always write and continue (no save prompt).
+    existed = config_path().exists()
     path = write_config(config)
-    click.echo(click.style(f"✓ Saved {path}", fg="green"))
+    click.echo(click.style(f"✓ {'Updated' if existed else 'Saved'} {path}", fg="green"))
     click.echo()
 
     if click.confirm("Run iFixAi now?", default=True):
