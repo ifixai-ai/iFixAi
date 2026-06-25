@@ -59,30 +59,35 @@ It runs up to 45 inspections across two tiers: **32 core** (five pillars — fab
 
 ## Quick start
 
-### Fastest — guided wizard (no flags ever again)
+Clone the repo, install, run. That's it — three steps every time.
 
 ```bash
-git clone https://github.com/ifixai-ai/diagnostic.git && cd diagnostic
-pip install -e ".[openai]"
+git clone https://github.com/ifixai-ai/diagnostic.git
+cd diagnostic
+pip install ".[openai]"     # registers the ifixai command; swap openai for your provider
+```
+
+> If you already installed a previous version and something breaks, run `pip install --force-reinstall ".[openai]"` to replace the stale binary.
+
+### Guided wizard — no flags, ever again
+
+```bash
 ifixai setup
 ```
 
-The wizard detects your API keys, walks you through provider / model / judge / suite with arrow keys, writes a reusable `ifixai.yaml`, and offers to run immediately. If no key is in your environment yet, you'll be prompted for it before the run starts. After setup, `ifixai run` with no flags is all you need.
+Detects your API keys, lets you pick provider / model / judge / suite with arrow keys, writes `ifixai.yaml`, and offers to run immediately. After that, `ifixai run` with no flags is all you need. No key in your environment? You'll be prompted for it before the run starts.
 
-### Fastest test right now — mock, zero credentials, ~1 s
+### Zero credentials — smoke test in ~1 s
 
 ```bash
-git clone https://github.com/ifixai-ai/diagnostic.git && cd diagnostic
-pip install -e "."
 ifixai run --provider mock --api-key not-used --eval-mode self --suite smoke
 ```
 
 ### Real grade — your model judged by a different vendor
 
 ```bash
-pip install -e ".[anthropic,openai]"
-export ANTHROPIC_API_KEY=sk-ant-...   # SUT — the model being graded
-export OPENAI_API_KEY=sk-...          # judge — auto-paired, different vendor
+export ANTHROPIC_API_KEY=sk-ant-...   # the model being graded
+export OPENAI_API_KEY=sk-...          # the judge — different vendor, auto-paired
 ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --suite core
 ```
 
