@@ -62,7 +62,8 @@ It runs up to 45 inspections across two tiers: **32 core** (five pillars — fab
 ### Fastest — guided wizard (no flags ever again)
 
 ```bash
-pip install "ifixai[openai]"
+git clone https://github.com/ifixai-ai/diagnostic.git && cd diagnostic
+pip install -e ".[openai]"
 ifixai setup
 ```
 
@@ -71,19 +72,15 @@ The wizard detects your API keys, walks you through provider / model / judge / s
 ### Fastest test right now — mock, zero credentials, ~1 s
 
 ```bash
-# If you already have the repo cloned and a .venv:
-source .venv/bin/activate
-ifixai run --provider mock --api-key not-used --eval-mode self --suite smoke
-
-# Fresh install (use pip3 or python3 -m pip if pip is not found):
-pip3 install "ifixai"
+git clone https://github.com/ifixai-ai/diagnostic.git && cd diagnostic
+pip install -e "."
 ifixai run --provider mock --api-key not-used --eval-mode self --suite smoke
 ```
 
 ### Real grade — your model judged by a different vendor
 
 ```bash
-pip install "ifixai[anthropic,openai]"
+pip install -e ".[anthropic,openai]"
 export ANTHROPIC_API_KEY=sk-ant-...   # SUT — the model being graded
 export OPENAI_API_KEY=sk-...          # judge — auto-paired, different vendor
 ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --suite core
