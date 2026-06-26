@@ -158,7 +158,7 @@ def setup(ctx: click.Context) -> None:
         base = _PROVIDER_DESCRIPTIONS.get(p, "")
         env = PROVIDER_ENV_KEYS.get(p)
         if p == provider:
-            judge_desc[p] = f"{base} — reuses the SUT key; pick a different model"
+            judge_desc[p] = f"{base} — same vendor as the SUT; not an independent (citable) judge"
         elif p in available_names:
             judge_desc[p] = f"{base} — key detected"
         elif env:
@@ -169,14 +169,21 @@ def setup(ctx: click.Context) -> None:
     click.echo()
     click.echo(
         click.style(
-            "Judges score your model's answers. None = self-judge (biased, score "
-            "redacted). One = real score. Two or more = ensemble (averaged). "
-            "You can add several judges — even different models on the same key.",
+            "Judges score your model's answers. None = self-judge (biased, redacted). "
+            "One judge from a DIFFERENT vendor = a citable score; a same-vendor judge is "
+            "an independence-limited smoke test, not citable. Two or more = a cross-vendor "
+            "ensemble. You can mix providers, or use different models on one key.",
             dim=True,
         )
     )
 
-    judge_default = provider if provider in judge_candidates else judge_candidates[0]
+    # Default the judge to a DIFFERENT vendor — citability requires cross-vendor
+    # grading. Prefer one whose key is already present, else any non-SUT provider,
+    # and only fall back to the SUT as a last resort.
+    judge_default = next(
+        (p for p in judge_candidates if p != provider and p in available_names),
+        next((p for p in judge_candidates if p != provider), provider),
+    )
     judges: list[JudgeSpec] = []
     add_judge = ui.confirm(
         "Add an independent judge? (recommended — needed for a real score)",

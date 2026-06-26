@@ -75,8 +75,8 @@ def _configure_cli_logging() -> None:
 
 def main() -> None:
     _ensure_utf8_stdout()
-    _configure_cli_logging()
     loaded = load_dotenv_file()
+    _configure_cli_logging()
     if loaded:
         click.echo(
             click.style(
