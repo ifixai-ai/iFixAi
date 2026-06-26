@@ -150,75 +150,100 @@ def setup(ctx: click.Context) -> None:
 
     model = _pick_model(provider, role="system under test")
 
-    # Offer every provider as a judge — not just ones with a key already set.
-    # The end-of-setup scan reminds the user which keys to export before running.
-    judge_candidates = [p for p in provider_choices if p != "mock"]
-    judge_desc = {}
-    for p in judge_candidates:
-        base = _PROVIDER_DESCRIPTIONS.get(p, "")
-        env = PROVIDER_ENV_KEYS.get(p)
-        if p == provider:
-            judge_desc[p] = f"{base} — same vendor as the SUT; not an independent (citable) judge"
-        elif p in available_names:
-            judge_desc[p] = f"{base} — key detected"
-        elif env:
-            judge_desc[p] = f"{base} — set {env} before running"
-        else:
-            judge_desc[p] = base
-
-    click.echo()
-    click.echo(
-        click.style(
-            "Judges score your model's answers. None = self-judge (biased, redacted). "
-            "One judge from a DIFFERENT vendor = a citable score; a same-vendor judge is "
-            "an independence-limited smoke test, not citable. Two or more = a cross-vendor "
-            "ensemble. You can mix providers, or use different models on one key.",
-            dim=True,
-        )
-    )
-
-    # Default the judge to a DIFFERENT vendor — citability requires cross-vendor
-    # grading. Prefer one whose key is already present, else any non-SUT provider,
-    # and only fall back to the SUT as a last resort.
-    judge_default = next(
-        (p for p in judge_candidates if p != provider and p in available_names),
-        next((p for p in judge_candidates if p != provider), provider),
-    )
     judges: list[JudgeSpec] = []
-    add_judge = ui.confirm(
-        "Add an independent judge? (recommended — needed for a real score)",
-        default=True,
-    )
-    while add_judge:
-        jp = ui.select(
-            f"Judge #{len(judges) + 1} — provider:",
-            judge_candidates,
-            default=judge_default,
-            descriptions=judge_desc,
+    if provider == "mock":
+        # Mock is a free offline preview, so there are no real providers or keys to
+        # choose — just ask how many mock judges. A mock judge gives a non-self-judged
+        # scorecard offline; 0 = self-judge.
+        click.echo()
+        choice = ui.select(
+            "Mock judges (a judge gives a non-self-judged scorecard, all offline):",
+            ["0", "1", "2"],
+            default="1",
+            descriptions={
+                "0": "self-judge: mock grades itself (biased, flagged not citable)",
+                "1": "one mock judge: a non-self single-judge run",
+                "2": "two mock judges: an ensemble",
+            },
         )
-        jm = _pick_model(jp, role=f"judge #{len(judges) + 1}")
-        judges.append(JudgeSpec(provider=jp, model=jm))
+        judges = [JudgeSpec(provider="mock", model=None) for _ in range(int(choice))]
+        if judges:
+            click.echo(
+                click.style(f"  ✓ {len(judges)} mock judge(s) configured.", fg="green")
+            )
+        else:
+            click.echo(
+                click.style("  Self-judge (advisory, redacted score).", fg="yellow")
+            )
+    else:
+        # Offer every provider as a judge — not just ones with a key already set.
+        # The end-of-setup scan reminds the user which keys to export before running.
+        judge_candidates = [p for p in provider_choices if p != "mock"]
+        judge_desc = {}
+        for p in judge_candidates:
+            base = _PROVIDER_DESCRIPTIONS.get(p, "")
+            env = PROVIDER_ENV_KEYS.get(p)
+            if p == provider:
+                judge_desc[p] = f"{base} — same vendor as the SUT; not an independent (citable) judge"
+            elif p in available_names:
+                judge_desc[p] = f"{base} — key detected"
+            elif env:
+                judge_desc[p] = f"{base} — set {env} before running"
+            else:
+                judge_desc[p] = base
+
+        click.echo()
         click.echo(
             click.style(
-                f"  ✓ Judge #{len(judges)}: {jp} / {jm or 'provider default'}",
-                fg="green",
+                "Judges score your model's answers. None = self-judge (biased, redacted). "
+                "One judge from a DIFFERENT vendor = a citable score; a same-vendor judge is "
+                "an independence-limited smoke test, not citable. Two or more = a cross-vendor "
+                "ensemble. You can mix providers, or use different models on one key.",
+                dim=True,
             )
+        )
+
+        # Default the judge to a DIFFERENT vendor — citability requires cross-vendor
+        # grading. Prefer one whose key is already present, else any non-SUT provider,
+        # and only fall back to the SUT as a last resort.
+        judge_default = next(
+            (p for p in judge_candidates if p != provider and p in available_names),
+            next((p for p in judge_candidates if p != provider), provider),
         )
         add_judge = ui.confirm(
-            "Add another judge? (2+ judges = ensemble)", default=False
+            "Add an independent judge? (recommended — needed for a real score)",
+            default=True,
         )
-
-    if not judges:
-        click.echo(
-            click.style(
-                "  No judge selected — running self-judge (advisory, redacted score).",
-                fg="yellow",
+        while add_judge:
+            jp = ui.select(
+                f"Judge #{len(judges) + 1} — provider:",
+                judge_candidates,
+                default=judge_default,
+                descriptions=judge_desc,
             )
-        )
-    elif len(judges) >= 2:
-        click.echo(
-            click.style(f"  Ensemble of {len(judges)} judges configured.", fg="cyan")
-        )
+            jm = _pick_model(jp, role=f"judge #{len(judges) + 1}")
+            judges.append(JudgeSpec(provider=jp, model=jm))
+            click.echo(
+                click.style(
+                    f"  ✓ Judge #{len(judges)}: {jp} / {jm or 'provider default'}",
+                    fg="green",
+                )
+            )
+            add_judge = ui.confirm(
+                "Add another judge? (2+ judges = ensemble)", default=False
+            )
+
+        if not judges:
+            click.echo(
+                click.style(
+                    "  No judge selected — running self-judge (advisory, redacted score).",
+                    fg="yellow",
+                )
+            )
+        elif len(judges) >= 2:
+            click.echo(
+                click.style(f"  Ensemble of {len(judges)} judges configured.", fg="cyan")
+            )
 
     fixtures = list_fixture_names()
     fixture_desc = {}

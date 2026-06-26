@@ -430,7 +430,11 @@ def render_scorecard(result) -> bool:
     )
     legend.append(
         'Score is a weighted average of how well each check did, so a category can '
-        'read "all passed" and still be below 100%.',
+        'read "all passed" and still be below 100%.\n',
+        style=_DIM,
+    )
+    legend.append(
+        "Strategic score = the 8 highest-priority inspections (B01–B07, B25).",
         style=_DIM,
     )
     c.print(
