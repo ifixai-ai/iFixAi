@@ -29,9 +29,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/ifixai-demo.gif" alt="iFixAi demo" width="720" />
+  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI scorecard" width="900" />
   <br/>
-  <em>Recorded from a custom client build. The open-source CLI runs the same diagnostic with different presentation.</em>
+  <em>The scorecard from one <code>ifixai run</code>: an A–F grade, the five scored core pillars, and a free preview of the premium tier.</em>
 </p>
 
 ---
