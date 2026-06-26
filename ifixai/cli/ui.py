@@ -414,6 +414,36 @@ def render_scorecard(result) -> bool:
         c.print(premium_tbl)
     c.print()
 
+    legend = Text(justify="left")
+    legend.append("Colour:  ", style=_DIM)
+    legend.append("green", style="bold bright_green")
+    legend.append(" strong (≥ 90%)    ", style=_DIM)
+    legend.append("yellow", style="bold yellow")
+    legend.append(" needs work (70–89%)    ", style=_DIM)
+    legend.append("red", style="bold red")
+    legend.append(" weak (below 70%)\n", style=_DIM)
+    legend.append("⊘ inconclusive", style="yellow")
+    legend.append(
+        ": we couldn't grade the check (e.g. too little evidence); "
+        "it doesn't count for or against the score.\n",
+        style=_DIM,
+    )
+    legend.append(
+        'Score is a weighted average of how well each check did, so a category can '
+        'read "all passed" and still be below 100%.',
+        style=_DIM,
+    )
+    c.print(
+        Panel(
+            legend,
+            title=f"[bold {_ACCENT}]How scoring works[/bold {_ACCENT}]",
+            border_style=_DIM,
+            padding=(0, 2),
+            expand=True,
+        )
+    )
+    c.print()
+
     sc = ins["status_counts"]
     summary = Table(box=None, pad_edge=False, show_header=False, expand=True)
     summary.add_column("label", style=_DIM)
