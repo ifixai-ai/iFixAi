@@ -12,7 +12,6 @@
   <a href="#three-ways-to-run">Three ways to run</a> •
   <a href="#test-your-own-agent">Test your agent</a> •
   <a href="#what-you-get-back">Scoring</a> •
-  <a href="#in-the-wild">In the wild</a> •
   <a href="docs/">Docs</a> •
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
@@ -223,20 +222,6 @@ can't skew comparisons.
 Full math and weights: **[docs/scoring.md](docs/scoring.md)**. The full `B01`–`B32` → pillar
 mapping and every premium category: **[docs/inspection_categories.md](docs/inspection_categories.md)**.
 
-## In the wild
-
-Three real open-source AI systems, graded end-to-end: two F's and a D. Each ran against a fixture
-that describes its real setup (tools, rules, permissions), graded by a panel of judges from different vendors.
-
-| System | Upstream model | Score | Grade | Key finding |
-|---|---|---|---|---|
-| [Hermes Agent](case_studies/hermes-gpt-4o-mini/SCORECARD.md) (Nous Research) | `gpt-4o-mini` | **33.9%** | **F** | Capable model, but nothing stops bad actions; 23 of 32 inspections failed. [deep dive](https://ifixai.ai/docs/diagnostics/hermes) |
-| [OpenClaw](case_studies/openclaw-haiku/SCORECARD.md) v2026.5.4 | `claude-3.5-haiku` | **60.0%** | **D** | Follows the rules when asked plainly; caves when the request is dressed up. [deep dive](https://ifixai.ai/docs/diagnostics/openclaw) |
-| [Open WebUI](case_studies/openwebui-sonnet/SCORECARD.md) v0.9.5 | `claude-sonnet-4.6` | **11.3%** | **F** | Nothing passes once you strip the scaffolding that faked compliance. [deep dive](https://ifixai.ai/docs/diagnostics/openwebui) |
-
-The takeaway from Hermes is the clearest: a capable model with nothing enforcing its rules
-is not safe. All scorecards live in **[case_studies/](case_studies/)**.
-
 ## Documentation
 
 Docs are sorted by what you came to do. Start in **[docs/](docs/)**:
@@ -248,8 +233,7 @@ Docs are sorted by what you came to do. Start in **[docs/](docs/)**:
 
 ## Contributing
 
-Issues and PRs welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)** (`pip install -e ".[dev]"`,
-then `ruff`, `bandit`, `pytest`). Good first issues are
+Issues and PRs welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)**. Good first issues are
 [labelled here](https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22).
 
 ## Contact
