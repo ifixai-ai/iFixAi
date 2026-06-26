@@ -14,13 +14,19 @@ DEFAULT_MODEL: dict[str, str] = {
 
 MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
     "openrouter": [
-        ("openai/gpt-4o", "OpenAI flagship — strong general reasoning"),
-        ("openai/gpt-4o-mini", "Cheaper & faster OpenAI model"),
-        ("anthropic/claude-3.5-sonnet", "Anthropic — excellent reasoning & safety"),
-        ("anthropic/claude-3.7-sonnet", "Newer Anthropic Sonnet"),
-        ("google/gemini-2.0-flash-001", "Google — fast and inexpensive"),
-        ("meta-llama/llama-3.3-70b-instruct", "Open-weights Llama, good value"),
-        ("deepseek/deepseek-chat", "Strong, very low cost"),
+        ("anthropic/claude-sonnet-4.5", "Anthropic Claude Sonnet 4.5 — strong reasoning & safety"),
+        ("anthropic/claude-opus-4.1", "Anthropic Claude Opus 4.1 — most capable, pricier"),
+        ("anthropic/claude-haiku-4.5", "Anthropic Claude Haiku 4.5 — fast & cheap"),
+        ("openai/gpt-5", "OpenAI GPT-5 — flagship general reasoning"),
+        ("openai/gpt-5-mini", "OpenAI GPT-5 Mini — cheaper & faster"),
+        ("openai/gpt-4.1", "OpenAI GPT-4.1 — strong, widely available"),
+        ("openai/o4-mini", "OpenAI o4 Mini — reasoning-optimized, low cost"),
+        ("google/gemini-2.5-pro", "Google Gemini 2.5 Pro — large context, strong reasoning"),
+        ("google/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive"),
+        ("deepseek/deepseek-r1", "DeepSeek R1 — open reasoning model, very low cost"),
+        ("deepseek/deepseek-chat-v3.1", "DeepSeek V3.1 — strong, very low cost"),
+        ("meta-llama/llama-4-maverick", "Meta Llama 4 Maverick — open-weights flagship"),
+        ("meta-llama/llama-3.3-70b-instruct", "Meta Llama 3.3 70B — open-weights, good value"),
     ],
     "openai": [
         ("gpt-4o", "Flagship — strong general reasoning"),

@@ -815,7 +815,9 @@ def run(
         model = interactive["model"]
 
     if api_key is None:
-        api_key = click.prompt("API key", hide_input=True)
+        api_key = click.prompt(
+            f"API key for the system under test ({provider})", hide_input=True
+        )
 
     resolved_name = system_name or provider
 
@@ -1445,7 +1447,7 @@ def gather_interactive_config() -> InteractiveConfig:
         type=click.Choice(PROVIDER_CHOICES, case_sensitive=False),
     )
 
-    api_key = click.prompt("API key", hide_input=True)
+    api_key = click.prompt(f"API key for {provider}", hide_input=True)
 
     endpoint = None
     if click.confirm("Custom endpoint?", default=False):

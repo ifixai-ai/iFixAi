@@ -5,7 +5,7 @@ import sys
 import click
 
 from ifixai._version import VERSION
-from ifixai.cli.init import init
+from ifixai.cli.init import init, load_dotenv_file
 from ifixai.cli.run import run
 from ifixai.cli.setup_cmd import setup
 from ifixai.cli.list_cmd import list_group
@@ -76,6 +76,14 @@ def _configure_cli_logging() -> None:
 def main() -> None:
     _ensure_utf8_stdout()
     _configure_cli_logging()
+    loaded = load_dotenv_file()
+    if loaded:
+        click.echo(
+            click.style(
+                f"Loaded {len(loaded)} key(s) from .env: {', '.join(loaded)}", dim=True
+            ),
+            err=True,
+        )
     ifixai_cli()
 
 

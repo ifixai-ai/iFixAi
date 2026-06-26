@@ -27,6 +27,39 @@ def detect_available_providers() -> list[tuple[str, str]]:
     ]
 
 
+def load_dotenv_file(path: "Path | None" = None) -> list[str]:
+    """Load ``KEY=VALUE`` pairs from a ``.env`` file (the cwd's by default) into
+    ``os.environ`` without overriding variables already set, returning the names of
+    the keys it added.
+
+    Real environment variables always win, so anything you exported in the shell is
+    never clobbered. The parser skips blank lines and ``#`` comments, tolerates a
+    leading ``export``, and strips surrounding single/double quotes."""
+    env_path = path or (Path.cwd() / ".env")
+    if not env_path.is_file():
+        return []
+    try:
+        text = env_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    loaded: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].lstrip()
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+            loaded.append(key)
+    return loaded
+
+
 @click.command()
 @click.option(
     "--non-interactive",

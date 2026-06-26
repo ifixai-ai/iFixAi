@@ -31,8 +31,15 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
 }
 
 _MODE_DESCRIPTIONS: dict[str, str] = {
-    "standard": "CI-friendly. Works with the default fixture and one provider.",
-    "full": "Reference-grade. Needs a hand-built fixture + ≥2 judge providers.",
+    "standard": (
+        "One judge grades each answer (auto-paired from a different vendor when you "
+        "have a second key). Fast and citable. Best for most runs."
+    ),
+    "full": (
+        "An ensemble of 2+ judges vote on each answer (majority vote, conservative "
+        "tie-break), so no single judge decides the grade. Same inspections, sturdier "
+        "result. Needs 2+ judge providers."
+    ),
 }
 
 _ALL_PROVIDERS = [
@@ -74,6 +81,20 @@ def _pick_model(provider: str, *, role: str) -> str | None:
     if choice == default_label:
         return None
     return choice
+
+
+def _missing_keys(selected: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
+    """For each (role, provider) chosen, return (role, provider, env_var) whose key
+    is not set in the environment. De-duplicated by env var so a shared key is
+    reported once, giving the user one clean export list."""
+    missing: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for role, prov in selected:
+        env = PROVIDER_ENV_KEYS.get(prov)
+        if env and env not in seen and not os.environ.get(env):
+            seen.add(env)
+            missing.append((role, prov, env))
+    return missing
 
 
 @click.command()
@@ -126,24 +147,24 @@ def setup(ctx: click.Context) -> None:
         descriptions=provider_desc,
     )
     api_key_env = PROVIDER_ENV_KEYS.get(provider)
-    if api_key_env and provider not in available_names:
-        click.echo(
-            click.style(
-                f"  Note: export {api_key_env} before running (no key detected now).",
-                fg="yellow",
-            )
-        )
 
     model = _pick_model(provider, role="system under test")
 
-    judge_candidates = sorted(set(available_names) | {provider})
+    # Offer every provider as a judge — not just ones with a key already set.
+    # The end-of-setup scan reminds the user which keys to export before running.
+    judge_candidates = [p for p in provider_choices if p != "mock"]
     judge_desc = {}
     for p in judge_candidates:
         base = _PROVIDER_DESCRIPTIONS.get(p, "")
+        env = PROVIDER_ENV_KEYS.get(p)
         if p == provider:
-            judge_desc[p] = f"{base} — reuses this key; pick a different model"
-        else:
+            judge_desc[p] = f"{base} — reuses the SUT key; pick a different model"
+        elif p in available_names:
             judge_desc[p] = f"{base} — key detected"
+        elif env:
+            judge_desc[p] = f"{base} — set {env} before running"
+        else:
+            judge_desc[p] = base
 
     click.echo()
     click.echo(
@@ -155,6 +176,7 @@ def setup(ctx: click.Context) -> None:
         )
     )
 
+    judge_default = provider if provider in judge_candidates else judge_candidates[0]
     judges: list[JudgeSpec] = []
     add_judge = ui.confirm(
         "Add an independent judge? (recommended — needed for a real score)",
@@ -164,7 +186,7 @@ def setup(ctx: click.Context) -> None:
         jp = ui.select(
             f"Judge #{len(judges) + 1} — provider:",
             judge_candidates,
-            default=provider,
+            default=judge_default,
             descriptions=judge_desc,
         )
         jm = _pick_model(jp, role=f"judge #{len(judges) + 1}")
@@ -218,6 +240,15 @@ def setup(ctx: click.Context) -> None:
         descriptions=suite_desc,
     )
 
+    click.echo()
+    click.echo(
+        click.style(
+            "Run mode sets how many judges grade each answer, not how many "
+            "inspections run. Standard uses one judge; Full uses an ensemble of 2+ "
+            "that vote, so no single judge decides your grade.",
+            dim=True,
+        )
+    )
     mode = ui.select(
         "Run mode:",
         ["standard", "full"],
@@ -225,20 +256,24 @@ def setup(ctx: click.Context) -> None:
         descriptions=_MODE_DESCRIPTIONS,
     )
 
-    if mode == "full" or len(judges) >= 2:
-        eval_mode = "full" if len(judges) >= 2 else "self"
+    # eval_mode follows the judge panel. Keep `mode` consistent with it so the
+    # wizard never saves a contradictory config (Full mode + self-judge) that the
+    # engine rejects at run time.
+    if len(judges) >= 2:
+        eval_mode = "full"
     elif len(judges) == 1:
         eval_mode = "single"
     else:
         eval_mode = "self"
-    if mode == "full" and len(judges) < 2:
+    if mode == "full" and eval_mode != "full":
         click.echo(
             click.style(
-                "  Note: --mode full needs ≥2 judges and a hand-built fixture; "
-                "add a second judge or this will be rejected at run time.",
+                f"  Full mode needs an ensemble of 2+ judges; you added {len(judges)}. "
+                "Saving as Standard mode instead; add a second judge to use Full.",
                 fg="yellow",
             )
         )
+        mode = "standard"
 
     config = RunConfig(
         provider=provider,
@@ -255,22 +290,59 @@ def setup(ctx: click.Context) -> None:
     click.echo(click.style("Your configuration:", bold=True))
     click.echo(config.to_yaml())
 
+    click.echo(
+        click.style(
+            f"Saving writes these settings to {CONFIG_FILENAME} in this folder so "
+            "`ifixai run` needs no flags next time. It records only each key's env-var "
+            "name (never the secret itself), and the file is git-ignored by default. "
+            "Choose No to skip saving and configure runs with flags instead.",
+            dim=True,
+        )
+    )
     if not ui.confirm(f"Save to {CONFIG_FILENAME}?", default=True):
         click.echo("Aborted — nothing written.")
         return
 
     path = write_config(config)
     click.echo(click.style(f"✓ Saved {path}", fg="green"))
+
+    # Scan every provider the user selected (SUT + judges) and report which keys
+    # still need exporting before a real run.
+    selected = [
+        ("system under test", provider),
+        *((f"judge #{i}", j.provider) for i, j in enumerate(judges, 1)),
+    ]
+    missing = _missing_keys(selected)
+
+    click.echo()
+    if missing:
+        click.echo(
+            click.style(
+                "Before you run the diagnostic, export these provider keys "
+                "(selected, but not in your environment):",
+                fg="yellow",
+                bold=True,
+            )
+        )
+        for role, prov, env in missing:
+            click.echo(click.style(f"  export {env}=…   ({role}: {prov})", fg="yellow"))
+    else:
+        click.echo(
+            click.style(
+                "✓ Every selected provider has a key in your environment.", fg="green"
+            )
+        )
     click.echo()
 
-    if ui.confirm("Run iFixAi now?", default=True):
+    if ui.confirm("Run iFixAi now?", default=not missing):
         cmd = [sys.argv[0], "run"]
         if provider == "mock":
             cmd += ["-k", "unused"]
-        elif api_key_env and not os.environ.get(api_key_env):
+        if missing:
             click.echo(
                 click.style(
-                    f"  {api_key_env} is not set — `run` will prompt for the key.",
+                    "  Note: the run stops at preflight until the keys above are set "
+                    "(the system-under-test key can also be entered when prompted).",
                     fg="yellow",
                 )
             )
@@ -279,7 +351,3 @@ def setup(ctx: click.Context) -> None:
     else:
         click.echo(click.style("When you're ready:", bold=True))
         click.echo(click.style("  ifixai run", fg="cyan"))
-        if api_key_env:
-            click.echo(
-                click.style(f"  (export {api_key_env} first)", dim=True)
-            )
