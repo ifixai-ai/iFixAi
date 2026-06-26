@@ -231,6 +231,21 @@ Docs are sorted by what you came to do. Start in **[docs/](docs/)**:
 - 📖 **Looking it up** → [CLI](docs/cli.md) · [Python API](docs/python-api.md) · [Scoring](docs/scoring.md) · [Inspections](docs/inspections.md)
 - 💡 **Why it works this way** → [Methodology](docs/methodology.md)
 
+## Telemetry
+
+iFixAi sends pseudonymous run telemetry — a random local install id plus
+started/completed, the tool version, your OS name, which interface you used (CLI or
+plugin), and a timestamp — so we can see how many people use it and whether they return. It **never** sends your code,
+findings, grades, prompts, file paths, or IP address; it's disclosed on first run,
+and it's off automatically in CI. See exactly what would be sent:
+
+```bash
+ifixai run --print-telemetry
+```
+
+Opt out anytime with `--no-telemetry`, `IFIXAI_TELEMETRY=0`, or `DO_NOT_TRACK=1`.
+Full details, retention, and how to erase your data: **[SECURITY.md](SECURITY.md#telemetry)**.
+
 ## Contributing
 
 Issues and PRs welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)**. Good first issues are

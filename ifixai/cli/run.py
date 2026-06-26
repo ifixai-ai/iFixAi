@@ -15,6 +15,7 @@ from pathlib import Path
 import click
 
 from ifixai import __version__ as IFIXAI_VERSION
+from ifixai import telemetry
 from ifixai.cli import ui
 from ifixai.cli._branding import (
     print_startup_banner,
@@ -582,6 +583,28 @@ def _print_concurrency_banner(resolved: int) -> None:
     help="Suppress the startup banner and the post-run iMe Core conclusion. "
     "Stdout still contains scores so CI gates keep working.",
 )
+@click.option(
+    "--no-telemetry",
+    "no_telemetry",
+    is_flag=True,
+    default=False,
+    help="Disable pseudonymous run telemetry for this run. Set IFIXAI_TELEMETRY=0 or "
+    "DO_NOT_TRACK=1 to disable it permanently.",
+)
+@click.option(
+    "--print-telemetry",
+    "print_telemetry",
+    is_flag=True,
+    default=False,
+    help="Print the exact pseudonymous telemetry payload that would be sent, then exit.",
+)
+@click.option(
+    "--show-id",
+    "show_install_id",
+    is_flag=True,
+    default=False,
+    help="Print this install's telemetry id (for data-erasure requests), then exit.",
+)
 @click.pass_context
 def run(
     ctx: click.Context,
@@ -625,8 +648,20 @@ def run(
     run_nonce: str | None,
     grounding: str,
     quiet: bool,
+    no_telemetry: bool,
+    print_telemetry: bool,
+    show_install_id: bool,
 ) -> None:
     """Run ifixai against a target AI assistant."""
+    if print_telemetry:
+        telemetry.print_payload()
+        return
+    if show_install_id:
+        click.echo(
+            telemetry.show_id()
+            or "No telemetry id yet (telemetry hasn't run or is opted out)."
+        )
+        return
     run_start_monotonic = time.monotonic()
 
     try:
@@ -698,6 +733,10 @@ def run(
     b32_seed_pinned = b32_seed is not None
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
+    if no_telemetry:
+        telemetry.disable()
+    telemetry.show_disclosure()
+    telemetry.emit_started("cli")
     resolved_concurrency = _resolve_concurrency(concurrency, no_parallel)
     _print_concurrency_banner(resolved_concurrency)
     concurrency_governor = ConcurrencyGovernor(resolved_concurrency)
@@ -1403,6 +1442,8 @@ def run(
     click.echo(f"  Run ID:   {manifest.run_id}")
     click.echo(f"  Run nonce: {manifest.run_nonce}")
     click.echo(f"  Manifest: {manifest_path}")
+
+    telemetry.emit_completed("cli")
 
     if result.overall_score is None:
         click.echo(

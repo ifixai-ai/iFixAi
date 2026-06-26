@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple, cast
 
+from ifixai import telemetry
 from ifixai.api import run_selected
 from ifixai.core.fixture_loader import load_fixture
 from ifixai.evaluation.manifest import generate_run_nonce
@@ -1045,7 +1046,15 @@ def main() -> None:
         "bad model id before billing (escape hatch for a provider that rejects "
         "tiny probes)",
     )
+    parser.add_argument(
+        "--no-telemetry", action="store_true",
+        help="disable pseudonymous run telemetry for this run (IFIXAI_TELEMETRY=0 "
+        "or DO_NOT_TRACK=1 disables it permanently)",
+    )
     args = parser.parse_args()
+
+    if args.no_telemetry:
+        telemetry.disable()
 
     live = args.mode in LIVE_MODES
     sut_provider = args.provider.lower()
@@ -1262,6 +1271,12 @@ def main() -> None:
         print("\nRe-run with --yes to start.")
         return
 
+    # Offline rehearsals (stub/record/replay) are not real runs — only live runs
+    # emit, so the metric counts diagnostics, not demos.
+    if live:
+        telemetry.show_disclosure()
+        telemetry.emit_started("plugin")
+
     # The profile-derived fixture was already written to a visible file on the
     # confirm screen (above); run from exactly that file so what the user saw and
     # could edit is what gets graded. No throwaway temp, nothing deleted.
@@ -1381,6 +1396,8 @@ def main() -> None:
             "This rehearses the pipeline; it is NOT a diagnostic of a real agent. ***\n"
         )
     print(generate_markdown_report(result))
+    if live:
+        telemetry.emit_completed("plugin")
     print("\n--- coverage ---")
     for pillar, score, cov in _coverage_rows(result):
         print(f"  {pillar:18} {score:>5}   {cov}")
