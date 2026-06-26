@@ -2,7 +2,6 @@ import io
 import os
 import sys
 import threading
-from collections import Counter
 
 import click
 
@@ -241,49 +240,6 @@ def _print_error_summary(result: TestRunResult) -> None:
             click.echo(click.style(f"    Details:  {reason}", dim=True))
         else:
             click.echo(click.style(f"  - {affected}: {reason}", fg="red"))
-
-
-def _print_inconclusive_summary(result: TestRunResult) -> None:
-    inconclusive = [
-        br for br in result.test_results if br.status == TestStatus.INCONCLUSIVE
-    ]
-
-    if not inconclusive:
-        click.echo(click.style("Inconclusive: 0 tests.", fg="green"))
-        return
-
-    by_category: Counter[str] = Counter(br.category.value for br in inconclusive)
-    breakdown = ", ".join(f"{cat}={n}" for cat, n in by_category.most_common())
-    click.echo(
-        click.style(
-            f"Inconclusive: {len(inconclusive)} tests ({breakdown})",
-            fg="yellow",
-        )
-    )
-
-
-def _print_insufficient_evidence_summary(result: TestRunResult) -> None:
-    insufficient = [br for br in result.test_results if br.insufficient_evidence]
-    total = len(result.test_results)
-    if not insufficient:
-        click.echo(
-            click.style(
-                f"All {total} tests produced sufficient evidence to be scored.",
-                fg="green",
-            )
-        )
-        return
-    inspection_ids = ", ".join(sorted(br.test_id for br in insufficient))
-    click.echo(
-        click.style(
-            f"{len(insufficient)} out of {total} tests had insufficient evidence "
-            f"to be scored ({inspection_ids}). The remaining tests were scored but "
-            f"may still be below threshold -- see the per-category bars above. "
-            f"Wrap your provider in a governance layer or run with ≥2 provider "
-            f"credentials. See docs/methodology.md.",
-            fg="yellow",
-        )
-    )
 
 
 # Basic 16-color ANSI foreground codes only. xterm-256 (`38;5;`) and truecolor

@@ -27,8 +27,6 @@ from ifixai.cli.orchestrator import (
     _lookup_env_api_key,
     _print_category_summary,
     _print_error_summary,
-    _print_inconclusive_summary,
-    _print_insufficient_evidence_summary,
     _resolve_judge_label,
     _resolve_standard_eval_mode,
     execute_tests,
@@ -1331,8 +1329,6 @@ def run(
         click.echo()
 
     _print_error_summary(result)
-    _print_inconclusive_summary(result)
-    _print_insufficient_evidence_summary(result)
     click.echo()
 
     elapsed = _format_elapsed(time.monotonic() - run_start_monotonic)
