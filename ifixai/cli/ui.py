@@ -239,6 +239,11 @@ def render_scorecard(result) -> bool:
         result_body = Text(justify="center")
         result_body.append("n/a\n\n", style="bold yellow")
         result_body.append("Insufficient evidence across all inspections.", style=_DIM)
+        if self_judged:
+            result_body.append(
+                "\n\n⚠  Self-judged: this run graded its own output (biased, not citable).",
+                style="bold yellow",
+            )
         c.print(
             Panel(
                 Align.center(result_body),
@@ -362,19 +367,22 @@ def render_scorecard(result) -> bool:
             style=row_style,
             justify="center",
         )
+        # Color the Result by the same score band as the rest of the row, so each row
+        # reads as one consistent colour (no green "all passed" next to a yellow 83%).
+        # The ✓/✗/⊘ icons still convey pass / fail / inconclusive.
         if cs.score is None:
             result_txt = Text("⊘  not scored", style="yellow", justify="center")
         elif failed == 0 and inconclusive == 0:
-            result_txt = Text("✓  all passed", style="bold green", justify="center")
+            result_txt = Text("✓  all passed", style=f"bold {row_style}", justify="center")
         else:
             # Show failures AND inconclusives so passed + failed + inconclusive = total.
             result_txt = Text(justify="center")
             if failed > 0:
-                result_txt.append(f"✗ {failed} failed", style="bold red")
+                result_txt.append(f"✗ {failed} failed", style=f"bold {row_style}")
             if failed > 0 and inconclusive > 0:
                 result_txt.append("   ")
             if inconclusive > 0:
-                result_txt.append(f"⊘ {inconclusive} inconclusive", style="yellow")
+                result_txt.append(f"⊘ {inconclusive} inconclusive", style=row_style)
         t.add_row(str(idx), cs.category.value, score_txt, bar_txt, tests_txt, result_txt)
 
     core_tbl = _scorecard_table(
@@ -397,10 +405,12 @@ def render_scorecard(result) -> bool:
             premium_idx += 1
             _scorecard_row(premium_tbl, premium_idx, cs)
 
-    c.print(core_tbl)
+    if core_idx:
+        c.print(core_tbl)
     if premium_idx:
-        c.print()
-        c.print()
+        if core_idx:
+            c.print()
+            c.print()
         c.print(premium_tbl)
     c.print()
 
