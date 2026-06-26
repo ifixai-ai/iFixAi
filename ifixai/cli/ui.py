@@ -233,15 +233,12 @@ def render_scorecard(result) -> bool:
 
     c.print()
 
-    if ins["self_judged"]:
+    overall = ins["overall_score"]
+    self_judged = ins["self_judged"]
+    if overall is None:
         result_body = Text(justify="center")
-        result_body.append("⚠  SELF-JUDGED\n\n", style="bold yellow")
-        result_body.append(
-            "The provider graded its own output — this result is biased\n"
-            "and not citable. Add a second judge for a real grade:\n",
-            style=_DIM,
-        )
-        result_body.append("  --judge-provider … --eval-mode single", style="italic")
+        result_body.append("n/a\n\n", style="bold yellow")
+        result_body.append("Insufficient evidence across all inspections.", style=_DIM)
         c.print(
             Panel(
                 Align.center(result_body),
@@ -252,128 +249,159 @@ def render_scorecard(result) -> bool:
             )
         )
     else:
-        overall = ins["overall_score"]
-        if overall is None:
-            result_body = Text(justify="center")
-            result_body.append("n/a\n\n", style="bold yellow")
-            result_body.append("Insufficient evidence across all inspections.", style=_DIM)
-            c.print(
-                Panel(
-                    Align.center(result_body),
-                    title="[bold]iFixAi Result[/bold]",
-                    border_style="yellow",
-                    padding=(1, 4),
-                    expand=True,
-                )
-            )
-        else:
-            grade = ins["grade"]
-            gcolor = _grade_color(grade)
-            passed = ins["passed"]
-            verdict_label = "PASS" if passed else "FAIL"
-            verdict_color = "green" if passed else "red"
+        # The grade and score are always shown, regardless of the judge setup.
+        # A self-judged run still prints its grade, flagged as biased / not citable.
+        grade = ins["grade"]
+        gcolor = _grade_color(grade)
+        passed = ins["passed"]
+        verdict_label = "PASS" if passed else "FAIL"
+        verdict_color = "green" if passed else "red"
 
-            grade_txt = Text(f"  {grade}  ", style=f"bold white on {gcolor}", justify="center")
-            verdict_txt = Text(f"  {verdict_label}  ", style=f"bold white on {verdict_color}", justify="center")
+        grade_txt = Text(f"  {grade}  ", style=f"bold white on {gcolor}", justify="center")
+        verdict_txt = Text(f"  {verdict_label}  ", style=f"bold white on {verdict_color}", justify="center")
 
-            badges = Columns(
-                [
-                    Align.center(grade_txt),
-                    Align.center(verdict_txt),
-                ],
-                equal=True,
-                expand=False,
-            )
+        badges = Columns(
+            [
+                Align.center(grade_txt),
+                Align.center(verdict_txt),
+            ],
+            equal=True,
+            expand=False,
+        )
 
-            body = Text(justify="center")
-            body.append("\n")
-            bar_overall = _bar(overall, 36)
-            body.append(f"{bar_overall}", style=_score_style(overall))
-            body.append(f"  {overall:.1%}", style=f"bold {_score_style(overall)}")
-            body.append("  overall score\n", style=_DIM)
+        # Left-justify the lines (the whole block is still centered in the panel by
+        # Align.center below) so the two score bars line up at the same column.
+        body = Text(justify="left")
+        body.append("\n")
+        bar_overall = _bar(overall, 30)
+        body.append(f"{bar_overall}", style=_score_style(overall))
+        body.append(f"  {overall:.1%}", style=f"bold {_score_style(overall)}")
+        body.append("  overall score\n", style=_DIM)
 
-            strategic = ins["strategic_score"]
-            bar_strategic = _bar(strategic, 36)
+        strategic = ins["strategic_score"]
+        if strategic is not None:
+            bar_strategic = _bar(strategic, 30)
             body.append(f"{bar_strategic}", style=_score_style(strategic))
             body.append(f"  {strategic:.1%}", style=_score_style(strategic))
-            body.append("  strategic (top 8)\n", style=_DIM)
+            body.append("  strategic (8 riskiest inspections)\n", style=_DIM)
 
-            from rich.console import Group
-            panel_content = Group(
-                Align.center(badges),
-                Align.center(body),
+        if self_judged:
+            body.append(
+                "\n⚠  Self-judged: the provider graded its own output, so this grade "
+                "is biased and not citable.\n",
+                style="bold yellow",
             )
-            c.print(
-                Panel(
-                    panel_content,
-                    title=f"[bold {_ACCENT}]iFixAi Result[/bold {_ACCENT}]",
-                    border_style=_ACCENT,
-                    padding=(1, 4),
-                    expand=True,
-                )
+            body.append(
+                "Add a different-vendor judge for a citable grade: "
+                "--judge-provider … --eval-mode single",
+                style="italic",
             )
+
+        from rich.console import Group
+        panel_content = Group(
+            Align.center(badges),
+            Align.center(body),
+        )
+        accent = "yellow" if self_judged else _ACCENT
+        c.print(
+            Panel(
+                panel_content,
+                title=f"[bold {accent}]iFixAi Result[/bold {accent}]",
+                border_style=accent,
+                padding=(1, 4),
+                expand=True,
+            )
+        )
 
     c.print()
 
-    tbl = Table(
-        title="Scorecard by Category",
-        title_style=f"bold {_ACCENT}",
-        box=rich_box.ROUNDED,
-        border_style="grey42",
-        header_style=f"bold {_ACCENT}",
-        show_lines=True,
-        expand=True,
-    )
-    tbl.add_column("#", style="grey62", justify="center", width=3)
-    tbl.add_column("Category", style="bold", min_width=20)
-    tbl.add_column("Score", justify="center", min_width=8)
-    tbl.add_column("Progress", min_width=24)
-    tbl.add_column("Tests", justify="center", width=12)
-    tbl.add_column("Result", justify="center", min_width=16)
+    # The five core pillars are the graded foundation; everything after is the
+    # premium tier, shipped here as a free preview. Split them into two tables.
+    core_pillars = {
+        "FABRICATION",
+        "MANIPULATION",
+        "DECEPTION",
+        "UNPREDICTABILITY",
+        "OPACITY",
+    }
 
-    idx = 0
-    for cs in result.category_scores:
+    def _scorecard_table(title: str, caption: str) -> Table:
+        t = Table(
+            title=title,
+            title_style=f"bold {_ACCENT}",
+            caption=caption,
+            caption_style=_DIM,
+            box=rich_box.ROUNDED,
+            border_style="grey42",
+            header_style=f"bold {_ACCENT}",
+            show_lines=True,
+            expand=True,
+        )
+        t.add_column("#", style="grey62", justify="center", width=3)
+        t.add_column("Category", style="bold", min_width=20)
+        t.add_column("Score", justify="center", min_width=8)
+        t.add_column("Progress", min_width=24)
+        t.add_column("Passed", justify="center", width=12)
+        t.add_column("Result", justify="center", min_width=16)
+        return t
+
+    def _scorecard_row(t: Table, idx: int, cs) -> None:
         total_in_suite = len(cs.test_ids)
-        if total_in_suite == 0:
-            continue
-        idx += 1
         failed = cs.test_count - cs.tests_passed
         inconclusive = total_in_suite - cs.test_count
         ratio = cs.tests_passed / total_in_suite if total_in_suite else 0.0
         row_style = _row_style(cs.score)
-
         score_txt = Text(
             "—" if cs.score is None else f"{cs.score:.0%}",
             style=f"bold {row_style}",
             justify="center",
         )
         bar_txt = Text(_bar(ratio, 20), style=row_style)
-
         tests_txt = Text(
             f"{cs.tests_passed}/{total_in_suite}",
             style=row_style,
             justify="center",
         )
-
         if cs.score is None:
             result_txt = Text("⊘  not scored", style="yellow", justify="center")
-        elif failed > 0:
-            result_txt = Text(f"✗  {failed} failed", style="bold red", justify="center")
-        elif inconclusive > 0:
-            result_txt = Text(f"⊘  {inconclusive} inconclusive", style="yellow", justify="center")
-        else:
+        elif failed == 0 and inconclusive == 0:
             result_txt = Text("✓  all passed", style="bold green", justify="center")
+        else:
+            # Show failures AND inconclusives so passed + failed + inconclusive = total.
+            result_txt = Text(justify="center")
+            if failed > 0:
+                result_txt.append(f"✗ {failed} failed", style="bold red")
+            if failed > 0 and inconclusive > 0:
+                result_txt.append("   ")
+            if inconclusive > 0:
+                result_txt.append(f"⊘ {inconclusive} inconclusive", style="yellow")
+        t.add_row(str(idx), cs.category.value, score_txt, bar_txt, tests_txt, result_txt)
 
-        tbl.add_row(
-            str(idx),
-            cs.category.value,
-            score_txt,
-            bar_txt,
-            tests_txt,
-            result_txt,
-        )
+    core_tbl = _scorecard_table(
+        "Scorecard — Core pillars (scored)",
+        "The five pillars that form your A–F grade.",
+    )
+    premium_tbl = _scorecard_table(
+        "Premium preview — frontier categories",
+        "A free preview of iFixAi's premium suite. Scored rows add to your grade; "
+        "un-scored rows are exploratory (excluded from the grade, listed below).",
+    )
+    core_idx = premium_idx = 0
+    for cs in result.category_scores:
+        if len(cs.test_ids) == 0:
+            continue
+        if cs.category.value in core_pillars:
+            core_idx += 1
+            _scorecard_row(core_tbl, core_idx, cs)
+        else:
+            premium_idx += 1
+            _scorecard_row(premium_tbl, premium_idx, cs)
 
-    c.print(tbl)
+    c.print(core_tbl)
+    if premium_idx:
+        c.print()
+        c.print()
+        c.print(premium_tbl)
     c.print()
 
     sc = ins["status_counts"]
@@ -415,6 +443,8 @@ def render_scorecard(result) -> bool:
             box=rich_box.SIMPLE,
             header_style="bold grey62",
             show_header=True,
+            caption="Signal: ✓ = passed its check; · = scored below threshold",
+            caption_style=_DIM,
             expand=True,
         )
         expl_tbl.add_column("ID", style=_DIM, width=6)
