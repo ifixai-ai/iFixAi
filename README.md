@@ -71,23 +71,18 @@ All three run the same diagnostic underneath. The difference is how you configur
 |---|---|---|---|
 | **How you drive it** | `ifixai setup` once → `ifixai run` zero-flag every time; config saved to `ifixai.yaml` | pass every option as a CLI flag; fully scriptable | Claude is the operator: discovers your setup, builds the fixture, runs it, and explains the scorecard |
 | **Best for** | first-time users, fast repeatable runs, team onboarding | CI, automation, audit-ready scripted batches | a guided, explained run with an interactive scorecard |
-| **Setup** | `pip install "ifixai[provider]"` + `ifixai setup` | `pip install "ifixai[provider]"` + export keys | add keys to Claude Code `settings.json`; engine self-provisions |
+| **Setup** | `pip install "ifixai[<provider>]"` + `ifixai setup` | `pip install "ifixai[<provider>]"` + export keys | add keys to Claude Code `settings.json`; engine self-provisions |
 | **Keys** | auto-detected by wizard; stored as env-var name in `ifixai.yaml`, never the secret itself | `--api-key` flag or env var | configured in Claude Code settings |
 | **What you test** | any provider, or your agent's real endpoint | same | same |
 | **Who grades it** | self, one independent vendor, or a multi-judge ensemble | same | same |
 | **Output** | JSON + Markdown reports + rich terminal scorecard | same | interactive results artifact (+ JSON source of truth; static-report fallback) |
-| **Suite** | pick with arrow keys in the wizard | `--suite smoke\|strategic\|core\|extended\|all` | wizard auto-picks |
-
-**Plugin:** Claude runs the diagnostic for you. Open this repo in [Claude Code](https://claude.com/claude-code) and say
-*"run iFixAi on my setup."* Claude reads your agent's config, shows the test fixture
-it builds and names the cost before billing, runs the diagnostic on the model(s)
-and judge(s) you choose, then explains the scorecard. The rest of this page covers the CLI.
+| **Suite** | pick with arrow keys in the wizard | `--suite smoke\|strategic\|core\|extended\|all` | you pick the preset (quick · standard · full) |
 
 ## Quick start
 
 Now try it yourself. The guided wizard gets you running with zero flags from the second run
-onward. If you prefer full control or are scripting a CI pipeline, the explicit-flag path is
-below. Full walkthrough: **[docs/get-started.md](docs/get-started.md)**.
+onward; the Claude Code plugin lets Claude drive the whole thing; or use explicit flags for full
+control and CI. Full walkthrough: **[docs/get-started.md](docs/get-started.md)**.
 
 ### Guided wizard (recommended)
 
@@ -101,6 +96,26 @@ ifixai run                      # no flags needed from now on
 each prompt. No key found? The wizard tells you which env var to export; if it's still missing
 when you run, you'll be prompted for it before the first API call. After setup, `ifixai run`
 reads everything from `ifixai.yaml` — no flags, no copy-pasting keys.
+
+### Claude Code plugin
+
+Let Claude run the whole thing for you, with no flags or fixtures to write. If you already have
+[Claude Code](https://claude.com/claude-code), from inside it:
+
+1. **Install it.** Add this repo as a plugin marketplace, then install the plugin:
+
+   ```
+   /plugin marketplace add ifixai-ai/iFixAi
+   /plugin install ifixai@ifixai-ai
+   ```
+
+   Restart Claude Code or run `/reload-plugins` if it doesn't show up right away.
+
+2. **Run it.** Just ask Claude in plain English (*"run iFixAi on my setup"*), or type the slash command **`/ifixai:ifixai`**.
+
+Claude then reads your agent's config, shows the test fixture it builds and names the cost before
+anything is billed, runs the diagnostic on the model(s) and judge(s) you pick, then walks you
+through the scorecard.
 
 ### Explicit flags
 
@@ -129,8 +144,8 @@ Reports land in `./ifixai-results/` as JSON **and** Markdown. Without a second k
 `--eval-mode self` to run as a smoke test (the grade still prints, but it's flagged as
 self-judged, not a result you can cite). Pinning the judge, Full-mode ensembles, and the eval modes:
 **[docs/running.md](docs/running.md)**. Other providers (OpenAI, OpenRouter, Gemini,
-Azure, Bedrock, Hugging Face, HTTP, LangChain) install the matching extra and follow the
-same steps: **[docs/providers.md](docs/providers.md)**.
+Azure, Bedrock, Hugging Face) install the matching extra and follow the same steps; the
+HTTP and LangChain adapters need no provider extra: **[docs/providers.md](docs/providers.md)**.
 
 ### Suite options
 
@@ -138,13 +153,15 @@ same steps: **[docs/providers.md](docs/providers.md)**.
 |---|---|---|
 | `smoke` | 3 | just checking the pipeline works |
 | `strategic` | 8 | quick read on the riskiest spots |
-| `core` | 32 | full graded scorecard (default) |
-| `extended` | 13 | frontier risk signal (exploratory) |
-| `all` | 45 | everything |
+| `core` | 32 | the graded five-pillar scorecard |
+| `extended` | 13 | frontier risk signal (5 graded, 8 exploratory) |
+| `all` | 45 | everything (the default when you pass no `--suite`) |
+
+Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `--suite` values; run `ifixai list suites` to browse them all.
 
 ```bash
 ifixai run --provider openai --suite strategic   # quick 8-test read
-ifixai run --provider openai --suite core        # full grade
+ifixai run --provider openai --suite core        # the graded scorecard
 ifixai list suites                               # browse all suites and themes
 ```
 
@@ -174,9 +191,10 @@ api_key_env: OPENAI_API_KEY
 suite: core
 judges:
   - provider: anthropic
-    model: claude-sonnet-4-20250514
+    model: claude-3-5-sonnet-latest
 ```
 
+`ifixai setup` also records `fixture`, `mode`, and `eval_mode` (trimmed here for brevity).
 Keep `ifixai.yaml` out of version control — it is git-ignored by default.
 
 ## What you get back
