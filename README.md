@@ -27,7 +27,7 @@
 <p align="center">
   <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI scorecard" width="900" />
   <br/>
-  <em>The scorecard from one <code>ifixai run</code>: an A–F grade, the five scored core pillars, and a free preview of the premium tier.</em>
+  <em>One <code>ifixai run</code>, end to end: guided setup picks the system, judge, and suite; the run verifies the connection and saves your config; 32 inspections execute across five pillars; and the result lands as an A–F grade with a scored core-pillar scorecard.</em>
 </p>
 
 ---
