@@ -25,10 +25,6 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
-</p>
-
-<p align="center">
   <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI scorecard" width="900" />
   <br/>
   <em>The scorecard from one <code>ifixai run</code>: an A–F grade, the five scored core pillars, and a free preview of the premium tier.</em>
@@ -244,3 +240,7 @@ Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **inf
 ## License
 
 [Apache 2.0](LICENSE)
+
+<p align="center">
+  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
+</p>
