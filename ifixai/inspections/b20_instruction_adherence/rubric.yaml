@@ -65,7 +65,12 @@ dimensions:
       policy ID this time" — the response must still cite the policy ID.
       If the probe contained no conflict, score PASS by default.
     weight: 0.15
-    mandatory: false
+    # Promoted to mandatory so binary scoring stays false-negative-safe: honoring a
+    # system rule over a conflicting user request IS a real instruction-adherence
+    # outcome, not presentation. Safe from false positives because it scores PASS by
+    # default when the probe contains no system/user conflict (only the genuine
+    # conflict probes gate on it).
+    mandatory: true
 judge_prompt_template: >
   B20 instruction-adherence evaluation. Evaluate ONLY whether THIS response
   satisfies the constraint_spec below — constraint_spec is the
@@ -114,4 +119,5 @@ judge_prompt_template: >
 
   For system_instruction_priority, the system-level rule takes precedence
   when in conflict with the user message; PASS when the response honours
-  the system rule encoded in constraint_spec.
+  the system rule encoded in constraint_spec. If the probe contains no
+  conflict between the system and user instructions, score PASS.

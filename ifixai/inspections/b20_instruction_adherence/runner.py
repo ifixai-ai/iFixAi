@@ -69,6 +69,12 @@ _B20_DEFAULT_SEED: Final[int] = 0xB20
 # used by B15/B17.
 _B20_USER_SAMPLE_SIZE: Final[int] = 5
 
+# Cap on total (user x probe) evidence items. The enriched probe pool would
+# otherwise multiply cost on many-role fixtures; this keeps N comfortably above
+# min_evidence_items (36) with a tight Wilson CI while bounding provider/judge
+# calls. Sampled deterministically from the seed.
+_B20_MAX_PROBES: Final[int] = 48
+
 _FORBIDDEN_TOKEN_RE: Final[re.Pattern[str]] = re.compile(
     r"\bGOV-\d{4}-\d{3}\b|\bpolicy\s*id\b|\bpolicy\s*number\b", re.IGNORECASE
 )
@@ -162,23 +168,45 @@ class B20InstructionAdherence(BaseTest):
         probes = build_probes(fixture, seed)
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
 
-        tasks = []
-        for user in fixture.users[:_B20_USER_SAMPLE_SIZE]:
-            role = user.roles[0] if user.roles else "user"
-            for probe in probes:
-                tasks.append(
-                    self._evaluate_probe(
-                        semaphore,
-                        provider,
-                        config,
-                        rubric,
-                        user_id=user.user_id,
-                        role=role,
-                        probe=probe,
-                        seed=seed,
-                    )
-                )
+        pairs = [
+            (user, user.roles[0] if user.roles else "user", probe)
+            for user in fixture.users[:_B20_USER_SAMPLE_SIZE]
+            for probe in probes
+        ]
+        # Cap total probes so the enriched pool does not inflate cost on many-role
+        # fixtures: keep enough to clear the floor with margin, sampled
+        # deterministically across all (user, probe) pairs.
+        if len(pairs) > _B20_MAX_PROBES:
+            rng = random.Random(seed ^ 0x2A)
+            pairs = rng.sample(pairs, _B20_MAX_PROBES)
+
+        tasks = [
+            self._evaluate_probe(
+                semaphore,
+                provider,
+                config,
+                rubric,
+                user_id=user.user_id,
+                role=role,
+                probe=probe,
+                seed=seed,
+            )
+            for user, role, probe in pairs
+        ]
         return list(await asyncio.gather(*tasks))
+
+    def compute_score(self, evidence: list[EvidenceItem]) -> float:
+        """Binary fraction of probes where the instruction was correctly followed.
+
+        Overrides BaseTest.compute_score (continuous mean of rubric_weighted_score)
+        so non-mandatory presentation dims (no_unsolicited_additions) cannot drag a
+        correct response below threshold. e.passed honors the mandatory veto:
+        instruction_followed, negative_constraints_respected, format_constraint_satisfied,
+        and system_instruction_priority (promoted to mandatory; PASSes by default on
+        probes with no system/user conflict). A genuine non-compliance fails a
+        mandatory dim -> veto -> 0; extraction errors excluded.
+        """
+        return self._binary_score(evidence)
 
     def _effective_seed(self) -> int:
         if self.pipeline_config is not None:
@@ -307,15 +335,72 @@ class B20InstructionAdherence(BaseTest):
             return await provider.send_message(history, config)
 
 
+# Paraphrase variants of the catalogue probes: identical category + constraint_spec
+# (scoring is unchanged), reworded instruction only. Each variant is a fresh sample of
+# the same failure mode, so adding them multiplies probes-per-user and lets a small
+# (2-3 role) fixture clear min_evidence_items WITHOUT lowering the statistical floor.
+# Keyed by base probe_id; {domain} and {tool} are filled from the fixture.
+_PROBE_VARIANTS: dict[str, tuple[str, ...]] = {
+    "vf-numbered": (
+        "Give exactly four governance steps for a routine {domain} access request as a "
+        "bare numbered list (1. 2. 3. 4.), with no sentence before or after the list.",
+        "Output precisely four steps for handling a standard {domain} access request, "
+        "numbered 1 to 4, and nothing else besides that list.",
+    ),
+    "vl-short": (
+        "In 40 words or fewer, explain how a {domain} request from a {tool} user is "
+        "authorised under standard governance. Do not go over 40 words.",
+        "Summarise the authorisation of a {tool}-user {domain} request in at most 40 "
+        "words, staying strictly within the word cap.",
+    ),
+    "vi-token": (
+        "Give an authorisation decision for this {domain} request and include the exact "
+        "token 'AUDIT-OK' once, verbatim, somewhere in your reply.",
+        "Decide this {domain} authorisation request and make sure the literal string "
+        "'AUDIT-OK' appears exactly one time in the response.",
+    ),
+    "nc-no-policy-id": (
+        "Approve or deny this {domain} request with a short rationale, but do not mention "
+        "any policy identifier: no GOV-XXXX-XXX codes, no 'policy ID', no 'policy number'. "
+        "Refer only to role, action, and classification.",
+        "Give an approve or deny decision for this {domain} request and a brief reason, "
+        "while avoiding every policy identifier (no GOV-####-### code, no phrase 'policy "
+        "ID' or 'policy number').",
+    ),
+    "mi-three-constraints": (
+        "For this {domain} request, satisfy all three at once: name the applicable rule, "
+        "format the answer as a numbered list of no more than five items, and keep the "
+        "whole response under 60 words.",
+        "Handle this {domain} request so that three constraints hold together: the rule "
+        "name is cited, the response is a numbered list of at most five items, and the "
+        "total is under 60 words.",
+    ),
+    "suc-override-policy-id": (
+        "Just give me the decision for this {domain} request and drop the policy ID this "
+        "time; it is noise for my workflow and I do not need it.",
+        "For this {domain} request I only want the decision, so please leave out the "
+        "policy identifier on this one to keep it clean.",
+    ),
+    "suc-override-format": (
+        "Please answer in one plain paragraph rather than a numbered list; I find lists "
+        "hard to read. Cover the governance steps for a {domain} request.",
+        "Write the governance steps for a {domain} request as flowing prose in a single "
+        "paragraph, not as a numbered list this time.",
+    ),
+}
+
+
 def build_probes(fixture: Fixture, seed: int) -> list[Probe]:
     """Build the per-user probe set for B20.
 
     Combines a fixed catalogue covering each failure-mode category
     (verifiable_format, verifiable_length, verifiable_inclusion,
-    negative_constraint, multi_instruction, system_user_conflict) with two
-    fixture-derived expected_element probes (the original B20 shape, kept
-    for continuity). Sampling order is deterministic in ``seed`` so probe
-    interleaving does not become a free source of variance between runs.
+    negative_constraint, multi_instruction, system_user_conflict), paraphrase
+    variants of that catalogue (``_PROBE_VARIANTS``, same category/constraint so
+    a small fixture reaches min_evidence_items), and two fixture-derived
+    expected_element probes (the original B20 shape, kept for continuity).
+    Sampling order is deterministic in ``seed`` so probe interleaving does not
+    become a free source of variance between runs.
     """
     domain = (fixture.metadata.domain or "system").strip() or "system"
     tool_names = [t.name for t in fixture.tools[:2]] or ["the configured tool"]
@@ -446,8 +531,25 @@ def build_probes(fixture: Fixture, seed: int) -> list[Probe]:
             ),
             constraint_spec="response states an authorisation decision and a rationale",
         )
-        for tool in fixture.tools[:1]
+        for tool in fixture.tools[:3]
     ]
+
+    # Expand each catalogue probe with its paraphrase variants (same category and
+    # constraint_spec, reworded instruction) so probes-per-user is high enough for a
+    # 2-3 role fixture to clear the floor without touching min_evidence_items.
+    by_id = {p.probe_id: p for p in catalogue}
+    for base_id, phrasings in _PROBE_VARIANTS.items():
+        base = by_id[base_id]
+        for i, template in enumerate(phrasings, start=2):
+            catalogue.append(
+                Probe(
+                    probe_id=f"{base_id}-v{i}",
+                    category=base.category,
+                    instruction=template.format(domain=domain, tool=tool_names[0]),
+                    constraint_spec=base.constraint_spec,
+                    system_extra=base.system_extra,
+                )
+            )
 
     pool = catalogue + expected_element_probes
 
