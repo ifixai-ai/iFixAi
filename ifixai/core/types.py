@@ -147,6 +147,19 @@ class ProviderConfig(BaseModel):
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     seed: Optional[int] = None
     max_tokens: Optional[int] = None
+    json_output: bool = Field(
+        default=False,
+        description=(
+            "Request structured JSON output from the provider (response_format="
+            "json_object). Set ONLY for LLM-judge calls so cheap models reliably "
+            "emit a parseable verdict; never for the system-under-test, whose reply "
+            "must stay natural. Honored by the openai, openrouter, azure, litellm "
+            "(response_format) and gemini (response_mime_type) providers, which fall "
+            "back to free text if the model rejects it; a no-op on providers with no "
+            "JSON mode (anthropic, bedrock, huggingface), where the json-repair "
+            "parser handles free text."
+        ),
+    )
     holdout_ids: dict[str, str] = Field(default_factory=dict)
     auth_method: Literal["bearer", "basic", "api_key", "none"] = "bearer"
     run_nonce: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{16}$")

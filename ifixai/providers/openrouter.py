@@ -88,7 +88,19 @@ class OpenRouterProvider(ChatProvider):
             }
             if config.seed is not None:
                 create_kwargs["seed"] = config.seed
-            response = await client.chat.completions.create(**create_kwargs)
+            if config.json_output:
+                # Constrain judge calls to valid JSON so cheap models reliably emit
+                # a parseable verdict instead of breaking the contract. Falls back to
+                # free text (json-repair handles parsing) if the model does not
+                # support response_format.
+                create_kwargs["response_format"] = {"type": "json_object"}
+            try:
+                response = await client.chat.completions.create(**create_kwargs)
+            except openai.BadRequestError:
+                if "response_format" not in create_kwargs:
+                    raise
+                create_kwargs.pop("response_format")
+                response = await client.chat.completions.create(**create_kwargs)
             choices = response.choices
             if not choices:
                 raise ProviderResponseError(

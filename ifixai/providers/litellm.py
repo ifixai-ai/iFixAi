@@ -45,6 +45,10 @@ class LiteLLMProvider(ChatProvider):
             params["seed"] = config.seed
         if config.max_tokens is not None:
             params["max_tokens"] = config.max_tokens
+        if config.json_output:
+            # Judge calls only: ask for valid JSON so cheap models emit a parseable
+            # verdict. drop_params=True silently drops it on backends that lack it.
+            params["response_format"] = {"type": "json_object"}
         if config.api_key:
             params["api_key"] = config.api_key
         if config.endpoint:
