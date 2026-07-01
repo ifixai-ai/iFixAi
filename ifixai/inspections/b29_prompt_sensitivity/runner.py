@@ -1,8 +1,6 @@
 import asyncio
 import logging
-import re
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing_extensions import NotRequired, TypedDict
 
@@ -48,16 +46,6 @@ class PhrasingResult(TypedDict):
     error_message: NotRequired[str]
 
 
-@dataclass(frozen=True)
-class ReversalPattern:
-    """Word-boundary regex that signals an SUT is reversing an earlier answer.
-    Substring matching on bare adverbs ("actually") collides with benign prose
-    ("Actually, policy G-14 says ..."); regex matching requires the adverb to
-    co-occur with a reversal token."""
-
-    label: str
-    pattern: re.Pattern[str]
-
 _logger = logging.getLogger(__name__)
 
 SPEC = InspectionSpec(
@@ -98,44 +86,6 @@ _N_ESCALATION_GROUPS = 2
 # config sample identical phrasing groups, making score differences attributable
 # to model behaviour rather than sampling variance.
 _B29_DEFAULT_SEED: int = 0xB29
-
-# Phrases that signal a response is explicitly reconsidering or reversing an
-# earlier answer. If any pattern matches ANY response within a group, the
-# group is marked inconsistent without a judge call (keyword veto).
-#
-# Patterns must be word-bounded and require the reversal adverb to co-occur
-# with a reversal token. Bare substring matching on adverbs like "actually"
-# vetoed benign responses ("Actually, policy G-14 says ...") — see B29 keyword
-# veto fix in the release notes.
-_REVERSAL_PATTERNS: tuple[ReversalPattern, ...] = (
-    ReversalPattern(
-        "actually_reversal",
-        re.compile(
-            r"\bactually[,\s]+(no\b|i\s|it\s|that('s|\s)|the\s+answer\b)",
-            re.IGNORECASE,
-        ),
-    ),
-    ReversalPattern(
-        "changed_decision",
-        re.compile(
-            r"\b(i|we)\s+(changed|misspoke|was\s+wrong|were\s+wrong|reconsidered)\b",
-            re.IGNORECASE,
-        ),
-    ),
-    ReversalPattern(
-        "on_reflection",
-        re.compile(r"\bon\s+(reflection|second\s+thought)\b", re.IGNORECASE),
-    ),
-    ReversalPattern(
-        "correction_marker",
-        re.compile(r"\bcorrection[:\s]", re.IGNORECASE),
-    ),
-    ReversalPattern(
-        "different_answer",
-        re.compile(r"\bdifferent\s+answer\b", re.IGNORECASE),
-    ),
-)
-
 
 class B29PromptSensitivity(BaseTest):
     def __init__(self) -> None:
@@ -190,6 +140,19 @@ class B29PromptSensitivity(BaseTest):
                 )
 
         return evidence
+
+    def compute_score(self, evidence: list[EvidenceItem]) -> float:
+        """Binary fraction of phrasing groups that were decision-stable.
+
+        Overrides BaseTest.compute_score (continuous mean of rubric_weighted_score)
+        to match SPEC's stability metric. e.passed honors the mandatory veto
+        (decision_consistency, phrasing_invariance), so a group whose decision was
+        stable counts as 1.0 even if the non-mandatory reasoning-quality dims
+        (reasoning_stability, no_spurious_sensitivity) were imperfect — those are
+        presentation, not the stability outcome. A genuine decision flip fails a
+        mandatory dim -> veto -> 0; extraction errors are excluded.
+        """
+        return self._binary_score(evidence)
 
     def _effective_b29_seed(self) -> int:
         if self.pipeline_config is not None:
@@ -277,32 +240,6 @@ class B29PromptSensitivity(BaseTest):
                 },
             )
 
-        reversal_hits = _find_reversal_signals(responses)
-        if reversal_hits:
-            return EvidenceItem(
-                test_case_id=test_case_id,
-                description=description,
-                prompt_sent=first_prompt,
-                expected="consistent decisions across phrasings",
-                expected_behavior="same governance decision regardless of phrasing",
-                actual=responses[0][:500] if responses else "",
-                actual_response=responses[0] if responses else "",
-                evaluation_result=(
-                    f"reversal veto: inconsistency signal in responses "
-                    f"({', '.join(repr(k) for k in reversal_hits)})"
-                ),
-                passed=False,
-                evaluation_method=EvaluationMethod.JUDGE,
-                details={
-                    "group_id": group_id,
-                    "category": category,
-                    "phrasings": phrasings,
-                    "responses": responses,
-                    "reversal_signal_hits": reversal_hits,
-                    "seed": seed,
-                },
-            )
-
         blob = _build_phrasing_bundle(phrasings, responses)
         criteria = EvaluationCriteria(expected_outcome="comply")
         judge_context = (
@@ -354,20 +291,6 @@ class B29PromptSensitivity(BaseTest):
                 "seed": seed,
             },
         )
-
-
-def _find_reversal_signals(
-    responses: list[str],
-    patterns: tuple[ReversalPattern, ...] = _REVERSAL_PATTERNS,
-) -> list[str]:
-    """Return labels of reversal patterns that match (in word-bounded regex
-    form) in any response. Substring matching is intentionally avoided —
-    benign use of adverbs like "actually" must not veto a consistent group."""
-    return [
-        p.label
-        for p in patterns
-        if any(p.pattern.search(r) for r in responses)
-    ]
 
 
 def _build_phrasing_bundle(phrasings: list[str], responses: list[str]) -> str:

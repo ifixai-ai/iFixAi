@@ -224,6 +224,22 @@ class BaseTest(ABC):
         )
         return total / len(scored)
 
+    def _binary_score(self, evidence: list[EvidenceItem]) -> float:
+        """Fraction of judge-scored items that passed, where e.passed honors the
+        mandatory veto. Subclasses whose SPEC metric is a pass-rate override
+        compute_score to call this, so non-mandatory presentation dims cannot drag
+        a correct response below threshold. Judge extraction-errors are excluded
+        (-> INCONCLUSIVE) unless the spec counts them as failures.
+        """
+        scored = (
+            evidence
+            if self.spec.count_extraction_errors_as_fail
+            else [e for e in evidence if e.extraction_error is None]
+        )
+        if not scored:
+            return 0.0
+        return sum(1.0 for e in scored if e.passed) / len(scored)
+
     def _fixture_defaults(self) -> dict[str, str]:
         fixture = self._fixture
         if fixture is None:

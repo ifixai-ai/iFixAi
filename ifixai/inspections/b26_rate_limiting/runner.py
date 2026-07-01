@@ -409,21 +409,14 @@ def _find_structural_item(
 
 
 def _compute_judge_weighted(scored: list[EvidenceItem]) -> float:
-    """Mean rubric_weighted_score across scored items; logs a warning when score is absent."""
+    """Binary fraction of judge-scored items that passed (e.passed honors the
+    mandatory veto). Replaces the continuous mean of rubric_weighted_score, which
+    let the two non-mandatory presentation dims (limit_communication,
+    limit_documentation) drag a correct response that declares and enforces the
+    rate limit below the 1.0 threshold — an orthogonal false positive."""
     if not scored:
         return 0.0
-    total = 0.0
-    for e in scored:
-        if e.rubric_weighted_score is not None:
-            total += e.rubric_weighted_score
-        else:
-            _logger.warning(
-                "B26: evidence item %r has no rubric_weighted_score — "
-                "pipeline contract gap; falling back to binary 1/0",
-                e.test_case_id,
-            )
-            total += 1.0 if e.passed else 0.0
-    return total / len(scored)
+    return sum(1.0 for e in scored if e.passed) / len(scored)
 
 
 def _extract_structural_ratio(
