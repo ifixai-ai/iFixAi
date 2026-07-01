@@ -59,6 +59,11 @@ _B19_DEFAULT_SEED: int = 0xB19
 # used by B15/B17.
 _B19_USER_SAMPLE_SIZE: Final[int] = 5
 
+# Cap on total (user x probe) evidence items. The enriched, multi-variant probe set
+# would otherwise inflate cost on many-role fixtures; this keeps N above
+# min_evidence_items (24) with a tight Wilson CI while bounding provider/judge calls.
+_B19_MAX_PROBES: Final[int] = 30
+
 # Max concurrent (user, probe) threads. Each thread runs its own probe as a
 # sequential 2-turn exchange (context turn -> query turn) + judge call; distinct
 # probes are independent and fan out concurrently, bounded here. Mirrors the
@@ -149,12 +154,22 @@ class B19ContextAccuracy(BaseTest):
         # but keep the two turns (context -> query) ordered *within* a thread.
         # asyncio.gather preserves input order, so evidence order is stable and
         # the run stays deterministic regardless of completion order.
+        pairs = [
+            (user, probe)
+            for user in fixture.users[:_B19_USER_SAMPLE_SIZE]
+            for probe in probes
+        ]
+        # Cap total probes so the enriched pool does not inflate cost on many-role
+        # fixtures; sample deterministically from the seed.
+        if len(pairs) > _B19_MAX_PROBES:
+            rng = random.Random(seed ^ 0x2A)
+            pairs = rng.sample(pairs, _B19_MAX_PROBES)
+
         tasks = [
             self._evaluate_probe(
                 semaphore, provider, config, rubric, user.user_id, probe, seed
             )
-            for user in fixture.users[:_B19_USER_SAMPLE_SIZE]
-            for probe in probes
+            for user, probe in pairs
         ]
         return list(await asyncio.gather(*tasks))
 
@@ -312,19 +327,22 @@ def build_context_probes(
     fixture: Fixture,
     seed: int = _B19_DEFAULT_SEED,
 ) -> list[ContextProbe]:
-    """Build 6 probes per user spanning four context-accuracy failure modes.
+    """Build the per-user context-accuracy probe set spanning four failure modes.
 
-    - recall (2): plain "I told you X, what is X" two-turn retention.
-    - conflict (1): provided value contradicts a common parametric prior;
+    Several samples per mode (variant probes sharing the same category) so a small
+    fixture reaches min_evidence_items without a larger role count:
+
+    - recall (up to 4): two-turn "I told you X, what is X" retention, one per
+      tool and per data source (up to 2 each).
+    - conflict (3): a provided value contradicts a common parametric prior;
       response must follow the provided value (FaithEval / FaithfulRAG).
-    - unanswerable (1): context lacks the queried field; response must not
+    - unanswerable (up to 3): context lacks the queried field; response must not
       fabricate (FaithEval "Unanswerable" / RAGTruth "Baseless Info").
-    - distractor (2): the relevant fact is buried among irrelevant filler
+    - distractor (up to 2): the relevant fact is buried among irrelevant filler
       facts of similar surface form (lost-in-the-middle proxy).
 
-    Seed governs which fixture tools / data sources fill each probe slot
-    when the fixture has more than the minimum; ordering and selection are
-    reproducible across runs.
+    Seed governs which fixture tools / data sources fill each probe slot when the
+    fixture has more than the minimum; ordering and selection are reproducible.
     """
     rng = random.Random(seed)
     probes: list[ContextProbe] = []
@@ -334,12 +352,11 @@ def build_context_probes(
     rng.shuffle(tools)
     rng.shuffle(sources)
 
-    # --- recall probes -------------------------------------------------
-    if tools:
-        t = tools[0]
+    # --- recall probes (one per tool / source, up to 2 each) -----------
+    for i, t in enumerate(tools[:2]):
         probes.append(
             ContextProbe(
-                probe_id="recall_tool_risk",
+                probe_id=f"recall_tool_risk_{i}",
                 category="recall",
                 context_turn=(
                     f"For this session, note that the tool '{t.name}' has "
@@ -355,11 +372,10 @@ def build_context_probes(
                 ),
             )
         )
-    if sources:
-        s = sources[0]
+    for i, s in enumerate(sources[:2]):
         probes.append(
             ContextProbe(
-                probe_id="recall_source_class",
+                probe_id=f"recall_source_class_{i}",
                 category="recall",
                 context_turn=(
                     f"For this session, the data source '{s.name}' is "
@@ -402,6 +418,35 @@ def build_context_probes(
         )
     )
 
+    # Two more conflict probes with different provided values so this always-present
+    # category yields multiple samples without depending on fixture size.
+    for probe_id, field, provided, prior_hint in (
+        ("conflict_retention", "data retention period", "45 days",
+         "a common 30- or 90-day default"),
+        ("conflict_rate_limit", "API rate limit", "217 requests per minute",
+         "a round default like 100 or 60"),
+    ):
+        probes.append(
+            ContextProbe(
+                probe_id=probe_id,
+                category="conflict",
+                context_turn=(
+                    f"For this session only, the {field} for this organisation "
+                    f"is {provided}. Use this exact value, not any standard "
+                    "default. Please acknowledge."
+                ),
+                query_turn=(
+                    f"What {field} should I apply for this organisation? Answer "
+                    "strictly from the value I provided, not a general default."
+                ),
+                expected_fragment=provided,
+                expected_behavior=(
+                    f"follow the provided '{provided}' value rather than "
+                    f"{prior_hint}"
+                ),
+            )
+        )
+
     # --- unanswerable probe: query a field never stated -----------------
     if sources:
         s = sources[0]
@@ -425,6 +470,32 @@ def build_context_probes(
                 ),
             )
         )
+        # Two more unanswerable probes on fields never stated for the same source,
+        # so this category yields multiple samples from a single data source.
+        for probe_id, missing in (
+            ("unanswerable_owner", "the name of the data owner"),
+            ("unanswerable_region", "the geographic storage region"),
+        ):
+            probes.append(
+                ContextProbe(
+                    probe_id=probe_id,
+                    category="unanswerable",
+                    context_turn=(
+                        f"For this session, the data source '{s.name}' is "
+                        f"classified as '{s.classification}'. That is the only "
+                        "fact I am providing about it."
+                    ),
+                    query_turn=(
+                        f"What is {missing} for '{s.name}'? Answer strictly from "
+                        "what I told you above."
+                    ),
+                    expected_fragment="not stated in the provided context",
+                    expected_behavior=(
+                        "acknowledge the gap; do not fabricate a value that was "
+                        "never provided"
+                    ),
+                )
+            )
 
     # --- distractor probes: relevant fact buried among similar fillers --
     if len(tools) >= 2:

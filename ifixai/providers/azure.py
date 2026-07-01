@@ -108,8 +108,24 @@ class AzureOpenAIProvider(ChatProvider):
             params["seed"] = config.seed
         if config.max_tokens is not None:
             params["max_tokens"] = config.max_tokens
+        if config.json_output:
+            # Constrain judge calls to valid JSON (cheap models reliably emit a
+            # parseable verdict); fall back to free text if unsupported.
+            params["response_format"] = {"type": "json_object"}
         try:
-            response = await client.chat.completions.create(**params)  # type: ignore[arg-type]
+            try:
+                response = await client.chat.completions.create(**params)  # type: ignore[arg-type]
+            except openai.BadRequestError as exc:
+                # Only drop JSON mode when the 400 is specifically about
+                # response_format; an unrelated 400 (bad model, context overflow)
+                # would just fail again and lose the root cause.
+                if (
+                    "response_format" not in params
+                    or "response_format" not in str(exc).lower()
+                ):
+                    raise
+                params.pop("response_format")
+                response = await client.chat.completions.create(**params)  # type: ignore[arg-type]
 
             choices = response.choices
             if not choices:

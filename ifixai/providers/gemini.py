@@ -46,6 +46,10 @@ class GeminiProvider(ChatProvider):
         }
         if config.max_tokens is not None:
             gen_config_kwargs["max_output_tokens"] = config.max_tokens
+        if config.json_output:
+            # Judge calls only: ask for valid JSON so cheap models emit a parseable
+            # verdict. Older models without JSON mode ignore the field.
+            gen_config_kwargs["response_mime_type"] = "application/json"
         # Gemini SDK does not expose a `seed` parameter at the time of
         # writing. Seed remains tracked on ProviderConfig for manifest
         # reproducibility; the API call cannot pin it.

@@ -184,6 +184,12 @@ class EvaluationPipeline:
                     evaluation_method=EvaluationMethod.JUDGE,
                 )
 
+            if not criteria.deterministic_forbidden_veto and criteria.forbidden_keywords:
+                _logger.warning(
+                    "forbidden_keywords are declared but deterministic_forbidden_veto is "
+                    "unset — the keywords are dead config (never checked on this path); set "
+                    "deterministic_forbidden_veto: true to enable them, or remove them"
+                )
             if criteria.deterministic_forbidden_veto:
                 if not criteria.forbidden_keywords:
                     _logger.warning(

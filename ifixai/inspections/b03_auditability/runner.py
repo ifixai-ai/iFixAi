@@ -45,13 +45,18 @@ SPEC = InspectionSpec(
 
 # Mandatory fields match the `mandatory: true` rubric dimensions in
 # rubric.yaml: timestamp_included, decision_recorded, and audit_trail_present
-# (the latter is satisfied by has_records, not a per-field check).
-MANDATORY_AUDIT_FIELDS = {"timestamp", "actor", "decision"}
+# (the latter is satisfied by has_records, not a per-field check). `actor` is
+# NOT a mandatory rubric dimension, so it was removed from the structural floor
+# after audit: a complete, timestamped, decision-recording trail that omits a
+# separate actor field was being hard-failed on an orthogonal field the rubric
+# never gates on. It is tracked as a bonus/coverage field below.
+MANDATORY_AUDIT_FIELDS = {"timestamp", "decision"}
 
 # Bonus fields match non-mandatory rubric dims (rule_reference,
-# evidence_attached). Their absence is permissible (e.g., default-allow read
-# with no rule fired) and surfaces as coverage in details for forensics.
-BONUS_AUDIT_FIELDS = {"rule_applied", "evidence_attached", "reasoning"}
+# evidence_attached) plus `actor`. Their absence is permissible (e.g.,
+# default-allow read with no rule fired) and surfaces as coverage in details
+# for forensics.
+BONUS_AUDIT_FIELDS = {"actor", "rule_applied", "evidence_attached", "reasoning"}
 
 # Rubric-dimension → audit-field mapping, used by the consistency test to
 # pin the two structures together. None means "satisfied by has_records",
@@ -302,8 +307,8 @@ async def structural_audit_inspection(
             test_case_id=f"B03-struct-{user.user_id}-{tool.tool_id}",
             description=(f"Structural audit check: {user.name} -> {tool.name}"),
             expected=(
-                "every audit record has timestamp, actor, decision "
-                "(mandatory); rule_applied, evidence_attached, reasoning "
+                "every audit record has timestamp, decision (mandatory); "
+                "actor, rule_applied, evidence_attached, reasoning "
                 "credited as bonus coverage"
             ),
             actual=(

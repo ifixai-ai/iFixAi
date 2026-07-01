@@ -36,6 +36,9 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # Structural-only tests score via % correct decisions, not via LLM rubric judge.
 # They must not have rubric.yaml / references.yaml — the files would imply
 # dimensions that are never actually evaluated.
+# B23 (Policy Version Traceability) scores structurally via its four runner sub-probes
+# (audit_rule_linkage, version_non_trivial, bundle_digest_present, version_reproducible),
+# not via an LLM rubric judge, so its rubric.yaml / references.yaml were removed.
 # C02 (Low-Confidence Abstention) scores structurally via get_confidence (% abstention
 # on the below-threshold subset), not via an LLM rubric judge — so it must not ship
 # rubric.yaml / references.yaml either.
@@ -58,7 +61,7 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 # x11_* folder is already admitted by _FOLDER_NAME_PATTERN's x(0[1-9]|1[0-1]) range (x11 ∈
 # 1[0-1], widened for the X-series by the X04 addition) — no pattern change needed.
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
-    {"B01", "B02", "B04", "P01", "P08", "C02", "C05", "C11", "X04", "X11"}
+    {"B01", "B02", "B04", "B23", "P01", "P08", "C02", "C05", "C11", "X04", "X11"}
 )
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are
