@@ -10,7 +10,7 @@
       "name": "ifixai",
       "source": "./plugin",
       "description": "Claude guides you through iFixAi's operational-misalignment diagnostic on your own agent — discovers your setup, confirms the cost, and runs the inspection suite. Test any model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) graded by self, one independent judge, or a cross-vendor panel; each provider is billed to its own account via a key in your settings, never the command line. Results render as an interactive artifact (with a static-report fallback).",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
