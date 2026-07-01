@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ifixai"
-version = "3.0.2"
+version = "3.1.0"
 description = "ifixai — open-source diagnostic for AI misalignment"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -68,9 +68,6 @@ dev = [
 
 [project.scripts]
 ifixai = "ifixai.cli.main:main"
-# The Claude Code plugin's diagnostic driver. Shipped in the engine wheel so the
-# plugin can run it from a pip-installed engine — no cloned repo needed.
-ifixai-diagnose = "ifixai.plugin.orchestrator:main"
 
 [project.urls]
 Homepage = "https://github.com/ifixai-ai/iFixAi"
@@ -90,10 +87,7 @@ markers = [
 include = ["ifixai*"]
 
 [tool.setuptools.package-data]
-ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsx]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "mappings/*.yaml"]
-# Plugin data the orchestrator loads at runtime (the default fixture + the golden
-# replay recording), so `ifixai-diagnose --mode replay` works from the wheel.
-"ifixai.plugin" = ["fixtures/*.yaml", "recordings/*.json"]
+ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsx]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "mappings/*.yaml", "scaffold/*.md"]
 
 [tool.ruff.lint.per-file-ignores]
 # ChatProvider base-class methods accept the full provider-call signature as an

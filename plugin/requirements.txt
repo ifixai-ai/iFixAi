@@ -1,5 +1,6 @@
-# The iFixAi engine the plugin runs. Pinned so the plugin is validated against a
-# known engine build (the version the plugin release was tested with). The
-# [anthropic] extra pulls the SDK needed for --mode api. Bump this in lockstep
-# with the plugin version when the engine is re-released.
-ifixai[anthropic]==3.0.2
+# The iFixAi engine the plugin runs (the skill drives `ifixai run`). Pinned so the
+# plugin is validated against a known engine build. The [anthropic] extra pulls the
+# Anthropic SDK that a live `ifixai run` uses. Bump this in lockstep with the engine
+# version when it is re-released. 3.1.0 is the first release that ships `ifixai
+# install`, `ifixai setup`, and `ifixai run --artifact-out`, which this plugin needs.
+ifixai[anthropic]==3.1.0
