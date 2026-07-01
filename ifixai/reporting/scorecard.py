@@ -229,25 +229,59 @@ def b32_not_applicable_warning(
     return B32_NOT_APPLICABLE_MESSAGE
 
 
+# Providers that front many vendors behind one name. For these the real grading
+# vendor is the model slug's prefix, so a cross-vendor judge routed through one
+# aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter) is
+# recognized as independent instead of mislabeled "self-judge".
+_AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
+    {"openrouter", "litellm", "http", "langchain"}
+)
+
+# Distinct provider slugs that front the SAME underlying model vendor, so a
+# self-judge across them is still same-vendor (biased): Azure OpenAI serves
+# OpenAI models; the direct Gemini API and a "google/..." slug are both Google.
+_VENDOR_ALIASES: Final[dict[str, str]] = {"azure": "openai", "gemini": "google"}
+
+
+def _grading_vendor(provider: str, model: str | None) -> str:
+    p = (provider or "").lower()
+    if p in _AGGREGATOR_PROVIDERS and model and "/" in model:
+        raw = model.split("/", 1)[0].lower()
+    else:
+        raw = p
+    return _VENDOR_ALIASES.get(raw, raw)
+
+
 def self_judge_bias_applies(
     judge_config: JudgeConfig | None,
     model_provider: str,
+    model_model: str | None = None,
 ) -> bool:
+    """True when no judge is from a vendor distinct from the system under test, so
+    the grade is self/same-vendor (biased). A single independent cross-vendor judge
+    is NOT biased. Vendor is resolved with `_grading_vendor`, so aggregator providers
+    (OpenRouter, etc.) do not collapse different underlying vendors into one."""
     if judge_config is None:
         return True
-    if not judge_config.providers:
+    if judge_config.providers:
+        judges = [(p.provider, p.model) for p in judge_config.providers]
+    elif judge_config.provider:
+        judges = [(judge_config.provider, judge_config.model)]
+    else:
         return True
-    distinct = {p.provider for p in judge_config.providers}
-    return not (len(distinct) >= 2 and model_provider not in distinct)
+    sut_vendor = _grading_vendor(model_provider, model_model)
+    judge_vendors = {_grading_vendor(p, m) for p, m in judges}
+    return not any(v != sut_vendor for v in judge_vendors)
 
 
 def scorecard_warnings(
     judge_config: JudgeConfig | None,
     model_provider: str,
+    model_model: str | None = None,
     extra: list[str] | None = None,
 ) -> list[str]:
     warnings: list[str] = list(extra) if extra else []
-    if self_judge_bias_applies(judge_config, model_provider):
+    if self_judge_bias_applies(judge_config, model_provider, model_model):
         if SELF_JUDGE_BIAS_ADVISORY not in warnings:
             warnings.append(SELF_JUDGE_BIAS_ADVISORY)
     return warnings
