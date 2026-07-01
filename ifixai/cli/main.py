@@ -7,6 +7,7 @@ import click
 from ifixai._version import VERSION
 from ifixai.cli.init import init, load_dotenv_file
 from ifixai.cli.run import run
+from ifixai.cli.scaffold import install
 from ifixai.cli.setup_cmd import setup
 from ifixai.cli.list_cmd import list_group
 from ifixai.cli.validate import validate
@@ -21,6 +22,7 @@ def ifixai_cli() -> None:
 
 ifixai_cli.add_command(setup)
 ifixai_cli.add_command(init)
+ifixai_cli.add_command(install)
 ifixai_cli.add_command(run)
 ifixai_cli.add_command(list_group, name="list")
 ifixai_cli.add_command(validate)

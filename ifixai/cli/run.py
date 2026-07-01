@@ -11,6 +11,7 @@ import secrets
 import sys
 import time
 from pathlib import Path
+from typing import cast
 
 import click
 
@@ -33,6 +34,12 @@ from ifixai.cli.orchestrator import (
 )
 from ifixai.cli.schemas import InteractiveConfig
 from ifixai.cli.reports import save_reports
+from ifixai.reporting.artifact import render_artifact
+from ifixai.reporting.health import (
+    judge_health_note,
+    measurement_failure_banner,
+    run_health,
+)
 from ifixai.core.concurrency import (
     ConcurrencyGovernor,
     MAX_CONCURRENCY_LIMIT,
@@ -63,8 +70,13 @@ from ifixai.harness.suites import SUITE_NAMES, resolve_suite
 from ifixai.utils.fixture_digest import compute_fixture_digest
 from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
 from ifixai.core.grounding import GroundingMode, compose_system_prompt
+from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture
-from ifixai.providers.resolver import resolve_provider, wrap_with_governance
+from ifixai.providers.resolver import (
+    credential_env_vars,
+    resolve_provider,
+    wrap_with_governance,
+)
 from ifixai.quick_build import (
     collect_quick_build_context,
     fixture_to_yaml,
@@ -338,6 +350,11 @@ def _print_concurrency_banner(resolved: int) -> None:
     help="Directory to save reports.",
 )
 @click.option(
+    "--artifact-out",
+    default=None,
+    help="Also write the self-contained interactive HTML scorecard to this path.",
+)
+@click.option(
     "--format",
     "report_format",
     type=click.Choice(FORMAT_CHOICES, case_sensitive=False),
@@ -597,11 +614,12 @@ def run(
     categories: tuple[str, ...],
     suite: str | None,
     output: str,
+    artifact_out: str | None,
     report_format: str,
     timeout: int,
     system_name: str | None,
     system_version: str,
-    min_score: float | None,
+    min_score: float,
     eval_mode: str | None,
     judge_provider: tuple[str, ...],
     judge_api_key: tuple[str, ...],
@@ -764,6 +782,15 @@ def run(
             )
         )
 
+    # Fill any explicit --judge-provider keys from the environment (positionally),
+    # so multi-judge full mode does not require keys on the command line. Mirrors the
+    # config-file and auto-pair paths; a missing key stays "" and fails at judge time.
+    if judge_provider and len(judge_api_key) < len(judge_provider):
+        resolved_keys = list(judge_api_key)
+        while len(resolved_keys) < len(judge_provider):
+            resolved_keys.append(_lookup_env_api_key(judge_provider[len(resolved_keys)]) or "")
+        judge_api_key = tuple(resolved_keys)
+
     if eval_mode == "full" and len(judge_provider) < 2:
         click.echo(
             click.style(
@@ -812,7 +839,22 @@ def run(
         endpoint = interactive["endpoint"]
         model = interactive["model"]
 
+    # provider is guaranteed non-None here (the interactive block above sets it when
+    # it was not passed as a flag), so the env lookup always has a real provider.
     if api_key is None:
+        api_key = _lookup_env_api_key(provider)
+    if api_key is None:
+        if not sys.stdin.isatty():
+            env_vars = credential_env_vars(provider)
+            hint = (
+                f"Set {' or '.join(env_vars)} in the environment"
+                if env_vars
+                else "Set its API key in the environment"
+            )
+            raise click.ClickException(
+                f"No API key found for the system under test ({provider}). "
+                f"{hint} (or pass --api-key) and re-run."
+            )
         api_key = click.prompt(
             f"API key for the system under test ({provider})", hide_input=True
         )
@@ -948,7 +990,7 @@ def run(
         seed=sut_seed,
         holdout_ids=holdout.to_dict(),
     )
-    conn_result = asyncio.run(_test_conn(resolved_provider, test_config))
+    conn_result = asyncio.run(_test_conn(cast(ChatProvider, resolved_provider), test_config))
     simulation_mode = False
     if not conn_result.success:
         click.echo(
@@ -1291,6 +1333,24 @@ def run(
             " — score reproducibility increased."
         )
 
+    # Run-health: surface measurement failure / grader fragility in the JSON
+    # (validation_warnings) and, below, as console banners, so a noisy run reads the
+    # same on every output surface.
+    health = run_health(result)
+    if health.invalid:
+        result.validation_warnings.append(
+            "run_invalid: measurement failure — "
+            f"errored={health.errored}/{health.n_inspections} inspections, "
+            f"unreachable={health.unreachable}/{health.total} model calls, "
+            f"judge_broke={health.judge_broke}, scorable={health.scorable}. "
+            "Ignore the grade."
+        )
+    if health.judge_broke:
+        result.validation_warnings.append(
+            f"judge_health: {health.judge_broke}/{health.judge_attempts} grading "
+            "attempts broke the verdict contract (excluded from scoring)."
+        )
+
     if not ui.render_scorecard(result):
         _print_category_summary(result)
 
@@ -1328,6 +1388,25 @@ def run(
             )
         click.echo()
 
+    # A run that measured almost nothing must say so loudly, before the letter is
+    # taken at face value.
+    banner = measurement_failure_banner(health)
+    if banner:
+        click.echo()
+        click.echo(click.style(banner, fg="red", bold=True))
+    elif health.low_confidence:
+        click.echo()
+        click.echo(
+            click.style(
+                f"  ⚠ Low-confidence run — only {health.scorable} of {health.total} "
+                "probes produced a graded reply; read the grade cautiously.",
+                fg="yellow",
+            )
+        )
+    jh_note = judge_health_note(health)
+    if jh_note:
+        click.echo(click.style(f"  {jh_note}", fg="yellow"))
+
     _print_error_summary(result)
     click.echo()
 
@@ -1336,6 +1415,28 @@ def run(
     click.echo()
 
     save_reports(result, output, report_format)
+    if artifact_out:
+        is_mock = provider.lower() == "mock"
+        # Mirror the console self-judge advisory in the portable artifact so a
+        # shared scorecard carries the same honesty signal, not a blank banner.
+        artifact_honesty = (
+            "Self-judged — the model graded its own output; this grade is a "
+            "smoke test, not a citable result."
+            if result.self_judged
+            else ""
+        )
+        Path(artifact_out).write_text(
+            render_artifact(
+                result,
+                live=not is_mock,
+                transport="mock" if is_mock else "api",
+                sut_model=model or provider,
+                judge_model=judge_label,
+                honesty_note=artifact_honesty,
+            ),
+            encoding="utf-8",
+        )
+        click.echo(f"  Interactive artifact -> {artifact_out}")
 
     print_imecore_conclusion(quiet=quiet)
 
@@ -1350,7 +1451,7 @@ def run(
     for br in result.test_results:
         bare_id = br.test_id.replace("SSCI-", "")
         spec = SPEC_BY_ID.get(bare_id)
-        test_versions[bare_id] = spec.version if spec is not None else "1.0.0"
+        test_versions[bare_id] = getattr(spec, "version", "1.0.0")
     resolved_fixture_path = resolve_fixture_path(fixture)
     judge_identity_descriptor: ModelDescriptor | None = None
     if eval_mode_auto_selected_judge is not None:

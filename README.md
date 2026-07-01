@@ -66,22 +66,24 @@ can be audited and replayed.
 
 All three run the same diagnostic underneath. The difference is how you configure and drive it.
 
-| | **CLI — guided wizard** | **CLI — explicit flags** | **Claude Code plugin** |
+| | **CLI: guided wizard** | **CLI: explicit flags** | **Coding-agent plugin** |
 |---|---|---|---|
-| **How you drive it** | `ifixai setup` once → `ifixai run` zero-flag every time; config saved to `ifixai.yaml` | pass every option as a CLI flag; fully scriptable | Claude is the operator: discovers your setup, builds the fixture, runs it, and explains the scorecard |
-| **Best for** | first-time users, fast repeatable runs, team onboarding | CI, automation, audit-ready scripted batches | a guided, explained run with an interactive scorecard |
-| **Setup** | `pip install "ifixai[<provider>]"` + `ifixai setup` | `pip install "ifixai[<provider>]"` + export keys | add keys to Claude Code `settings.json`; engine self-provisions |
+| **How you drive it** | `ifixai setup` once → `ifixai run` zero-flag every time; config saved to `ifixai.yaml` | pass every option as a CLI flag; fully scriptable | the agent is the operator: discovers your setup, builds the fixture, runs it, and explains the scorecard |
+| **Best for** | first-time users, fast repeatable runs, team onboarding | CI, automation, audit-ready scripted batches | a guided, explained run with an interactive scorecard, inside the agent you already use |
+| **Setup** | `pip install "ifixai[<provider>]"` + `ifixai setup` | `pip install "ifixai[<provider>]"` + export keys | Claude Code: install the marketplace plugin (self-provisions). Any other agent: `ifixai install` |
 | **Keys** | auto-detected by wizard; stored as env-var name in `ifixai.yaml`, never the secret itself | `--api-key` flag or env var | configured in Claude Code settings |
 | **What you test** | any provider, or your agent's real endpoint | same | same |
 | **Who grades it** | self, one independent vendor, or a multi-judge ensemble | same | same |
 | **Output** | JSON + Markdown reports + rich terminal scorecard | same | interactive results artifact (+ JSON source of truth; static-report fallback) |
-| **Suite** | pick with arrow keys in the wizard | `--suite smoke\|strategic\|core\|extended\|all` | you pick the preset (quick · standard · full) |
+| **Suite** | pick with arrow keys in the wizard | `--suite smoke\|strategic\|core\|extended\|all` | the agent picks `--mode`/`--suite`, same engine as the CLI |
+| **Works in** | any terminal | any terminal / CI | Claude Code, Cursor, Codex, VS Code, Windsurf, Cline, Continue, Gemini, Zed |
 
 ## Quick start
 
 Now try it yourself. The guided wizard gets you running with zero flags from the second run
-onward; the Claude Code plugin lets Claude drive the whole thing; or use explicit flags for full
-control and CI. Full walkthrough: **[docs/get-started.md](docs/get-started.md)**.
+onward; the coding-agent plugin lets your agent (Claude Code, Cursor, Codex, and more) drive the
+whole thing; or use explicit flags for full control and CI. Full walkthrough:
+**[docs/get-started.md](docs/get-started.md)**.
 
 ### Guided wizard (recommended)
 
@@ -115,6 +117,23 @@ Let Claude run the whole thing for you, with no flags or fixtures to write. If y
 Claude then reads your agent's config, shows the test fixture it builds and names the cost before
 anything is billed, runs the diagnostic on the model(s) and judge(s) you pick, then walks you
 through the scorecard.
+
+### Any coding agent (Cursor, Codex, Gemini, …)
+
+The same operator experience works in any agent that supports slash commands. One command
+scaffolds a native `/ifixai-skill` command into each, then the agent drives the same
+`ifixai run` engine:
+
+```bash
+# scaffold /ifixai-skill into the agents you use (zero-install form: uvx --from ifixai ifixai install ...)
+ifixai install --agents cursor,codex,gemini
+ifixai install --list          # every supported agent and where the command file lands
+```
+
+Then open that agent on your repo and run **`/ifixai-skill`**. It reads your setup, builds the
+fixture, shows the cost via a free `--dry-run` first, and runs only after you say yes. The name
+defaults to `ifixai-skill` (so it never collides with the Claude Code marketplace plugin's
+`/ifixai`); pass `--name ifixai` if you want the bare `/ifixai`.
 
 ### Explicit flags
 

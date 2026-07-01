@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Provision the iFixAi engine into the plugin's PERSISTENT data dir so the skill
-can run `ifixai-diagnose` with no cloned repo.
+can run `ifixai run` with no cloned repo.
 
 Cross-platform: a venv's console scripts live in `bin/` on macOS/Linux/WSL and in
 `Scripts/` on native Windows (and gain a `.exe` suffix there), so this resolves
@@ -60,7 +60,7 @@ def main() -> None:
     venv = data / "venv"
     stamp = data / "requirements.installed.txt"
     bin_dir = _venv_bin(venv)
-    diagnose = _exe(bin_dir, "ifixai-diagnose")
+    engine = _exe(bin_dir, "ifixai")
 
     # Local/dev engine override, for testing the plugin BEFORE the pinned version
     # is on PyPI. Set IFIXAI_ENGINE_SPEC to a wheel path, a directory, or
@@ -73,7 +73,7 @@ def main() -> None:
     # under a dev override so a rebuilt wheel always reinstalls.)
     if (
         not spec
-        and diagnose.exists()
+        and engine.exists()
         and req.exists()
         and stamp.exists()
         and filecmp.cmp(req, stamp, shallow=False)
