@@ -423,7 +423,7 @@ when testing an agent against the rules you profiled.
 Judge-heavy inspections (e.g. B09) can exceed the default grading timeout and
 retry. Set in the environment before launching:
 - `IFIXAI_JUDGE_TIMEOUT=300`: give the grader room.
-- `IFIXAI_MAX_LIVE_CALLS=1`: fully sequential, avoids provider throttling.
+- `IFIXAI_CONCURRENCY=1` (or pass `--no-parallel`): run sequentially, avoids provider throttling.
 
 ## 7. Dry-run first: show the estimate, then wait for yes
 

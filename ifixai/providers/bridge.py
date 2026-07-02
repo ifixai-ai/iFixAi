@@ -9,7 +9,7 @@ runners, judge prompt construction, verdict parsing, scoring) is the unmodified
 engine. This is the engine side of the plan's "only two network substitutions".
 
 Transports (offline rehearsal only — a live run uses the engine's native
-providers via the orchestrator's ``--mode api``, not a bridge transport):
+providers directly, not a bridge transport):
   * ``RecordingTransport`` / ``ReplayTransport`` — deterministic record & replay,
     the development substrate and the golden-parity harness (plan R3).
   * ``ConstantTransport`` / ``StubJudgeTransport`` — canned replies for the spike

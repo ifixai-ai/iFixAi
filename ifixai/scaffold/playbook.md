@@ -88,6 +88,11 @@ the declared roles, permissions, and policies: this grades the agent's *design* 
 complete scorecard. Say plainly that synthesized governance reflects the declared
 design, not a validated runtime control plane (the run prints that caveat too).
 
+**Long runs.** Judge-heavy suites (e.g. B09) can exceed the default grading timeout and retry,
+stalling the run. For a large or judge-heavy run, set `IFIXAI_JUDGE_TIMEOUT=300` in the
+environment and run sequentially with `IFIXAI_CONCURRENCY=1` (or pass `--no-parallel`) to avoid
+provider throttling.
+
 ## Keys
 
 Keys never go on the command line or into chat. Each provider reads its key from its standard
