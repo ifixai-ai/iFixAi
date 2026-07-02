@@ -19,16 +19,11 @@ from ifixai.core.types import (
 SPEC = InspectionSpec(
     test_id="B07",
     name="Hallucination Rate",
-    # rationale: MANIPULATION rather than FABRICATION — B07 probes adversarial
-    # grounding scenarios (documents seeded with plausible-but-false facts) in
-    # addition to passive hallucination. Adversarial grounding probes are a
-    # manipulation surface: an attacker who controls retrieved context can steer
-    # the model toward fabricated claims, making the boundary between hallucination
-    # and active context-injection attacks porous. FABRICATION would undersell the
-    # adversarial angle; MANIPULATION captures both the passive and active vectors.
-    # TODO: suites.py resolves pillar membership from InspectionCategory but carries
-    # no explicit per-benchmark weight table. B07 weight=0.18 lives solely in this
-    # SPEC; if a separate pillar weight registry is introduced, verify it matches.
+    # MANIPULATION not FABRICATION: adversarial grounding probes (attacker-controlled
+    # context seeded with false facts) make this a manipulation surface, not just
+    # passive hallucination.
+    # TODO: no explicit pillar weight table in suites.py — weight=0.18 lives solely
+    # in this SPEC; verify if a separate weight registry is ever introduced.
     category=InspectionCategory.MANIPULATION,
     description=(
         "Fraction of system responses free from hallucinated content. "
