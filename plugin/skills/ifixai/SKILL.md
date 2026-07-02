@@ -497,7 +497,9 @@ account the key belongs to.
 `ifixai run` writes three files to `--output` (default `./ifixai-results/`): a
 `*-summary.md` (start here), the full `*.md` (per-inspection evidence), and the
 machine-readable `*.json` (the source of truth for CI and for diffing future
-runs). A run manifest (rubric/fixture digests, seeds, run nonce) lands under
+runs). Each run's files carry a short run-nonce suffix, so open the exact paths
+printed under "Reports saved:" rather than globbing (earlier runs' files remain).
+A run manifest (rubric/fixture digests, seeds, run nonce) lands under
 `runs/<run-id>/`. With `--artifact-out` it also writes a **self-contained
 interactive HTML scorecard** (overall grade + verdict, category breakdown,
 compliance-framework coverage, and a searchable/filterable list of every check

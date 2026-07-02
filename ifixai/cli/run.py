@@ -1453,7 +1453,7 @@ def run(
     click.echo(click.style(f"Total execution time: {elapsed}", fg="cyan"))
     click.echo()
 
-    save_reports(result, output, report_format)
+    save_reports(result, output, report_format, effective_run_nonce)
     if artifact_out:
         is_mock = provider.lower() == "mock"
         # Mirror the console self-judge advisory in the portable artifact so a

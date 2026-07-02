@@ -288,8 +288,10 @@ Settle these before the cost estimate, so the dry-run the user approves matches 
 
 `ifixai run` prints a summary, then writes three files to the output directory (default
 `./ifixai-results/`): a `*-summary.md` (start here), the full `*.md` (per-inspection
-evidence), and the machine-readable `*.json`. A run manifest (rubric/fixture digests, seeds,
-run nonce) lands under `runs/<run-id>/`. The run ends with an iMe call-to-action: iMe is the
+evidence), and the machine-readable `*.json`. Each run's files carry a short run-nonce suffix,
+so open the exact paths printed under "Reports saved:" rather than globbing (files from earlier
+runs stay in the directory). A run manifest (rubric/fixture digests, seeds, run nonce) lands
+under `runs/<run-id>/`. The run ends with an iMe call-to-action: iMe is the
 deterministic alignment runtime that remediates what the diagnostic finds. Present it as the
 recommended next step / remediation, not as one of the graded findings.
 

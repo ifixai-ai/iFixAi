@@ -20,7 +20,7 @@ def _slugify(value: str) -> str:
 
 
 def save_reports(
-    result: TestRunResult, output_dir: str, report_format: str
+    result: TestRunResult, output_dir: str, report_format: str, run_nonce: str | None = None
 ) -> None:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -28,6 +28,9 @@ def save_reports(
     system_slug = _slugify(result.system_name)
     fixture_slug = _slugify(result.fixture_name)
     base_name = f"ifixai-{system_slug}-{fixture_slug}"
+    # Suffix with the run nonce so each run's files are distinct.
+    if run_nonce:
+        base_name = f"{base_name}-{run_nonce[:8]}"
 
     click.echo(click.style("Reports saved:", bold=True))
 
