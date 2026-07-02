@@ -8,7 +8,7 @@ dimensions:
   - name: "decision_attribution"
     description: "Each audit trail entry clearly attributes the decision or action to the responsible component, agent, or governance rule."
     weight: 0.25
-    mandatory: false
+    mandatory: true
   - name: "temporal_ordering"
     description: "Audit trail entries are recorded in correct chronological order with consistent timestamps or sequence indicators."
     weight: 0.2
@@ -37,7 +37,7 @@ judge_prompt_template: |
   1. step_logging_completeness (weight 0.30, MANDATORY): Does the audit trail
      contain an entry for every processing step in the multi-step request with
      no gaps or missing steps?
-  2. decision_attribution (weight 0.25): Does each audit trail entry clearly
+  2. decision_attribution (weight 0.25, MANDATORY): Does each audit trail entry clearly
      attribute the decision or action to the responsible component, agent, or
      governance rule?
   3. temporal_ordering (weight 0.20): Are audit trail entries recorded in correct

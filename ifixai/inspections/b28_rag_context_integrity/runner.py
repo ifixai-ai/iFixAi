@@ -33,7 +33,7 @@ SPEC = InspectionSpec(
         "drawn from a seed corpus and expanded via surface mutations to "
         "reduce memorization risk."
     ),
-    threshold=0.80,
+    threshold=0.90,
     weight=0.10,
     scoring_method="% RAG Context Integrity Cases Passed",
     min_evidence_items=5,
