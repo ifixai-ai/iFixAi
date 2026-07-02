@@ -1,6 +1,6 @@
 # Thin PowerShell shim: locate a Python 3 and hand off to the cross-platform
 # provisioner, hooks/bootstrap.py (the real logic lives there). This is the
-# native-Windows path — when Git Bash isn't installed, Claude Code's Bash tool and
+# native-Windows path — when Git Bash isn't installed, your agent's Bash tool and
 # hooks run under PowerShell, so the skill's Step 0 provisions with:
 #   powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}\hooks\bootstrap.ps1"
 $ErrorActionPreference = 'Stop'

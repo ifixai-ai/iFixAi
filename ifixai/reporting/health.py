@@ -68,7 +68,7 @@ def run_health(result: TestRunResult) -> _RunHealth:
             errored += 1
         for ev in br.evidence:
             total += 1
-            kind = getattr(ev, "extraction_error", None)
+            kind = ev.extraction_error
             if kind is None:
                 scorable += 1
             elif kind == JudgeErrorKind.COMMUNICATION:

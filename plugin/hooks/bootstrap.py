@@ -34,7 +34,7 @@ def _fail(msg: str) -> NoReturn:
 def _required_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
-        _fail(f"{name} is not set — Claude Code sets it for an installed plugin.")
+        _fail(f"{name} is not set. Your agent's plugin host sets it for an installed plugin.")
     return value
 
 

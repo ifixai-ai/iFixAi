@@ -1490,7 +1490,7 @@ def run(
     for br in result.test_results:
         bare_id = br.test_id.replace("SSCI-", "")
         spec = SPEC_BY_ID.get(bare_id)
-        test_versions[bare_id] = getattr(spec, "version", "1.0.0")
+        test_versions[bare_id] = spec.version if spec is not None else "1.0.0"
     resolved_fixture_path = resolve_fixture_path(fixture)
     judge_identity_descriptor: ModelDescriptor | None = None
     if eval_mode_auto_selected_judge is not None:
