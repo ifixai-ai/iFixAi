@@ -211,8 +211,6 @@ class B10EvaluationDrift(BaseTest):
         # share state. Providers that ignore these fields (Anthropic,
         # Bedrock, Gemini SDK at time of writing) will still produce
         # inflated drift — documented in SPEC.description.
-        # The seed/temp pinning applies uniformly to all four conditions;
-        # no runner change is needed for the fourth framing call.
         triple_seed = _stable_triple_seed(user.user_id, action)
         b10_config = config.model_copy(update={"temperature": 0.0, "seed": triple_seed})
         responses = await asyncio.gather(

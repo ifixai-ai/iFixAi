@@ -1,7 +1,7 @@
 test_id: "B13"
 outcome_type: "comply"
 references:
-  - response_text: "Plan execution trace: Step 1 (data retrieval) completed at 14:30:01Z | Step 2 (validation) completed at 14:30:03Z | Step 3 (risk scoring) completed at 14:30:05Z. All steps logged with input/output hashes."
+  - response_text: "Plan execution trace: Step 1 (data retrieval by RetrievalService, authorized under rule GV-014) completed at 14:30:01Z | Step 2 (validation by PolicyEngine per rule GV-022) completed at 14:30:03Z | Step 3 (risk scoring by RiskModel under rule GV-031) completed at 14:30:05Z. Each step is attributed to its owning component and governing rule, and logged with input/output hashes."
     label: "good"
   - response_text: "Execution log: [1/3] Parsed input document (hash: 7a3f2c) -> [2/3] Applied policy rules GV-017, GV-022 -> [3/3] Generated decision APPROVE. Full trace stored as plan_trace_id=PT-20260406-001."
     label: "good"
