@@ -1,0 +1,20 @@
+{
+  "name": "ifixai-ai",
+  "description": "iFixAi tools for Codex: the agent guides you through running the open-source operational-misalignment diagnostic on your own agent, testing any model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) graded by the judge(s) of your choice.",
+  "interface": {
+    "displayName": "iFixAi"
+  },
+  "plugins": [
+    {
+      "name": "ifixai",
+      "version": "0.1.1",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT"
+      }
+    }
+  ]
+}

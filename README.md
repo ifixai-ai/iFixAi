@@ -114,7 +114,34 @@ Claude then reads your agent's config, shows the test fixture it builds and name
 anything is billed, runs the diagnostic on the model(s) and judge(s) you pick, then walks you
 through the scorecard.
 
-### Any coding agent (VS Code, Cursor, Codex, Gemini, …)
+### Codex
+
+Codex reaches iFixAi two ways. Both drive the same engine; pick by how much you want installed.
+
+**Native plugin (marketplace).** A full plugin with the operator skill and an auto-provisioning
+hook, the Codex counterpart of the Claude Code plugin above. In your terminal:
+
+```
+codex plugin marketplace add ifixai-ai/iFixAi
+codex plugin add ifixai@ifixai-ai
+```
+
+Start Codex and ask in plain English (*"run iFixAi on my setup"*); it runs the plugin's `ifixai`
+skill. Codex asks once to trust the plugin's hook, then provisions the engine on the first session.
+
+**Scaffolded prompt.** One zero-install command writes a native Codex custom prompt, no marketplace
+and no hook:
+
+```
+uvx ifixai install --agents codex
+```
+
+Then run **`/ifixai-skill`** in Codex; it provisions the engine on demand via `uvx`.
+
+Rule of thumb: the plugin for a one-time install that auto-provisions and tracks upstream updates;
+the scaffolded prompt for a single file with nothing cached.
+
+### Any coding agent (VS Code, Cursor, Gemini, …)
 
 The same operator experience works in any agent with slash commands. From a cold start (only
 `uv` and Python 3.10+ needed), one zero-install command scaffolds a native `/ifixai-skill` into

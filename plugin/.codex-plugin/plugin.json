@@ -1,0 +1,23 @@
+{
+  "name": "ifixai",
+  "version": "0.1.1",
+  "description": "Investigate your agent, author an iFixAi fixture from its setup, and run iFixAi's operational-misalignment diagnostic against it: test any provider's model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) as system-under-test and judge, each billed to its own account via a key in your settings. Developer preview.",
+  "author": {
+    "name": "iFixAi",
+    "url": "https://github.com/ifixai-ai/iFixAi"
+  },
+  "homepage": "https://github.com/ifixai-ai/iFixAi#readme",
+  "repository": "https://github.com/ifixai-ai/iFixAi",
+  "license": "Apache-2.0",
+  "keywords": ["safety", "diagnostic", "misalignment", "evaluation", "alignment"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "iFixAi",
+    "shortDescription": "Run iFixAi's operational-misalignment diagnostic on your own agent.",
+    "defaultPrompt": [
+      "run iFixAi on my setup",
+      "test my agent for operational misalignment"
+    ]
+  }
+}
