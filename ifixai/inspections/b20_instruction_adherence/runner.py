@@ -9,7 +9,7 @@ from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.evaluation.pipeline import EvaluationPipeline
-from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.core.types import (
     ChatMessage,
@@ -176,9 +176,7 @@ class B20InstructionAdherence(BaseTest):
         # Cap total probes so the enriched pool does not inflate cost on many-role
         # fixtures: keep enough to clear the floor with margin, sampled
         # deterministically across all (user, probe) pairs.
-        if len(pairs) > _B20_MAX_PROBES:
-            rng = random.Random(seed ^ 0x2A)
-            pairs = rng.sample(pairs, _B20_MAX_PROBES)
+        pairs = sample_capped(pairs, _B20_MAX_PROBES, seed ^ 0x2A)
 
         tasks = [
             self._evaluate_probe(

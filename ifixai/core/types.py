@@ -964,88 +964,43 @@ class EvaluationPipelineConfig(BaseModel):
     b32_seed: int = Field(default_factory=_random_seed)
     b29_seed_pinned: bool = False
     b32_seed_pinned: bool = False
-    # P13 (Hidden Side-Objective Persistence) seeds the trajectory subsample only
-    # when seeds x users exceeds the cap; below the cap it enumerates the sorted
-    # cross-product with no RNG. See ifixai/inspections/
-    # p13_hidden_side_objective_persistence/runner.py.
+    # Each *_seed below drives that inspection's probe/trajectory subsample only
+    # when the candidate count exceeds its cap; below the cap it enumerates the
+    # full sorted cross-product deterministically (no RNG needed).
     p13_seed: int = Field(default_factory=_random_seed)
     p13_seed_pinned: bool = False
-    # P19 (Honeypot-Tool Restraint) seeds the (scenario, user) probe subsample only
-    # when scenarios x users exceeds the cap; below the cap it enumerates the sorted
-    # cross-product with no RNG. The per-probe SUT seed is derived separately from
-    # the probe identity (sha256). See ifixai/inspections/
-    # p19_honeypot_tool_restraint/runner.py.
+    # P19: the per-probe SUT seed is derived separately from probe identity (sha256).
     p19_seed: int = Field(default_factory=_random_seed)
     p19_seed_pinned: bool = False
-    # P22 (Goal-Edit / Retraining Acceptance) seeds the (scenario, user) trajectory
-    # subsample only when scenarios x users exceeds the cap; below the cap it
-    # enumerates the sorted cross-product with no RNG. See ifixai/inspections/
-    # p22_goal_edit_acceptance/runner.py.
     p22_seed: int = Field(default_factory=_random_seed)
     p22_seed_pinned: bool = False
-    # P27 (Privilege Accumulation / Creep Over Time) seeds the (scenario, user)
-    # trajectory subsample only when scenarios x users exceeds the cap; below the cap
-    # it enumerates the sorted cross-product with no RNG. See ifixai/inspections/
-    # p27_privilege_creep/runner.py.
     p27_seed: int = Field(default_factory=_random_seed)
     p27_seed_pinned: bool = False
-    # P32 (Emergent Systemic-Harm Stress) seeds the (scenario, user) trajectory
-    # subsample only when scenarios x users exceeds the cap; below the cap it
-    # enumerates the sorted cross-product with no RNG. See ifixai/inspections/
-    # p32_emergent_systemic_harm/runner.py.
     p32_seed: int = Field(default_factory=_random_seed)
     p32_seed_pinned: bool = False
-    # C02 (Low-Confidence Abstention) seeds the (user, probe) subsample only when
-    # users x probes exceeds the cap; below the cap it enumerates the sorted
-    # cross-product with no RNG (the P08 enumeration model — deterministic without
-    # a seed). See ifixai/inspections/c02_low_confidence_abstention/runner.py.
     c02_seed: int = Field(default_factory=_random_seed)
     c02_seed_pinned: bool = False
-    # C05 (Human-Fallback Routing Integrity) seeds the (user, probe) subsample only
-    # when users x probes exceeds the cap; below the cap it enumerates the sorted
-    # cross-product with no RNG (the C02/P08 enumeration model — deterministic without
-    # a seed). The injected trigger confidence is a pure function of the fixture
-    # threshold and a fixed per-probe fraction, so it carries no RNG either. See
-    # ifixai/inspections/c05_human_fallback_routing/runner.py.
+    # C05: the injected trigger confidence is a pure function of the fixture
+    # threshold and a fixed per-probe fraction, so it carries no RNG either.
     c05_seed: int = Field(default_factory=_random_seed)
     c05_seed_pinned: bool = False
-    # C11 (Operational-Outcome Conformance & Decay) seeds the (user, probe)
-    # subsample only when users x probes exceeds the cap; below the cap it
-    # enumerates the sorted cross-product with no RNG (the C02/C05/P08 enumeration
-    # model — deterministic without a seed). The outcome/KPI feed for each probe is
-    # a pure function of the fixture threshold and fixed per-probe parameters, so it
-    # carries no RNG either. See ifixai/inspections/
-    # c11_operational_outcome_conformance/runner.py.
+    # C11: each probe's outcome/KPI feed is a pure function of the fixture
+    # threshold and fixed per-probe parameters, so it carries no RNG either.
     c11_seed: int = Field(default_factory=_random_seed)
     c11_seed_pinned: bool = False
-    # S02 (Configurer-vs-Stakeholder Conflict Detection) seeds the (scenario, user) probe
-    # subsample only when scenarios x users exceeds the cap; below the cap it enumerates the
-    # sorted cross-product with no RNG (the P32 enumeration model — deterministic without a
-    # seed). Each probe is a single scored turn, so there is no within-probe ordering to seed.
-    # See ifixai/inspections/s02_configurer_stakeholder_conflict/runner.py.
+    # S02: each probe is a single scored turn, so there is no within-probe ordering to seed.
     s02_seed: int = Field(default_factory=_random_seed)
     s02_seed_pinned: bool = False
-    # X04 (Deployed-Detection-Performance Acceptance Gate) seeds the (user, probe)
-    # subsample only when users x probes exceeds the cap; below the cap it enumerates
-    # the sorted cross-product with no RNG (the C02/C05/C11/P08 enumeration model —
-    # deterministic without a seed). Each probe's detection-audit window is a static,
-    # hand-authored fixture proven to realise its declared gate outcome by the
-    # window-consistency test (classify_detection_window), so it carries no RNG either.
-    # See ifixai/inspections/x04_detection_performance_gate/runner.py.
+    # X04: each probe's detection-audit window is a static fixture proven to
+    # realise its declared gate outcome (see classify_detection_window).
     x04_seed: int = Field(default_factory=_random_seed)
     x04_seed_pinned: bool = False
-    # X11 (Automation-Bias / Pre-Action Confirmation Gate) seeds the (user, probe)
-    # subsample only when users x probes exceeds the cap; below the cap it enumerates
-    # the sorted cross-product with no RNG (the C02/C05/C11/X04/P08 enumeration model —
-    # deterministic without a seed). Each probe's action-confirmation request is a static,
-    # hand-authored fixture proven to realise its declared gate outcome by the
-    # request-consistency test (classify_action_gate), so it carries no RNG either.
-    # See ifixai/inspections/x11_pre_action_confirmation_gate/runner.py.
+    # X11: each probe's action-confirmation request is a static fixture proven
+    # to realise its declared gate outcome (see classify_action_gate).
     x11_seed: int = Field(default_factory=_random_seed)
     x11_seed_pinned: bool = False
-    # P08 (Self-Audit Trail Integrity) takes no seed: it enumerates every
-    # consequential action exhaustively in sorted order, so it is deterministic
-    # without one. See ifixai/inspections/p08_self_audit_trail_integrity/runner.py.
+    # P08 takes no seed: it enumerates every consequential action exhaustively
+    # in sorted order, so it is deterministic without one.
 
 
 class PipelineResult(BaseModel):

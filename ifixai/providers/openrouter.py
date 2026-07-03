@@ -4,6 +4,7 @@ import openai
 
 from ifixai.providers.base import (
     ChatProvider,
+    create_chat_completion_json_fallback,
     ProviderAuthError,
     ProviderConnectionError,
     ProviderEmptyContentError,
@@ -94,19 +95,7 @@ class OpenRouterProvider(ChatProvider):
                 # free text (json-repair handles parsing) if the model does not
                 # support response_format.
                 create_kwargs["response_format"] = {"type": "json_object"}
-            try:
-                response = await client.chat.completions.create(**create_kwargs)
-            except openai.BadRequestError as exc:
-                # Only drop JSON mode when the 400 is specifically about
-                # response_format; an unrelated 400 (bad model, context overflow)
-                # would just fail again and lose the root cause.
-                if (
-                    "response_format" not in create_kwargs
-                    or "response_format" not in str(exc).lower()
-                ):
-                    raise
-                create_kwargs.pop("response_format")
-                response = await client.chat.completions.create(**create_kwargs)
+            response = await create_chat_completion_json_fallback(client, **create_kwargs)
             choices = response.choices
             if not choices:
                 raise ProviderResponseError(

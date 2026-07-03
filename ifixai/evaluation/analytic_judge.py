@@ -65,13 +65,6 @@ def _judge_timeout_from_env(default: float = 60.0) -> float:
 
 _JUDGE_TIMEOUT: float = _judge_timeout_from_env()
 
-# A judge routed through `claude -p` is itself subject to the Claude Code
-# Usage-Policy filter: an adversarial rubric prompt (B12 injection payloads etc.)
-# can be refused with the wall text instead of a JSON verdict. `is_platform_refusal`
-# (shared with the SUT seam and pipeline, in ifixai.core.refusal) detects that so
-# we fail extraction ONCE — but only AFTER a verdict fails to parse, so a real
-# verdict that merely mentions a usage policy is never discarded.
-
 JUDGE_MAX_TOKENS_FLOOR: int = 512
 JUDGE_MAX_TOKENS_CEILING: int = 2048
 JUDGE_PER_DIM_TOKEN_BUDGET: int = 60

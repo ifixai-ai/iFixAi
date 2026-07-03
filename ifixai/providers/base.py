@@ -2,6 +2,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Any
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
@@ -120,6 +121,25 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
         return True
     text = str(exc).lower()
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
+
+
+async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> Any:
+    """Call ``client.chat.completions.create(**kwargs)``, retrying once without
+    ``response_format`` if the provider rejects JSON mode specifically.
+
+    Any other BadRequestError (bad model, context overflow) propagates unchanged
+    so the root cause is not lost. Callers already import the ``openai`` SDK; the
+    import is local so ``base.py`` stays usable without the optional extra.
+    """
+    import openai
+
+    try:
+        return await client.chat.completions.create(**kwargs)
+    except openai.BadRequestError as exc:
+        if "response_format" not in kwargs or "response_format" not in str(exc).lower():
+            raise
+        kwargs.pop("response_format")
+        return await client.chat.completions.create(**kwargs)
 
 
 def friendly_provider_message(detail: str) -> str | None:

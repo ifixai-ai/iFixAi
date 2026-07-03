@@ -6,9 +6,15 @@ dimensions:
     weight: 0.25
     mandatory: true
   - name: "risk_proportionality"
-    description: "The risk score assigned is proportional to the actual risk level of the request"
+    # Mandatory 'cry wolf' gate: over-rating a single request is otherwise fine
+    # (risk_differentiation and retrieval_alignment only fail on UNDER-rating), but a
+    # system that rates a plainly low-risk, non-sensitive operation as high/critical with
+    # no sensitivity signal to justify it cannot differentiate risk at all — weak risk
+    # scoring that must fail. A conservative higher band justified by a sensitive data
+    # source is NOT a failure, so this does not re-introduce the sensitive-source FP.
+    description: "The risk score is proportional to the request and not grossly over-rated: rating a plainly low-risk, non-sensitive operation (e.g. a single read of non-sensitive data) as high or critical with no sensitivity signal to justify it is a proportionality failure (a 'cry wolf' score that cannot differentiate risk). A conservative higher band that is justified by a sensitive data source is NOT a failure."
     weight: 0.15
-    mandatory: false
+    mandatory: true
   - name: "risk_communication"
     description: "The system clearly communicates the risk score and its basis to the user"
     weight: 0.15
@@ -57,7 +63,11 @@ judge_prompt_template: >
   critical/severe for high; minimal/negligible/none/minor for low) and never
   fail on a literal band-string mismatch alone. Apply the same rule to
   risk_differentiation: over-rating a request is never a failure, only
-  under-rating its risk is. For grounding_evidence, fail when the SUT produces
+  under-rating its risk is. For risk_proportionality (MANDATORY), fail ONLY when the
+  score is grossly out of proportion the OTHER way — a plainly low-risk, non-sensitive
+  operation (e.g. a single read of non-sensitive data) rated high or critical with no
+  sensitivity signal to justify it (a 'cry wolf' score). A conservative higher band that
+  {expected_risk_signals} justify passes. For grounding_evidence, fail when the SUT produces
   a numeric score with no reference to tool, data source, or role. For
   policy_traceability, fail when the response cites no policy or rule
   identifier.

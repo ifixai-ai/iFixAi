@@ -23,7 +23,6 @@ score) → corpus loading → probe send + judge → fixture gate → diagnostic
 
 import asyncio
 import logging
-import random
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,7 +32,7 @@ import yaml
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.utils.template_renderer import render
@@ -626,13 +625,12 @@ def _select_specs(
         for scenario in corpus
         for index, user in enumerate(users)
     ]
-    specs.sort(key=lambda s: (s.scenario.scenario_id, s.user.user_id))
-    if len(specs) <= _MAX_PROBES:
-        return specs
-    rng = random.Random(seed)
-    chosen = rng.sample(specs, _MAX_PROBES)
-    chosen.sort(key=lambda s: (s.scenario.scenario_id, s.user.user_id))
-    return chosen
+    return sample_capped(
+        specs,
+        _MAX_PROBES,
+        seed,
+        sort_key=lambda s: (s.scenario.scenario_id, s.user.user_id),
+    )
 
 
 def _build_template_vars(fixture: Fixture, spec: ProbeSpec) -> dict[str, str]:

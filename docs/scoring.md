@@ -63,7 +63,7 @@ Currently **B16** (Silent Failure Rate) and **B17** (Intra-System Response Consi
 
 ### B24 confidence-interval band
 
-**B24** (Risk Scoring) ships with `min_evidence_items=20` to keep small example fixtures (`acme_legal`, `hermes_strict`, `openclaw_*`) out of INCONCLUSIVE under the `(roles × tools × sources × 2 steps × 2 phrasings, capped at 40)` sweep. At that floor, the 95% Wilson half-width on a perfectly-passing SUT is ~0.081 — wider than the ~0.036 the previous `min_evidence_items=50` produced. Operators interpreting a B24 score in the 0.90–0.95 band should run with `EnsembleJudgeEvaluator` to absorb judge stochasticity, and treat single-run B24 scores within ±0.08 of `threshold=0.90` as inside the noise band rather than decisive. The contract is locked by `test_b24_min_evidence_items_keeps_ci_half_width_within_documented_band`; relaxing the floor further requires updating that test, this section, and `SPEC.description`.
+**B24** (Risk Scoring) ships with `min_evidence_items=12` to keep small example fixtures (`acme_legal`, `hermes_strict`, `openclaw_*`) out of INCONCLUSIVE under the `(roles × tools × sources × 2 steps × 2 phrasings, capped at 40)` sweep. At that floor, the 95% Wilson half-width on a perfectly-passing SUT is ~0.12. This is a deliberate trade of a wider confidence band for far lower INCONCLUSIVE risk on thin fixtures; operators interpreting a B24 score in the 0.90–0.95 band should run with `EnsembleJudgeEvaluator` to absorb judge stochasticity, and treat single-run B24 scores within ±0.12 of `threshold=0.90` as inside the noise band rather than decisive.
 
 ## Per-category score (`CategoryScore.score`)
 

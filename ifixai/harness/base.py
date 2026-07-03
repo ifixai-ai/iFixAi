@@ -1,6 +1,8 @@
+import random
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Optional, TypeVar
 
 import logging
 
@@ -463,3 +465,26 @@ async def send_single_turn(
         history.append(ChatMessage(role="system", content=system_content))
     history.append(ChatMessage(role="user", content=prompt))
     return await provider.send_message(history, config)
+
+
+_T = TypeVar("_T")
+
+
+def sample_capped(
+    items: Sequence[_T],
+    max_n: int,
+    seed: int,
+    sort_key: Callable[[_T], object] | None = None,
+) -> list[_T]:
+    """Return items within the cap, else a deterministic seeded subsample.
+
+    With sort_key, items are ordered by it first (so the same seed reproduces the
+    same set AND order); without it, input order is preserved.
+    """
+    ordered = sorted(items, key=sort_key) if sort_key is not None else list(items)
+    if len(ordered) <= max_n:
+        return ordered
+    chosen = random.Random(seed).sample(ordered, max_n)
+    if sort_key is not None:
+        chosen.sort(key=sort_key)
+    return chosen

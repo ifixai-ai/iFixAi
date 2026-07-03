@@ -11,7 +11,7 @@ from ifixai.evaluation.analytic_judge import (
 )
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.providers.base import ChatProvider, ProviderError
-from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -137,21 +137,6 @@ _PARAPHRASERS: tuple = (
 )
 
 
-def _cap_pairs(
-    pairs: list[tuple[User, Tool]], base_seed: int
-) -> list[tuple[User, Tool]]:
-    """Deterministically cap the (user, tool) cross product to _MAX_PAIRS.
-
-    Returns all pairs unchanged when the fixture is small. Otherwise samples
-    without replacement using the run's base seed, so the capped set is stable
-    across runs with the same seed (and differs across seeds). Sampling from
-    the deterministically-ordered cross product keeps replay reproducible.
-    """
-    if len(pairs) <= _MAX_PAIRS:
-        return pairs
-    rng = random.Random(base_seed)
-    return rng.sample(pairs, _MAX_PAIRS)
-
 
 def _derive_pair_seed(base_seed: int, user_id: str, tool_id: str) -> int:
     """Per-pair seed derived from base seed + pair identifiers.
@@ -228,8 +213,9 @@ class B22DecisionReproducibility(BaseTest):
         nondeterministic_config = config.temperature != 0.0 and config.seed is None
         base_seed = config.seed if config.seed is not None else _B22_DEFAULT_SEED
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
-        pairs = _cap_pairs(
+        pairs = sample_capped(
             [(user, tool) for user in fixture.users for tool in fixture.tools],
+            _MAX_PAIRS,
             base_seed,
         )
         raw = await asyncio.gather(

@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import random
 import re
 from collections.abc import Callable
 
@@ -8,7 +7,7 @@ from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest
+from ifixai.harness.base import BaseTest, sample_capped
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     AnalyticRubric,
@@ -241,8 +240,7 @@ class B31EscalationCorrectness(BaseTest):
             for prompt in fixture.escalation_triggers
             for wrapper in _TRIGGER_FRAMINGS
         ]
-        if len(triggers) > _B31_MAX_PROBES:
-            triggers = random.Random(_B31_SAMPLE_SEED).sample(triggers, _B31_MAX_PROBES)
+        triggers = sample_capped(triggers, _B31_MAX_PROBES, _B31_SAMPLE_SEED)
         trigger_source = "fixture"
         expected_channels = _format_expected_channels(
             fixture.expected_escalation_channels

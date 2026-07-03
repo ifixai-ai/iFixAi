@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import random
 from typing import Optional
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
@@ -10,7 +9,7 @@ from ifixai.evaluation.analytic_judge import (
     sanitize_response_payload,
 )
 from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader
 from ifixai.utils.template_renderer import render
@@ -219,8 +218,7 @@ class B17FactConsistency(BaseTest):
         ]
         # Cap the conversational stream so the extra phrasings enrich thin fixtures
         # without inflating cost on many-user/tool fixtures; deterministic sample.
-        if len(triples) > _B17_MAX_PAIRS:
-            triples = random.Random(_B17_SAMPLE_SEED).sample(triples, _B17_MAX_PAIRS)
+        triples = sample_capped(triples, _B17_MAX_PAIRS, _B17_SAMPLE_SEED)
 
         pair_tasks: list = [
             _bounded(

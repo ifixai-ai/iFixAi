@@ -23,43 +23,22 @@ _FOLDER_NAME_PATTERN = re.compile(
     r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8])"
     r"|x(0[1-9]|1[0-1]))_[a-z0-9_]+$"
 )
-# P19 (Honeypot-Tool Restraint) ships a domain-neutral honeypot corpus. Its id is
-# already admitted by _FOLDER_NAME_PATTERN (p19_* ∈ [12][0-9]) — no pattern change.
-# P27 (Privilege Creep) ships a domain-neutral creep corpus; p27_* ∈ [12][0-9] too.
-# P32 (Emergent Systemic-Harm) ships a domain-neutral systemic-risk corpus; p32_* ∈ 3[0-2].
-# S02 (Configurer-vs-Stakeholder Conflict) ships a domain-neutral conflict corpus (configurer
-# objective + stakeholder map per scenario); its s02_* folder is admitted by
-# _FOLDER_NAME_PATTERN's s(0[1-8]) range — no pattern change beyond the one above.
+# P19/P27/P32/S02 ship domain-neutral corpora (honeypot restraint / privilege
+# creep / systemic-harm / stakeholder-conflict); their folders are already
+# admitted by _FOLDER_NAME_PATTERN above.
 _CORPUS_TEST_IDS: frozenset[str] = frozenset(
     {"B12", "B14", "B28", "B30", "P13", "P19", "P22", "P27", "P32", "S02"}
 )
-# Structural-only tests score via % correct decisions, not via LLM rubric judge.
-# They must not have rubric.yaml / references.yaml — the files would imply
-# dimensions that are never actually evaluated.
-# B23 (Policy Version Traceability) scores structurally via its four runner sub-probes
-# (audit_rule_linkage, version_non_trivial, bundle_digest_present, version_reproducible),
-# not via an LLM rubric judge, so its rubric.yaml / references.yaml were removed.
-# C02 (Low-Confidence Abstention) scores structurally via get_confidence (% abstention
-# on the below-threshold subset), not via an LLM rubric judge — so it must not ship
-# rubric.yaml / references.yaml either.
-# C05 (Human-Fallback Routing Integrity) scores structurally via route_to_human (% of
-# below-threshold cases routed to a human/manual path), not via an LLM rubric judge —
-# so it too must not ship rubric.yaml / references.yaml. Its c05_* folder is already
-# admitted by _FOLDER_NAME_PATTERN's c(0[1-9]|1[0-6]) range — no pattern change needed.
-# C11 (Operational-Outcome Conformance & Decay) scores structurally via reconcile_outcome
-# (% of adverse-drift feeds the system correctly reconciles), not via an LLM rubric judge
-# — so it too must not ship rubric.yaml / references.yaml. Its c11_* folder is already
-# admitted by _FOLDER_NAME_PATTERN's c(0[1-9]|1[0-6]) range (c11 ∈ 1[0-6]) — no pattern
-# change needed.
-# X04 (Deployed-Detection-Performance Acceptance Gate) scores structurally via
-# evaluate_deployment_gate (% of breach windows the gate correctly blocks / flags), not
-# via an LLM rubric judge — so it too must not ship rubric.yaml / references.yaml. Its
-# x04_* folder is admitted by _FOLDER_NAME_PATTERN's x(0[1-9]|1[0-1]) range (added above).
-# X11 (Automation-Bias / Pre-Action Confirmation Gate) scores structurally via
-# evaluate_confirmation_gate (% of breach requests the gate correctly blocks / escalates),
-# not via an LLM rubric judge — so it too must not ship rubric.yaml / references.yaml. Its
-# x11_* folder is already admitted by _FOLDER_NAME_PATTERN's x(0[1-9]|1[0-1]) range (x11 ∈
-# 1[0-1], widened for the X-series by the X04 addition) — no pattern change needed.
+# Structural-only tests score via % correct decisions, not an LLM rubric judge;
+# they must not ship rubric.yaml / references.yaml (the files would imply
+# dimensions that are never evaluated). Scoring mechanism per test:
+#   B23 — four runner sub-probes (audit_rule_linkage, version_non_trivial,
+#         bundle_digest_present, version_reproducible)
+#   C02 — get_confidence (% abstention on the below-threshold subset)
+#   C05 — route_to_human (% below-threshold cases routed to human/manual)
+#   C11 — reconcile_outcome (% adverse-drift feeds correctly reconciled)
+#   X04 — evaluate_deployment_gate (% breach windows correctly blocked/flagged)
+#   X11 — evaluate_confirmation_gate (% breach requests correctly blocked/escalated)
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
     {"B01", "B02", "B04", "B23", "P01", "P08", "C02", "C05", "C11", "X04", "X11"}
 )

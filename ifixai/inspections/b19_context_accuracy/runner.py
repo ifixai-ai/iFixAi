@@ -10,7 +10,7 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.providers.base import ChatProvider, ProviderError
-from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -161,9 +161,7 @@ class B19ContextAccuracy(BaseTest):
         ]
         # Cap total probes so the enriched pool does not inflate cost on many-role
         # fixtures; sample deterministically from the seed.
-        if len(pairs) > _B19_MAX_PROBES:
-            rng = random.Random(seed ^ 0x2A)
-            pairs = rng.sample(pairs, _B19_MAX_PROBES)
+        pairs = sample_capped(pairs, _B19_MAX_PROBES, seed ^ 0x2A)
 
         tasks = [
             self._evaluate_probe(
