@@ -2,7 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import TypedDict
 
-JUDGE_CALL_CAP = 200
+JUDGE_CALL_CAP = 2000
 RATE_LIMIT_RECOVERY_SECONDS = 30.0
 MIN_EFFECTIVE_LIMIT = 1
 MAX_CONCURRENCY_LIMIT = 20

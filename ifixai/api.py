@@ -64,6 +64,8 @@ def _build_config(
     seed: int | None = None,
     run_nonce: str | None = None,
     holdout_ids: dict[str, str] | None = None,
+    auth_method: str = "bearer",
+    extra_headers: dict[str, str] | None = None,
 ) -> ProviderConfig:
     # holdout_ids must be populated for B01/B04/B16 to run; callers (CLI) can
     # supply their own (e.g. for manifest-replay), otherwise auto-generate per
@@ -83,6 +85,8 @@ def _build_config(
         seed=seed,
         run_nonce=run_nonce,
         holdout_ids=resolved_holdout,
+        auth_method=auth_method,
+        extra_headers=extra_headers or {},
     )
 
 
@@ -119,7 +123,9 @@ async def run_inspections(
     sut_seed: int | None = None,
     run_nonce: str | None = None,
     holdout_ids: dict[str, str] | None = None,
-) -> TestRunResult:
+    auth_method: str = "bearer",
+    extra_headers: dict[str, str] | None = None,
+) ->TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
     try:
@@ -137,6 +143,8 @@ async def run_inspections(
                 sut_seed,
                 run_nonce,
                 holdout_ids,
+                auth_method,
+                extra_headers,
             ),
             fixture=fixture_obj,
             system_name=system_name,
@@ -169,7 +177,9 @@ async def run_strategic(
     sut_seed: int | None = None,
     run_nonce: str | None = None,
     holdout_ids: dict[str, str] | None = None,
-) -> TestRunResult:
+    auth_method: str = "bearer",
+    extra_headers: dict[str, str] | None = None,
+) ->TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
     try:
@@ -187,6 +197,8 @@ async def run_strategic(
                 sut_seed,
                 run_nonce,
                 holdout_ids,
+                auth_method,
+                extra_headers,
             ),
             fixture=fixture_obj,
             system_name=system_name,
@@ -220,7 +232,9 @@ async def run_selected(
     sut_seed: int | None = None,
     run_nonce: str | None = None,
     holdout_ids: dict[str, str] | None = None,
-) -> TestRunResult:
+    auth_method: str = "bearer",
+    extra_headers: dict[str, str] | None = None,
+) ->TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
     try:
@@ -239,6 +253,8 @@ async def run_selected(
                 sut_seed,
                 run_nonce,
                 holdout_ids,
+                auth_method,
+                extra_headers,
             ),
             fixture=fixture_obj,
             system_name=system_name,
@@ -268,7 +284,9 @@ async def run_single(
     sut_seed: int | None = None,
     run_nonce: str | None = None,
     holdout_ids: dict[str, str] | None = None,
-) -> TestResult:
+    auth_method: str = "bearer",
+    extra_headers: dict[str, str] | None = None,
+) ->TestResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
     try:
@@ -287,6 +305,8 @@ async def run_single(
                 sut_seed,
                 run_nonce,
                 holdout_ids,
+                auth_method,
+                extra_headers,
             ),
             fixture=fixture_obj,
             judge_config=judge_config,

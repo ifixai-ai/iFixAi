@@ -14,7 +14,7 @@ reply. *What sits behind that seam* determines how much of the suite is measurab
   exposes nothing else. The structural inspections (tool authorization, audit
   trail, deterministic override, policy-version traceability, RAG retrieval) have
   no surface to call, so they return `insufficient_evidence` and drop out of
-  aggregation. A vanilla LLM therefore scores **34 of 45**.
+  aggregation. A vanilla LLM therefore scores **33 of 45**.
 - An **agent** is that model *plus* its system prompt, tools, retrieval, guardrails,
   and governance layer, the thing your business runs. When your adapter exposes
   those surfaces, the structural inspections become measurable and a run can reach
@@ -26,7 +26,7 @@ one for *your deployment*, so point it at your agent.
 
 | What you point at | How | Inspections scored |
 |---|---|---|
-| Bare model API | `--provider openai` / `anthropic` / … | 34 / 45 (28 core + 6 extended) |
+| Bare model API | `--provider openai` / `anthropic` / … | 33 / 45 (27 core + 6 extended) |
 | OpenAI-compatible agent service | `--provider http --endpoint …` | behavioural suite, **+ RAG (B28)** when the service returns `sources` |
 | Custom `ChatProvider` with capability hooks | subclass + implement hooks | up to **45 / 45** |
 | Any fixture with a `governance:` block | `--governance` / inline | structural cluster scored from the *declared* policy (flagged in `warnings[]`) |
@@ -160,28 +160,30 @@ selection details: [docs/methodology.md](methodology.md#cross-provider-judge-def
 ## Governance and scoring coverage
 
 How many of the 45 inspections get scored depends on two things: what your SUT
-exposes, and whether the fixture carries a `governance:` block. Eleven inspections
-ride on provider capability hooks — four core (B01, B02, B04, B23) and seven
+exposes, and whether the fixture carries a `governance:` block. Twelve inspections
+ride on provider capability hooks: five core (B01, B02, B04, B11, B23) and seven
 structural extended (P01, P08, C02, C05, C11, X04, X11).
 
 | SUT shape | Inspections scored |
 |---|---|
 | Vanilla LLM, **default fixture** (ships a `governance:` block) | 44 of 45 \* |
-| Vanilla LLM, **custom fixture without** a governance block | 34 of 45 (28 core + 6 extended) |
-| `--provider mock` (zero credentials) | 45 of 45 |
+| Vanilla LLM, **custom fixture without** a governance block | 33 of 45 (27 core + 6 extended) |
+| `--provider mock` (zero credentials) | 44 of 45 \* |
 | Policy-wrapped provider, or an agent exposing every hook | 45 of 45 |
 | Full mode + multi-judge ensemble | 45 of 45 |
 
-\* with a `warnings[]` entry noting governance was scored from the declared fixture
-rather than measured at runtime; B32 off-topic detection additionally needs a fixture
-with a specific, non-generic domain.
+\* the missing point is B32 off-topic detection, which is n/a when the fixture's
+domain is generic (the bundled default fixture's is `general`); give the fixture a
+specific `metadata.domain` to score it. The vanilla + default-fixture row additionally
+carries a `warnings[]` entry noting governance was scored from the declared fixture,
+not measured at runtime.
 
-When you author your own fixture, there are three ways to wire governance (lowest
-friction last):
+When you author your own fixture, there are three ways to wire governance, ordered here by
+trust (most trustworthy first):
 
-- **`--governance <path>`** — supply an external `GovernanceFixture` YAML; iFixAi wraps the provider with `GovernanceMixin` automatically, no subclassing.
-- **An inline `governance:` block** on the diagnostic fixture — one YAML for tests *and* policies.
-- **`governance: { synthesize: true }`** — derives a structural policy bundle from your `tools`, `permissions`, and `roles`. Lower friction, less precise: the scorecard records that the bundle was synthesised, not measured.
+- **`--governance <path>`** (recommended): supply an external `GovernanceFixture` YAML from a real policy; iFixAi wraps the provider with `GovernanceMixin` automatically, no subclassing.
+- **An inline `governance:` block** on the diagnostic fixture, one YAML for tests *and* policies, still a declared design.
+- **`governance: { synthesize: true }`** (last resort): derives a structural policy bundle from your `tools`, `permissions`, and `roles`. Least precise: the scorecard records that the bundle was synthesised, not measured.
 
 The per-inspection field requirements (which `governance:` fields B02 / B04 / B11 / B23 /
 B26 / B27 read, and what values make them pass) are in

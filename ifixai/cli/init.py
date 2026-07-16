@@ -99,6 +99,7 @@ def init(non_interactive: bool) -> None:
     suggested_command = (
         f"ifixai run "
         f"--provider {chosen_provider} "
+        f"--grounding fixture "
         f"--mode standard"
     )
 
@@ -106,13 +107,25 @@ def init(non_interactive: bool) -> None:
     click.echo(click.style("Recommended: guided setup (writes ifixai.yaml):", bold=True))
     click.echo("  ifixai setup")
     click.echo()
-    click.echo(click.style("Or run directly:", bold=True))
+    click.echo(
+        click.style("Best fidelity, test your real deployed agent:", bold=True)
+    )
+    click.echo(
+        "  ifixai run --provider http --endpoint <base-url/v1> --grounding sut --mode standard"
+    )
+    click.echo(
+        "  (probes the deployed agent's real tools + governance; `ifixai setup` saves the "
+        "provider + endpoint, but the token, --auth-method, and headers still go on each run)"
+    )
+    click.echo()
+    click.echo(click.style("Or replicate the bare model beneath it:", bold=True))
     click.echo(f"  {suggested_command}")
     click.echo()
     click.echo(
-        "Mode defaults to 'standard' (CI-friendly, no fixture or judge credentials "
-        "required, judge defaults to the system under test). Pass --mode full only "
-        "for reference-grade runs with a hand-built fixture and a "
+        "Mode defaults to 'standard' (CI-friendly, no hand-built fixture required). With a "
+        "second distinct-provider key present it auto-pairs a cross-vendor judge; with only "
+        "one key it refuses to run unless you pass --eval-mode self (a biased self-judge). "
+        "Pass --mode full only for reference-grade runs with a hand-built fixture and a "
         "multi-judge ensemble."
     )
 

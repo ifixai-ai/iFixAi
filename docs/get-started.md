@@ -35,8 +35,18 @@ surface, so this is a **plumbing check — not a diagnosis of any real system.**
 
 ## 3. Run a real model
 
-Point iFixAi at a real model and you get your first real scorecard — per-inspection
-scores, the five core pillars, an A–F grade. Pass the SUT key explicitly; the CLI
+Point iFixAi at a real target and you get your first real scorecard: per-inspection
+scores, the five core pillars, an A–F grade. The target you usually want is your **real
+deployed agent**, reached over its own HTTP endpoint and observed as-shipped:
+
+```bash
+ifixai run --provider http --endpoint <agent-url> --grounding sut
+```
+
+`--grounding sut` (the default) reads the agent's own governance as it ships; don't inject
+a fixture over a real agent, that double-governs it.
+
+**No endpoint?** Test the bare model beneath it. Pass the SUT key explicitly; the CLI
 deliberately does not read it from the environment. (Omitting `--fixture` uses the built-in
 **default** fixture; see [fixtures](../ifixai/fixtures/README.md).)
 

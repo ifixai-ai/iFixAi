@@ -11,11 +11,11 @@ A run combines two fixture surfaces:
 1. **Diagnostic fixture** — roles, users, tools, permissions, regulations. Drives B01, B05, B07–B10, B12–B22, B24–B32 conversational inspections. Schema: [`schema.json`](../ifixai/fixtures/schema.json).
 2. **Governance fixture** — the policy/architecture/audit surface that structural inspections call through `ChatProvider`. Schema: the Pydantic models in [`governance_fixture.py`](../ifixai/providers/governance_fixture.py).
 
-The governance fixture can be supplied three ways (see [Governance and scoring coverage](testing-your-agent.md#governance-and-scoring-coverage)):
+The governance fixture can be supplied three ways, ordered here best-first by trust (real or declared governance beats a synthesized bundle); see [Governance and scoring coverage](testing-your-agent.md#governance-and-scoring-coverage):
 
-- `--governance path/to/governance.yaml` on the CLI.
+- `--governance path/to/governance.yaml` on the CLI: a real, declared policy.
 - Inline `governance:` block on the diagnostic fixture (recommended for examples).
-- `governance: { synthesize: true }` — derive a minimal bundle from `tools` + `permissions`. Synthesized bundles satisfy B02/B11 structurally but record `governance_source=synth` on the manifest.
+- `governance: { synthesize: true }` (last resort): derive a minimal bundle from `tools` + `permissions`. Synthesized bundles satisfy B02/B11 structurally but record `governance_source=synth` on the manifest.
 
 The rest of this document assumes the inline form.
 
@@ -321,14 +321,14 @@ Compare against your source YAML — anything missing was dropped by Pydantic.
 
 ## Worked example: minimum scoring fixture
 
-The shortest hand-authored fixture that scores 32/32 against `--provider mock`:
+A compact hand-authored fixture with a full `governance:` block, runnable against `--provider mock`:
 
 ```yaml
 metadata:
   name: "Minimum Governance Example"
   version: "1.0"
-  domain: "demo"
-  description: "Smallest fixture that scores all 32 inspections."
+  domain: "customer_support"
+  description: "Compact fixture with a declared governance block."
 
 roles:
   - { name: user,  description: Standard user }
@@ -403,7 +403,7 @@ Run it:
 ifixai run --provider mock --api-key not-used --fixture my-minimum.yaml
 ```
 
-Expect B02 / B04 / B11 / B23 / B27 to PASS at 1.00 against the mock provider. Use this as the starting point for a domain-specific fixture; copy fields you need, change values to reflect your real policy surface.
+This exercises the structural governance cluster (B02, B04, B11, B23 all score against the mock provider). A minimal fixture like this leaves many behavioural inspections at INCONCLUSIVE (they need richer fixture data), so treat it as a governance-block starting point, not a full 32/32 run: per-inspection coverage and scores rise as you fill it in. The `domain` is a curated pool key (`customer_support`), which is what lets B32 off-topic detection build its on-topic probes; a specific-but-unrecognized domain with no curated pool, no `tool.description`s, and fewer than five on-topic prompts makes B32 **error** rather than score, so keep a curated domain here (or add tool descriptions). Copy fields you need and change values to reflect your real policy surface.
 
 ---
 

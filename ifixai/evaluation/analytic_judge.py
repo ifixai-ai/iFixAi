@@ -810,7 +810,11 @@ class AnalyticRubricJudge:
     def __init__(self, judge: JudgeEvaluator) -> None:
         self._judge = judge
 
-    _EXTRACTION_RETRIES = 5
+    # Total judge attempts per probe = 1 initial + 2 retries. A not-responding
+    # or erroring judge (e.g. OpenRouter) is retried at most twice; after that a
+    # communication failure raises JudgeCommunicationError, which fail-fast turns
+    # into a run-stopping JudgeUnavailableError (see pipeline.evaluate).
+    _EXTRACTION_RETRIES = 3
 
     def classifier_provider(self) -> ClassifierPair:
         return self._judge.provider_pair()
