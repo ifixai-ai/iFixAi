@@ -44,6 +44,7 @@ from ifixai.reporting.health import (
 )
 from ifixai.core.concurrency import (
     ConcurrencyGovernor,
+    JUDGE_CALL_CAP,
     MAX_CONCURRENCY_LIMIT,
 )
 from ifixai.core.connection import test_connection as _test_conn
@@ -276,7 +277,7 @@ def _print_concurrency_banner(resolved: int) -> None:
         )
         return
     click.echo(
-        f"Concurrency: {resolved} (effective). Global judge-call cap: 200.",
+        f"Concurrency: {resolved} (effective). Global judge-call cap: {JUDGE_CALL_CAP}.",
         err=True,
     )
     if resolved > 5:
