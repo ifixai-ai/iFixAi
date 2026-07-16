@@ -6,6 +6,7 @@ progress output. Supports both non-interactive (flags) and interactive
 """
 
 import asyncio
+import json
 import os
 import secrets
 import sys
@@ -186,6 +187,45 @@ def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
     return current
 
 
+def _parse_extra_headers(value: "str | dict | None") -> dict[str, str]:
+    """Normalize --extra-headers (JSON string, or a dict from config/wizard) to a dict.
+
+    Raises BadParameter on a non-object or malformed JSON so a real agent that
+    needs custom/tenant headers fails clearly at parse time, not mid-run.
+    """
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return {str(k): str(v) for k, v in value.items()}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise click.BadParameter(
+            f"--extra-headers must be a JSON object: {exc}",
+            param_hint="--extra-headers",
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise click.BadParameter(
+            "--extra-headers must be a JSON object (e.g. '{\"X-Tenant\": \"acme\"}').",
+            param_hint="--extra-headers",
+        )
+    return {str(k): str(v) for k, v in parsed.items()}
+
+
+def _skip_default_fixture_governance(
+    provider: "str | None", used_default_fixture: bool
+) -> bool:
+    """Whether to withhold the BUNDLED default fixture's governance from the SUT.
+
+    True only when the SUT is a live ``http`` endpoint AND we auto-selected the
+    default fixture: composing a fake org's declared policy onto a real agent
+    would shadow the agent's own runtime control plane. A user-supplied fixture
+    with a ``governance:`` block, or an explicit ``--governance``, is always
+    honored (this predicate never fires for them).
+    """
+    return (provider or "").lower() == "http" and used_default_fixture
+
+
 def _format_elapsed(seconds: float) -> str:
     """Human-readable wall-clock duration: ``1h 23m 4s`` / ``2m 5s`` / ``18s``.
 
@@ -284,7 +324,28 @@ def _print_concurrency_banner(resolved: int) -> None:
     "--endpoint",
     "-e",
     default=None,
-    help="Custom API endpoint URL.",
+    help="Your agent's endpoint URL (for --provider http; the real deployed agent).",
+)
+@click.option(
+    "--auth-method",
+    type=click.Choice(["bearer", "basic", "api_key", "none"], case_sensitive=False),
+    default="bearer",
+    show_default=True,
+    help=(
+        "Auth scheme for --provider http: bearer (Authorization: Bearer KEY), "
+        "basic (base64), api_key (X-API-Key: KEY), or none. Ignored by SDK "
+        "providers."
+    ),
+)
+@click.option(
+    "--extra-headers",
+    "extra_headers",
+    default=None,
+    help=(
+        "Extra HTTP headers for --provider http as a JSON object, e.g. "
+        "'{\"X-Tenant\": \"acme\"}'. Merged over the auth header. Also settable "
+        "via the IFIXAI_EXTRA_HEADERS env var."
+    ),
 )
 @click.option(
     "--model",
@@ -447,9 +508,10 @@ def _print_concurrency_banner(resolved: int) -> None:
     type=click.Choice(["standard", "full"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="Run mode. standard = CI-friendly default (auto fixture, judge: self when "
-    "no judge credentials supplied). full = reference-grade (hand-built fixture "
-    "and >=2 distinct judge providers required).",
+    help="Run mode. standard = CI-friendly default (auto fixture; auto-pairs a "
+    "cross-vendor judge when a second provider key is present, else refuses unless "
+    "--eval-mode self). full = reference-grade (hand-built fixture and >=2 distinct "
+    "judge providers required).",
 )
 @click.option(
     "--reliability-out",
@@ -630,6 +692,8 @@ def run(
     fixture: str,
     governance_path: str | None,
     endpoint: str | None,
+    auth_method: str,
+    extra_headers: str | None,
     model: str | None,
     system_prompt: str | None,
     strategic: bool,
@@ -709,6 +773,14 @@ def run(
         )
         timeout = _cfg_value(ctx, "timeout", timeout, config_obj.timeout)
         endpoint = _cfg_value(ctx, "endpoint", endpoint, config_obj.endpoint)
+        auth_method = _cfg_value(
+            ctx, "auth_method", auth_method, config_obj.auth_method
+        )
+        grounding = _cfg_value(ctx, "grounding", grounding, config_obj.grounding)
+        if governance_path is None and config_obj.governance:
+            governance_path = config_obj.governance
+        if extra_headers is None and config_obj.extra_headers:
+            extra_headers = config_obj.extra_headers
         system_name = _cfg_value(ctx, "system_name", system_name, config_obj.name)
         if api_key is None and config_obj.api_key_env:
             api_key = os.environ.get(config_obj.api_key_env)
@@ -877,6 +949,12 @@ def run(
         api_key = interactive["api_key"]
         endpoint = interactive["endpoint"]
         model = interactive["model"]
+        auth_method = interactive.get("auth_method") or auth_method
+        if interactive.get("extra_headers"):
+            extra_headers = interactive["extra_headers"]
+
+    # Normalize --extra-headers (JSON string, or a dict from config/wizard) once.
+    extra_headers_dict = _parse_extra_headers(extra_headers)
 
     # provider is guaranteed non-None here (the interactive block above sets it when
     # it was not passed as a flag), so the env lookup always has a real provider.
@@ -1028,6 +1106,8 @@ def run(
         temperature=sut_temperature,
         seed=sut_seed,
         holdout_ids=holdout.to_dict(),
+        auth_method=auth_method,
+        extra_headers=extra_headers_dict,
     )
     conn_result = asyncio.run(_test_conn(cast(ChatProvider, resolved_provider), test_config))
     simulation_mode = False
@@ -1070,6 +1150,7 @@ def run(
             click.echo(f"  Capabilities: {', '.join(cap_parts)}")
 
     context_profile = None
+    used_default_fixture = False
     if fixture is None and run_mode == "standard":
         default_fixture_path = (
             Path(__file__).resolve().parent.parent
@@ -1078,6 +1159,7 @@ def run(
             / "fixture.yaml"
         )
         fixture = str(default_fixture_path)
+        used_default_fixture = True
         click.echo(
             click.style(
                 f"  Standard mode -- using default fixture: {fixture}",
@@ -1282,14 +1364,52 @@ def run(
     grounding_mode = GroundingMode(grounding.lower())
     fixture_obj_for_grounding = load_fixture(fixture)
 
+    # A real deployed agent (--provider http) already carries its own system
+    # prompt, tools, and guardrails. Injecting a fixture-derived governance
+    # prompt on top (--grounding fixture) double-governs it -- you'd score the
+    # agent PLUS a second rulebook that doesn't exist in production. Warn, but
+    # respect the explicit choice.
+    is_real_agent = (provider or "").lower() == "http"
+    if is_real_agent and grounding_mode == GroundingMode.FIXTURE:
+        click.echo(
+            click.style(
+                "Warning: --grounding fixture injects a fixture-derived system "
+                "prompt on top of your real agent's own prompt (double-governing). "
+                "Use --grounding sut to observe the deployed agent as-is.",
+                fg="yellow",
+            ),
+            err=True,
+        )
+
     # Governance precedence: --governance flag (already wrapped above) wins.
     # Otherwise an embedded `governance:` block on the diagnostic fixture
     # (explicit or synth via `synthesize: true`) is composed onto the
     # provider here. Vanilla path leaves `governance_source == "runtime"`
     # so insufficient_evidence on governance inspections stays honest.
+    #
+    # Exception: don't shadow a real agent with the BUNDLED default fixture's
+    # governance. When the SUT is a live endpoint and we auto-selected the
+    # default fixture, composing its `governance:` block would grade a fake
+    # org's declared policy instead of the agent's real control plane. Leave
+    # governance_source == "runtime" so those inspections stay honest
+    # insufficient_evidence; a user who wants declared governance can pass
+    # --governance <policy.yaml> or their own fixture with a governance block.
+    shadow_default_governance = _skip_default_fixture_governance(
+        provider, used_default_fixture
+    )
+    if shadow_default_governance and fixture_obj_for_grounding.governance is not None:
+        click.echo(
+            click.style(
+                "Governance: real endpoint detected -- not composing the default "
+                "fixture's governance onto your agent. Pass --governance "
+                "<policy.yaml> to score against your declared control plane.",
+                fg="cyan",
+            )
+        )
     if (
         governance_source == "runtime"
         and fixture_obj_for_grounding.governance is not None
+        and not shadow_default_governance
     ):
         resolved_provider = wrap_with_governance(
             resolved_provider,
@@ -1329,6 +1449,8 @@ def run(
             api_key=api_key,
             fixture=fixture,
             endpoint=endpoint,
+            auth_method=auth_method,
+            extra_headers=extra_headers_dict,
             model=model,
             system_prompt=effective_system_prompt,
             strategic=strategic,
@@ -1576,10 +1698,58 @@ def run(
 
 
 def gather_interactive_config() -> InteractiveConfig:
-    """Run the interactive guided mode to collect provider configuration."""
+    """Run the interactive guided mode to collect provider configuration.
+
+    Real-agent-first: offer pointing at a deployed agent's HTTP endpoint before
+    the bare-model providers, so the default choice tests the system actually
+    shipped (its real tools + governance), not a stand-in of the model beneath.
+    """
     click.echo(click.style("ifixai -- Interactive Setup", bold=True))
     click.echo()
 
+    default_endpoint = os.environ.get("IFIXAI_HTTP_ENDPOINT")
+    endpoint_hint = f" [{default_endpoint}]" if default_endpoint else ""
+    test_real_agent = click.confirm(
+        "Test your real deployed agent at an HTTP endpoint (recommended)?"
+        f"{endpoint_hint}",
+        default=bool(default_endpoint),
+    )
+
+    if test_real_agent:
+        provider = "http"
+        endpoint = click.prompt("Endpoint URL", default=default_endpoint or None)
+        auth_method = click.prompt(
+            "Auth scheme",
+            type=click.Choice(
+                ["bearer", "api_key", "basic", "none"], case_sensitive=False
+            ),
+            default="bearer",
+        )
+        api_key = ""
+        if auth_method != "none":
+            api_key = click.prompt(
+                "API key / token for the agent", hide_input=True, default=""
+            )
+        extra_headers: dict[str, str] | None = None
+        if click.confirm("Add custom headers (JSON)?", default=False):
+            extra_headers = _parse_extra_headers(click.prompt("Headers JSON"))
+        model = None
+        if click.confirm("Pin a model id?", default=False):
+            model = click.prompt("Model identifier")
+        return InteractiveConfig(
+            provider=provider,
+            api_key=api_key,
+            endpoint=endpoint,
+            model=model,
+            auth_method=auth_method,
+            extra_headers=extra_headers,
+        )
+
+    # Fallback: replicate the model beneath as a bare stand-in.
+    click.echo(
+        "No reachable endpoint -- testing the bare model instead "
+        "(a stand-in, not your deployed agent)."
+    )
     provider = click.prompt(
         "Select provider",
         type=click.Choice(PROVIDER_CHOICES, case_sensitive=False),

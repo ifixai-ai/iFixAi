@@ -76,23 +76,23 @@ All three run the same diagnostic underneath. The difference is how you configur
 
 ## Quick start
 
-Now try it yourself. The guided wizard gets you running with zero flags from the second run
-onward; from a coding agent, the plugin (Claude Code or Codex) or the scaffolded `/ifixai-skill`
-(every agent) lets the agent drive the whole thing; or use explicit flags for full control and CI.
-Full walkthrough: **[docs/get-started.md](docs/get-started.md)**.
+Now try it yourself. Pick a path from the table above; full walkthrough: **[docs/get-started.md](docs/get-started.md)**.
 
 ### Guided wizard (recommended)
 
 ```bash
 pip install "ifixai[openai]"   # or anthropic, gemini, etc. — install the provider extra you'll test
 ifixai setup                    # arrow-key wizard: pick provider, model, judge, suite → writes ifixai.yaml
-ifixai run                      # no flags needed from now on
+ifixai run                      # no flags needed; reports land in ./ifixai-results/
 ```
 
 `ifixai setup` detects API keys already in your environment and surfaces them at the top of
 each prompt. No key found? The wizard tells you which env var to export; if it's still missing
-when you run, you'll be prompted for it before the first API call. After setup, `ifixai run`
-reads everything from `ifixai.yaml` — no flags, no copy-pasting keys.
+when you run, you'll be prompted for it before the first API call.
+
+**Windows note:** if PowerShell can't find `ifixai` after `pip install`, add Python's `Scripts\`
+folder to your PATH, or run it as `python -m ifixai`. This is the usual Python-on-Windows PATH
+gap, not an iFixAi issue.
 
 ### Plugin (Claude Code and Codex)
 
@@ -157,7 +157,9 @@ export OPENAI_API_KEY=sk-...                # the judge, auto-paired from the en
 ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
 ```
 
-Every run has **two roles**, and a citable run needs a key for each:
+A grade is **citable** when a second, independent provider graded your agent, not the agent
+grading itself. Every run has **two roles**, so a citable run needs **two keys**, one per role,
+from different vendors:
 
 | Role | What it is | How you set it |
 |---|---|---|
@@ -170,6 +172,35 @@ self-judged, not a result you can cite). Pinning the judge, Full-mode ensembles,
 **[docs/running.md](docs/running.md)**. Other providers (OpenAI, OpenRouter, Gemini,
 Azure, Bedrock, Hugging Face) install the matching extra and follow the same steps; the
 HTTP and LangChain adapters need no provider extra: **[docs/providers.md](docs/providers.md)**.
+
+### Recommended judge setups
+
+The judge grades your agent's answers. Two reliable setups:
+
+| Setup | Judge model(s) | Est. cost, full suite* |
+|---|---|---|
+| **Single judge: Sonnet** | `anthropic/claude-sonnet-4.6` | ~$12–18 |
+| **More affordable: two judges** | `google/gemini-2.5-pro` + `openai/gpt-5.4-mini` | ~$10–14 combined |
+
+Both are reliable. **Sonnet** is the simplest, highest-quality single grader. **Gemini 2.5
+Pro** and **GPT-5.4-mini** are strong, capable models from two different vendors; running them as a
+pair still comes in under a single Sonnet run and adds cross-vendor robustness, so no one model or
+vendor decides your grade (ties break conservatively, `fail > partial > pass`).
+
+```bash
+# Single judge (Standard mode): Sonnet grades your agent
+--eval-mode single --judge-provider openrouter --judge-model anthropic/claude-sonnet-4.6
+
+# Two affordable judges (Full mode; needs a hand-built --fixture), both on one OpenRouter key
+--mode full --eval-mode full \
+  --judge-provider openrouter --judge-model google/gemini-2.5-pro \
+  --judge-provider openrouter --judge-model openai/gpt-5.4-mini
+```
+
+\* Rough total for one full-suite run at OpenRouter list prices (mid-2026), based on the ~2,000
+judge calls a full run makes (the suite generates far more probes than its 45-test count, so the
+figure is fairly stable across fixtures). The agent under test is billed separately. Full mode
+needs a hand-built fixture: **[docs/fixture_authoring.md](docs/fixture_authoring.md)**.
 
 ### Suite options
 
@@ -184,19 +215,22 @@ HTTP and LangChain adapters need no provider extra: **[docs/providers.md](docs/p
 Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `--suite` values; run `ifixai list suites` to browse them all.
 
 ```bash
-ifixai run --provider openai --suite strategic   # quick 8-test read
-ifixai run --provider openai --suite core        # the graded scorecard
-ifixai list suites                               # browse all suites and themes
+ifixai run --provider http --endpoint <agent-url> --grounding sut  # your real deployed agent (recommended)
+ifixai run --provider openai --suite strategic   # quick bare-model read (8 tests)
+ifixai run --provider openai --suite core        # quick bare-model read, graded scorecard
 ```
 
 ### Test your own agent
 
-The commands above call a **bare model API**: the simplest case, and it scores lower
-because a bare model has none of the extra parts a real agent does. The real system under
-test is usually your **agent**: a model wrapped with a system prompt, tools, retrieval, and guardrails.
-iFixAi treats it as a black box reached through a thin adapter:
+The first command above is the one to reach for: it points iFixAi at your **real deployed
+agent** over its own HTTP endpoint and, with the default `--grounding sut`, observes it
+as-shipped, the governance it already enforces included. The `--provider openai` lines call
+a **bare model API** instead: the simplest case, and it scores lower because a bare model
+has none of the extra parts a real agent does. The real system under test is usually your
+**agent**: a model wrapped with a system prompt, tools, retrieval, and guardrails. iFixAi
+treats it as a black box reached through a thin adapter:
 
-- **Serves an OpenAI-compatible HTTP endpoint?** Point `--provider http --endpoint …` at it, no glue code.
+- **Serves an OpenAI-compatible HTTP endpoint?** Point `--provider http --endpoint … --grounding sut` at it, no glue code, and iFixAi measures the governance your agent already enforces.
 - **Runs anywhere else?** Implement one method, `ChatProvider.send_message` ([ifixai/providers/base.py](ifixai/providers/base.py)), and override the optional capability hooks (`list_tools`, `get_audit_trail`, `authorize_tool`, `retrieve_sources`, …).
 
 The more of those parts your adapter exposes, the more inspections iFixAi can actually
@@ -244,6 +278,13 @@ your grade** (including the P01 mandatory minimum above); the **other eight are
 exploratory**: scored and reported on their own, but kept out of the headline so they
 can't skew comparisons.
 
+**"Premium" is a capability tier, not a paywall.** Everything in this repo, core and premium, is
+free and open (Apache 2.0).
+
+**What does a good result look like?** The scorecards in **[case_studies/](case_studies/)** mostly
+test bare or lightly-governed agents, which is why they land at D/F; a well-governed agent scores
+materially higher (see [Test your own agent](#test-your-own-agent)).
+
 Full math and weights: **[docs/scoring.md](docs/scoring.md)**. The full `B01`–`B32` → pillar
 mapping and every premium category: **[docs/inspection_categories.md](docs/inspection_categories.md)**.
 
@@ -258,11 +299,11 @@ Docs are sorted by what you came to do. Start in **[docs/](docs/)**:
 
 ## Telemetry
 
-iFixAi sends pseudonymous run telemetry — a random local install id plus
-started/completed, the tool version, your OS name, which interface you used (CLI or
-plugin), and a timestamp — so we can see how many people use it and whether they return. It **never** sends your code,
-findings, grades, prompts, file paths, or IP address; it's disclosed on first run,
-and it's off automatically in CI. See exactly what would be sent:
+iFixAi sends pseudonymous run telemetry so we can see how many people use it and
+whether they return: a random local install id plus started/completed, the tool
+version, your OS name, which interface you used (CLI or plugin), and a timestamp. It
+**never** sends your code, findings, grades, prompts, file paths, or IP address; it's
+disclosed on first run, and it's off automatically in CI. See exactly what would be sent:
 
 ```bash
 ifixai run --print-telemetry

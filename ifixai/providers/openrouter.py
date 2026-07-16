@@ -18,8 +18,9 @@ DEFAULT_MODEL = "openai/gpt-4o"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 # Hard ceiling on max_tokens for OpenRouter calls. Per-call ``config.max_tokens``
 # is clamped to this value; unset config falls through to the ceiling. Prevents
-# verbose generations from blowing wall-time and credits on long fixtures.
-MAX_TOKENS_CEILING: int = 2048
+# verbose generations from blowing wall-time and credits on long fixtures. Raised
+# to 8k so judge/SUT replies aren't truncated mid-verdict on longer inspections.
+MAX_TOKENS_CEILING: int = 8192
 
 ClientCacheKey = tuple[str, str | None, float, int]
 

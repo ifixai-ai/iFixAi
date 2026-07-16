@@ -25,7 +25,7 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "azure": "Azure OpenAI deployment",
     "bedrock": "AWS Bedrock-hosted models",
     "huggingface": "Hugging Face Inference endpoints",
-    "http": "Any OpenAI-compatible HTTP endpoint",
+    "http": "Your real deployed agent's OpenAI-compatible HTTP endpoint (recommended)",
     "langchain": "A LangChain-wrapped model",
     "mock": "Built-in offline mock — no key, just to try the tool",
 }
@@ -132,23 +132,53 @@ def setup(ctx: click.Context) -> None:
             click.style("No provider API keys detected in your environment.", fg="yellow")
         )
 
-    provider_choices = available_names + [
-        p for p in _ALL_PROVIDERS if p not in available_names
-    ]
+    # Surface the real-agent (http) path first: it's the highest-fidelity SUT.
+    # Then providers whose key is already present, then the rest.
+    rest = [p for p in _ALL_PROVIDERS if p != "http" and p not in available_names]
+    provider_choices = ["http"] + available_names + rest
     provider_desc = {
         p: _PROVIDER_DESCRIPTIONS.get(p, "")
         + (" — key detected" if p in available_names else "")
         for p in provider_choices
     }
     provider = ui.select(
-        "Which provider hosts the system under test?",
+        "What is the system under test? (Pick 'http' to test your real deployed "
+        "agent; any other provider replicates the bare model beneath it.)",
         provider_choices,
-        default=available_names[0] if available_names else "openrouter",
+        default="http",
         descriptions=provider_desc,
     )
     api_key_env = PROVIDER_ENV_KEYS.get(provider)
 
     model = _pick_model(provider, role="system under test")
+
+    # Real-agent (http) and azure need an endpoint. For http, observe the deployed
+    # agent under its own prompt/governance (grounding=sut, governance runtime).
+    endpoint: str | None = None
+    grounding: str | None = None
+    if provider in ("http", "azure"):
+        default_ep = (
+            os.environ.get("IFIXAI_HTTP_ENDPOINT") if provider == "http" else None
+        )
+        endpoint = (
+            ui.text(
+                "Endpoint URL for the agent under test:", default=default_ep or ""
+            ).strip()
+            or None
+        )
+    if provider == "http":
+        grounding = "sut"
+
+    # Governance: prefer a real declared policy over synthesizing one in the fixture.
+    # Skip for http (the live agent enforces its own governance at runtime).
+    governance: str | None = None
+    if provider != "http":
+        gov_path = ui.text(
+            "Path to a real governance policy YAML "
+            "(blank to skip / synthesize in the fixture):",
+            default="",
+        ).strip()
+        governance = gov_path or None
 
     judges: list[JudgeSpec] = []
     if provider == "mock":
@@ -311,6 +341,9 @@ def setup(ctx: click.Context) -> None:
         provider=provider,
         model=model,
         api_key_env=api_key_env,
+        endpoint=endpoint,
+        grounding=grounding,
+        governance=governance,
         fixture=fixture,
         suite=suite,
         mode=mode,
@@ -325,9 +358,13 @@ def setup(ctx: click.Context) -> None:
     click.echo(
         click.style(
             f"Saving writes these settings to {CONFIG_FILENAME} in this folder so "
-            "`ifixai run` needs no flags next time. It records only each key's env-var "
-            "name (never the secret itself), and the file is git-ignored by default. "
-            "Choose No to skip saving and configure runs with flags instead.",
+            "`ifixai run` needs no flags next time for SDK providers whose key is in an "
+            "env var. It records only each key's env-var name (never the secret itself), "
+            "and the file is git-ignored by default. The http real-agent path still needs "
+            "its endpoint token each run (via --api-key or the run prompt), plus "
+            "--auth-method for a non-bearer scheme and IFIXAI_EXTRA_HEADERS for custom "
+            "headers, which the wizard does not save. Choose No to skip saving and "
+            "configure runs with flags instead.",
             dim=True,
         )
     )

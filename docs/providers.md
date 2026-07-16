@@ -38,6 +38,22 @@ By default, iFixAi grades the SUT with a second, different provider so nothing s
 The CLI does **not** auto-read the SUT API key from the environment: pass
 **`--api-key`** / **`-k`**, or enter it when prompted.
 
+## HTTP: your real deployed agent (recommended)
+
+> The http endpoint is the recommended way to test a **real deployed agent**: iFixAi drives it as-shipped over its own HTTP API and, with the default `--grounding sut`, measures the governance your agent already enforces rather than a model in isolation. No provider extra needed (`aiohttp` is a core dep).
+
+```bash
+pip install -e "."
+export GEMINI_API_KEY=...   # second provider for cross-judge (or use --eval-mode self)
+ifixai run --provider http \
+  --endpoint http://localhost:8000/v1 \
+  --grounding sut \
+  --api-key YOUR_SERVER_TOKEN \
+  --model your-model-id
+```
+
+Optional JSON headers: set **`IFIXAI_EXTRA_HEADERS`** to a JSON object (see [`ifixai/providers/http.py`](../ifixai/providers/http.py)).
+
 ## Anthropic
 
 ```bash
@@ -104,19 +120,6 @@ ifixai run --provider huggingface --api-key "$HF_TOKEN" --model meta-llama/Llama
 ```
 
 (`HUGGINGFACE_API_TOKEN` is also accepted.)
-
-## HTTP (OpenAI-compatible server)
-
-```bash
-pip install -e "."
-export GEMINI_API_KEY=...   # second provider for cross-judge (or use --eval-mode self)
-ifixai run --provider http \
-  --endpoint http://localhost:8000/v1 \
-  --api-key YOUR_SERVER_TOKEN \
-  --model your-model-id
-```
-
-Optional JSON headers: set **`IFIXAI_EXTRA_HEADERS`** to a JSON object (see [`ifixai/providers/http.py`](../ifixai/providers/http.py)).
 
 ## LangChain / LangServe
 

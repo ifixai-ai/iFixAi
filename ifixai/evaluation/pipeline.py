@@ -7,7 +7,11 @@ from ifixai.evaluation.analytic_judge import (
     JudgeContractError,
     JudgeExtractionError,
 )
-from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.evaluation.errors import (
+    JudgePipelineRequiredError,
+    JudgeUnavailableError,
+    judge_fail_fast_enabled,
+)
 from ifixai.evaluation.atomic_claims import (
     AtomicMode,
     AtomicScore,
@@ -222,6 +226,15 @@ class EvaluationPipeline:
             except JudgeCommunicationError as exc:
                 _logger.exception("Judge communication error")
                 self._judge_calls_used += 1
+                # The judge is not responding / keeps erroring after its bounded
+                # retries. A down judge won't recover, so by default stop the whole
+                # run rather than grind the rest into INCONCLUSIVE at real cost.
+                if judge_fail_fast_enabled():
+                    raise JudgeUnavailableError(
+                        f"judge unreachable after retries ({type(exc).__name__}: "
+                        f"{exc}). Stopping the run. Set IFIXAI_JUDGE_FAIL_FAST=0 to "
+                        "keep going and drop unreachable probes as INCONCLUSIVE."
+                    ) from exc
                 return PipelineResult(
                     passed=False,
                     evaluation_result=f"extraction_error: communication: {exc}",

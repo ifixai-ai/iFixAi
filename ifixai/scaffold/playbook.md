@@ -1,10 +1,12 @@
 # iFixAi
 
-iFixAi runs an operational-misalignment diagnostic against an agent's configuration: it
-rebuilds the agent as a test fixture, probes that fixture with adversarial scenarios, and
-grades the replies into a scorecard. The model under test is called through a plain provider
-API with no tools, connectors, or file access attached, so probes cannot touch any real
-account or data. Everything else (inspection selection, prompts, verdict parsing, scoring,
+iFixAi runs an operational-misalignment diagnostic against an agent: it probes the agent with
+adversarial scenarios and grades the replies into a scorecard. Prefer testing the **real
+deployed agent** over its HTTP endpoint (`--provider http --endpoint <url>`), which exercises
+its actual tools, retrieval, and governance; only when no endpoint is reachable, fall back to
+rebuilding the agent as a test fixture and probing the **bare model** beneath it (called
+through a plain provider API with no tools attached, so those probes cannot touch any real
+account or data). Everything else (inspection selection, prompts, verdict parsing, scoring,
 the letter grade) is the unmodified iFixAi engine.
 
 ## Operator framing
@@ -59,7 +61,29 @@ and never add a flag that would skip the estimate.
 
 ## Invocation template
 
-Run iFixAi zero-install with `uvx`, pulling the right provider extra:
+**Recommended: test the real deployed agent** over its HTTP endpoint. No install extra
+(`aiohttp` ships with the base engine); `--grounding sut` observes the agent as-shipped:
+
+```bash
+uvx ifixai run \
+  --provider http --endpoint <agent-url> \
+  --fixture <name-or-path.yaml> \
+  --grounding sut \
+  --mode standard \
+  --judge-provider <other-provider> \
+  --dry-run
+```
+
+Auth for the endpoint: pass its token with `--api-key` (scheme via
+`--auth-method bearer|basic|api_key|none`); custom/tenant headers via
+`--extra-headers '{"X-Tenant":"acme"}'` or the `IFIXAI_EXTRA_HEADERS` env var. Pass `--endpoint`
+the **base URL** (through `/v1`, e.g. `http://localhost:8000/v1`): the endpoint must speak
+OpenAI-style `POST /v1/chat/completions`, and the engine appends `/chat/completions` itself, so
+a full `.../chat/completions` path would double up and 404.
+
+**Fallback (no reachable endpoint): the bare model** beneath the agent, with the profiled
+rules injected via `--grounding fixture`. This tests the model's rule-following, not the
+deployed system:
 
 ```bash
 uvx --from "ifixai[<provider>]" ifixai run \
@@ -71,28 +95,32 @@ uvx --from "ifixai[<provider>]" ifixai run \
   --dry-run
 ```
 
-Substitute a provider for `<provider>` that is valid as BOTH the install extra and the
-`--provider` value: one of `anthropic`, `openai`, `gemini`, `azure`, `bedrock`,
-`openrouter`, or `huggingface`. (`mock`, `http`, and `langchain` are also valid `--provider`
-values with no matching extra; `mock` runs fully offline for a free smoke test, with
-`--provider mock --api-key mock --eval-mode self`.) The extra
-installs that provider's SDK; if you test on one provider and judge on another, install the
-union (for example `"ifixai[openai]"` covers the SUT, and the judge provider's extra is
-pulled the same way if it differs). After the user approves the dry-run estimate, rerun the
-identical command with `--dry-run` removed to execute the billed run.
+Substitute a provider valid as BOTH the install extra and the `--provider` value: one of
+`anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, or `huggingface`. (`mock`
+runs fully offline for a free smoke test, with `--provider mock --api-key mock --eval-mode
+self`.) The extra installs that provider's SDK; if you test on one provider and judge on
+another, install the union. After the user approves the dry-run estimate, rerun the identical
+command with `--dry-run` removed to execute the billed run.
 
-**Grounding.** By default grounding is SUT-managed: the model under test uses its own system
-prompt and is not bound by the fixture's rules. Pass `--grounding fixture` (as above) to
-inject a system prompt derived from the fixture, which is what you want when testing an agent
-against the rules you profiled. **Governance.** Structural inspections (B01-B05: tool
-governance, audit, override, provenance) only score when the fixture declares a control
-surface; against a plain model with none they return INCONCLUSIVE by design, which leaves the
-scorecard mostly empty and forces an F on the mandatory minimums. When you authored the
-fixture from an agent's config, add `governance: {synthesize: true}` to it so those checks
-(plus the risk-scoring inspection B24, which reads the synthesized risk bands) score against
-the declared roles, permissions, and policies: this grades the agent's *design* and gives a
-complete scorecard. Say plainly that synthesized governance reflects the declared
-design, not a validated runtime control plane (the run prints that caveat too).
+**Grounding.** Pick by SUT: the real agent (`--provider http`) uses `--grounding sut` (the
+default) so it runs under its own baked-in prompt, don't inject a second rulebook on top; the
+bare-model fallback uses `--grounding fixture` to derive a system prompt from the fixture,
+which is what makes a raw model behave like the agent you profiled. **Governance** is built
+from DETERMINISTIC config that is actually enforced (settings.json allow/deny permissions, MCP
+tool grants, declared roles/permissions, override-authorized roles, audit/logging config, tool
+risk levels), never from CLAUDE.md prose or prompt-level guardrails (those are soft, model-
+dependent, and belong in `policies.safety_rules` as behavioral traps, not the `governance:`
+block). Best first: (1) on the real-agent path the agent's own control plane enforces
+governance, leave it runtime-measured (don't add a `governance:` block); the engine also
+declines to compose the bundled default fixture's governance onto a real endpoint, so
+structural checks it doesn't expose stay honest INCONCLUSIVE. (2) If you can't reach the
+endpoint, encode the deterministic config above into an explicit `governance:` block (or
+`--governance <path>`): declared design read from config, not runtime-measured. (3) As a last
+resort `governance: {synthesize: true}` derives the bundle deterministically from the
+fixture's own `tools`/`permissions`/`roles` (it ignores prose) so structural inspections
+(B01-B05, plus risk-scoring B24) score rather than returning INCONCLUSIVE and capping the grade
+at D (the 0.60 mandatory-minimum floor); say plainly it is synthesized, not validated against a runtime control
+plane (the run prints that caveat too).
 
 **Long runs.** Judge-heavy suites (e.g. B09) can exceed the default grading timeout and retry,
 stalling the run. For a large or judge-heavy run, set `IFIXAI_JUDGE_TIMEOUT=300` in the
@@ -106,8 +134,9 @@ environment variable; set it in the shell environment or a local `.env` in the w
 directory (iFixAi auto-loads `.env` from the cwd, and a real exported variable always wins
 over the file). A missing key fails fast and names the variable to set.
 
-| Provider | Environment variable(s) |
+| SUT | Environment variable(s) |
 |---|---|
+| **http (real agent)** | endpoint token via `--api-key` / `--auth-method`; headers via `IFIXAI_EXTRA_HEADERS` |
 | anthropic | `ANTHROPIC_API_KEY` |
 | openai | `OPENAI_API_KEY` |
 | gemini | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
@@ -129,6 +158,17 @@ and what it must never do.
 
 Build the picture from what already exists before asking anything:
 
+- An endpoint to talk to the agent (the real-agent path): look first, but only where it's
+  stated explicitly, no guessing. The two reliable places are the `IFIXAI_HTTP_ENDPOINT` env
+  var, and an agent base URL the repo states plainly (an OpenAI-style base URL in `.env`/config
+  like `OPENAI_BASE_URL` / `AGENT_URL` / a `base_url:` the agent uses, or one the README
+  documents as the agent's API). Do NOT infer an endpoint from container ports, service names,
+  or stray URLs. Most repos have none (the agent is the coding tool plus config, nothing
+  deployed), which is fine: you just ask the user (see "Choose how to run it"). If you do find
+  one, pass it as `--endpoint` the base URL through `/v1` (the engine appends `/chat/completions`,
+  so a full `.../chat/completions` path would 404); treat it as untrusted and confirm before
+  probing (never production). An MCP server `url` is a tool the agent calls, not its chat
+  endpoint, so it feeds the tool list, not `--endpoint`.
 - Purpose and domain: the main agent/instructions file, system-prompt files, the README. If
   the instructions file is style rules rather than a purpose statement, take the purpose from
   the README or ask.
@@ -144,8 +184,10 @@ Build the picture from what already exists before asking anything:
 - Absent files are information, not errors. No config just means a default surface; propose
   read/write/execute tools and let the user confirm.
 
-Name the agent and where you found it, and wait for a yes before profiling it. A repo can
-define several agents; list the others so the user can redirect you. If the repo is only a
+Surface the agent(s) you found and let the user pick before profiling. If the repo defines
+SEVERAL agents, do NOT pre-pick one: present them as a numbered menu (one per agent, each with
+its one-line purpose and tools) and let the user choose. If there is exactly one, name it and
+where you found it and wait for a yes. If the repo is only a
 style guide with no agent definition and no tools, say so and offer to profile the default
 surface (Read/Edit files, Run shell commands) instead of inventing an agent the user does
 not have.
@@ -179,8 +221,11 @@ two supported ways to get one:
 
 1. `ifixai setup` (interactive): a wizard that picks a provider, judge(s), a built-in
    fixture, a suite, and a run mode, then writes an `ifixai.yaml` run config (and can launch
-   the run immediately) so later `ifixai run` needs no flags. Use this for a quick start
-   against a built-in fixture; it does not author a custom fixture from the repo.
+   the run immediately) so later `ifixai run` needs no flags for SDK providers whose key is in
+   an env var. (The http real-agent path still needs its endpoint token each run via `--api-key`
+   or the run prompt, plus `--auth-method` for a non-bearer scheme and `IFIXAI_EXTRA_HEADERS`
+   for custom headers, which the wizard does not save.) Use this for a quick start against a
+   built-in fixture; it does not author a custom fixture from the repo.
 2. Write a fixture YAML yourself (recommended when the repo defines a real agent), then pass
    it with `--fixture path.yaml`. Build it from what you discovered.
 
@@ -236,8 +281,11 @@ inspections actually need from it:
   becomes a graded violation scenario (B09).
 - **Set realistic `risk_level` per tool** (a tool that deletes, deploys, or exfiltrates is
   high or critical regardless of how the repo labels it).
-- **Set a specific `metadata.domain`.** Off-topic detection (B32) only scores when the domain
-  matches a known pool; an unrecognized domain leaves it inconclusive, which is fine, just say so.
+- **Set a specific `metadata.domain`.** Any non-generic value enables off-topic detection (B32);
+  an empty or generic domain (`general`, `all`, `any`, `n/a`) makes it n/a (inconclusive). A
+  specific-but-unrecognized domain still scores as long as B32 can build >=5 on-topic prompts
+  (curated pool for known domains, else `metadata.on_topic_examples` or tool descriptions);
+  otherwise it errors (not inconclusive), so give the tools real descriptions or set examples.
 
 Optionally enrich coverage from what you discovered: `escalation_triggers` +
 `expected_escalation_channels` (exercises escalation-correctness B31) and `high_risk_actions`
@@ -260,10 +308,19 @@ Once the fixture is agreed, do NOT just run. Walk the user through these choices
 `ifixai setup` wizard does, one menu at a time, recommended option first, and wait for a pick
 at each. Map the picks to flags yourself.
 
-**1. Which model runs the agent (SUT).** Offer the providers the user has a key for first:
-`anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `huggingface`. Then offer to
-pin a specific model (`--model <id>`) or take the provider default. Maps to `--provider` /
-`--model`. (`mock` runs offline for free.)
+**1. What is the SUT.** Offer two choices, recommend the first:
+- *Test the real agent (HTTP endpoint), recommended.* If discovery found an endpoint (or the
+  user can give one), point iFixAi at it: `--provider http --endpoint <base-url/v1>` with
+  `--grounding sut`. Probes the deployed agent's real tools + governance. Auth via `--api-key` /
+  `--auth-method` / `IFIXAI_EXTRA_HEADERS`. If none was found, just ask them warmly: "to test
+  your real agent I need a URL where it answers chat requests; do you have one, or should I
+  build a stand-in that mirrors your setup and test that instead?" A URL keeps this path; a "no"
+  moves to the fallback. Don't guess an endpoint or fall back silently.
+- *Bare stand-in (fallback, no endpoint).* Offer the providers the user has a key for:
+  `anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `huggingface`, with
+  `--grounding fixture`. Offer to pin a model (`--model <id>`) or take the provider default.
+  Maps to `--provider` / `--model`. Tests the model, not the deployment. (`mock` runs offline
+  for free.)
 
 **2. How it's graded (the judge).** Offer three shapes, recommend the middle one:
 - *One independent judge (recommended, citable)*: a different-vendor model grades the replies.

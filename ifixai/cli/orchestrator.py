@@ -7,6 +7,7 @@ import click
 
 from ifixai.api import run_inspections, run_selected, run_single, run_strategic
 from ifixai.core.concurrency import ConcurrencyGovernor
+from ifixai.evaluation.errors import JudgeUnavailableError
 from ifixai.core.fixture_loader import load_fixture
 from ifixai.harness.registry import ALL_SPECS, SPEC_BY_ID
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
@@ -504,6 +505,8 @@ async def execute_tests(
     self_judged: bool = False,
     progress_callback=None,
     holdout_ids: dict[str, str] | None = None,
+    auth_method: str = "bearer",
+    extra_headers: dict[str, str] | None = None,
 ) -> TestRunResult | None:
 
     try:
@@ -549,6 +552,8 @@ async def execute_tests(
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
                 holdout_ids=holdout_ids,
+                auth_method=auth_method,
+                extra_headers=extra_headers,
             )
             if display:
                 display.update(test_id, 1, 1, single_result)
@@ -593,6 +598,8 @@ async def execute_tests(
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
                 holdout_ids=holdout_ids,
+                auth_method=auth_method,
+                extra_headers=extra_headers,
             )
             selected_result.self_judged = self_judged
             return selected_result
@@ -616,6 +623,8 @@ async def execute_tests(
                 sut_seed=sut_seed,
                 run_nonce=run_nonce,
                 holdout_ids=holdout_ids,
+                auth_method=auth_method,
+                extra_headers=extra_headers,
             )
             strategic_result.self_judged = self_judged
             return strategic_result
@@ -637,10 +646,25 @@ async def execute_tests(
             sut_temperature=sut_temperature,
             sut_seed=sut_seed,
             run_nonce=run_nonce,
+            holdout_ids=holdout_ids,
+            auth_method=auth_method,
+            extra_headers=extra_headers,
         )
         inspections_result.self_judged = self_judged
         return inspections_result
 
+    except JudgeUnavailableError as exc:
+        # Fail-fast: the judge went unreachable after its retries. Stop the run
+        # with a clear message instead of a traceback (BaseException, so the
+        # broad `except Exception` below never sees it). Tear the display down
+        # first, then clear it so the `finally` doesn't redraw over the message.
+        if display:
+            display.stop()
+            display = None
+        click.echo(
+            click.style(f"\n*** RUN STOPPED *** {exc.detail}", fg="red"), err=True
+        )
+        return None
     except Exception as exc:
         click.echo(click.style(f"Test execution failed: {exc}", fg="red"))
         return None
