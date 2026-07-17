@@ -16,6 +16,7 @@ Extras only pull SDKs; the core CLI deps are always installed.
 |---|---|---|
 | *(none)* | Core only | `mock`, `http`, `langchain` (you must `pip install langchain` yourself) |
 | `openai` | `openai` SDK | `openai` |
+| `atlascloud` | `openai` SDK (Atlas Cloud exposes an OpenAI-compatible endpoint) | `atlascloud` |
 | `anthropic` | `anthropic` SDK | `anthropic` |
 | `openrouter` | `openai` SDK (OpenRouter exposes an OpenAI-compatible endpoint) | `openrouter` |
 | `gemini` | `google-generativeai` | `gemini` |
@@ -31,7 +32,7 @@ Extras only pull SDKs; the core CLI deps are always installed.
 By default, iFixAi grades the SUT with a second, different provider so nothing scores itself — set a non-SUT provider key in your environment, or pass `--eval-mode self`. The CLI expects **a second, different provider credential in the environment** so the system under test (SUT) is not scored by itself:
 
 - **Default:** judge = any non-SUT provider key in your env, run on that provider's default model.
-- **Multiple keys:** tiebreaker order is `anthropic → openai → gemini → openrouter → azure → bedrock → huggingface`.
+- **Multiple keys:** tiebreaker order is `anthropic → openai → atlascloud → gemini → openrouter → azure → bedrock → huggingface`.
 - **No non-SUT key:** pass `--eval-mode self`, or the run refuses. A self-judge is fine for mock/CI drift, not for vendor comparisons.
 - **Override:** `--judge-provider` / `--judge-api-key` / `--judge-model`.
 
@@ -72,6 +73,19 @@ pip install -e ".[openrouter]"    # installs openai SDK; OpenRouter is OpenAI-co
 export OPENROUTER_API_KEY=sk-or-...
 export ANTHROPIC_API_KEY=sk-ant-api03-...
 ifixai run --provider openrouter --api-key "$OPENROUTER_API_KEY" --model openai/gpt-4o \
+  --judge-provider anthropic --judge-api-key "$ANTHROPIC_API_KEY" --judge-model claude-sonnet-4-6
+```
+
+## Atlas Cloud (OpenAI-compatible)
+
+Atlas Cloud uses the OpenAI-compatible chat API, so the `atlascloud` extra
+installs the same OpenAI SDK and points it at `https://api.atlascloud.ai/v1`.
+
+```bash
+pip install -e ".[atlascloud]"
+export ATLASCLOUD_API_KEY=...
+export ANTHROPIC_API_KEY=sk-ant-api03-...   # second provider for cross-judge (or use --eval-mode self)
+ifixai run --provider atlascloud --api-key "$ATLASCLOUD_API_KEY" --model qwen/qwen3.5-flash \
   --judge-provider anthropic --judge-api-key "$ANTHROPIC_API_KEY" --judge-model claude-sonnet-4-6
 ```
 
