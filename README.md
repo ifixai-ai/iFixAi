@@ -325,7 +325,3 @@ Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **inf
 ## License
 
 [Apache 2.0](LICENSE)
-
-<p align="center">
-  <img src="docs/assets/unique_cloners_chart.png" alt="UniqueClones" width="750" />
-</p>
