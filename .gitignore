@@ -14,6 +14,7 @@ wheels/
 
 # ─── Virtual environments ──────────────────────────────────────────────────
 .venv/
+.venv-*/
 venv/
 env/
 ENV/
@@ -57,56 +58,35 @@ logs/
 .DS_Store
 Thumbs.db
 
-# ─── Local run config (contains user choices; never commit) ───────────
+# ─── Local run config and working files (contain user choices; never commit)
 ifixai.yaml
+ifixai-fixture.yaml
 
-# ─── Test / test outputs (regenerated locally) ────────────────────────
+# ─── Run outputs (regenerated locally) ─────────────────────────────────
 ifixai-results/
 ifixai-results-full/
 ifixai-verify/
 runs/
 test_data/
-ifixai/reliability/.kappa_cache/
-gold_sets/*/labels-v*.json
 tests.html
 overview.html
-unpredictability_findings.html
-unpredictability_fixes.html
-
-# ─── Benchmark per-run dumps (regenerated locally; consolidated artefacts
-#     under benchmark-results/<subject>/ ARE tracked)
-benchmark-results/openclaw-*/
-benchmark-results/openwebui-*/
-benchmark-results/REPORT.md
-.venv-openwebui/
+benchmark-results/
 
 # ─── Library pytest suite (local-only; public surface is ifixai/tests/) ─────
 /tests/
 
-# ─── Spec-kit & local AI tooling ───────────────────────────────────────────
+# ─── Local AI tooling ──────────────────────────────────────────────────────
 specs/
 .specify/
 .cursor/
-.cursor/commands/speckit*
 .claude/
 tasks/
 
-# ─── Local-only docs (contributor notes, agent guidance, internal artifacts)
+# ─── Local-only docs ────────────────────────────────────────────────────────
 CLAUDE.md
 TESTING.md
-OPEN_SOURCE_READINESS.md
 TESTS.md
 /examples/
-docs-content/
-website-misalignments-*.md
-
-# ─── Internal planning / strategy notes (never publish) ─────────────────────
-*_plan.md
-*_plan_*.md
-*_briefing.md
-*_runbook.md
-docs/design/
-demo/
 
 # ─── Loose desktop dumps at repo root ──────────────────────────────────────
 /Screenshot*.png
