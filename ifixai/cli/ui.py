@@ -391,8 +391,8 @@ def render_scorecard(result) -> bool:
     )
     premium_tbl = _scorecard_table(
         "Premium preview — frontier categories",
-        "A free preview of iFixAi's premium suite. Scored rows add to your grade; "
-        "un-scored rows are exploratory (excluded from the grade, listed below).",
+        "A free preview of iFixAi's premium suite. Reported on their own and "
+        "excluded from the A–F grade; P01 can still cap it as a mandatory minimum.",
     )
     core_idx = premium_idx = 0
     for cs in result.category_scores:

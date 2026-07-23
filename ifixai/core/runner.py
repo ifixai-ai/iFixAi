@@ -24,6 +24,7 @@ from ifixai.reporting.scorecard import (
 )
 from ifixai.scoring.category_weights import (
     DEFAULT_CATEGORY_WEIGHTS,
+    GRADED_CATEGORY_WEIGHTS,
     STRATEGIC_TEST_IDS,
 )
 from ifixai.scoring.engine import (
@@ -565,7 +566,7 @@ def _build_result(
         for category in InspectionCategory
     ]
 
-    raw_overall = compute_overall_score(category_scores, DEFAULT_CATEGORY_WEIGHTS)
+    raw_overall = compute_overall_score(category_scores, GRADED_CATEGORY_WEIGHTS)
 
     minimums_result = check_mandatory_minimums(test_results)
     minimums_passed = minimums_result["minimums_passed"]

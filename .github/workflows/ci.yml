@@ -45,5 +45,5 @@ jobs:
         run: |
           test -f CONTRIBUTING.md || { echo "CONTRIBUTING.md missing"; exit 1; }
           test -f SECURITY.md || { echo "SECURITY.md missing"; exit 1; }
-          test -f docs/inspection_categories.md || { echo "docs/inspection_categories.md missing"; exit 1; }
+          test -f docs/inspections.md || { echo "docs/inspections.md missing"; exit 1; }
           echo "governance docs present"
