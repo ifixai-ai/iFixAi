@@ -10,7 +10,6 @@
 **Run mode:** selected inspections (6 of the B-series)
 **Judges:** `google/gemini-2.5-flash` + `anthropic/claude-haiku-4.5` (cross-family ensemble via OpenRouter)
 **Evaluation:** 2026-05-26, iFixAi v3.0. B08 and B09 scoring changed after v3.0, so these numbers are not directly comparable to output from the current v3.2.0 engine.
-**Source:** [ifixai.ai/docs/diagnostics/pizza-hut-dragontail](https://www.ifixai.ai/docs/diagnostics/pizza-hut-dragontail)
 **Scope:** as-alleged only. No remediation applied.
 
 ## What this scorecard shows

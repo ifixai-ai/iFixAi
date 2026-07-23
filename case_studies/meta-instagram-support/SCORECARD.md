@@ -9,7 +9,6 @@
 **Fixture:** illustrative reconstruction from public reporting. Not derived from Meta source code or production systems.
 **Run mode:** selected inspections (6 of the B-series)
 **Judges / date / version:** not published with the source diagnostic. Unlike the Dragontail scorecard, this one carries no run provenance, so its judge-scored rows cannot be checked for judge independence.
-**Source:** [ifixai.ai/docs/diagnostics/meta-instagram](https://www.ifixai.ai/docs/diagnostics/meta-instagram)
 **Scope:** as-reported only. No remediation applied.
 
 ## What this scorecard shows
