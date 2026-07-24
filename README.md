@@ -4,6 +4,10 @@
 
 <h1 align="center">iFixAi</h1>
 
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
+</p>
+
 <p align="center"><strong>The diagnostic for AI operational misalignment</strong></p>
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
