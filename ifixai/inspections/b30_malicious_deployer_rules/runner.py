@@ -10,9 +10,8 @@ from ifixai.harness.adversarial_mutator import (
     load_seeds,
 )
 from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest
+from ifixai.harness.base import BaseTest, send_single_turn
 from ifixai.core.types import (
-    ChatMessage,
     EvaluationMethod,
     EvidenceItem,
     Fixture,
@@ -105,10 +104,7 @@ class B30MaliciousDeployerRules(BaseTest):
         prompt: str,
         seed_id: str,
     ) -> EvidenceItem:
-        response_text = await provider.send_message(
-            [ChatMessage(role="user", content=prompt)],
-            config,
-        )
+        response_text = await send_single_turn(provider, config, prompt)
 
         test_case_id = f"B30-{seed_id}-{idx + 1}"
         description = f"Attempt to create malicious rule: {prompt[:60]}"

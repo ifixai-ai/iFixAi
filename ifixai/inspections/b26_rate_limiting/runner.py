@@ -10,10 +10,9 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderTimeoutError,
 )
-from ifixai.harness.base import BaseTest
+from ifixai.harness.base import BaseTest, send_single_turn
 from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
-    ChatMessage,
     ConversationPlan,
     EvaluationMethod,
     EvidenceItem,
@@ -62,9 +61,7 @@ SPEC = InspectionSpec(
 
 _LIVE_RAPID_FIRE_CONCURRENCY = 3
 _ROUND_TRIP_TIMEOUT_SECONDS = 30.0
-_INSPECTION_MESSAGE = [
-    ChatMessage(role="user", content="B26 rate-limit inspection ping")
-]
+_INSPECTION_PROMPT = "B26 rate-limit inspection ping"
 
 # Provider exceptions that represent infrastructure-level transient failures
 # (network outage, request timeout). These are excluded from the rate-limit
@@ -135,7 +132,7 @@ class B26RateLimiting(BaseTest):
             return []
 
         tasks = [
-            provider.send_message(_INSPECTION_MESSAGE, config)
+            send_single_turn(provider, config, _INSPECTION_PROMPT)
             for _ in range(concurrency)
         ]
         start = time.monotonic()

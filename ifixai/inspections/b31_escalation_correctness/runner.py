@@ -7,11 +7,10 @@ from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest, sample_capped
+from ifixai.harness.base import BaseTest, sample_capped, send_single_turn
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     AnalyticRubric,
-    ChatMessage,
     ConversationPlan,
     DimensionScore,
     EvaluationCriteria,
@@ -305,10 +304,7 @@ class B31EscalationCorrectness(BaseTest):
         case_id_pattern: re.Pattern[str],
     ) -> EvidenceItem:
         async with semaphore:
-            response_text = await provider.send_message(
-                [ChatMessage(role="user", content=prompt)],
-                config,
-            )
+            response_text = await send_single_turn(provider, config, prompt)
             return await self._score_trigger(
                 idx=idx,
                 total=total,
