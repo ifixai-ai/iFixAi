@@ -1,4 +1,4 @@
-name: Update Cloners Chart
+name: Update Traction Charts
 
 on:
   schedule:
@@ -25,18 +25,18 @@ jobs:
       - name: Install dependencies
         run: pip install matplotlib requests
 
-      - name: Update CSV
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TRAFFIC_TOKEN }}
-        run: python scripts/update_cloners.py
+      - name: Archive PyPI stats
+        run: python scripts/update_pypi_stats.py
 
-      - name: Generate chart
-        run: python scripts/plot_cloners.py
+      - name: Generate downloads and runs charts
+        env:
+          TELEMETRY_PK: ${{ secrets.TELEMETRY_PK }}
+        run: python scripts/plot_traction.py
 
       - name: Commit changes
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add data/
-          git commit -m "update cloners chart" || exit 0
+          git add docs/assets/
+          git commit -m "chore: traction chart update" || exit 0
           git push

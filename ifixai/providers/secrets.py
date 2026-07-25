@@ -15,7 +15,7 @@ ENV_VAR_BY_PROVIDER: dict[str, str] = {
 
 _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (
     re.compile(r"^sk-or-[A-Za-z0-9_-]{20,}$"),
-    re.compile(r"^(?:ak|apikey)-[A-Za-z0-9_-]{20,}$"),
+    re.compile(r"^ak-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-ant-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^anthropic_[A-Za-z0-9_-]{20,}$"),
@@ -31,7 +31,7 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
         "***REDACTED_OPENROUTER_KEY***",
     ),
     (
-        re.compile(r"(?:ak|apikey)-[A-Za-z0-9_-]{20,}"),
+        re.compile(r"(?<![A-Za-z0-9_-])ak-[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])"),
         "***REDACTED_ATLASCLOUD_KEY***",
     ),
     (

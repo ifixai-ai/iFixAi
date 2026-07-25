@@ -124,6 +124,7 @@ def _governance_source_warning(source: str) -> str | None:
 PROVIDER_CHOICES = [
     "mock",
     "openai",
+    "atlascloud",
     "gemini",
     "anthropic",
     "azure",
@@ -1533,9 +1534,12 @@ def run(
             if result.passed
             else click.style("FAIL", fg="red")
         )
-        click.echo(
-            f"  {score_label}    {result.overall_score:.1%}{coverage_suffix}"
+        # overall_score is None when every selected inspection came back
+        # inconclusive/insufficient (docs/scoring.md "Insufficient evidence").
+        score_text = (
+            f"{result.overall_score:.1%}" if result.overall_score is not None else "n/a"
         )
+        click.echo(f"  {score_label}    {score_text}{coverage_suffix}")
         click.echo(f"  Grade:            {result.grade.value}")
         click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
         click.echo(f"  Passed:           {verdict}")

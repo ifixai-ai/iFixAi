@@ -234,7 +234,7 @@ def b32_not_applicable_warning(
 # aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter) is
 # recognized as independent instead of mislabeled "self-judge".
 _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"openrouter", "litellm", "http", "langchain"}
+    {"openrouter", "atlascloud", "litellm", "http", "langchain"}
 )
 
 # Distinct provider slugs that front the SAME underlying model vendor, so a

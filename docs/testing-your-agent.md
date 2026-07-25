@@ -1,151 +1,83 @@
 # Test your own agent
 
-iFixAi inspects the AI system **you actually deploy**: your *agent*, not just the
-model underneath it. This page explains the model-vs-agent distinction, then shows
-the three ways to point a run at your stack and how each one affects coverage.
+iFixAi tests the system you deploy: model plus tools, retrieval, and governance. A bare
+model API (`--provider openai` / `anthropic` / ...) scores 33 of 45 inspections; the rest
+return `insufficient_evidence` and drop out. Flags and extras: [provider reference](#provider-reference).
 
-## Model vs agent
+## Path 1: HTTP endpoint
 
-iFixAi treats the system under test (SUT) as a black box behind a single seam: a
-[`ChatProvider`](../ifixai/providers/base.py) that takes chat messages and returns a
-reply. *What sits behind that seam* determines how much of the suite is measurable.
-
-- A **bare model** (`--provider openai`, `anthropic`, `gemini`, …) answers chat and
-  exposes nothing else. The structural inspections (tool authorization, audit
-  trail, deterministic override, policy-version traceability, RAG retrieval) have
-  no surface to call, so they return `insufficient_evidence` and drop out of
-  aggregation. A vanilla LLM therefore scores **33 of 45**.
-- An **agent** is that model *plus* its system prompt, tools, retrieval, guardrails,
-  and governance layer, the thing your business runs. When your adapter exposes
-  those surfaces, the structural inspections become measurable and a run can reach
-  the full **45 of 45**.
-
-This is not iFixAi being lenient on models and harsh on agents; it refuses to
-invent a score where there is no surface to measure. The number that matters is the
-one for *your deployment*, so point it at your agent.
-
-| What you point at | How | Inspections scored |
-|---|---|---|
-| Bare model API | `--provider openai` / `anthropic` / … | 33 / 45 (27 core + 6 extended) |
-| OpenAI-compatible agent service | `--provider http --endpoint …` | behavioural suite, **+ RAG (B28)** when the service returns `sources` |
-| Custom `ChatProvider` with capability hooks | subclass + implement hooks | up to **45 / 45** |
-| Any fixture with a `governance:` block | `--governance` / inline | structural cluster scored from the *declared* policy (flagged in `warnings[]`) |
-
-The exact per-shape counts and the three `governance:`-block options live in
-[Governance and scoring coverage](#governance-and-scoring-coverage).
-
-There are two mechanisms, and both are independent of how your agent is built: point
-iFixAi at an **HTTP endpoint** your agent already serves (Path 1), or wrap your
-runtime in a small **`ChatProvider` adapter** (Path 2). Ready-made adapters and
-per-runtime recipes are catalogued in [docs/providers.md](providers.md).
-
-## Path 1: your agent serves an HTTP endpoint
-
-If your agent already exposes `POST /v1/chat/completions`, point `--provider http`
-at it. iFixAi sends the standard chat payload and reads `choices[0].message.content`.
+Your agent serves `POST /v1/chat/completions`:
 
 ```bash
-ifixai run --provider http \
-  --endpoint http://localhost:8000/v1 \
-  --api-key "$YOUR_TOKEN" \
-  --model your-agent \
-  --eval-mode self
+ifixai run --provider http --endpoint http://localhost:8000/v1 \
+  --api-key "$YOUR_TOKEN" --model your-agent --eval-mode self
 ```
 
-To unlock the **RAG context-integrity** inspection (B28), return a `sources` array
-next to `choices` (the adapter also fetches `POST {endpoint}/retrieve` when an
-inspection asks for sources directly):
+To score B28 (RAG context integrity), return a `sources` array next to `choices`:
 
 ```jsonc
-{ "choices": [ { "message": { "role": "assistant", "content": "…" } } ],
-  "sources": [ { "document_uri": "kb://policy/42", "text": "…", "relevance_score": 0.91 } ] }
+{ "choices": [ { "message": { "role": "assistant", "content": "..." } } ],
+  "sources": [ { "document_uri": "kb://policy/42", "text": "...", "relevance_score": 0.91 } ] }
 ```
 
-Custom auth headers: set `IFIXAI_EXTRA_HEADERS` to a JSON object. The auth scheme
-(`bearer` / `api_key` / `basic` / `none`) is selectable via the `auth_method`
-config field from the [Python API](python-api.md). Details in
-[`ifixai/providers/http.py`](../ifixai/providers/http.py).
+Custom auth: set `IFIXAI_EXTRA_HEADERS` to a JSON object; pick `auth_method`
+(`bearer` / `api_key` / `basic` / `none`) via the [Python API](python-api.md).
 
-## Path 2: wrap your runtime in a `ChatProvider` adapter
+## Path 2: `ChatProvider` adapter
 
-For an in-process agent, or to expose the structural surfaces an HTTP chat endpoint
-does not carry, subclass [`ChatProvider`](../ifixai/providers/base.py).
-`send_message` is the only required method; every capability hook defaults to
-`None`, and returning `None` keeps the matching inspection at
-`insufficient_evidence`. Implement a hook and that inspection becomes measurable.
+For an in-process agent, subclass [`ChatProvider`](../ifixai/providers/base.py). Only
+`send_message` is required; hooks default to `None` (`insufficient_evidence`). Pass your
+instance through the [Python API](python-api.md) and run as usual.
 
 ```python
 from ifixai.providers.base import ChatProvider
 from ifixai.core.types import ChatMessage, ProviderConfig
 
 class MyAgentProvider(ChatProvider):
-    async def send_message(
-        self, messages: list[ChatMessage], config: ProviderConfig
-    ) -> str:
-        # Hand the rendered turns to your agent and return its reply text.
-        reply = await my_agent.ainvoke(
-            [{"role": m.role, "content": m.content} for m in messages]
-        )
+    async def send_message(self, messages: list[ChatMessage], config: ProviderConfig) -> str:
+        reply = await my_agent.ainvoke([{"role": m.role, "content": m.content} for m in messages])
         return reply.text
-
-    # Optional capability hooks: implement the ones your agent actually has.
-    # Return types are defined in ifixai/core/types.py; returning None (the
-    # default) routes the matching inspection to insufficient_evidence.
-    async def authorize_tool(self, tool_id, user_role, config):
-        decision = my_agent.policy.check(user_role, tool_id)
-        ...   # build and return a ToolInvocationResult
 ```
 
-Register the provider in the resolver (or run it through the
-[Python API](python-api.md) by passing your instance directly) and run as
-usual.
-
-### Which hook feeds which inspection
-
-Each capability hook you implement turns on exactly the inspections below — implement none and those checks stay at `insufficient_evidence`; implement a hook and its row becomes measurable.
-
-| Capability hook on `ChatProvider` | Makes measurable |
+| Capability hook | Makes measurable |
 |---|---|
-| `list_tools` / `invoke_tool` / `authorize_tool` | **B01** tool-authorization leak, and the tool-calling-dependent checks |
-| `get_governance_architecture` | **B02** non-LLM governance layer |
-| `apply_override` | **B04** deterministic override |
-| `get_configuration_version` | **B23** policy-version traceability |
-| `get_audit_trail` | per-action audit trail |
-| `retrieve_sources` | **B28** RAG context integrity & source provenance |
-| `get_confidence` | **C02** miscalibration *(exploratory)* |
-| `route_to_human` | **C05** human-routing fallback *(exploratory)* |
-| `reconcile_outcome` | **C11** outcome reconciliation *(exploratory)* |
-| `evaluate_deployment_gate` | **X04** perception governance *(exploratory)* |
-| `evaluate_confirmation_gate` | **X11** oversight atrophy *(exploratory)* |
+| `list_tools` / `invoke_tool` / `authorize_tool` | B01 + tool-calling checks |
+| `get_governance_architecture` / `apply_override` | B02 / B04 |
+| `get_configuration_version` / `get_audit_trail` | B23 / audit trail |
+| `retrieve_sources` | B05 |
+| `get_confidence` / `route_to_human` / `reconcile_outcome` | C02 / C05 / C11 |
+| `evaluate_deployment_gate` / `evaluate_confirmation_gate` | X04 / X11 |
 
-The canonical `B01`-`X11` → category mapping and per-inspection structural
-requirements are in
-[docs/inspection_categories.md](inspection_categories.md) and
-[docs/fixture_authoring.md](fixture_authoring.md).
+IDs and structural requirements: [inspections.md](inspections.md#categories), [fixture_authoring.md](fixture_authoring.md).
 
-## No code? Declare governance in the fixture instead
+## No code: declare governance in the fixture
 
-If you cannot expose structural hooks programmatically, the governance inspections
-(B02 / B04 / B11 / B23 / B26 / B27) can still be scored from a declared policy:
-supply a `governance:` block (inline, via `--governance`, or synthesized) in your
-fixture. The scorecard records that governance was scored from the declared fixture
-rather than measured at runtime, via a `warnings[]` entry. See
-[Governance and scoring coverage](#governance-and-scoring-coverage) and
-[docs/fixture_authoring.md](fixture_authoring.md).
+B02 / B04 / B11 / B23 / B26 / B27 can score from a declared policy, most trustworthy first:
+
+- `--governance <path>` (recommended): external `GovernanceFixture` YAML, wrapped in automatically.
+- Inline `governance:` block on the diagnostic fixture.
+- `governance: { synthesize: true }` (last resort): derived from `tools` / `permissions` / `roles`.
+
+The scorecard adds a `warnings[]` note: declared, not measured at runtime. Fields and passing values: [fixture_authoring.md](fixture_authoring.md).
 
 ## Which judge?
 
-**What you test (the SUT, above) and who grades it (the judge) are independent
-choices.** Every example above uses `--eval-mode self` for a one-command start: a
-self-judge, flagged in the scorecard with a `self-judge bias` warning. Fine for a
-smoke test, not for a real verdict. Keep your agent as the SUT and add a real judge:
+`--eval-mode self` is a smoke test, flagged `self-judge bias`. By default a second,
+different provider grades the SUT, so nothing scores itself:
+
+- Default judge: any non-SUT provider key in your env, on that provider's default model.
+- Multiple keys: tiebreaker order `anthropic → openai → atlascloud → gemini → openrouter → azure → bedrock → huggingface`.
+- No non-SUT key: the run refuses unless you pass `--eval-mode self`.
+- Override: `--judge-provider` / `--judge-api-key` / `--judge-model`. Pin these for
+  `openrouter` and `azure`: auto-routing can land SUT and judge on the same vendor.
+
+For a real verdict:
 
 ```bash
-# Standard: one cross-provider judge. Export a second provider key and iFixAi
-# auto-pairs it (or pin it with --judge-provider / --judge-api-key).
+# Standard: one cross-provider judge (export a second provider key, or pin --judge-provider).
 ifixai run --provider http --endpoint http://localhost:8000/v1 --api-key "$YOUR_TOKEN"
 
-# Full: a hand-built fixture and an ensemble of TWO or more independent judges.
+# Full: hand-built fixture + two or more independent judges.
 ifixai run --mode full \
   --provider http --endpoint http://localhost:8000/v1 --api-key "$YOUR_TOKEN" \
   --fixture ./my-fixture.yaml \
@@ -153,39 +85,60 @@ ifixai run --mode full \
   --judge-provider openai    --judge-api-key "$OPENAI_API_KEY"
 ```
 
-The mode controls judge and fixture rigor, not which inspections run; see
-[Standard vs Full mode](running.md#standard-vs-full-mode). Judge
-selection details: [docs/methodology.md](methodology.md#cross-provider-judge-default).
+Modes: [cli.md](cli.md#standard-vs-full). Judges: [methodology.md](methodology.md#cross-provider-judge-default).
 
-## Governance and scoring coverage
-
-How many of the 45 inspections get scored depends on two things: what your SUT
-exposes, and whether the fixture carries a `governance:` block. Twelve inspections
-ride on provider capability hooks: five core (B01, B02, B04, B11, B23) and seven
-structural extended (P01, P08, C02, C05, C11, X04, X11).
+## Coverage
 
 | SUT shape | Inspections scored |
 |---|---|
-| Vanilla LLM, **default fixture** (ships a `governance:` block) | 44 of 45 \* |
-| Vanilla LLM, **custom fixture without** a governance block | 33 of 45 (27 core + 6 extended) |
-| `--provider mock` (zero credentials) | 44 of 45 \* |
-| Policy-wrapped provider, or an agent exposing every hook | 45 of 45 |
-| Full mode + multi-judge ensemble | 45 of 45 |
+| Vanilla LLM, default fixture (ships `governance:`) | 44 / 45 \* |
+| Vanilla LLM, custom fixture without governance | 33 / 45 (27 core + 6 extended) |
+| `--provider mock` (zero credentials) | 44 / 45 \* |
+| Every hook exposed, or full mode + multi-judge | 45 / 45 |
 
-\* the missing point is B32 off-topic detection, which is n/a when the fixture's
-domain is generic (the bundled default fixture's is `general`); give the fixture a
-specific `metadata.domain` to score it. The vanilla + default-fixture row additionally
-carries a `warnings[]` entry noting governance was scored from the declared fixture,
-not measured at runtime.
+\* B32 off-topic is n/a on a generic fixture domain; set `metadata.domain` to score it.
 
-When you author your own fixture, there are three ways to wire governance, ordered here by
-trust (most trustworthy first):
+## Provider reference
 
-- **`--governance <path>`** (recommended): supply an external `GovernanceFixture` YAML from a real policy; iFixAi wraps the provider with `GovernanceMixin` automatically, no subclassing.
-- **An inline `governance:` block** on the diagnostic fixture, one YAML for tests *and* policies, still a declared design.
-- **`governance: { synthesize: true }`** (last resort): derives a structural policy bundle from your `tools`, `permissions`, and `roles`. Least precise: the scorecard records that the bundle was synthesised, not measured.
+Install the extra first, e.g. `pip install -e ".[gemini]"`. The CLI never auto-reads
+the SUT key from the environment: pass `--api-key` / `-k`, or enter it when prompted.
 
-The per-inspection field requirements (which `governance:` fields B02 / B04 / B11 / B23 /
-B26 / B27 read, and what values make them pass) are in
-[fixture_authoring.md](fixture_authoring.md); the design discussion and manifest fields
-are in [methodology.md](methodology.md).
+| `--provider` | Extra | SUT credential | Example flags |
+|---|---|---|---|
+| `http` (recommended) | none | your server token | `--provider http --endpoint http://localhost:8000/v1 --grounding sut -k TOKEN --model your-model-id` |
+| `anthropic` | `.[anthropic]` | `ANTHROPIC_API_KEY` | `--provider anthropic -k "$ANTHROPIC_API_KEY" --model claude-sonnet-4-6` |
+| `openai` | `.[openai]` | `OPENAI_API_KEY` | `--provider openai -k "$OPENAI_API_KEY" --model gpt-4o` |
+| `atlascloud` | `.[atlascloud]` | `ATLASCLOUD_API_KEY` or `ATLAS_CLOUD_API_KEY` | `--provider atlascloud -k "$ATLASCLOUD_API_KEY" --model qwen/qwen3.5-flash` |
+| `openrouter` | `.[openrouter]` | `OPENROUTER_API_KEY` | `--provider openrouter -k "$OPENROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
+| `gemini` | `.[gemini]` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `--provider gemini -k "$GEMINI_API_KEY"` |
+| `azure` | `.[azure]` | `AZURE_OPENAI_API_KEY` | `--provider azure --endpoint https://YOUR_RESOURCE.openai.azure.com/ -k "$AZURE_OPENAI_API_KEY" --model YOUR_DEPLOYMENT_NAME` plus explicit judge |
+| `bedrock` | `.[bedrock]` | AWS credential chain | `--provider bedrock -k not-used --model anthropic.claude-sonnet-4-6` |
+| `huggingface` | `.[huggingface]` | `HF_TOKEN` or `HUGGINGFACE_API_TOKEN` | `--provider huggingface -k "$HF_TOKEN" --model meta-llama/Llama-3.1-8B-Instruct` |
+| `langchain` | none (`pip install langchain` on your server only) | key for the model behind your server | `--provider langchain --endpoint http://localhost:8000 -k "$OPENAI_API_KEY" --eval-mode self` |
+| `mock` | none | none | `--provider mock` |
+
+Notes:
+
+- `.[all]` installs every SDK above; `.[dev]` is for [contributing](../CONTRIBUTING.md) only.
+- `http` tests your deployed agent as-shipped; `--grounding sut` grades the governance it already enforces.
+- `bedrock` uses the standard AWS credential chain; `--api-key` is a required placeholder, never sent.
+- `litellm` extra is [Python API](python-api.md) only (`provider="litellm"`), not a CLI choice.
+
+## LangServe wire contract
+
+`--provider langchain` is a thin HTTP client for a [LangServe](https://python.langchain.com/docs/langserve/)
+endpoint; iFixAi never imports LangChain. Serve any Runnable that accepts
+`{"messages": [...]}` via `add_routes(app, agent_runnable)`. iFixAi POSTs to
+`{endpoint}/invoke` (default endpoint `http://localhost:8000`):
+
+```jsonc
+// request
+{ "input":  { "messages": [ { "role": "user", "content": "…" } ] },
+  "config": { "configurable": { "temperature": 0.0 } } }   // seed / max_tokens added when set
+
+// response: `output` as a string, or `output.content` if it is an object
+{ "output": "the agent's reply" }
+```
+
+Source: [`ifixai/providers/langchain.py`](../ifixai/providers/langchain.py). To expose
+structural surfaces (tools, audit trail, authorization), use a `ChatProvider` adapter (Path 2).
