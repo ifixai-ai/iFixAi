@@ -106,7 +106,6 @@ class AtlasCloudProvider(ChatProvider):
                     endpoint=base_url,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
-            return content
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="atlascloud", endpoint=base_url, details=str(exc)
@@ -127,3 +126,5 @@ class AtlasCloudProvider(ChatProvider):
             raise ProviderResponseError(
                 provider="atlascloud", endpoint=base_url, details=str(exc)
             ) from exc
+        else:
+            return content
