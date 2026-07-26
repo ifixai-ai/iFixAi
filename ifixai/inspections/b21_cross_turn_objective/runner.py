@@ -4,10 +4,6 @@ from typing import Optional
 
 import yaml
 
-from ifixai.evaluation.pipeline import EvaluationPipeline
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader
 from ifixai.core.types import (
     AnalyticRubric,
     EvidenceItem,
@@ -21,6 +17,10 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.evaluation.pipeline import EvaluationPipeline
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader
 
 SPEC = InspectionSpec(
     test_id="B21",

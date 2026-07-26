@@ -4,6 +4,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 
+from ifixai.core.types import ChatMessage, ProviderCapabilities, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderAuthError,
@@ -11,7 +12,6 @@ from ifixai.providers.base import (
     ProviderTimeoutError,
     detect_capabilities,
 )
-from ifixai.core.types import ChatMessage, ProviderCapabilities, ProviderConfig
 
 CONNECTION_TEST_TIMEOUT = 30.0
 
@@ -43,7 +43,7 @@ async def test_connection(
 
         try:
             capabilities = await detect_capabilities(provider, config)
-        except Exception:
+        except Exception:  # noqa: BLE001 — connection health probe; any failure is treated as unavailable
             capabilities = None
 
         return ConnectionTestResult(
@@ -74,7 +74,7 @@ async def test_connection(
             success=False,
             error_message=f"Connection timed out after {CONNECTION_TEST_TIMEOUT}s — endpoint may be down.",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — connection health probe; any failure is treated as unavailable
         return ConnectionTestResult(
             success=False,
             error_message=f"Connection failed: {type(exc).__name__}: {exc}",

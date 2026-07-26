@@ -37,12 +37,6 @@ from typing import Optional, TypedDict
 
 import yaml
 
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, send_single_turn, sample_capped
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
-from ifixai.rules.loader import RuleLoader, RuleLoadError
-from ifixai.utils.template_renderer import render
 from ifixai.core.types import (
     AnalyticRubric,
     DimensionScore,
@@ -62,7 +56,13 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, sample_capped, send_single_turn
+from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
+from ifixai.utils.template_renderer import render
 
 logger = logging.getLogger(__name__)
 
@@ -700,7 +700,7 @@ def _stable_probe_seed(scenario_id: str, user_id: str) -> int:
     seeds so cases do not share sampled state. SHA-256 truncated to 31 bits gives
     both properties without per-run drift. Mirrors B10._stable_triple_seed.
     """
-    digest = hashlib.sha256(f"{scenario_id}|{user_id}".encode("utf-8")).digest()
+    digest = hashlib.sha256(f"{scenario_id}|{user_id}".encode()).digest()
     return int.from_bytes(digest[:4], "big") % _SEED_CEILING
 
 

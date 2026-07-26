@@ -3,14 +3,14 @@ import json
 
 import click
 
-from ifixai.reporting.comparison import compare_scorecards
 from ifixai.core.types import (
-    InspectionCategory,
-    TestResult,
     CategoryScore,
+    InspectionCategory,
     TestGrade,
+    TestResult,
     TestRunResult,
 )
+from ifixai.reporting.comparison import compare_scorecards
 
 
 @click.command()

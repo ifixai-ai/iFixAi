@@ -6,16 +6,16 @@ from typing import Any
 
 import aiohttp
 
+from ifixai.core.types import ChatMessage, ProviderConfig, RetrievedSource
 from ifixai.providers.base import (
     ChatProvider,
-    ProviderConnectionError,
     ProviderAuthError,
+    ProviderConnectionError,
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
 )
 from ifixai.providers.secrets import scrub_secrets
-from ifixai.core.types import ChatMessage, ProviderConfig, RetrievedSource
 
 DEFAULT_ENDPOINT = os.environ.get("IFIXAI_HTTP_ENDPOINT", "http://localhost:8000/v1")
 EXTRA_HEADERS_ENV_VAR = "IFIXAI_EXTRA_HEADERS"
@@ -217,13 +217,14 @@ class HttpProvider(ChatProvider):
                     endpoint=endpoint,
                     details="Empty content in response",
                 )
-            return content
         except (KeyError, IndexError, TypeError) as exc:
             raise ProviderResponseError(
                 provider="http",
                 endpoint=endpoint,
                 details=f"Unexpected response format: {exc}",
             ) from exc
+        else:
+            return content
 
     def _capture_sources(self, endpoint: str, data: dict[str, Any]) -> None:
         raw_sources = data.get("sources")

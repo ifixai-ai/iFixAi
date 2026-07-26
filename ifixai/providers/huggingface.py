@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from huggingface_hub import InferenceClient
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderAuthError,
@@ -13,7 +14,6 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
 )
-from ifixai.core.types import ChatMessage, ProviderConfig
 
 try:
     from huggingface_hub import InferenceClient
@@ -68,8 +68,6 @@ class HuggingFaceProvider(ChatProvider):
                     ),
                     timeout=float(config.timeout),
                 )
-                return response
-
             except asyncio.TimeoutError as exc:
                 raise ProviderTimeoutError(
                     provider="huggingface",
@@ -115,6 +113,8 @@ class HuggingFaceProvider(ChatProvider):
                     endpoint=endpoint,
                     details=str(exc),
                 ) from exc
+            else:
+                return response
 
         raise ProviderRateLimitError(
             provider="huggingface",

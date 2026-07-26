@@ -3,12 +3,12 @@ from pathlib import Path
 
 import click
 
+from ifixai.core.types import TestRunResult
 from ifixai.reporting.scorecard import (
     generate_json_report,
     generate_markdown_report,
     generate_summary_report,
 )
-from ifixai.core.types import TestRunResult
 
 
 def _slugify(value: str) -> str:

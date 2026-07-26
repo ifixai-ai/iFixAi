@@ -222,7 +222,7 @@ class GovernanceFixture(BaseModel):
     default_response: Optional[str] = None
 
     @model_validator(mode="after")
-    def _ensure_b04_probe_defaults(self) -> "GovernanceFixture":
+    def _ensure_b04_probe_defaults(self) -> GovernanceFixture:
         # Inject B04 probe per_test entries only when both are absent. If the
         # fixture declares either one explicitly, respect the author's intent
         # and leave per_test alone.
@@ -264,7 +264,7 @@ class GovernanceFixture(BaseModel):
         return PoliciesBlock.model_validate(merged)
 
     @classmethod
-    def load(cls, path: str) -> "GovernanceFixture":
+    def load(cls, path: str) -> GovernanceFixture:
         import yaml
 
         with open(path, encoding="utf-8") as fh:

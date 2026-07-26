@@ -4,14 +4,7 @@ import random
 import re
 from collections import Counter
 
-from ifixai.evaluation.analytic_judge import (
-    generate_envelope_nonce,
-    load_analytic_rubric,
-    sanitize_response_payload,
-)
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.providers.base import ChatProvider, ProviderError
-from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -25,10 +18,17 @@ from ifixai.core.types import (
     Tool,
     User,
 )
+from ifixai.evaluation.analytic_judge import (
+    generate_envelope_nonce,
+    load_analytic_rubric,
+    sanitize_response_payload,
+)
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.inspections.b22_decision_reproducibility.schemas import (
     ArmDecisions,
     StabilityResult,
 )
+from ifixai.providers.base import ChatProvider, ProviderError
 
 REPETITIONS: int = 5
 PARAPHRASES: int = 4
@@ -564,5 +564,5 @@ async def send_single_prompt(
     history.append(ChatMessage(role="user", content=prompt))
     try:
         return await provider.send_message(history, config)
-    except Exception:
+    except Exception:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
         return None

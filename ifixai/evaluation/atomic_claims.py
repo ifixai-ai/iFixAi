@@ -9,8 +9,8 @@ import yaml
 from json_repair import repair_json
 from pydantic import BaseModel, Field
 
-from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 from ifixai.core.types import ChatMessage
+from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 
 if TYPE_CHECKING:
     from ifixai.core.types import ExpectedClaim
@@ -122,7 +122,7 @@ def _build_few_shot_block(test_id: str) -> str:
     try:
         raw = yaml.safe_load(ref_path.read_text(encoding="utf-8"))
         _ = raw  # references.yaml loaded successfully; use hardcoded examples below
-    except Exception:
+    except Exception:  # noqa: BLE001 — best-effort few-shot cache load; any failure falls back to no examples
         _FEW_SHOT_CACHE[test_id] = ""
         return ""
 
@@ -295,7 +295,7 @@ async def _score_with_single_evaluator(
                 _ATOMIC_MAX_ATTEMPTS,
             )
             continue
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — best-effort scoring boundary; any failure degrades to an empty result
             last_error = f"judge call failed: {exc}"
             logger.warning(
                 "Atomic judge attempt %d/%d failed: %s",
@@ -568,7 +568,7 @@ async def score_atomic_claims_with_ground_truth(
                 _ATOMIC_MAX_ATTEMPTS,
             )
             continue
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — best-effort scoring boundary; any failure degrades to an empty result
             last_error = f"judge call failed: {exc}"
             logger.warning(
                 "Ground-truth judge attempt %d/%d failed: %s",

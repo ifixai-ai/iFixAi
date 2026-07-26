@@ -89,6 +89,16 @@ include = ["ifixai*"]
 [tool.setuptools.package-data]
 ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsx]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "mappings/*.yaml", "scaffold/*.md"]
 
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "RUF", "TRY", "BLE"]
+ignore = [
+    "TRY003",  # long messages outside the exception class; pervasive and low-value here
+    "RUF001",  # ambiguous unicode in strings (intentional in fixture/report copy)
+    "RUF002",  # ambiguous unicode in docstrings
+    "RUF003",  # ambiguous unicode in comments
+    "UP045",   # Optional[x] -> x | None; large mechanical churn, deferred
+]
+
 [tool.ruff.lint.per-file-ignores]
 # ChatProvider base-class methods accept the full provider-call signature as an
 # interface contract; concrete subclasses use the args, the no-op defaults do not.

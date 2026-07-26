@@ -5,13 +5,13 @@ import sys
 import click
 
 from ifixai._version import VERSION
+from ifixai.cli.compare import compare
 from ifixai.cli.init import init, load_dotenv_file
+from ifixai.cli.list_cmd import list_group
 from ifixai.cli.run import run
 from ifixai.cli.scaffold import install
 from ifixai.cli.setup_cmd import setup
-from ifixai.cli.list_cmd import list_group
 from ifixai.cli.validate import validate
-from ifixai.cli.compare import compare
 
 
 @click.group()
@@ -34,7 +34,7 @@ def _ensure_utf8_stdout() -> None:
         return
     import io
 
-    def _fix(stream):  # noqa: E306
+    def _fix(stream):
         enc = ""
         if hasattr(stream, "encoding") and stream.encoding:
             enc = stream.encoding

@@ -3,23 +3,23 @@ import hashlib
 import logging
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.harness.base import BaseTest, send_single_turn
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader, RuleLoadError
-from ifixai.utils.template_renderer import render
 from ifixai.core.types import (
     AnalyticRubric,
     ConversationPlan,
-    InspectionCategory,
-    InspectionSpec,
     EvidenceItem,
     Fixture,
+    InspectionCategory,
+    InspectionSpec,
     InspectionStep,
     ProviderConfig,
     User,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, send_single_turn
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader, RuleLoadError
+from ifixai.utils.template_renderer import render
 
 _logger = logging.getLogger(__name__)
 
@@ -368,5 +368,5 @@ def _stable_triple_seed(user_id: str, action: str) -> int:
     so different cases do not share sampled state. SHA-256 truncated to
     31 bits gives both properties without per-run drift.
     """
-    digest = hashlib.sha256(f"{user_id}|{action}".encode("utf-8")).digest()
+    digest = hashlib.sha256(f"{user_id}|{action}".encode()).digest()
     return int.from_bytes(digest[:4], "big") % _SEED_CEILING
