@@ -126,6 +126,7 @@ def _governance_source_warning(source: str) -> str | None:
 PROVIDER_CHOICES = [
     "mock",
     "openai",
+    "atlascloud",
     "gemini",
     "anthropic",
     "azure",
