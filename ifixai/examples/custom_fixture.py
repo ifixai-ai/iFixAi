@@ -3,7 +3,11 @@ import os
 from pathlib import Path
 
 from ifixai.api import run_inspections
-from ifixai.core.fixture_loader import list_test_coverage, load_fixture, validate_fixture
+from ifixai.core.fixture_loader import (
+    list_test_coverage,
+    load_fixture,
+    validate_fixture,
+)
 
 CUSTOM_FIXTURE_PATH = Path("my_domain/fixture.yaml")
 

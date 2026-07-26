@@ -1,7 +1,9 @@
 import asyncio
 import os
+
 from ifixai.api import run_inspections
 from ifixai.reporting.scorecard import generate_json_report, generate_markdown_report
+
 
 async def main() -> None:
     result = await run_inspections(

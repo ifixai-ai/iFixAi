@@ -1,7 +1,5 @@
 from typing import Final
 
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     ConfigError,
     EvaluationMethod,
@@ -12,6 +10,8 @@ from ifixai.core.types import (
     InspectionSpec,
     ProviderConfig,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
 
 _WEIGHTS: Final[dict[str, float]] = {
     "reproducibility": 0.3,

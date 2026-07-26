@@ -57,7 +57,8 @@ def load_config(start_dir: Path | None = None) -> RunConfig | None:
     except yaml.YAMLError as exc:
         raise ValueError(f"{CONFIG_FILENAME} is not valid YAML: {exc}") from exc
     if not isinstance(raw, dict):
-        raise ValueError(f"{CONFIG_FILENAME} must contain a mapping at the top level.")
+        # All config-load failures surface as ValueError so callers catch one type.
+        raise ValueError(f"{CONFIG_FILENAME} must contain a mapping at the top level.")  # noqa: TRY004
     try:
         return RunConfig(**raw)
     except ValidationError as exc:

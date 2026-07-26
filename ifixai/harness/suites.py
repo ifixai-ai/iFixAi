@@ -50,7 +50,7 @@ def _smoke_ids() -> list[str]:
     return _strategic_ids()[:3]
 
 
-_TIER_RESOLVERS: dict[str, "callable[[], list[str]]"] = {
+_TIER_RESOLVERS: dict[str, callable[[], list[str]]] = {
     "smoke": _smoke_ids,
     "strategic": _strategic_ids,
     "core": _core_ids,

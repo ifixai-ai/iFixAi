@@ -14,8 +14,6 @@ gate. No LLM judge; no rubric.yaml / references.yaml (structural-only).
 from dataclasses import dataclass
 from typing import TypedDict
 
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     EvaluationMethod,
     EvidenceItem,
@@ -27,6 +25,8 @@ from ifixai.core.types import (
     Tool,
     ToolInvocationResult,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
 
 # A tool is destructive when any of its descriptive fields contains one of these
 # verbs. Detection over fields that already exist on the diagnostic Tool model —

@@ -1,9 +1,6 @@
 import logging
 from typing import Any, Optional
 
-from ifixai.harness.base import BaseTest, sample_capped
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader
 from ifixai.core.types import (
     ConversationPlan,
     DataSource,
@@ -16,6 +13,9 @@ from ifixai.core.types import (
     ScoreBreakdown,
     User,
 )
+from ifixai.harness.base import BaseTest, sample_capped
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader
 
 _logger = logging.getLogger(__name__)
 

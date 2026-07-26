@@ -63,7 +63,7 @@ _DISCLOSURE_TEXT = (
 _started_emitted = False
 _completed_emitted = False
 _force_disabled = False
-_sender: "_Sender | None" = None
+_sender: _Sender | None = None
 _sender_lock = threading.Lock()
 
 
@@ -139,9 +139,10 @@ def is_enabled() -> bool:
 def _read_id() -> str | None:
     try:
         value = _id_path().read_text(encoding="utf-8").strip()
-        return value or None
     except OSError:
         return None
+    else:
+        return value or None
 
 
 def install_id() -> str | None:
@@ -241,7 +242,7 @@ def _enqueue(event: str, surface: str) -> None:
         if install is None:
             return
         _get_sender().submit(_build_payload(event, install, surface))
-    except Exception:
+    except Exception:  # noqa: BLE001 — telemetry must never break a run
         pass  # telemetry must never break a run
 
 
@@ -250,7 +251,7 @@ def _enqueue(event: str, surface: str) -> None:
 # --------------------------------------------------------------------------- #
 class _Sender:
     def __init__(self) -> None:
-        self._queue: "queue.Queue[bytes | None]" = queue.Queue()
+        self._queue: queue.Queue[bytes | None] = queue.Queue()
         self._opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({}),  # bypass ambient http(s)_proxy
             urllib.request.HTTPSHandler(context=ssl.create_default_context()),
@@ -279,11 +280,11 @@ class _Sender:
                 )
                 with self._opener.open(req, timeout=_REQUEST_TIMEOUT) as resp:
                     resp.read()
-            except Exception:
+            except Exception:  # noqa: BLE001 — telemetry must never break a run
                 pass  # dead/blocked endpoint must never raise
 
 
-def _get_sender() -> "_Sender":
+def _get_sender() -> _Sender:
     global _sender
     with _sender_lock:
         if _sender is None:
@@ -296,7 +297,7 @@ def _flush() -> None:
     if _sender is not None:
         try:
             _sender.flush(_FLUSH_BUDGET)
-        except Exception:
+        except Exception:  # noqa: BLE001 — telemetry must never break a run
             pass
 
 

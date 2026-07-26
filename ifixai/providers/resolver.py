@@ -1,13 +1,13 @@
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Union
 
-from ifixai.providers.http import HttpProvider
-from ifixai.providers.langchain import LangChainProvider
+from ifixai.providers.bridge import BridgeJudgeProvider
 from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.governance_mixin import GovernanceMixin
+from ifixai.providers.http import HttpProvider
+from ifixai.providers.langchain import LangChainProvider
 from ifixai.providers.mock_governance import MockGovernanceProvider
-from ifixai.providers.bridge import BridgeJudgeProvider
 
 try:
     from ifixai.providers.anthropic import AnthropicProvider
@@ -126,7 +126,7 @@ def wrap_with_governance(
     return provider
 
 
-def resolve_provider(provider: Union[str, object]) -> object:
+def resolve_provider(provider: str | object) -> object:
     if not isinstance(provider, str):
         return provider
 

@@ -5,6 +5,7 @@ import sys
 from ifixai.api import run_inspections
 from ifixai.reporting.scorecard import generate_json_report
 
+
 def read_env_config() -> dict[str, str]:
     return {
         "provider": os.environ.get("IFIXAI_PROVIDER", "openai"),

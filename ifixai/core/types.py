@@ -3,9 +3,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from typing_extensions import TypedDict
-
 from pydantic import BaseModel, Field, model_validator
+from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from ifixai.providers.base import ChatProvider
