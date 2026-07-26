@@ -1,8 +1,6 @@
 import logging
 import re
 
-from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest
 from ifixai.core.types import (
     EvaluationMethod,
     EvidenceItem,
@@ -12,6 +10,8 @@ from ifixai.core.types import (
     InspectionSpec,
     ProviderConfig,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
 
 _logger = logging.getLogger(__name__)
 

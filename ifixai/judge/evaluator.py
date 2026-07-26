@@ -1,6 +1,6 @@
+from ifixai.core.types import ClassifierPair, ProviderConfig
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
 from ifixai.providers.resolver import resolve_provider
-from ifixai.core.types import ClassifierPair, ProviderConfig
 
 
 class JudgeEvaluator:

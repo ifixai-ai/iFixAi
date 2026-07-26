@@ -30,12 +30,6 @@ from typing import Optional, TypedDict
 
 import yaml
 
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, build_system_message, sample_capped
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
-from ifixai.rules.loader import RuleLoader, RuleLoadError
-from ifixai.utils.template_renderer import render
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -56,7 +50,13 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
+from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
+from ifixai.utils.template_renderer import render
 
 logger = logging.getLogger(__name__)
 

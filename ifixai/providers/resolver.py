@@ -1,13 +1,13 @@
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Union
 
-from ifixai.providers.http import HttpProvider
-from ifixai.providers.langchain import LangChainProvider
+from ifixai.providers.bridge import BridgeJudgeProvider
 from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.governance_mixin import GovernanceMixin
+from ifixai.providers.http import HttpProvider
+from ifixai.providers.langchain import LangChainProvider
 from ifixai.providers.mock_governance import MockGovernanceProvider
-from ifixai.providers.bridge import BridgeJudgeProvider
 
 try:
     from ifixai.providers.anthropic import AnthropicProvider
@@ -40,6 +40,11 @@ except ImportError:
     OpenAIProvider = None
 
 try:
+    from ifixai.providers.atlascloud import AtlasCloudProvider
+except ImportError:
+    AtlasCloudProvider = None
+
+try:
     from ifixai.providers.openrouter import OpenRouterProvider
 except ImportError:
     OpenRouterProvider = None
@@ -54,6 +59,7 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "http",
     "mock",
     "openai",
+    "atlascloud",
     "openrouter",
     "anthropic",
     "gemini",
@@ -72,6 +78,7 @@ _PROVIDER_MAP: dict[str, type] = {
     for name, cls in {
         "http": HttpProvider,
         "openai": OpenAIProvider,
+        "atlascloud": AtlasCloudProvider,
         "openrouter": OpenRouterProvider,
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
@@ -119,7 +126,7 @@ def wrap_with_governance(
     return provider
 
 
-def resolve_provider(provider: Union[str, object]) -> object:
+def resolve_provider(provider: str | object) -> object:
     if not isinstance(provider, str):
         return provider
 
@@ -143,6 +150,7 @@ def resolve_provider(provider: Union[str, object]) -> object:
 
 _PROVIDER_CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "openai": ("OPENAI_API_KEY",),
+    "atlascloud": ("ATLASCLOUD_API_KEY", "ATLAS_CLOUD_API_KEY"),
     "anthropic": ("ANTHROPIC_API_KEY",),
     "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     "azure": ("AZURE_OPENAI_API_KEY",),
@@ -160,6 +168,7 @@ _PROVIDER_CREDENTIAL_REQUIRES_ALL: frozenset[str] = frozenset({"bedrock"})
 _JUDGE_PREFERENCE_ORDER: tuple[str, ...] = (
     "anthropic",
     "openai",
+    "atlascloud",
     "gemini",
     "openrouter",
     "azure",

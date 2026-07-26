@@ -3,180 +3,267 @@ import warnings
 from collections.abc import Iterable
 from typing import TypedDict
 
+from ifixai.core.types import InspectionCategory
+from ifixai.harness.base import BaseTest
 from ifixai.inspections.b01_tool_governance.runner import (
     SPEC as B01_SPEC,
+)
+from ifixai.inspections.b01_tool_governance.runner import (
     B01ToolGovernance,
 )
-from ifixai.inspections.b02_non_llm_layer.runner import SPEC as B02_SPEC, B02NonLlmLayer
-from ifixai.inspections.b03_auditability.runner import SPEC as B03_SPEC, B03Auditability
+from ifixai.inspections.b02_non_llm_layer.runner import SPEC as B02_SPEC
+from ifixai.inspections.b02_non_llm_layer.runner import B02NonLlmLayer
+from ifixai.inspections.b03_auditability.runner import SPEC as B03_SPEC
+from ifixai.inspections.b03_auditability.runner import B03Auditability
 from ifixai.inspections.b04_deterministic_override.runner import (
     SPEC as B04_SPEC,
+)
+from ifixai.inspections.b04_deterministic_override.runner import (
     B04DeterministicOverride,
 )
 from ifixai.inspections.b05_source_provenance.runner import (
     SPEC as B05_SPEC,
+)
+from ifixai.inspections.b05_source_provenance.runner import (
     B05SourceProvenance,
 )
 from ifixai.inspections.b06_uncertainty_signalling.runner import (
     SPEC as B06_SPEC,
+)
+from ifixai.inspections.b06_uncertainty_signalling.runner import (
     B06UncertaintySignalling,
 )
 from ifixai.inspections.b07_hallucination_rate.runner import (
     SPEC as B07_SPEC,
+)
+from ifixai.inspections.b07_hallucination_rate.runner import (
     B07HallucinationRate,
 )
 from ifixai.inspections.b08_privilege_escalation.runner import (
     SPEC as B08_SPEC,
+)
+from ifixai.inspections.b08_privilege_escalation.runner import (
     B08PrivilegeEscalation,
 )
 from ifixai.inspections.b09_policy_violation.runner import (
     SPEC as B09_SPEC,
+)
+from ifixai.inspections.b09_policy_violation.runner import (
     B09PolicyViolation,
 )
 from ifixai.inspections.b10_evaluation_drift.runner import (
     SPEC as B10_SPEC,
+)
+from ifixai.inspections.b10_evaluation_drift.runner import (
     B10EvaluationDrift,
 )
 from ifixai.inspections.b11_system_controllability.runner import (
     SPEC as B11_SPEC,
+)
+from ifixai.inspections.b11_system_controllability.runner import (
     B11SystemControllability,
 )
 from ifixai.inspections.b12_prompt_injection.runner import (
     SPEC as B12_SPEC,
+)
+from ifixai.inspections.b12_prompt_injection.runner import (
     B12PromptInjection,
 )
 from ifixai.inspections.b13_plan_traceability.runner import (
     SPEC as B13_SPEC,
+)
+from ifixai.inspections.b13_plan_traceability.runner import (
     B13PlanTraceability,
 )
 from ifixai.inspections.b14_covert_side_task.runner import (
     SPEC as B14_SPEC,
+)
+from ifixai.inspections.b14_covert_side_task.runner import (
     B14CovertSideTask,
 )
 from ifixai.inspections.b15_long_horizon_drift.runner import (
     SPEC as B15_SPEC,
+)
+from ifixai.inspections.b15_long_horizon_drift.runner import (
     B15LongHorizonDrift,
 )
 from ifixai.inspections.b16_silent_failure.runner import (
     SPEC as B16_SPEC,
+)
+from ifixai.inspections.b16_silent_failure.runner import (
     B16SilentFailure,
 )
 from ifixai.inspections.b17_fact_consistency.runner import (
     SPEC as B17_SPEC,
+)
+from ifixai.inspections.b17_fact_consistency.runner import (
     B17FactConsistency,
 )
 from ifixai.inspections.b18_goal_stability.runner import (
     SPEC as B18_SPEC,
+)
+from ifixai.inspections.b18_goal_stability.runner import (
     B18GoalStability,
 )
 from ifixai.inspections.b19_context_accuracy.runner import (
     SPEC as B19_SPEC,
+)
+from ifixai.inspections.b19_context_accuracy.runner import (
     B19ContextAccuracy,
 )
 from ifixai.inspections.b20_instruction_adherence.runner import (
     SPEC as B20_SPEC,
+)
+from ifixai.inspections.b20_instruction_adherence.runner import (
     B20InstructionAdherence,
 )
 from ifixai.inspections.b21_cross_turn_objective.runner import (
     SPEC as B21_SPEC,
+)
+from ifixai.inspections.b21_cross_turn_objective.runner import (
     B21CrossTurnObjective,
 )
 from ifixai.inspections.b22_decision_reproducibility.runner import (
     SPEC as B22_SPEC,
+)
+from ifixai.inspections.b22_decision_reproducibility.runner import (
     B22DecisionReproducibility,
 )
 from ifixai.inspections.b23_policy_version_trace.runner import (
     SPEC as B23_SPEC,
+)
+from ifixai.inspections.b23_policy_version_trace.runner import (
     B23PolicyVersionTrace,
 )
-from ifixai.inspections.b24_risk_scoring.runner import SPEC as B24_SPEC, B24RiskScoring
+from ifixai.inspections.b24_risk_scoring.runner import SPEC as B24_SPEC
+from ifixai.inspections.b24_risk_scoring.runner import B24RiskScoring
 from ifixai.inspections.b25_regulatory_readiness.runner import (
     SPEC as B25_SPEC,
+)
+from ifixai.inspections.b25_regulatory_readiness.runner import (
     B25RegulatoryReadiness,
 )
 from ifixai.inspections.b26_rate_limiting.runner import (
     SPEC as B26_SPEC,
+)
+from ifixai.inspections.b26_rate_limiting.runner import (
     B26RateLimiting,
 )
 from ifixai.inspections.b27_session_integrity.runner import (
     SPEC as B27_SPEC,
+)
+from ifixai.inspections.b27_session_integrity.runner import (
     B27SessionIntegrity,
 )
 from ifixai.inspections.b28_rag_context_integrity.runner import (
     SPEC as B28_SPEC,
+)
+from ifixai.inspections.b28_rag_context_integrity.runner import (
     B28RAGContextIntegrity,
 )
 from ifixai.inspections.b29_prompt_sensitivity.runner import (
     SPEC as B29_SPEC,
+)
+from ifixai.inspections.b29_prompt_sensitivity.runner import (
     B29PromptSensitivity,
 )
 from ifixai.inspections.b30_malicious_deployer_rules.runner import (
     SPEC as B30_SPEC,
+)
+from ifixai.inspections.b30_malicious_deployer_rules.runner import (
     B30MaliciousDeployerRules,
 )
 from ifixai.inspections.b31_escalation_correctness.runner import (
     SPEC as B31_SPEC,
+)
+from ifixai.inspections.b31_escalation_correctness.runner import (
     B31EscalationCorrectness,
 )
 from ifixai.inspections.b32_off_topic_detection.runner import (
     SPEC as B32_SPEC,
+)
+from ifixai.inspections.b32_off_topic_detection.runner import (
     B32OffTopicDetection,
-)
-from ifixai.inspections.p01_destruction_resistance.runner import (
-    SPEC as P01_SPEC,
-    P01DestructionResistance,
-)
-from ifixai.inspections.p08_self_audit_trail_integrity.runner import (
-    SPEC as P08_SPEC,
-    P08SelfAuditTrailIntegrity,
-)
-from ifixai.inspections.p13_hidden_side_objective_persistence.runner import (
-    SPEC as P13_SPEC,
-    P13HiddenSideObjectivePersistence,
-)
-from ifixai.inspections.p19_honeypot_tool_restraint.runner import (
-    SPEC as P19_SPEC,
-    P19HoneypotToolRestraint,
-)
-from ifixai.inspections.p22_goal_edit_acceptance.runner import (
-    SPEC as P22_SPEC,
-    P22GoalEditAcceptance,
-)
-from ifixai.inspections.p27_privilege_creep.runner import (
-    SPEC as P27_SPEC,
-    P27PrivilegeCreep,
-)
-from ifixai.inspections.p32_emergent_systemic_harm.runner import (
-    SPEC as P32_SPEC,
-    P32EmergentSystemicHarm,
 )
 from ifixai.inspections.c02_low_confidence_abstention.runner import (
     SPEC as C02_SPEC,
+)
+from ifixai.inspections.c02_low_confidence_abstention.runner import (
     C02LowConfidenceAbstention,
 )
 from ifixai.inspections.c05_human_fallback_routing.runner import (
     SPEC as C05_SPEC,
+)
+from ifixai.inspections.c05_human_fallback_routing.runner import (
     C05HumanFallbackRouting,
 )
 from ifixai.inspections.c11_operational_outcome_conformance.runner import (
     SPEC as C11_SPEC,
+)
+from ifixai.inspections.c11_operational_outcome_conformance.runner import (
     C11OperationalOutcomeConformance,
+)
+from ifixai.inspections.p01_destruction_resistance.runner import (
+    SPEC as P01_SPEC,
+)
+from ifixai.inspections.p01_destruction_resistance.runner import (
+    P01DestructionResistance,
+)
+from ifixai.inspections.p08_self_audit_trail_integrity.runner import (
+    SPEC as P08_SPEC,
+)
+from ifixai.inspections.p08_self_audit_trail_integrity.runner import (
+    P08SelfAuditTrailIntegrity,
+)
+from ifixai.inspections.p13_hidden_side_objective_persistence.runner import (
+    SPEC as P13_SPEC,
+)
+from ifixai.inspections.p13_hidden_side_objective_persistence.runner import (
+    P13HiddenSideObjectivePersistence,
+)
+from ifixai.inspections.p19_honeypot_tool_restraint.runner import (
+    SPEC as P19_SPEC,
+)
+from ifixai.inspections.p19_honeypot_tool_restraint.runner import (
+    P19HoneypotToolRestraint,
+)
+from ifixai.inspections.p22_goal_edit_acceptance.runner import (
+    SPEC as P22_SPEC,
+)
+from ifixai.inspections.p22_goal_edit_acceptance.runner import (
+    P22GoalEditAcceptance,
+)
+from ifixai.inspections.p27_privilege_creep.runner import (
+    SPEC as P27_SPEC,
+)
+from ifixai.inspections.p27_privilege_creep.runner import (
+    P27PrivilegeCreep,
+)
+from ifixai.inspections.p32_emergent_systemic_harm.runner import (
+    SPEC as P32_SPEC,
+)
+from ifixai.inspections.p32_emergent_systemic_harm.runner import (
+    P32EmergentSystemicHarm,
 )
 from ifixai.inspections.s02_configurer_stakeholder_conflict.runner import (
     SPEC as S02_SPEC,
+)
+from ifixai.inspections.s02_configurer_stakeholder_conflict.runner import (
     S02ConfigurerStakeholderConflict,
 )
 from ifixai.inspections.x04_detection_performance_gate.runner import (
     SPEC as X04_SPEC,
+)
+from ifixai.inspections.x04_detection_performance_gate.runner import (
     X04DetectionPerformanceGate,
 )
 from ifixai.inspections.x11_pre_action_confirmation_gate.runner import (
     SPEC as X11_SPEC,
+)
+from ifixai.inspections.x11_pre_action_confirmation_gate.runner import (
     X11PreActionConfirmationGate,
 )
-from ifixai.harness.base import BaseTest
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
-from ifixai.core.types import InspectionCategory
 
 ALL_SPECS = [
     B01_SPEC,

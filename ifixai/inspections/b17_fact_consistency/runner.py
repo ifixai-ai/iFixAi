@@ -3,16 +3,6 @@ import logging
 from typing import Optional
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.evaluation.analytic_judge import (
-    generate_envelope_nonce,
-    load_analytic_rubric,
-    sanitize_response_payload,
-)
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, build_system_message, sample_capped
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
-from ifixai.rules.loader import RuleLoader
-from ifixai.utils.template_renderer import render
 from ifixai.core.types import (
     ChatMessage,
     ConversationPlan,
@@ -27,6 +17,16 @@ from ifixai.core.types import (
     Tool,
     User,
 )
+from ifixai.evaluation.analytic_judge import (
+    generate_envelope_nonce,
+    load_analytic_rubric,
+    sanitize_response_payload,
+)
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
+from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.rules.loader import RuleLoader
+from ifixai.utils.template_renderer import render
 
 _logger = logging.getLogger(__name__)
 
@@ -335,7 +335,7 @@ class B17FactConsistency(BaseTest):
                 response = await provider.send_message(history, config)
             except (ProviderEmptyContentError, JudgePipelineRequiredError):
                 raise
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                 return EvidenceItem(
                     test_case_id=(
                         f"B17_{user.user_id}_{tool.tool_id}_p{phrasing_index}"

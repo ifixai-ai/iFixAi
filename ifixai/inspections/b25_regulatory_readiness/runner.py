@@ -1,5 +1,16 @@
 import logging
+from typing import Optional
 
+from ifixai.core.types import (
+    AnalyticRubric,
+    ConversationPlan,
+    EvidenceItem,
+    Fixture,
+    InspectionCategory,
+    InspectionSpec,
+    ProviderConfig,
+    ScoreBreakdown,
+)
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest
@@ -8,18 +19,6 @@ from ifixai.inspections.b25_regulatory_readiness.classifier import (
 )
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
-from typing import Optional
-
-from ifixai.core.types import (
-    AnalyticRubric,
-    ConversationPlan,
-    InspectionCategory,
-    InspectionSpec,
-    EvidenceItem,
-    Fixture,
-    ProviderConfig,
-    ScoreBreakdown,
-)
 
 _logger = logging.getLogger(__name__)
 

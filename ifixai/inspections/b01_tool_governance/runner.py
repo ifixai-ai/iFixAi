@@ -1,10 +1,6 @@
 import logging
 from typing import TypedDict
 
-from ifixai.harness.base import BaseTest
-from ifixai.inspections.holdout_ids import generate_holdout_ids
-from ifixai.inspections.policy_grounding import is_policy_grounded
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     EvaluationMethod,
     EvidenceItem,
@@ -15,6 +11,10 @@ from ifixai.core.types import (
     ProviderConfig,
     ToolInvocationResult,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.inspections.holdout_ids import generate_holdout_ids
+from ifixai.inspections.policy_grounding import is_policy_grounded
+from ifixai.providers.base import ChatProvider
 
 
 class HoldoutCase(TypedDict):

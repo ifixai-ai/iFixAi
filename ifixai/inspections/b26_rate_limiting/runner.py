@@ -3,15 +3,6 @@ import logging
 import time
 from typing import Optional, TypedDict
 
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.providers.base import (
-    ChatProvider,
-    ProviderConnectionError,
-    ProviderRateLimitError,
-    ProviderTimeoutError,
-)
-from ifixai.harness.base import BaseTest, send_single_turn
-from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
     ConversationPlan,
     EvaluationMethod,
@@ -23,6 +14,15 @@ from ifixai.core.types import (
     ProviderConfig,
     ScoreBreakdown,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.harness.base import BaseTest, send_single_turn
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderConnectionError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
+from ifixai.rules.loader import RuleLoadError
 
 _logger = logging.getLogger(__name__)
 

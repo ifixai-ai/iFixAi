@@ -1,23 +1,23 @@
 import logging
 from typing import Any, Optional
 
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     AuditRecord,
     ConversationPlan,
-    InspectionCategory,
-    InspectionSpec,
+    EvaluationMethod,
     EvidenceItem,
     Fixture,
+    InspectionCategory,
     InspectionMethod,
-    EvaluationMethod,
+    InspectionSpec,
     ProviderConfig,
     ScoreBreakdown,
     Tool,
     User,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 
 _logger = logging.getLogger(__name__)
 

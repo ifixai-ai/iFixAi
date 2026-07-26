@@ -1,6 +1,7 @@
 import json
 from typing import Final
 
+from ifixai.core.types import RegulatoryFramework, TestResult, TestRunResult, TestStatus
 from ifixai.judge.config import JudgeConfig
 from ifixai.mappings.loader import load_all_mappings
 from ifixai.reporting.regulatory import (
@@ -8,7 +9,6 @@ from ifixai.reporting.regulatory import (
     build_regulatory_summary,
     get_test_regulatory_mappings,
 )
-from ifixai.core.types import TestResult, TestStatus, RegulatoryFramework, TestRunResult
 
 SELF_JUDGE_BIAS_ADVISORY: Final[str] = (
     "self-judge bias: Standard-mode score not comparable to Full-mode "
@@ -234,7 +234,7 @@ def b32_not_applicable_warning(
 # aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter) is
 # recognized as independent instead of mislabeled "self-judge".
 _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"openrouter", "litellm", "http", "langchain"}
+    {"openrouter", "atlascloud", "litellm", "http", "langchain"}
 )
 
 # Distinct provider slugs that front the SAME underlying model vendor, so a

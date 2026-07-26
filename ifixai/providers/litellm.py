@@ -59,7 +59,7 @@ class LiteLLMProvider(ChatProvider):
 
             choices = response.choices
             if not choices:
-                raise ProviderResponseError(
+                raise ProviderResponseError(  # noqa: TRY301 — inner functions are disallowed by project style
                     provider="litellm",
                     endpoint=config.endpoint or "default",
                     details=f"No choices in response (id={response.id})",
@@ -67,19 +67,18 @@ class LiteLLMProvider(ChatProvider):
             choice = choices[0]
             finish_reason = choice.finish_reason or "unknown"
             if choice.message is None:
-                raise ProviderResponseError(
+                raise ProviderResponseError(  # noqa: TRY301 — inner functions are disallowed by project style
                     provider="litellm",
                     endpoint=config.endpoint or "default",
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
             if not content:
-                raise ProviderEmptyContentError(
+                raise ProviderEmptyContentError(  # noqa: TRY301 — inner functions are disallowed by project style
                     provider="litellm",
                     endpoint=config.endpoint or "default",
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
-            return content
 
         except ProviderResponseError:
             raise
@@ -101,3 +100,5 @@ class LiteLLMProvider(ChatProvider):
                 endpoint=config.endpoint or "default",
                 details=str(exc),
             ) from exc
+        else:
+            return content

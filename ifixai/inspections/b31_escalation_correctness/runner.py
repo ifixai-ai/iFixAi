@@ -4,11 +4,6 @@ import re
 from collections.abc import Callable
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest, sample_capped, send_single_turn
-from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     AnalyticRubric,
     ConversationPlan,
@@ -22,6 +17,11 @@ from ifixai.core.types import (
     ProviderConfig,
     RubricVerdict,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, sample_capped, send_single_turn
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 
 SPEC = InspectionSpec(
     test_id="B31",

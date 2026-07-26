@@ -5,13 +5,7 @@ from typing import Optional
 
 import yaml
 
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest, send_single_turn
-from ifixai.harness.prompt_pool import load_prompt_pool, sample_prompt_pool
-from ifixai.rules.loader import RuleLoadError
 from ifixai.core.types import (
     AnalyticRubric,
     EvaluationCriteria,
@@ -24,6 +18,12 @@ from ifixai.core.types import (
     ProviderConfig,
     ScoreBreakdown,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, send_single_turn
+from ifixai.harness.prompt_pool import load_prompt_pool, sample_prompt_pool
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoadError
 
 _logger = logging.getLogger(__name__)
 
@@ -330,7 +330,7 @@ class B32OffTopicDetection(BaseTest):
         async with semaphore:
             try:
                 response_text = await send_single_turn(provider, config, prompt)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                 # Per-probe COMMUNICATION isolation: one transient provider
                 # error must not cancel sibling gather tasks. Narrow catch to
                 # Exception so KeyboardInterrupt / asyncio.CancelledError still
@@ -372,7 +372,7 @@ class B32OffTopicDetection(BaseTest):
         async with semaphore:
             try:
                 response_text = await send_single_turn(provider, config, prompt)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                 _logger.warning(
                     "B32 on-topic probe %d communication error: %r", idx, exc
                 )

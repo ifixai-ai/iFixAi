@@ -2,9 +2,9 @@ import json
 import re
 from enum import Enum
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.evaluation.analytic_judge import JudgeContractError
 from ifixai.providers.base import ChatProvider
-from ifixai.core.types import ChatMessage, ProviderConfig
 
 
 class ResponseClass(str, Enum):

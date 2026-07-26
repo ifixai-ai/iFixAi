@@ -14,26 +14,24 @@ from ifixai.providers.base import (
     create_chat_completion_json_fallback,
 )
 
-DEFAULT_MODEL = "gpt-4o"
+DEFAULT_MODEL = "qwen/qwen3.5-flash"
+DEFAULT_BASE_URL = "https://api.atlascloud.ai/v1"
+MAX_TOKENS_CEILING: int = 8192
 
-ClientCacheKey = tuple[str | None, str | None, float, int]
+ClientCacheKey = tuple[str, str | None, float, int]
 
 
-class OpenAIProvider(ChatProvider):
+class AtlasCloudProvider(ChatProvider):
 
     def __init__(self) -> None:
         self._clients: dict[ClientCacheKey, openai.AsyncOpenAI] = {}
         self._client_lock = asyncio.Lock()
 
     async def get_client(self, config: ProviderConfig) -> openai.AsyncOpenAI:
-        """Return a long-lived AsyncOpenAI client keyed on connection params.
-
-        Caching one client per (endpoint, api_key, timeout, max_retries)
-        keeps the underlying httpx connection pool warm across hundreds of
-        LLM calls per run instead of re-handshaking TLS for every request.
-        """
+        """Return a long-lived AsyncOpenAI client keyed on connection params."""
+        base_url = config.endpoint or DEFAULT_BASE_URL
         key: ClientCacheKey = (
-            config.endpoint,
+            base_url,
             config.api_key,
             float(config.timeout),
             config.max_retries,
@@ -47,7 +45,7 @@ class OpenAIProvider(ChatProvider):
                 return cached
             client = openai.AsyncOpenAI(
                 api_key=config.api_key,
-                base_url=config.endpoint,
+                base_url=base_url,
                 timeout=float(config.timeout),
                 max_retries=config.max_retries,
             )
@@ -64,79 +62,69 @@ class OpenAIProvider(ChatProvider):
         messages: list[ChatMessage],
         config: ProviderConfig,
     ) -> str:
+        base_url = config.endpoint or DEFAULT_BASE_URL
         model = config.model or DEFAULT_MODEL
-        formatted_messages = [{"role": m.role, "content": m.content} for m in messages]
-
-        endpoint = config.endpoint or "https://api.openai.com/v1"
+        formatted = [{"role": m.role, "content": m.content} for m in messages]
 
         client = await self.get_client(config)
-        params: dict[str, object] = {
-            "model": model,
-            "messages": formatted_messages,
-            "temperature": config.temperature,
-        }
-        if config.seed is not None:
-            params["seed"] = config.seed
-        if config.max_tokens is not None:
-            params["max_tokens"] = config.max_tokens
-        if config.json_output:
-            # Constrain judge calls to valid JSON (cheap models reliably emit a
-            # parseable verdict); fall back to free text if unsupported.
-            params["response_format"] = {"type": "json_object"}
         try:
-            response = await create_chat_completion_json_fallback(client, **params)
-
+            effective_max_tokens = (
+                min(config.max_tokens, MAX_TOKENS_CEILING)
+                if config.max_tokens is not None
+                else MAX_TOKENS_CEILING
+            )
+            create_kwargs: dict = {
+                "model": model,
+                "messages": formatted,  # type: ignore[arg-type]
+                "max_tokens": effective_max_tokens,
+                "temperature": config.temperature,
+            }
+            if config.seed is not None:
+                create_kwargs["seed"] = config.seed
+            if config.json_output:
+                create_kwargs["response_format"] = {"type": "json_object"}
+            response = await create_chat_completion_json_fallback(client, **create_kwargs)
             choices = response.choices
             if not choices:
                 raise ProviderResponseError(
-                    provider="openai",
-                    endpoint=endpoint,
+                    provider="atlascloud",
+                    endpoint=base_url,
                     details=f"No choices in response (id={response.id})",
                 )
             choice = choices[0]
             finish_reason = choice.finish_reason or "unknown"
             if choice.message is None:
                 raise ProviderResponseError(
-                    provider="openai",
-                    endpoint=endpoint,
+                    provider="atlascloud",
+                    endpoint=base_url,
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
             if not content:
                 raise ProviderEmptyContentError(
-                    provider="openai",
-                    endpoint=endpoint,
+                    provider="atlascloud",
+                    endpoint=base_url,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
-                provider="openai",
-                endpoint=endpoint,
-                details=str(exc),
+                provider="atlascloud", endpoint=base_url, details=str(exc)
             ) from exc
         except openai.RateLimitError as exc:
             raise ProviderRateLimitError(
-                provider="openai",
-                endpoint=endpoint,
-                details=str(exc),
-            ) from exc
-        except openai.APIConnectionError as exc:
-            raise ProviderConnectionError(
-                provider="openai",
-                endpoint=endpoint,
-                details=str(exc),
+                provider="atlascloud", endpoint=base_url, details=str(exc)
             ) from exc
         except openai.APITimeoutError as exc:
             raise ProviderTimeoutError(
-                provider="openai",
-                endpoint=endpoint,
-                details=str(exc),
+                provider="atlascloud", endpoint=base_url, details=str(exc)
+            ) from exc
+        except openai.APIConnectionError as exc:
+            raise ProviderConnectionError(
+                provider="atlascloud", endpoint=base_url, details=str(exc)
             ) from exc
         except openai.APIError as exc:
             raise ProviderResponseError(
-                provider="openai",
-                endpoint=endpoint,
-                details=str(exc),
+                provider="atlascloud", endpoint=base_url, details=str(exc)
             ) from exc
         else:
             return content

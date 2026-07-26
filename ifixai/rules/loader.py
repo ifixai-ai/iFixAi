@@ -58,9 +58,10 @@ class RuleLoader:
                 data = yaml.safe_load(fh)
             if not isinstance(data, dict):
                 raise RuleLoadError(f"Rule file {path} must be a mapping")
-            return data
         except yaml.YAMLError as exc:
             raise RuleLoadError(f"Invalid YAML in {path}: {exc}") from exc
+        else:
+            return data
 
     def _parse_plan(
         self,

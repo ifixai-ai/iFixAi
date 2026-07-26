@@ -8,7 +8,7 @@
   <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
 </p>
 
-<p align="center"><strong>The diagnostic for AI operational misalignment</strong></p>
+<p align="center"><strong> Independent Auditing of AI Agents </strong></p>
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
 <p align="center">
@@ -38,28 +38,11 @@
 
 ## What it is
 
-iFixAi detects AI operational misalignment before it damages your business. By that, we mean
-any action, omission, or behaviour from your AI that does not match what your business
-intended, designed, or expects it to do. The dangerous part is that this rarely shows up in
-your usual KPIs. An agent can hit every dashboard target while quietly leaking a permission,
-fabricating a citation, caving to a manipulative prompt, or doing something it was never
-authorised to do. Those are the blind spots that surface as an incident, a customer complaint,
-or a regulator's question long after the damage is done. iFixAi finds them first.
+The existing Eval, Red-teaming, and Observability Tools are evaluating the agent mainly based on tech capability (token efficiency, latency, prompt injections). They cannot answer the most crucial question.
 
-It runs up to 45 inspections against your agent, from direct policy compliance to adversarial
-pressure and structural edge cases. These come in two tiers: 32 core plus 13 extended. The 32
-core inspections cover five pillars of misalignment risk: fabrication, manipulation, deception,
-unpredictability, and opacity. They alone produce the letter grade, which you get back in under
-5 minutes. The 13 extended inspections span 11 premium categories of frontier agent risk, such
-as sabotage, sandbagging, oversight evasion, and power elevation. They are scored and reported
-on their own and never move the grade, with one exception: P01 is a mandatory minimum, so it can
-cap the grade but never raise it.
+Is the agent doing the job it is supposed to do based on the business KPIs and Organizational Structure? iFixAi gives you this answer in less than 120 seconds by striking the right balance between AI-Red Teaming and Operational Assurance. 
 
-Because the whole point is trust, iFixAi is honest about what it is. It is not a certification
-or a safety guarantee. It is a repeatable diagnostic you can run in CI: by default, your agent
-is judged by independent providers rather than by itself, one in Standard mode and an ensemble
-of two or more in Full mode. Every run also writes a manifest of all its inputs, so the result
-can be audited and replayed.
+Adversarial depth. Assurance discipline. All-in-one auditing process.
 
 ## Three ways to run
 
@@ -172,8 +155,8 @@ from different vendors:
 Reports land in `./ifixai-results/` as JSON **and** Markdown. Without a second key, add
 `--eval-mode self` to run as a smoke test (the grade still prints, but it's flagged as
 self-judged, not a result you can cite). Pinning the judge, Full-mode ensembles, and the eval modes:
-**[docs/cli.md](docs/cli.md#how-a-run-is-judged)**. Other providers (OpenAI, OpenRouter, Gemini,
-Azure, Bedrock, Hugging Face) install the matching extra and follow the same steps; the
+**[docs/cli.md](docs/cli.md#how-a-run-is-judged)**. Other providers (OpenAI, Atlas Cloud,
+OpenRouter, Gemini, Azure, Bedrock, Hugging Face) install the matching extra and follow the same steps; the
 HTTP and LangChain adapters need no provider extra: **[docs/testing-your-agent.md](docs/testing-your-agent.md#provider-reference)**.
 
 ### Recommended judge setups

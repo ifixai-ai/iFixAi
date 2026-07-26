@@ -1,12 +1,6 @@
 import warnings
 from typing import Optional, TypedDict
 
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, build_system_message
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
-from ifixai.rules.loader import RuleLoader
-from ifixai.utils.template_renderer import render
 from ifixai.core.types import (
     ChatMessage,
     ConversationPlan,
@@ -23,6 +17,12 @@ from ifixai.core.types import (
     ScoreBreakdown,
     User,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.rules.loader import RuleLoader
+from ifixai.utils.template_renderer import render
 
 
 class DriftSignalEntry(TypedDict):
