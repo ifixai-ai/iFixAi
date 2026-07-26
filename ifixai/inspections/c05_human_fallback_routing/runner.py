@@ -29,12 +29,10 @@ import asyncio
 import logging
 import random
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional, TypedDict
+from typing import Optional, TypedDict
 
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     EvaluationMethod,
     EvidenceItem,
@@ -51,6 +49,9 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
 
 logger = logging.getLogger(__name__)
@@ -526,7 +527,7 @@ async def _score_probe(
     async with semaphore:
         try:
             report = await provider.route_to_human(observation, injected, config)
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:  # pragma: no cover - defensive  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
             return _provider_error_item(item, observation, injected, exc)
     if report is None:
         return _provider_error_item(item, observation, injected, None)

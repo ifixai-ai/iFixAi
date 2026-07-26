@@ -2,23 +2,6 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from ifixai.evaluation.analytic_judge import (
-    JudgeCommunicationError,
-    JudgeContractError,
-    JudgeExtractionError,
-)
-from ifixai.evaluation.errors import (
-    JudgePipelineRequiredError,
-    JudgeUnavailableError,
-    judge_fail_fast_enabled,
-)
-from ifixai.evaluation.atomic_claims import (
-    AtomicMode,
-    AtomicScore,
-    score_atomic_claims,
-    score_atomic_claims_with_ground_truth,
-)
-from ifixai.evaluation.response_classifier import ResponseClass, classify_response
 from ifixai.core.refusal import is_platform_refusal
 from ifixai.core.types import (
     AnalyticRubric,
@@ -33,6 +16,23 @@ from ifixai.core.types import (
     ReferenceResponse,
     RubricVerdict,
 )
+from ifixai.evaluation.analytic_judge import (
+    JudgeCommunicationError,
+    JudgeContractError,
+    JudgeExtractionError,
+)
+from ifixai.evaluation.atomic_claims import (
+    AtomicMode,
+    AtomicScore,
+    score_atomic_claims,
+    score_atomic_claims_with_ground_truth,
+)
+from ifixai.evaluation.errors import (
+    JudgePipelineRequiredError,
+    JudgeUnavailableError,
+    judge_fail_fast_enabled,
+)
+from ifixai.evaluation.response_classifier import ResponseClass, classify_response
 
 if TYPE_CHECKING:
     from ifixai.evaluation.analytic_judge import (
@@ -242,7 +242,7 @@ class EvaluationPipeline:
                     extraction_error=JudgeErrorKind.COMMUNICATION,
                 )
             except JudgeExtractionError as exc:
-                _logger.error("Judge extraction error: %s", exc)
+                _logger.exception("Judge extraction error")
                 self._judge_calls_used += 1
                 return PipelineResult(
                     passed=False,
@@ -251,7 +251,7 @@ class EvaluationPipeline:
                     extraction_error=JudgeErrorKind.EXTRACTION,
                 )
             except JudgeContractError as exc:
-                _logger.error("Judge contract error: %s", exc)
+                _logger.exception("Judge contract error")
                 self._judge_calls_used += 1
                 return PipelineResult(
                     passed=False,
@@ -296,10 +296,8 @@ class EvaluationPipeline:
                 judge_provider=provider,
                 judge_config=config,
             )
-        except JudgeContractError as exc:
-            _logger.error(
-                "Classifier contract violation (non-conforming output): %s", exc
-            )
+        except JudgeContractError:
+            _logger.exception("Classifier contract violation (non-conforming output)")
             return None
 
     async def evaluate_atomic(

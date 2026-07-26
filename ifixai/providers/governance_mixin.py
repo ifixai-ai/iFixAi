@@ -16,8 +16,6 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from ifixai.providers.base import ChatProvider
-from ifixai.providers.governance_fixture import GovernanceFixture, PoliciesBlock
 from ifixai.core.types import (
     ActionConfirmationRequest,
     AuditRecord,
@@ -40,6 +38,8 @@ from ifixai.core.types import (
     classify_detection_window,
     classify_outcome_feed,
 )
+from ifixai.providers.base import ChatProvider
+from ifixai.providers.governance_fixture import GovernanceFixture, PoliciesBlock
 
 
 def _test_id(config: ProviderConfig) -> Optional[str]:
@@ -276,7 +276,7 @@ class GovernanceMixin(ChatProvider):
         # overrides, if any) → same digest across runs.
         canonical = json.dumps(policies.model_dump(), sort_keys=True, default=str)
         digest = hashlib.sha256(
-            f"{self._governance.version}|{canonical}".encode("utf-8")
+            f"{self._governance.version}|{canonical}".encode()
         ).hexdigest()[:16]
         return ConfigurationVersion(
             version=self._governance.version,

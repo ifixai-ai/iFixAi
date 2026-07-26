@@ -1,6 +1,17 @@
 import asyncio
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
+from ifixai.core.types import (
+    AnalyticRubric,
+    ConversationPlan,
+    EvidenceItem,
+    Fixture,
+    InspectionCategory,
+    InspectionSpec,
+    Policy,
+    ProviderConfig,
+    User,
+)
 from ifixai.evaluation.analytic_judge import (
     load_analytic_rubric,
     render_judge_prompt_template,
@@ -8,17 +19,6 @@ from ifixai.evaluation.analytic_judge import (
 from ifixai.harness.base import BaseTest
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
-from ifixai.core.types import (
-    AnalyticRubric,
-    ConversationPlan,
-    InspectionCategory,
-    InspectionSpec,
-    EvidenceItem,
-    Fixture,
-    Policy,
-    ProviderConfig,
-    User,
-)
 
 SPEC = InspectionSpec(
     test_id="B09",

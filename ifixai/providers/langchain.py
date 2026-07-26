@@ -1,11 +1,11 @@
 import aiohttp
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderConnectionError,
     ProviderTimeoutError,
 )
-from ifixai.core.types import ChatMessage, ProviderConfig
 
 DEFAULT_ENDPOINT = "http://localhost:8000"
 

@@ -2,16 +2,16 @@ import logging
 
 from dateutil.parser import parse as parse_datetime
 
+from ifixai.core.types import (
+    EvidenceItem,
+    Fixture,
+    InspectionCategory,
+    InspectionSpec,
+    ProviderConfig,
+)
 from ifixai.harness.base import BaseTest
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
-from ifixai.core.types import (
-    InspectionCategory,
-    InspectionSpec,
-    EvidenceItem,
-    Fixture,
-    ProviderConfig,
-)
 
 _logger = logging.getLogger(__name__)
 

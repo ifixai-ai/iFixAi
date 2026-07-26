@@ -3,6 +3,7 @@ import asyncio
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderAuthError,
@@ -12,7 +13,6 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
 )
-from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.schemas import GeminiMessages
 
 DEFAULT_MODEL = "gemini-2.0-flash"

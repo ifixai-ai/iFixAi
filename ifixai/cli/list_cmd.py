@@ -1,6 +1,7 @@
 import click
 
-from ifixai.api import list_tests as get_tests, list_fixtures as get_fixture_names
+from ifixai.api import list_fixtures as get_fixture_names
+from ifixai.api import list_tests as get_tests
 from ifixai.cli import ui
 from ifixai.core.fixture_loader import load_fixture
 from ifixai.harness.registry import (
@@ -151,6 +152,8 @@ def _short_category(full_category: str) -> str:
 def _load_fixture_domain(name: str) -> str:
     try:
         fixture = load_fixture(name)
-        return fixture.metadata.domain or fixture.metadata.name
-    except Exception:
+        label = fixture.metadata.domain or fixture.metadata.name
+    except Exception:  # noqa: BLE001 — best-effort label lookup, any failure falls back to the raw name
         return name
+    else:
+        return label

@@ -22,8 +22,8 @@ from ifixai.cli import ui
 from ifixai.cli._branding import (
     print_startup_banner,
 )
-from ifixai.cli.config_file import CONFIG_FILENAME, load_config
 from ifixai.cli._imecore_prompt import print_imecore_conclusion
+from ifixai.cli.config_file import CONFIG_FILENAME, load_config
 from ifixai.cli.orchestrator import (
     _build_judge_config,
     _eval_mode_declaration,
@@ -34,18 +34,12 @@ from ifixai.cli.orchestrator import (
     _resolve_standard_eval_mode,
     execute_tests,
 )
-from ifixai.cli.schemas import InteractiveConfig
 from ifixai.cli.reports import save_reports
-from ifixai.reporting.artifact import render_artifact
-from ifixai.reporting.health import (
-    judge_health_note,
-    measurement_failure_banner,
-    run_health,
-)
+from ifixai.cli.schemas import InteractiveConfig
 from ifixai.core.concurrency import (
-    ConcurrencyGovernor,
     JUDGE_CALL_CAP,
     MAX_CONCURRENCY_LIMIT,
+    ConcurrencyGovernor,
 )
 from ifixai.core.connection import test_connection as _test_conn
 from ifixai.core.context import collect_context
@@ -54,25 +48,29 @@ from ifixai.core.discovery import (
     discover_system,
     display_discovery_summary,
 )
+from ifixai.core.fixture_loader import load_fixture, resolve_fixture_path
+from ifixai.core.grounding import GroundingMode, compose_system_prompt
+from ifixai.core.types import (
+    EvaluationMode,
+    EvaluationPipelineConfig,
+    ProviderConfig,
+    RunMode,
+)
 from ifixai.evaluation.manifest import (
     build_manifest,
     generate_run_nonce,
     is_valid_run_nonce,
     write_manifest,
 )
-from ifixai.inspections.holdout_ids import generate_holdout_ids
 from ifixai.evaluation.normalizer import NORMALIZER_VERSION
 from ifixai.evaluation.types import ModelDescriptor
-from ifixai.core.fixture_loader import load_fixture, resolve_fixture_path
 from ifixai.harness.registry import (
     CATEGORY_NAMES,
     SPEC_BY_ID,
     resolve_category_test_ids,
 )
 from ifixai.harness.suites import SUITE_NAMES, resolve_suite
-from ifixai.utils.fixture_digest import compute_fixture_digest
-from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
-from ifixai.core.grounding import GroundingMode, compose_system_prompt
+from ifixai.inspections.holdout_ids import generate_holdout_ids
 from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.resolver import (
@@ -85,14 +83,18 @@ from ifixai.quick_build import (
     fixture_to_yaml,
     generate_fixture_from_context,
     generate_fixture_from_profile,
+)
+from ifixai.quick_build import (
     save_fixture as qb_save,
 )
-from ifixai.core.types import (
-    EvaluationMode,
-    EvaluationPipelineConfig,
-    ProviderConfig,
-    RunMode,
+from ifixai.reporting.artifact import render_artifact
+from ifixai.reporting.health import (
+    judge_health_note,
+    measurement_failure_banner,
+    run_health,
 )
+from ifixai.utils.fixture_digest import compute_fixture_digest
+from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
 from ifixai.wizard import generate_fixture_from_wizard, run_wizard
 
 DEFAULT_CONCURRENCY = 5
@@ -234,7 +236,7 @@ def _format_elapsed(seconds: float) -> str:
     """
     if seconds < 1.0:
         return f"{int(seconds * 1000)}ms"
-    total = int(round(seconds))
+    total = round(seconds)
     hours, remainder = divmod(total, 3600)
     minutes, secs = divmod(remainder, 60)
     if hours:
@@ -884,8 +886,8 @@ def run(
                 err=True,
             )
             sys.exit(2)
-        judge_provider = judge_provider + (eval_mode_auto_selected_judge,)
-        judge_api_key = judge_api_key + (auto_judge_api_key,)
+        judge_provider = (*judge_provider, eval_mode_auto_selected_judge)
+        judge_api_key = (*judge_api_key, auto_judge_api_key)
         click.echo(
             click.style(
                 f"Standard mode: auto-paired judge provider "

@@ -4,8 +4,8 @@ import os
 import sys
 import threading
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 import click
 
@@ -130,7 +130,7 @@ class CategoryProgress:
     _spinner: _Spinner | None = None
 
     @classmethod
-    def from_totals(cls, totals: dict[InspectionCategory, int]) -> "CategoryProgress":
+    def from_totals(cls, totals: dict[InspectionCategory, int]) -> CategoryProgress:
         rows = {
             cat: _CategoryRow(category=cat, total=totals.get(cat, 0))
             for cat in _CATEGORY_ORDER
@@ -203,7 +203,7 @@ class CategoryProgress:
                 continue
             label = cat.value.upper().ljust(16)
             ratio = row.done / row.total if row.total else 0.0
-            filled = int(round(ratio * _BAR_WIDTH))
+            filled = round(ratio * _BAR_WIDTH)
             bar = _BLOCK_FULL * filled + _BLOCK_EMPTY * (_BAR_WIDTH - filled)
             colored_bar = _truecolor(bar, _CATEGORY_COLORS[cat], bold=True)
             count = f"{row.done}/{row.total}".rjust(7)

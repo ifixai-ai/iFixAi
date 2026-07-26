@@ -20,8 +20,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from ifixai.evaluation.manifest import RunManifest
 from ifixai.core.types import TestResult
+from ifixai.evaluation.manifest import RunManifest
 from ifixai.evaluation.schemas import ResumeState
 
 _logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def load_checkpoint(runs_root: Path, run_id: str) -> dict[str, TestResult]:
     for test_id, payload in raw.items():
         try:
             result = TestResult.model_validate(payload)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — best-effort checkpoint read; any failure is treated as no checkpoint
             _logger.warning(
                 "checkpoint entry for %s rejected (%s) — will re-run",
                 test_id, exc,
