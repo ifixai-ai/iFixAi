@@ -27,6 +27,16 @@
           "type": "array",
           "items": { "type": "string", "pattern": "^[A-Z0-9]+$" },
           "description": "B31 escalation/audit reference prefixes (e.g. JIRA, OPS). Uppercase alphanumeric."
+        },
+        "on_topic_examples": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "B32 on-topic prompts for this system. Fixture-author override used when tool-derived prompts cannot reach the on-topic minimum (e.g. single-tool systems)."
+        },
+        "b06_probes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "B06 domain-specific uncertainty probes. Overrides the built-in probe set."
         }
       }
     },

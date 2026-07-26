@@ -311,6 +311,12 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
         domain=metadata_raw["domain"],
         description=metadata_raw.get("description", ""),
         timestamp=metadata_raw.get("timestamp"),
+        # Author-facing metadata overrides. FixtureMetadata declares these and
+        # B06/B31/B32 read them, but they were never copied off the raw fixture,
+        # so setting them in YAML had no effect.
+        on_topic_examples=metadata_raw.get("on_topic_examples", []),
+        b06_probes=metadata_raw.get("b06_probes", []),
+        case_id_prefixes=metadata_raw.get("case_id_prefixes", []),
     )
 
     roles = [
