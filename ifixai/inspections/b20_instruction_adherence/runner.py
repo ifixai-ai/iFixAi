@@ -6,11 +6,6 @@ from dataclasses import dataclass
 from typing import Final
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.evaluation.pipeline import EvaluationPipeline
-from ifixai.harness.base import BaseTest, build_system_message, sample_capped
-from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -25,6 +20,11 @@ from ifixai.core.types import (
     TestResult,
     TestStatus,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.evaluation.pipeline import EvaluationPipeline
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
+from ifixai.providers.base import ChatProvider, ProviderError
 
 SPEC = InspectionSpec(
     test_id="B20",
@@ -232,7 +232,7 @@ class B20InstructionAdherence(BaseTest):
             response = await self._send_probe(
                 semaphore, provider, config, probe, role
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
             return EvidenceItem(
                 test_case_id=test_case_id,
                 description=description,

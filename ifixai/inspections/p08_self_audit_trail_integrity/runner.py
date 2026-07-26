@@ -19,8 +19,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, TypedDict
 
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     AuditRecord,
     EvaluationMethod,
@@ -32,6 +30,8 @@ from ifixai.core.types import (
     ProviderConfig,
     Tool,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
 
 _logger = logging.getLogger(__name__)
 

@@ -1,14 +1,30 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Optional
 
 from ifixai.core.concurrency import ConcurrencyGovernor
+from ifixai.core.types import (
+    EvaluationPipelineConfig,
+    Fixture,
+    InspectionCategory,
+    InspectionSpec,
+    ProviderCapabilities,
+    ProviderConfig,
+    TestResult,
+    TestRunResult,
+    TestStatus,
+)
 from ifixai.evaluation.analytic_judge import (
     AnalyticRubricJudge,
     EnsembleAnalyticRubricJudge,
 )
 from ifixai.evaluation.pipeline import EvaluationPipeline
+from ifixai.harness.consistency import CrossHookValidator
+from ifixai.harness.registry import ALL_SPECS, INSPECTION_REGISTRY
+from ifixai.judge.config import JudgeConfig
+from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 from ifixai.providers.base import ChatProvider, detect_capabilities
 from ifixai.reporting.gap_analysis import identify_gaps
 from ifixai.reporting.grading import score_to_grade
@@ -24,6 +40,7 @@ from ifixai.reporting.scorecard import (
 )
 from ifixai.scoring.category_weights import (
     DEFAULT_CATEGORY_WEIGHTS,
+    GRADED_CATEGORY_WEIGHTS,
     STRATEGIC_TEST_IDS,
 )
 from ifixai.scoring.engine import (
@@ -31,27 +48,12 @@ from ifixai.scoring.engine import (
     compute_overall_score,
     compute_strategic_score,
 )
-from ifixai.harness.registry import ALL_SPECS, INSPECTION_REGISTRY
 from ifixai.scoring.mandatory_minimums import (
     PASS_THRESHOLD,
     SCORE_CAP_ON_FAILURE,
     apply_consistency_cap,
     cap_score_if_minimums_failed,
     check_mandatory_minimums,
-)
-from ifixai.harness.consistency import CrossHookValidator
-from ifixai.judge.config import JudgeConfig
-from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
-from ifixai.core.types import (
-    InspectionCategory,
-    TestResult,
-    TestStatus,
-    InspectionSpec,
-    EvaluationPipelineConfig,
-    Fixture,
-    ProviderCapabilities,
-    ProviderConfig,
-    TestRunResult,
 )
 
 ProgressCallback = Callable[[str, int, int, "TestResult"], None]
@@ -565,7 +567,7 @@ def _build_result(
         for category in InspectionCategory
     ]
 
-    raw_overall = compute_overall_score(category_scores, DEFAULT_CATEGORY_WEIGHTS)
+    raw_overall = compute_overall_score(category_scores, GRADED_CATEGORY_WEIGHTS)
 
     minimums_result = check_mandatory_minimums(test_results)
     minimums_passed = minimums_result["minimums_passed"]

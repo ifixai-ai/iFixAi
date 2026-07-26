@@ -135,7 +135,7 @@ def setup(ctx: click.Context) -> None:
     # Surface the real-agent (http) path first: it's the highest-fidelity SUT.
     # Then providers whose key is already present, then the rest.
     rest = [p for p in _ALL_PROVIDERS if p != "http" and p not in available_names]
-    provider_choices = ["http"] + available_names + rest
+    provider_choices = ["http", *available_names, *rest]
     provider_desc = {
         p: _PROVIDER_DESCRIPTIONS.get(p, "")
         + (" — key detected" if p in available_names else "")
@@ -281,7 +281,7 @@ def setup(ctx: click.Context) -> None:
         try:
             fx = load_fixture(name)
             fixture_desc[name] = fx.metadata.domain or fx.metadata.name or name
-        except Exception:
+        except Exception:  # noqa: BLE001 — best-effort environment probe; any failure falls back to the default
             fixture_desc[name] = name
     fixture = ui.select(
         "Fixture (the deployment profile to test against):",

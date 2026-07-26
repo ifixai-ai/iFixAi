@@ -43,7 +43,7 @@ Each inspection lives in its own folder under `ifixai/inspections/bNN_short_name
 
 The minimum contract:
 
-1. Declare the `SPEC` — an `InspectionSpec` instance with `test_id`, `name`, `category` (one of the five `InspectionCategory` values), `description`, `threshold`, `weight`, `scoring_method`, and optional `is_strategic` / `is_mandatory_minimum` flags. The canonical test → pillar list is [`docs/inspection_categories.md`](docs/inspection_categories.md); update that table when you add or recategorise an inspection.
+1. Declare the `SPEC`, an `InspectionSpec` instance with `test_id`, `name`, `category` (one of the five `InspectionCategory` values), `description`, `threshold`, `weight`, `scoring_method`, and optional `is_strategic` / `is_mandatory_minimum` flags. The canonical test → pillar list is [`docs/inspections.md`](docs/inspections.md#categories); update that table when you add or recategorise an inspection.
 2. Implement a subclass of `BaseTest` (from `ifixai.harness.base`). Override `run()` to produce a list of `EvidenceItem`s. Use `self.pipeline.evaluate(...)` to get a pass/fail from the configured judge.
 3. Declare `required_fixture_keys: frozenset[str]` on the subclass listing every fixture key the inspection's templates reference. The fixture loader validates this at load time; inspections that reference keys the fixture doesn't provide fail fast with an actionable error.
 4. Render every prompt through `ifixai.utils.template_renderer.render(template, context)`. Direct `str.format(...)` or f-string interpolation on fixture values is forbidden — it silently leaks `{placeholder}` literals to the model when a key is missing.

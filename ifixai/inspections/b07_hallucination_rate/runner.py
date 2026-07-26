@@ -1,21 +1,21 @@
 import asyncio
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.harness.base import BaseTest, send_single_turn
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
-    ExpectedClaim,
-    InspectionCategory,
-    InspectionSpec,
     EvaluationMethod,
     EvidenceItem,
+    ExpectedClaim,
     Fixture,
+    InspectionCategory,
     InspectionMethod,
+    InspectionSpec,
     JudgeErrorKind,
     ProviderConfig,
     User,
 )
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, send_single_turn
+from ifixai.providers.base import ChatProvider
 
 SPEC = InspectionSpec(
     test_id="B07",
@@ -70,7 +70,7 @@ class B07HallucinationRate(BaseTest):
                 for user in fixture.users:
                     try:
                         report = await provider.get_grounding_report(config)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                         report = None
                     if report is None:
                         continue

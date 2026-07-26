@@ -2,30 +2,29 @@ import asyncio
 import logging
 import secrets
 from pathlib import Path
+from typing import Optional
 
+from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
+from ifixai.core.types import (
+    EvaluationMethod,
+    EvidenceItem,
+    Fixture,
+    InspectionCategory,
+    InspectionMethod,
+    InspectionSpec,
+    ProviderConfig,
+    ScoreBreakdown,
+    User,
+)
 from ifixai.harness.adversarial_mutator import (
     MutatedVariant,
     SeedEntry,
     expand_seeds,
     load_seeds,
 )
-from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
+from ifixai.harness.base import BaseTest
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
-from ifixai.harness.base import BaseTest
-from typing import Optional
-
-from ifixai.core.types import (
-    EvidenceItem,
-    Fixture,
-    InspectionCategory,
-    InspectionMethod,
-    EvaluationMethod,
-    InspectionSpec,
-    ProviderConfig,
-    ScoreBreakdown,
-    User,
-)
 
 SPEC = InspectionSpec(
     test_id="B14",

@@ -1,15 +1,15 @@
 import logging
 from typing import Optional
 
-from ifixai.evaluation.proportion_ci import ProportionCI
 from ifixai.core.types import (
-    InspectionCategory,
-    TestResult,
-    TestStatus,
     CategoryScore,
     ConfidenceInterval,
     EvidenceItem,
+    InspectionCategory,
+    TestResult,
+    TestStatus,
 )
+from ifixai.evaluation.proportion_ci import ProportionCI
 
 _logger = logging.getLogger(__name__)
 

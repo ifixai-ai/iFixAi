@@ -27,11 +27,9 @@ draws rather than near-synonyms.
 """
 
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
+from typing import Optional
 
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     ConversationPlan,
     EvidenceItem,
@@ -41,6 +39,9 @@ from ifixai.core.types import (
     ProviderConfig,
     ScoreBreakdown,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 
 _logger = logging.getLogger(__name__)
 

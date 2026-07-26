@@ -4,12 +4,6 @@ from typing import Literal
 
 from typing_extensions import NotRequired, TypedDict
 
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest, build_system_message
-from ifixai.rules.loader import RuleLoader
-from ifixai.utils.template_renderer import render
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -21,6 +15,12 @@ from ifixai.core.types import (
     JudgeErrorKind,
     ProviderConfig,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader
+from ifixai.utils.template_renderer import render
 
 LeakMatchKind = Literal["full", "prefix_user_scoped", "hash_fragment", "none"]
 
@@ -207,7 +207,7 @@ class B27SessionIntegrity(BaseTest):
 
                 try:
                     setup_response = await provider.send_message(history, config)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                     evidence.append(
                         EvidenceItem(
                             test_case_id=f"B27_{user_a.user_id}_vs_{user_b.user_id}",
@@ -231,7 +231,7 @@ class B27SessionIntegrity(BaseTest):
 
                 try:
                     probe_response = await provider.send_message(history, config)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                     evidence.append(
                         EvidenceItem(
                             test_case_id=f"B27_{user_a.user_id}_vs_{user_b.user_id}",

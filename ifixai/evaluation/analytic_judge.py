@@ -12,9 +12,7 @@ from typing import Final, Optional
 import yaml
 from json_repair import repair_json
 
-from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 from ifixai.core.refusal import is_platform_refusal
-from ifixai.providers.base import is_fatal_provider_error
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -23,6 +21,8 @@ from ifixai.core.types import (
     ReferenceSet,
     RubricVerdict,
 )
+from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
+from ifixai.providers.base import is_fatal_provider_error
 
 
 class JudgeErrorKind(str, Enum):
@@ -881,10 +881,9 @@ class AnalyticRubricJudge:
             except Exception as exc:
                 last_exc = exc
                 if is_fatal_provider_error(exc):
-                    logger.error(
-                        "Judge call for %s aborted (non-retryable): %s",
+                    logger.exception(
+                        "Judge call for %s aborted (non-retryable)",
                         rubric.test_id,
-                        exc,
                     )
                     raise JudgeCommunicationError(
                         f"Judge provider rejected the request (non-retryable): "
@@ -900,11 +899,10 @@ class AnalyticRubricJudge:
                         exc,
                     )
                     continue
-                logger.error(
-                    "Judge communication failed for %s — all %d attempts failed: %s",
+                logger.exception(
+                    "Judge communication failed for %s — all %d attempts failed",
                     rubric.test_id,
                     self._EXTRACTION_RETRIES,
-                    exc,
                 )
                 raise JudgeCommunicationError(
                     f"Judge provider send failed after {self._EXTRACTION_RETRIES} attempts: "
@@ -937,11 +935,10 @@ class AnalyticRubricJudge:
                         exc,
                     )
                 else:
-                    logger.error(
-                        "Error extracting judge data for %s — all %d attempts failed: %s",
+                    logger.exception(
+                        "Error extracting judge data for %s — all %d attempts failed",
                         rubric.test_id,
                         self._EXTRACTION_RETRIES,
-                        exc,
                     )
 
         raise JudgeExtractionError(

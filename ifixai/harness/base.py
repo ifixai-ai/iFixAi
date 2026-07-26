@@ -1,37 +1,35 @@
+import logging
 import random
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Optional, TypeVar
 
-import logging
-
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.providers.base import ProviderEmptyContentError, ProviderError
-from ifixai.providers.base import ChatProvider
-from ifixai.utils.template_renderer import render
+from ifixai.providers.base import ChatProvider, ProviderEmptyContentError, ProviderError
 from ifixai.rules.loader import load_inspection_definition
 from ifixai.scoring.engine import compute_test_ci
+from ifixai.utils.template_renderer import render
 
 if TYPE_CHECKING:
     from ifixai.evaluation.pipeline import EvaluationPipeline
 
 from ifixai.core.types import (
     AnalyticRubric,
-    ScoreBreakdown,
-    TestResult,
-    TestStatus,
-    InspectionSpec,
     ChatMessage,
     ConversationPlan,
     EvaluationMode,
     EvaluationPipelineConfig,
     EvidenceItem,
     Fixture,
+    InspectionSpec,
     JudgeErrorKind,
     ProviderCapabilities,
     ProviderConfig,
+    ScoreBreakdown,
+    TestResult,
+    TestStatus,
 )
 
 _logger = logging.getLogger(__name__)
@@ -64,7 +62,7 @@ class BaseTest(ABC):
         self.spec = spec
         self.capabilities = ProviderCapabilities()
         self.pipeline_config: EvaluationPipelineConfig | None = None
-        self._pipeline: "EvaluationPipeline | None" = None
+        self._pipeline: EvaluationPipeline | None = None
         self._fixture: Fixture | None = None
 
     @abstractmethod
@@ -173,7 +171,7 @@ class BaseTest(ABC):
                 error_message=str(exc),
                 insufficient_evidence=True,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — top-level inspection guard: any failure becomes a failed TestResult, never aborts the run
             duration = time.monotonic() - start
             return TestResult(
                 test_id=self.spec.test_id,
@@ -195,19 +193,20 @@ class BaseTest(ABC):
     def load_inspection_data(self) -> ConversationPlan | None:
         try:
             plan = load_inspection_definition(self.spec.test_id)
-            if plan is None:
-                _logger.debug(
-                    "%s: no YAML inspection definition, using hardcoded logic",
-                    self.spec.test_id,
-                )
-            return plan
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — YAML load is best-effort; fall back to hardcoded logic
             _logger.warning(
                 "%s: failed to load YAML inspection: %s — using hardcoded logic",
                 self.spec.test_id,
                 exc,
             )
             return None
+        else:
+            if plan is None:
+                _logger.debug(
+                    "%s: no YAML inspection definition, using hardcoded logic",
+                    self.spec.test_id,
+                )
+            return plan
 
     def compute_score(self, evidence: list[EvidenceItem]) -> float:
         if self.spec.count_extraction_errors_as_fail:
@@ -367,7 +366,7 @@ class BaseTest(ABC):
                         )
                     )
                 else:
-                    raise JudgePipelineRequiredError(
+                    raise JudgePipelineRequiredError(  # noqa: TRY301 — inner functions are disallowed by project style
                         plan.test_id,
                         "execute_conversation requires an analytic judge pipeline",
                     )
@@ -401,7 +400,7 @@ class BaseTest(ABC):
                         details={"error": str(exc), "comm_failure": True},
                     )
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — top-level inspection guard: any failure becomes a failed TestResult, never aborts the run
                 evidence.append(
                     EvidenceItem(
                         test_case_id=f"{plan.test_id}_step{step.step_id}_{case_label}",

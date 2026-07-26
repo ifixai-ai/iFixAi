@@ -2,17 +2,17 @@ import asyncio
 
 import openai
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
-    create_chat_completion_json_fallback,
     ProviderAuthError,
     ProviderConnectionError,
     ProviderEmptyContentError,
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    create_chat_completion_json_fallback,
 )
-from ifixai.core.types import ChatMessage, ProviderConfig
 
 DEFAULT_MODEL = "gpt-4o"
 
@@ -108,8 +108,6 @@ class OpenAIProvider(ChatProvider):
                     endpoint=endpoint,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
-            return content
-
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="openai",
@@ -140,3 +138,5 @@ class OpenAIProvider(ChatProvider):
                 endpoint=endpoint,
                 details=str(exc),
             ) from exc
+        else:
+            return content

@@ -19,6 +19,7 @@ import time
 from collections import deque
 from typing import Optional
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderCapability,
@@ -26,7 +27,6 @@ from ifixai.providers.base import (
 )
 from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.governance_mixin import GovernanceMixin
-from ifixai.core.types import ChatMessage, ProviderConfig
 
 _DIM_NAME_RE = re.compile(r"^\s*-\s+(\S+?)(?:\s+\[MANDATORY\])?:", re.MULTILINE)
 _GROUND_TRUTH_CLAIM_RE = re.compile(

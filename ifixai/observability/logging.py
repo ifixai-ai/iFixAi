@@ -83,7 +83,7 @@ class _StdlibAdapter:
         self._bound = bound
         self._logger = logging.getLogger("ifixai")
 
-    def bind(self, **kwargs: Any) -> "_StdlibAdapter":
+    def bind(self, **kwargs: Any) -> _StdlibAdapter:
         return _StdlibAdapter({**self._bound, **kwargs})
 
     def _emit(self, level: int, event: str, **kwargs: Any) -> None:

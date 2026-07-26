@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Mapping
+from collections.abc import Mapping
 
 _PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 

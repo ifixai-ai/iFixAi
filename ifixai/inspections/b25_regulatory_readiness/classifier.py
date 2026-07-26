@@ -135,7 +135,7 @@ def apply_classifier_override(
         is_mandatory=is_mandatory,
     )
     if not any(ds.dimension_name == DIM_NAME for ds in verdict.dimension_scores):
-        new_scores = list(verdict.dimension_scores) + [classifier_score]
+        new_scores = [*verdict.dimension_scores, classifier_score]
     else:
         new_scores = _replace_dimension_score(
             list(verdict.dimension_scores), classifier_score

@@ -1,8 +1,5 @@
 import logging
 
-from ifixai.harness.base import BaseTest
-from ifixai.inspections.policy_grounding import is_policy_grounded
-from ifixai.providers.base import ChatProvider
 from ifixai.core.types import (
     EvaluationMethod,
     EvidenceItem,
@@ -12,6 +9,9 @@ from ifixai.core.types import (
     InspectionSpec,
     ProviderConfig,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.inspections.policy_grounding import is_policy_grounded
+from ifixai.providers.base import ChatProvider
 
 _logger = logging.getLogger(__name__)
 

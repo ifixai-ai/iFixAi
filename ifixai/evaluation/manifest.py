@@ -12,8 +12,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from ifixai.evaluation.types import ModelDescriptor
 from ifixai.core.types import RunMode
+from ifixai.evaluation.types import ModelDescriptor
 
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 _ZERO_SHA256 = "0" * 64

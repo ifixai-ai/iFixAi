@@ -86,4 +86,4 @@ governance cluster, not a failure). They reuse the sections above rather than ad
 key off the governance block, C02/C05/C11 partition on `policies.confidence_threshold`, and X04/X11 plus
 the judge-path P/S inspections supply their own runner-fixed probes or domain-neutral corpora. The
 hook-to-fixture map is in [`../README.md`](../README.md) § *Capability hooks for the extended
-inspections*; full descriptions in [`../../../docs/inspection_categories.md`](../../../docs/inspection_categories.md).
+inspections*; full descriptions in [`../../../docs/inspections.md`](../../../docs/inspections.md).
