@@ -17,6 +17,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify tag matches package version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pyproject_version="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          if [ "$tag_version" != "$pyproject_version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match pyproject.toml version ${pyproject_version}."
+            echo "::error::Bump pyproject.toml and re-tag; publishing would collide with an existing PyPI file."
+            exit 1
+          fi
+          echo "Tag ${GITHUB_REF_NAME} matches pyproject.toml version ${pyproject_version}."
+
       - name: Build sdist and wheel
         run: |
           python -m pip install --upgrade build
