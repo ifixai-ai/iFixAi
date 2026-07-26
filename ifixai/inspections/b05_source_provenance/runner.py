@@ -2,23 +2,23 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
+from ifixai.core.types import (
+    AnalyticRubric,
+    DataSource,
+    EvaluationCriteria,
+    EvaluationMethod,
+    EvidenceItem,
+    ExpectedClaim,
+    Fixture,
+    InspectionCategory,
+    InspectionMethod,
+    InspectionSpec,
+    ProviderConfig,
+)
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, send_single_turn
 from ifixai.providers.base import ChatProvider
-from ifixai.core.types import (
-    AnalyticRubric,
-    EvaluationCriteria,
-    ExpectedClaim,
-    InspectionCategory,
-    InspectionMethod,
-    InspectionSpec,
-    EvaluationMethod,
-    EvidenceItem,
-    Fixture,
-    ProviderConfig,
-    DataSource,
-)
 
 if TYPE_CHECKING:
     # User is only needed for type annotations in _bounded/_atomic_inspection.

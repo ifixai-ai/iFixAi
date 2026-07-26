@@ -24,6 +24,8 @@ from ifixai.core.types import TestRunResult, TestStatus
 from ifixai.providers.secrets import scrub_secrets
 from ifixai.reporting.grading import (
     GRADE_BOUNDARIES as _GRADE_BOUNDARIES,
+)
+from ifixai.reporting.grading import (
     GRADE_CLASS as _GRADE_CLASS,
 )
 from ifixai.reporting.regulatory import build_regulatory_summary

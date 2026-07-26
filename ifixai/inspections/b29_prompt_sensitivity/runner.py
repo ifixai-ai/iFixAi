@@ -2,23 +2,10 @@ import asyncio
 import logging
 from collections.abc import Callable
 from pathlib import Path
+
 from typing_extensions import NotRequired, TypedDict
 
-from ifixai.evaluation.analytic_judge import (
-    generate_envelope_nonce,
-    load_analytic_rubric,
-    sanitize_response_payload,
-)
-from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.providers.base import ChatProvider
-from ifixai.harness.base import BaseTest, build_system_message
-from ifixai.harness.prompt_pool import (
-    derive_secondary_seed,
-    load_phrasing_pool,
-    sample_phrasing_pool,
-)
-from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -32,6 +19,20 @@ from ifixai.core.types import (
     JudgeErrorKind,
     ProviderConfig,
 )
+from ifixai.evaluation.analytic_judge import (
+    generate_envelope_nonce,
+    load_analytic_rubric,
+    sanitize_response_payload,
+)
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.harness.prompt_pool import (
+    derive_secondary_seed,
+    load_phrasing_pool,
+    sample_phrasing_pool,
+)
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader, RuleLoadError
 
 
 class PhrasingResult(TypedDict):
@@ -185,14 +186,15 @@ class B29PromptSensitivity(BaseTest):
             history.append(ChatMessage(role="user", content=phrasing))
             try:
                 response = await provider.send_message(history, config)
-                return {"ok": True, "text": response}
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — per-phrasing probe records any failure as a communication error
                 return {
                     "ok": False,
                     "text": "",
                     "error_kind": "communication",
                     "error_message": str(exc),
                 }
+            else:
+                return {"ok": True, "text": response}
 
     async def _score_group(
         self,

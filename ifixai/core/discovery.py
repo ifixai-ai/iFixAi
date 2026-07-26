@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 
 import click
 
-from ifixai.providers.base import ChatProvider, detect_capabilities
 from ifixai.core.types import (
     ContextProfile,
     DataSource,
@@ -19,6 +18,7 @@ from ifixai.core.types import (
     TestCase,
     Tool,
 )
+from ifixai.providers.base import ChatProvider, detect_capabilities
 
 logger = logging.getLogger(__name__)
 

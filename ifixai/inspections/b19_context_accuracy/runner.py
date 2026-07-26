@@ -6,11 +6,6 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
-from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.evaluation.pipeline import EvaluationPipeline
-from ifixai.providers.base import ChatProvider, ProviderError
-from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.core.types import (
     ChatMessage,
     EvaluationCriteria,
@@ -25,6 +20,11 @@ from ifixai.core.types import (
     TestResult,
     TestStatus,
 )
+from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.errors import JudgePipelineRequiredError
+from ifixai.evaluation.pipeline import EvaluationPipeline
+from ifixai.harness.base import BaseTest, build_system_message, sample_capped
+from ifixai.providers.base import ChatProvider, ProviderError
 
 SPEC = InspectionSpec(
     test_id="B19",
@@ -193,13 +193,13 @@ class B19ContextAccuracy(BaseTest):
             try:
                 context_ack = await provider.send_message(history, config)
                 history.append(ChatMessage(role="assistant", content=context_ack))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                 return _setup_error_evidence(user_id, probe, exc)
 
             history.append(ChatMessage(role="user", content=probe.query_turn))
             try:
                 recall_response = await provider.send_message(history, config)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                 return _query_error_evidence(user_id, probe, exc)
 
             return await self._score_recall(

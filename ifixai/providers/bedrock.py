@@ -3,6 +3,7 @@ import asyncio
 import boto3
 import botocore.exceptions
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderAuthError,
@@ -12,7 +13,6 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
 )
-from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.schemas import ConversePayload
 
 INITIAL_BACKOFF_SECONDS = 1.0
@@ -87,8 +87,6 @@ class BedrockProvider(ChatProvider):
                     ),
                     timeout=float(config.timeout),
                 )
-                return response
-
             except asyncio.TimeoutError as exc:
                 raise ProviderTimeoutError(
                     provider="bedrock",
@@ -146,6 +144,8 @@ class BedrockProvider(ChatProvider):
                     endpoint=endpoint,
                     details=str(exc),
                 ) from exc
+            else:
+                return response
 
         raise ProviderRateLimitError(
             provider="bedrock",

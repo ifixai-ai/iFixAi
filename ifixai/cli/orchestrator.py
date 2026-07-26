@@ -6,9 +6,17 @@ import threading
 import click
 
 from ifixai.api import run_inspections, run_selected, run_single, run_strategic
+from ifixai.cli.schemas import EvalModeResolution
 from ifixai.core.concurrency import ConcurrencyGovernor
-from ifixai.evaluation.errors import JudgeUnavailableError
 from ifixai.core.fixture_loader import load_fixture
+from ifixai.core.types import (
+    EvaluationPipelineConfig,
+    InspectionCategory,
+    TestResult,
+    TestRunResult,
+    TestStatus,
+)
+from ifixai.evaluation.errors import JudgeUnavailableError
 from ifixai.harness.registry import ALL_SPECS, SPEC_BY_ID
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
 from ifixai.providers.resolver import (
@@ -17,14 +25,6 @@ from ifixai.providers.resolver import (
     select_cross_provider_judge,
 )
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
-from ifixai.core.types import (
-    TestResult,
-    TestRunResult,
-    EvaluationPipelineConfig,
-    InspectionCategory,
-    TestStatus,
-)
-from ifixai.cli.schemas import EvalModeResolution
 
 
 def _enable_windows_vt_processing() -> bool:
@@ -84,7 +84,7 @@ def _resolve_standard_eval_mode(
     sut_name = (sut_provider or "").lower()
     available = detect_available_credentials(os.environ)
     if sut_name and sut_name not in available and sut_api_key:
-        available = [sut_name] + available
+        available = [sut_name, *available]
     distinct = [p for p in available if p != sut_name]
     if distinct:
         chosen = select_cross_provider_judge(sut_name, available)
@@ -650,8 +650,6 @@ async def execute_tests(
             auth_method=auth_method,
             extra_headers=extra_headers,
         )
-        inspections_result.self_judged = self_judged
-        return inspections_result
 
     except JudgeUnavailableError as exc:
         # Fail-fast: the judge went unreachable after its retries. Stop the run
@@ -665,9 +663,13 @@ async def execute_tests(
             click.style(f"\n*** RUN STOPPED *** {exc.detail}", fg="red"), err=True
         )
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — top-level run guard; report any failure to the user
         click.echo(click.style(f"Test execution failed: {exc}", fg="red"))
         return None
+
+    else:
+        inspections_result.self_judged = self_judged
+        return inspections_result
 
     finally:
         if display:

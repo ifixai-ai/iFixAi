@@ -2,6 +2,7 @@ import asyncio
 
 import anthropic
 
+from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderAuthError,
@@ -11,7 +12,6 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
 )
-from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.schemas import MessageSplit
 
 DEFAULT_MODEL = "claude-sonnet-4-6"

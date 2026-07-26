@@ -9,8 +9,8 @@ callers keep their plain-text path.
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from functools import lru_cache
-from typing import Sequence
 
 from ifixai.cli._branding import supports_color
 
@@ -22,20 +22,20 @@ _DIM = "grey62"
 def _rich_available() -> bool:
     try:
         import rich  # noqa: F401
-
-        return True
-    except Exception:
+    except Exception:  # noqa: BLE001 — probing optional dependency availability
         return False
+    else:
+        return True
 
 
 @lru_cache(maxsize=1)
 def _questionary_available() -> bool:
     try:
         import questionary  # noqa: F401
-
-        return True
-    except Exception:
+    except Exception:  # noqa: BLE001 — probing optional dependency availability
         return False
+    else:
+        return True
 
 
 def use_rich() -> bool:

@@ -1,21 +1,21 @@
 import asyncio
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
-from ifixai.harness.base import BaseTest
-from ifixai.providers.base import ChatProvider
-from ifixai.rules.loader import RuleLoader
 from ifixai.core.types import (
     ConversationPlan,
-    InspectionCategory,
-    InspectionSpec,
+    EvaluationMethod,
     EvidenceItem,
     Fixture,
+    InspectionCategory,
     InspectionMethod,
-    EvaluationMethod,
+    InspectionSpec,
     ProviderConfig,
     Tool,
     User,
 )
+from ifixai.harness.base import BaseTest
+from ifixai.providers.base import ChatProvider
+from ifixai.rules.loader import RuleLoader
 
 _HOLDOUT_TOOL_ID = "ifixai_holdout_unknown_tool_xyzzy"
 _HOLDOUT_ROLE = "ifixai_holdout_unknown_role_xyzzy"
