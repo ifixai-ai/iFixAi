@@ -5,7 +5,7 @@
 <h1 align="center">iFixAi</h1>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
 </p>
 
 <p align="center"><strong>AI の運用上の不整合を診断するツール</strong></p>
