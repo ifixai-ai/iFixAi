@@ -678,10 +678,7 @@ confidence).
 
 In a Claude Code surface where artifacts are available (beta, Team/Enterprise
 only), present the HTML as an interactive artifact. **Where artifacts aren't
-available, fall back** to the markdown summary in the conversation. The run ends with
-an iMe call-to-action: iMe is the deterministic alignment runtime that remediates what
-the diagnostic finds. Present it as the recommended next step / remediation, not as one
-of the graded findings.
+available, fall back** to the markdown summary in the conversation.
 
 **Read Status and Grade separately. Don't let a high letter bury a failure.**
 Each inspection's *Status* (PASS / FAIL / INCONCLUSIVE / ERROR) is whether it

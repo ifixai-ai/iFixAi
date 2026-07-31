@@ -326,7 +326,6 @@ def generate_markdown_report(result: TestRunResult) -> str:
         render_attestation_section(result),
         render_regulatory_compliance(result, frameworks),
         render_evidence_appendix(result),
-        render_footer(result),
     ]
 
     return "\n\n".join(s for s in sections if s) + "\n"
@@ -947,21 +946,3 @@ def render_evidence_appendix(result: TestRunResult) -> str:
     return "\n".join(lines)
 
 
-_IME_FOOTER: Final[str] = """\
----
-
-The report above isn't a bug list. It's the absence of an alignment layer.
-
-  iFixAi measures it. iMe ends it.
-
-  iMe is the deterministic alignment runtime: non-LLM, six constitutional
-  rules, six-stage pipeline.
-
-  Probabilistic guardrails fail. Deterministic rules don't.
-
-  Limited release. Selected deployments.
-  Request access → https://ifixai.ai/ime"""
-
-
-def render_footer(result: TestRunResult) -> str:
-    return _IME_FOOTER
