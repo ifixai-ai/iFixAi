@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from ifixai.providers.minimax import DEFAULT_MODEL as MINIMAX_DEFAULT_MODEL
+from ifixai.providers.minimax import MODEL_METADATA as MINIMAX_MODEL_METADATA
+
 DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
     "openai": "gpt-4o",
@@ -10,6 +13,7 @@ DEFAULT_MODEL: dict[str, str] = {
     "azure": "gpt-4o",
     "bedrock": "anthropic.claude-3-5-sonnet-20241022-v2:0",
     "huggingface": "meta-llama/Llama-3.3-70B-Instruct",
+    "minimax": MINIMAX_DEFAULT_MODEL,
 }
 
 MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
@@ -54,6 +58,18 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
     "huggingface": [
         ("meta-llama/Llama-3.3-70B-Instruct", "Open-weights Llama 3.3"),
         ("mistralai/Mistral-7B-Instruct-v0.3", "Small, fast Mistral"),
+    ],
+    "minimax": [
+        (
+            model_id,
+            f"{metadata['context_window']:,}-token context; "
+            f"{'/'.join(metadata['input_modalities'])} input; "
+            f"{'/'.join(metadata['thinking'])} thinking; "
+            f"${metadata['pricing_usd_per_million_tokens']['input']:.2f}/"
+            f"${metadata['pricing_usd_per_million_tokens']['output']:.2f} "
+            "per 1M input/output tokens",
+        )
+        for model_id, metadata in MINIMAX_MODEL_METADATA.items()
     ],
 }
 

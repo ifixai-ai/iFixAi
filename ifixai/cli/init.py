@@ -11,6 +11,7 @@ SMOKE_FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "smok
 PROVIDER_ENV_KEYS: dict[str, str] = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
+    "minimax": "MINIMAX_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "azure": "AZURE_OPENAI_API_KEY",

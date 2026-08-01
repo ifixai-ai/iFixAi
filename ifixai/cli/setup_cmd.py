@@ -16,6 +16,7 @@ from ifixai.cli.init import PROVIDER_ENV_KEYS, detect_available_providers
 from ifixai.cli.model_catalog import default_model, suggestions
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
 from ifixai.harness.suites import suite_catalog
+from ifixai.providers.minimax import DEFAULT_BASE_URL, REGIONAL_ENDPOINTS
 
 _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key → many models (OpenAI, Anthropic, Google, Llama…)",
@@ -25,6 +26,7 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "azure": "Azure OpenAI deployment",
     "bedrock": "AWS Bedrock-hosted models",
     "huggingface": "Hugging Face Inference endpoints",
+    "minimax": "MiniMax global and China text APIs",
     "http": "Your real deployed agent's OpenAI-compatible HTTP endpoint (recommended)",
     "langchain": "A LangChain-wrapped model",
     "mock": "Built-in offline mock — no key, just to try the tool",
@@ -50,12 +52,32 @@ _ALL_PROVIDERS = [
     "azure",
     "bedrock",
     "huggingface",
+    "minimax",
     "http",
     "langchain",
     "mock",
 ]
 
 _CUSTOM_MODEL = "✏  Enter a custom model id…"
+
+_MINIMAX_ENDPOINTS: list[tuple[str, str]] = [
+    (
+        REGIONAL_ENDPOINTS["global_en"]["anthropic_base_url"],
+        "Global messages API (recommended)",
+    ),
+    (
+        REGIONAL_ENDPOINTS["global_en"]["openai_base_url"],
+        "Global chat completions API",
+    ),
+    (
+        REGIONAL_ENDPOINTS["cn_zh"]["anthropic_base_url"],
+        "China messages API",
+    ),
+    (
+        REGIONAL_ENDPOINTS["cn_zh"]["openai_base_url"],
+        "China chat completions API",
+    ),
+]
 
 
 def _pick_model(provider: str, *, role: str) -> str | None:
@@ -165,6 +187,13 @@ def setup(ctx: click.Context) -> None:
                 "Endpoint URL for the agent under test:", default=default_ep or ""
             ).strip()
             or None
+        )
+    elif provider == "minimax":
+        endpoint = ui.select(
+            "MiniMax endpoint:",
+            [value for value, _ in _MINIMAX_ENDPOINTS],
+            default=DEFAULT_BASE_URL,
+            descriptions=dict(_MINIMAX_ENDPOINTS),
         )
     if provider == "http":
         grounding = "sut"
