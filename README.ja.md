@@ -151,13 +151,18 @@ uvx ifixai install --list            # 対応する全エージェントとフ�
 pip install "ifixai[anthropic]"
 
 # 2. パイプラインの動作を確認：組み込み mock、キー不要、ネットワーク不要、約 1 秒
+#    スコアカードは意図的に FAIL します（15/45）— 同梱のデフォルトフィクスチャは
+#    欠陥をわざと仕込んであり、失敗がどう見えるかを示します。
+#    欠陥マップ: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
 # 3. 引用可能な評価を取得：別ベンダーのモデルが対象モデルを評価
+#    --fixture <your-fixture.yaml> を渡してください。省略すると欠陥入りの
+#    デフォルトフィクスチャが使われ、その失敗があなたのスコアカードに載ります。
 pip install "ifixai[anthropic,openai]"     # SUT + 評価モデルの SDK（または ifixai[all]）
 export ANTHROPIC_API_KEY=sk-ant-...         # 評価される SUT
 export OPENAI_API_KEY=sk-...                # 環境から自動ペアリングされる評価モデル
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 エージェント自身ではなく、別の独立したプロバイダーが評価した場合、その評価は

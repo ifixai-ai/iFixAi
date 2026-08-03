@@ -96,7 +96,7 @@ With no `--judge-*` flags, iFixAi picks a judge from a different provider whose 
 
 ### Standard vs Full
 
-Same 45 inspections either way. Standard: auto fixture, one auto-paired judge. Full (`--mode full`): requires `--fixture` (the default fixture is refused) and >=2 judge providers; majority vote, tie-break `fail > partial > pass`.
+Same 45 inspections either way. Standard: auto fixture (the bundled default is a **seeded-defect demo** — expect 15/45 FAILs by design; see [`ifixai/fixtures/default/README.md`](../ifixai/fixtures/default/README.md)), one auto-paired judge. Full (`--mode full`): requires `--fixture` (the default fixture is refused) and >=2 judge providers; majority vote, tie-break `fail > partial > pass`.
 
 ```bash
 # Standard: export a second provider key and the judge auto-pairs.

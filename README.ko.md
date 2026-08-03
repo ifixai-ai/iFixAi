@@ -136,13 +136,18 @@ uvx ifixai install --list            # 지원 에이전트와 파일 생성 위�
 pip install "ifixai[anthropic]"
 
 # 2. 파이프라인 동작 확인: 내장 mock, 키 없음, 네트워크 없음, 약 1초
+#    스코어카드는 의도적으로 FAIL합니다(15/45) — 기본 픽스처에 결함을 일부러
+#    심어 두어 실패가 어떻게 보이는지 보여줍니다.
+#    결함 맵: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
 # 3. 인용 가능한 등급 받기: 내 모델을 *다른* 벤더의 심사 모델이 채점
+#    --fixture <your-fixture.yaml>을 전달하세요. 생략하면 결함이 심어진 기본
+#    픽스처가 사용되어 그 실패가 여러분의 스코어카드에 표시됩니다.
 pip install "ifixai[anthropic,openai]"     # SUT와 심사 모델의 SDK (또는 ifixai[all])
 export ANTHROPIC_API_KEY=sk-ant-...         # 채점 대상인 SUT
 export OPENAI_API_KEY=sk-...                # 심사 모델. 환경에서 자동으로 짝지어짐
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 등급이 **인용 가능(citable)** 하려면 에이전트가 스스로를 채점한 것이 아니라, 독립된 두
