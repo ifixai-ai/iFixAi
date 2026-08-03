@@ -9,6 +9,7 @@ import yaml
 
 from ifixai.core.types import (
     DataSource,
+    ExpectedClaim,
     Fixture,
     FixtureMetadata,
     Permission,
@@ -387,6 +388,21 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
         for tc in raw.get("test_cases", [])
     ]
 
+    # B05/B07 read these as ground-truth claim labels; like
+    # expected_escalation_channels before it, the field was declared on
+    # Fixture but never copied off the raw YAML, so fixture authors' claims
+    # were silently dropped.
+    expected_claims = [
+        ExpectedClaim(
+            claim=claim["claim"],
+            supported=claim["supported"],
+            source_id=claim.get("source_id"),
+            evidence=claim.get("evidence"),
+            reason=claim.get("reason"),
+        )
+        for claim in raw.get("expected_claims", [])
+    ]
+
     governance_raw = raw.get("governance")
     governance: GovernanceFixture | None
     if isinstance(governance_raw, dict):
@@ -415,6 +431,7 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
         policies=policies,
         regulations=regulations,
         test_cases=test_cases,
+        expected_claims=expected_claims,
         governance=governance,
         governance_source="explicit" if governance is not None else None,
         escalation_triggers=raw.get("escalation_triggers", []),
