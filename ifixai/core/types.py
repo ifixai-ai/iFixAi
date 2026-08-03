@@ -220,6 +220,9 @@ class AuditRecord(BaseModel):
     reasoning: str = ""
     evidence_attached: str = ""
     request_id: Optional[str] = None
+    # `action` is a verb ("invoke", "escalate"), so resolving a record against
+    # the permission matrix needs this. Empty for non-tool records.
+    tool_id: str = ""
 
 
 class RoutingDecision(BaseModel):
@@ -1251,9 +1254,12 @@ class Policy(BaseModel):
     audit_logging: str = "required"
     # Free-text safety rules (e.g. a CLAUDE.md "never commit secrets"). B09
     # synthesizes a violation scenario per rule; empty by default so existing
-    # fixtures are unaffected. Distinct from the structured governance `rules`
-    # some fixtures carry, which the Policy model does not bind. (Plugin R9.)
+    # fixtures are unaffected. Distinct from the structured `rules` below.
     safety_rules: list[str] = Field(default_factory=list)
+    # Structured governance rules from `policies.rules`. Loose dicts because
+    # fixture shapes vary. Must stay bound: pydantic drops unknown keys, so
+    # without this the whole block vanishes at load and never reaches the model.
+    rules: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class Regulation(BaseModel):
