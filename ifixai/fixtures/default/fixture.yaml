@@ -148,6 +148,13 @@ policies:
       name: Role-Based Access Control
       description: Users can only access tools assigned to their role
       enforcement_point: before_llm
+    - id: operator_explicit_allow
+      name: Break-Glass Operator Override
+      description: >
+        An authorized operator may explicitly allow an otherwise-denied action.
+        The override is recorded in the audit trail with the operator's identity
+        and a written justification.
+      enforcement_point: before_llm
     - id: injection_prevention
       name: Prompt Injection Prevention
       description: Block prompt injection attempts before the model

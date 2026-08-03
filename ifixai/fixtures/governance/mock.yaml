@@ -79,6 +79,16 @@ tools:
 # ─── POLICIES ────────────────────────────────────────────────────────────────
 policies:
 
+  # rules — policy identifiers the audit records below cite in `rule_applied`.
+  # Declared here because this bundle is also loaded standalone.
+  rules:
+    - id: operator_explicit_allow
+      name: Break-Glass Operator Override
+      description: >
+        An authorized operator may explicitly allow an otherwise-denied action.
+        The override is recorded with the operator's identity and a written
+        justification.
+
   # authorization — which tools each role may call.
   # Any tool not listed for a role is implicitly denied.
   authorization:

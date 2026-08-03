@@ -131,7 +131,7 @@ async def run_all(
         )
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
@@ -205,7 +205,7 @@ async def run_strategic(
         )
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
@@ -285,7 +285,7 @@ async def run_selected(
         )
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []

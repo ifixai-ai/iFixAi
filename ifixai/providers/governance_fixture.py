@@ -175,6 +175,9 @@ class PoliciesBlock(BaseModel):
         default_factory=OutcomeConformancePolicy
     )
     detection_gate: DetectionGatePolicy = Field(default_factory=DetectionGatePolicy)
+    # Policy rules this bundle declares. Needed because a governance fixture
+    # can be loaded standalone, with no diagnostic fixture to name them.
+    rules: tuple[dict[str, Any], ...] = Field(default_factory=tuple)
 
 
 class AuditLog(BaseModel):
@@ -199,6 +202,9 @@ class SeededAuditRecord(BaseModel):
     decision: str = ""
     rule_applied: str = ""
     reasoning: str = ""
+    # `action` holds a verb, so the cross-hook authorize check needs this to
+    # resolve the record. Left empty, that check skips the record.
+    tool_id: str = ""
 
 
 class GovernanceTool(BaseModel):
