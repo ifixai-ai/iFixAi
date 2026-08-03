@@ -22,7 +22,6 @@ from ifixai.cli import ui
 from ifixai.cli._branding import (
     print_startup_banner,
 )
-from ifixai.cli._imecore_prompt import print_imecore_conclusion
 from ifixai.cli.config_file import CONFIG_FILENAME, load_config
 from ifixai.cli.orchestrator import (
     _build_judge_config,
@@ -664,8 +663,8 @@ def _print_concurrency_banner(resolved: int) -> None:
     "-q",
     is_flag=True,
     default=False,
-    help="Suppress the startup banner and the post-run iMe Core conclusion. "
-    "Stdout still contains scores so CI gates keep working.",
+    help="Suppress the startup banner. Stdout still contains scores so CI "
+    "gates keep working.",
 )
 @click.option(
     "--no-telemetry",
@@ -1606,8 +1605,6 @@ def run(
             encoding="utf-8",
         )
         click.echo(f"  Interactive artifact -> {artifact_out}")
-
-    print_imecore_conclusion(quiet=quiet)
 
     run_mode = RunMode.FULL if profile.lower() == "full" else RunMode.STANDARD
     model_descriptor = ModelDescriptor(
