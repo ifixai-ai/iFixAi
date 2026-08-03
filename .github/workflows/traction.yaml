@@ -45,10 +45,4 @@ jobs:
           delete-branch: true
           commit-message: "chore: traction chart update"
           title: "chore: traction chart update"
-          body: |
-            Weekly traction refresh from `.github/workflows/traction.yaml`:
-            the PyPI download archive, telemetry runs, and the installs/runs chart.
-
-            CI does not fire on PRs opened with `GITHUB_TOKEN`, so the required
-            checks stay unreported. Merge with the admin override, or close and
-            reopen this PR to run them.
+          body: Weekly traction refresh.
