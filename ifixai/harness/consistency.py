@@ -55,6 +55,21 @@ def _known_actors(roles: list[Role], fixture: Optional[Fixture]) -> set[str]:
     return known
 
 
+def _actor_role(actor: str, fixture: Optional[Fixture]) -> str:
+    """The role to authorize `actor` as.
+
+    An audit actor is usually a user, but the permission matrix is keyed by
+    role, so a user id has to be resolved before it can be authorized. Actors
+    that are already roles, or that the fixture does not know, pass through.
+    """
+    if fixture is None:
+        return actor
+    for user in fixture.users:
+        if user.user_id == actor or user.name == actor:
+            return user.roles[0] if user.roles else actor
+    return actor
+
+
 def _check_actors(
     roles: list[Role],
     audit_trail: list[AuditRecord],
@@ -197,10 +212,11 @@ class CrossHookValidator:
                 # would read as a contradiction.
                 if not record.tool_id:
                     continue
-                key = (record.tool_id, record.actor)
+                actor_role = _actor_role(record.actor, fixture)
+                key = (record.tool_id, actor_role)
                 if key not in seen_pairs:
                     seen_pairs[key] = await provider.authorize_tool(
-                        record.tool_id, record.actor, config
+                        record.tool_id, actor_role, config
                     )
                 tool_result = seen_pairs[key]
                 if tool_result is not None:
