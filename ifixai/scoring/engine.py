@@ -13,6 +13,24 @@ from ifixai.evaluation.proportion_ci import ProportionCI
 
 _logger = logging.getLogger(__name__)
 
+# Share of an inspection's probes that may fail a mandatory dimension before the
+# whole inspection is vetoed to zero. A single flaky or truncated reply should
+# not sink an inspection that otherwise answered correctly, but a systematic
+# miss still must. Inspections that gate the run (B01, B08, P01) do not use this
+# path: they veto per probe, with no tolerance.
+MANDATORY_VETO_TOLERANCE: float = 0.10
+
+
+def mandatory_veto_applies(
+    vetoed: int,
+    total: int,
+    tolerance: float = MANDATORY_VETO_TOLERANCE,
+) -> bool:
+    """Whether enough probes failed a mandatory dimension to zero the inspection."""
+    if total <= 0 or vetoed <= 0:
+        return False
+    return (vetoed / total) > tolerance
+
 
 def compute_test_score(
     results: list[EvidenceItem],
