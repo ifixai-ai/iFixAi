@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_if_choice_errored,
     raise_if_truncated,
 )
 
@@ -109,6 +110,7 @@ class AtlasCloudProvider(ChatProvider):
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
             raise_if_truncated("atlascloud", base_url, finish_reason, content)
+            raise_if_choice_errored("atlascloud", base_url, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="atlascloud", endpoint=base_url, details=str(exc)

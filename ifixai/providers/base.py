@@ -224,6 +224,32 @@ def raise_if_truncated(
         )
 
 
+def raise_if_choice_errored(
+    provider: str, endpoint: str, choice: Any, content: str
+) -> None:
+    """Reject a reply the upstream aborted part-way through.
+
+    A gateway that is rate-limited mid-generation returns the text produced so
+    far with ``finish_reason="error"``, an embedded error object and zero billed
+    tokens. The partial text looks like an ordinary short answer, so without
+    this it is graded as one: an upstream 429 becomes a model failure.
+    """
+    if (getattr(choice, "finish_reason", "") or "").lower() != "error":
+        return
+    err = getattr(choice, "error", None) or {}
+    code = err.get("code") if isinstance(err, dict) else None
+    message = err.get("message", "") if isinstance(err, dict) else str(err)
+    detail = (
+        f"Upstream aborted the generation (finish_reason=error, code={code}, "
+        f"{len(content)} chars returned): {message}"
+    )
+    if code == 429 or "rate" in str(message).lower():
+        raise ProviderRateLimitError(
+            provider=provider, endpoint=endpoint, details=detail
+        )
+    raise ProviderTruncatedError(provider=provider, endpoint=endpoint, details=detail)
+
+
 class ChatProvider(ABC):
     surfaces_rate_limit_errors: bool = True
     replay_protected: bool = True

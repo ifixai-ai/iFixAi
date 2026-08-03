@@ -17,6 +17,7 @@ from ifixai.providers.base import (
     ProviderEmptyContentError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_choice_errored,
     raise_if_truncated,
 )
 
@@ -82,6 +83,9 @@ class LiteLLMProvider(ChatProvider):
                 )
             raise_if_truncated(
                 "litellm", config.endpoint or "default", finish_reason, content
+            )
+            raise_if_choice_errored(
+                "litellm", config.endpoint or "default", choice, content
             )
 
         except ProviderResponseError:

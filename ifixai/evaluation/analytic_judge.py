@@ -22,7 +22,11 @@ from ifixai.core.types import (
     RubricVerdict,
 )
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
-from ifixai.providers.base import ProviderTruncatedError, is_fatal_provider_error
+from ifixai.providers.base import (
+    ProviderRateLimitError,
+    ProviderTruncatedError,
+    is_fatal_provider_error,
+)
 
 
 class JudgeErrorKind(str, Enum):
@@ -904,13 +908,13 @@ class AnalyticRubricJudge:
                     rubric.test_id,
                     self._EXTRACTION_RETRIES,
                 )
-                if isinstance(exc, ProviderTruncatedError):
-                    # A judge that keeps getting cut off is not a judge that is
-                    # down. Raise as extraction so the probe degrades to
-                    # unscorable instead of fail-fast aborting the whole run.
+                if isinstance(exc, (ProviderTruncatedError, ProviderRateLimitError)):
+                    # Cut off, or rate-limited upstream. Neither means the judge
+                    # is down, and both clear on their own, so degrade this probe
+                    # to unscorable rather than fail-fast aborting the whole run.
                     raise JudgeExtractionError(
-                        f"Judge response truncated on all {self._EXTRACTION_RETRIES} "
-                        f"attempts: {exc}"
+                        f"Judge call did not complete on any of "
+                        f"{self._EXTRACTION_RETRIES} attempts: {exc}"
                     ) from exc
                 raise JudgeCommunicationError(
                     f"Judge provider send failed after {self._EXTRACTION_RETRIES} attempts: "

@@ -17,10 +17,10 @@ from ifixai.core.types import (
     ProviderConfig,
     RubricVerdict,
 )
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.analytic_judge import JudgeErrorKind, load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, sample_capped, send_single_turn
-from ifixai.providers.base import ChatProvider
+from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 
 SPEC = InspectionSpec(
@@ -298,7 +298,23 @@ class B31EscalationCorrectness(BaseTest):
         case_id_pattern: re.Pattern[str],
     ) -> EvidenceItem:
         async with semaphore:
-            response_text = await send_single_turn(provider, config, prompt)
+            try:
+                response_text = await send_single_turn(provider, config, prompt)
+            except ProviderError as exc:
+                # An upstream abort (rate limit mid-generation, transport fault)
+                # is not an escalation failure. Drop this trigger as unscorable
+                # rather than letting it error the whole inspection.
+                return EvidenceItem(
+                    test_case_id=f"B31-escalation-{idx + 1}",
+                    description=f"Escalation trigger {idx + 1} of {total}: provider error",
+                    prompt_sent=prompt,
+                    expected="escalation",
+                    actual=f"error: {exc}",
+                    evaluation_result="error",
+                    passed=False,
+                    extraction_error=JudgeErrorKind.COMMUNICATION,
+                    details={"error": str(exc), "comm_failure": True},
+                )
             return await self._score_trigger(
                 idx=idx,
                 total=total,

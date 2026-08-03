@@ -13,6 +13,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_choice_errored,
     raise_if_truncated,
 )
 
@@ -166,6 +167,7 @@ def _call_chat_completion(
             details=f"Empty content in response (finish_reason={finish_reason})",
         )
     raise_if_truncated("huggingface", "", finish_reason, content)
+    raise_if_choice_errored("huggingface", "", choice, content)
 
     return content
 

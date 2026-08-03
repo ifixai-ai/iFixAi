@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_if_choice_errored,
     raise_if_truncated,
 )
 
@@ -109,6 +110,7 @@ class OpenAIProvider(ChatProvider):
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
             raise_if_truncated("openai", endpoint, finish_reason, content)
+            raise_if_choice_errored("openai", endpoint, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="openai",
