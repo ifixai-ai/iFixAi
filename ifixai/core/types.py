@@ -1134,6 +1134,9 @@ class TestRunResult(BaseModel):
     mandatory_minimums_passed: bool = False
     mandatory_minimums_inconclusive: list[str] = Field(default_factory=list)
     mandatory_minimum_violations: list[str] = Field(default_factory=list)
+    # Mandatory inspections this run never selected. The gate is unevaluated for
+    # these, so `mandatory_minimums_passed` is not a clean bill of health.
+    mandatory_minimums_not_run: list[str] = Field(default_factory=list)
     score_capped: bool = False
 
     passed: bool = False

@@ -137,7 +137,9 @@ async def run_all(
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -211,7 +213,9 @@ async def run_strategic(
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -224,6 +228,7 @@ async def run_strategic(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="strategic",
+            selected_ids=set(STRATEGIC_TEST_IDS),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
             consistency_warnings=consistency_warnings,
@@ -291,7 +296,9 @@ async def run_selected(
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -304,6 +311,7 @@ async def run_selected(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="selected",
+            selected_ids=set(test_ids),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
             consistency_warnings=consistency_warnings,
@@ -337,8 +345,7 @@ async def run_single(
     inspection = INSPECTION_REGISTRY.get(test_id)
     if inspection is None:
         raise ValueError(
-            f"Unknown test: {test_id}. "
-            f"Available: {sorted(INSPECTION_REGISTRY.keys())}"
+            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
         )
     try:
         return await inspection.execute(
@@ -409,7 +416,14 @@ async def _run_sequential(
     for index, (test_id, inspection) in enumerate(inspections.items(), start=1):
         spec = spec_map.get(test_id)
         try:
-            result = await inspection.execute(provider, config, fixture, capabilities, pipeline_config=pipeline_config, pipeline=pipeline)  # type: ignore[union-attr]
+            result = await inspection.execute(
+                provider,
+                config,
+                fixture,
+                capabilities,
+                pipeline_config=pipeline_config,
+                pipeline=pipeline,
+            )  # type: ignore[union-attr]
         except _EXPECTED_INSPECTION_ERRORS as exc:
             _logger.exception(
                 "Inspection %s failed during sequential execution", test_id
@@ -556,6 +570,7 @@ def _build_result(
     consistency_capped: bool = False,
     sut_temperature: float = 0.0,
     sut_seed: int | None = None,
+    selected_ids: set[str] | None = None,
 ) -> TestRunResult:
 
     test_weights = {spec.test_id: spec.weight for spec in ALL_SPECS}
@@ -569,7 +584,7 @@ def _build_result(
 
     raw_overall = compute_overall_score(category_scores, GRADED_CATEGORY_WEIGHTS)
 
-    minimums_result = check_mandatory_minimums(test_results)
+    minimums_result = check_mandatory_minimums(test_results, selected_ids)
     minimums_passed = minimums_result["minimums_passed"]
     minimum_status = minimums_result["minimum_status"]
     overall_score = cap_score_if_minimums_failed(raw_overall, minimums_passed)
@@ -624,7 +639,14 @@ def _build_result(
     if b32_msg is not None and b32_msg not in seen:
         combined_warnings.append(b32_msg)
 
-    is_passed = overall_score is not None and overall_score >= PASS_THRESHOLD
+    # A run that never exercised the safety gate cannot report PASS, however
+    # well the inspections it did run scored. The score stays the honest
+    # measurement of what ran; only the verdict is withheld.
+    is_passed = (
+        overall_score is not None
+        and overall_score >= PASS_THRESHOLD
+        and not minimums_result["minimums_not_run"]
+    )
 
     return TestRunResult(
         system_name=system_name,
@@ -645,6 +667,7 @@ def _build_result(
         mandatory_minimums_passed=minimums_passed,
         mandatory_minimums_inconclusive=inconclusive_minimums,
         mandatory_minimum_violations=violations,
+        mandatory_minimums_not_run=list(minimums_result["minimums_not_run"]),
         score_capped=cap_bound or consistency_capped,
         gaps=gaps,
         run_mode=run_mode,

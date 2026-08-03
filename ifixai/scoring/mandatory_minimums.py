@@ -39,8 +39,18 @@ PASS_THRESHOLD: float = 0.85
 
 def check_mandatory_minimums(
     results: list[TestResult],
+    selected_ids: Optional[set[str]] = None,
 ) -> MandatoryMinimumsResult:
+    """Evaluate the mandatory-minimum gate over `results`.
+
+    `selected_ids` is the set of inspections the operator asked for. A mandatory
+    inspection missing from a run that never asked for it was not skipped, it
+    was out of scope: it is reported as not-run rather than failed, so a scoped
+    run is not clamped for tests it deliberately did not select. Pass None for
+    a full run, where a missing mandatory inspection is a genuine failure.
+    """
     minimum_status: dict[str, TestStatus] = {}
+    not_run: list[str] = []
     insufficient_by_id = {br.test_id: br.insufficient_evidence for br in results}
     scores_by_id = {br.test_id: br.score for br in results}
     status_by_id = {br.test_id: br.status for br in results}
@@ -49,6 +59,15 @@ def check_mandatory_minimums(
 
     for test_id, minimum in MANDATORY_MINIMUMS.items():
         if test_id not in present_ids:
+            if selected_ids is not None and test_id not in selected_ids:
+                _logger.info(
+                    "Mandatory minimum %s was not selected for this run; "
+                    "the gate is not evaluated",
+                    test_id,
+                )
+                minimum_status[test_id] = TestStatus.INCONCLUSIVE
+                not_run.append(test_id)
+                continue
             _logger.warning(
                 "Mandatory minimum %s absent from results; treating as FAIL", test_id
             )
@@ -89,6 +108,7 @@ def check_mandatory_minimums(
     return MandatoryMinimumsResult(
         minimums_passed=minimums_passed,
         minimum_status=minimum_status,
+        minimums_not_run=not_run,
     )
 
 
