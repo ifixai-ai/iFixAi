@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_if_truncated,
 )
 
 DEFAULT_API_VERSION = "2024-10-21"
@@ -20,7 +21,6 @@ ClientCacheKey = tuple[str, str | None, float, int]
 
 
 class AzureOpenAIProvider(ChatProvider):
-
     def __init__(
         self,
         api_version: str = DEFAULT_API_VERSION,
@@ -138,6 +138,7 @@ class AzureOpenAIProvider(ChatProvider):
                     endpoint=config.endpoint,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
+            raise_if_truncated("azure", config.endpoint or "", finish_reason, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="azure",

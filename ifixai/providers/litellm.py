@@ -17,6 +17,7 @@ from ifixai.providers.base import (
     ProviderEmptyContentError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 
 DEFAULT_MODEL = "openai/gpt-4o"
@@ -79,6 +80,9 @@ class LiteLLMProvider(ChatProvider):
                     endpoint=config.endpoint or "default",
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
+            raise_if_truncated(
+                "litellm", config.endpoint or "default", finish_reason, content
+            )
 
         except ProviderResponseError:
             raise

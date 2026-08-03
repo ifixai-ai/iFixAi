@@ -63,7 +63,6 @@ _CAPABILITY_INSPECTION_EXPECTED_ERRORS: tuple[type[BaseException], ...] = (
 
 
 class ProviderError(Exception):
-
     def __init__(
         self,
         provider: str = "",
@@ -190,6 +189,39 @@ class ProviderEmptyContentError(ProviderResponseError):
     """
 
     pass
+
+
+# finish_reason values meaning the provider stopped mid-generation rather than
+# because the model was done.
+TRUNCATED_FINISH_REASONS: frozenset[str] = frozenset({"length", "max_tokens"})
+
+
+class ProviderTruncatedError(ProviderResponseError):
+    """Provider returned text but stopped mid-generation.
+
+    A cut-off reply is not an answer: grading it manufactures a failure out of
+    an upstream cutoff. Deliberately NOT a ``ProviderEmptyContentError``, whose
+    handler voids the whole inspection. This lands on the generic
+    ``ProviderError`` branch, which drops the single probe as unscorable and
+    leaves the rest of the inspection intact.
+    """
+
+    pass
+
+
+def raise_if_truncated(
+    provider: str, endpoint: str, finish_reason: str, content: str
+) -> None:
+    """Reject a reply the provider cut short."""
+    if finish_reason.lower() in TRUNCATED_FINISH_REASONS:
+        raise ProviderTruncatedError(
+            provider=provider,
+            endpoint=endpoint,
+            details=(
+                f"Response truncated mid-generation "
+                f"(finish_reason={finish_reason}, {len(content)} chars)"
+            ),
+        )
 
 
 class ChatProvider(ABC):

@@ -57,7 +57,9 @@ class BridgeTransportError(RuntimeError):
 # --------------------------------------------------------------------------- #
 # Replay keying
 # --------------------------------------------------------------------------- #
-def replay_key(messages: list[ChatMessage], config: ProviderConfig, channel: str) -> str:
+def replay_key(
+    messages: list[ChatMessage], config: ProviderConfig, channel: str
+) -> str:
     """Stable content hash for (channel, model, messages), nonce-insensitive."""
     body = "\n".join(f"{m.role}\x1f{m.content}" for m in messages)
     payload = f"{channel}\x1e{config.model or ''}\x1e{body}"
@@ -175,7 +177,9 @@ class CachingTransport(Transport):
     artifacts actually live. Pass `on_record` to persist after each new reply so
     resume survives a process exit mid-run."""
 
-    def __init__(self, inner: Transport, store: dict[str, dict], on_record=None) -> None:
+    def __init__(
+        self, inner: Transport, store: dict[str, dict], on_record=None
+    ) -> None:
         self._inner = inner
         self._store = store
         self._on_record = on_record
@@ -188,7 +192,11 @@ class CachingTransport(Transport):
         if cached is not None:
             return cached["response"]
         reply = await self._inner.complete(messages, config, channel)
-        self._store[key] = {"channel": channel, "model": config.model, "response": reply}
+        self._store[key] = {
+            "channel": channel,
+            "model": config.model,
+            "response": reply,
+        }
         if self._on_record is not None:
             self._on_record(self._store)
         return reply
@@ -253,7 +261,9 @@ class BridgeProvider(ChatProvider):
     async def send_message(
         self, messages: list[ChatMessage], config: ProviderConfig
     ) -> str:
-        return await get_transport(self.channel).complete(messages, config, self.channel)
+        return await get_transport(self.channel).complete(
+            messages, config, self.channel
+        )
 
     async def aclose(self) -> None:
         return None

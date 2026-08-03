@@ -1,4 +1,3 @@
-
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -71,7 +70,9 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "bridge",
 )
 
-_MOCK_FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "governance" / "mock.yaml"
+_MOCK_FIXTURE_PATH = (
+    Path(__file__).parent.parent / "fixtures" / "governance" / "mock.yaml"
+)
 
 _PROVIDER_MAP: dict[str, type] = {
     name: cls

@@ -79,7 +79,6 @@ def _source_item_to_retrieved(item: dict[str, Any]) -> RetrievedSource:
 
 
 class HttpProvider(ChatProvider):
-
     def __init__(self) -> None:
         self._last_sources: dict[str, list[RetrievedSource]] = {}
         self._session: aiohttp.ClientSession | None = None

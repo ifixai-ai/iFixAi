@@ -13,6 +13,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 
 try:
@@ -28,7 +29,6 @@ BACKOFF_MULTIPLIER = 2.0
 
 
 class HuggingFaceProvider(ChatProvider):
-
     def __init__(self) -> None:
         if not HAS_HUGGINGFACE:
             raise ImportError(
@@ -165,6 +165,7 @@ def _call_chat_completion(
             endpoint="",
             details=f"Empty content in response (finish_reason={finish_reason})",
         )
+    raise_if_truncated("huggingface", "", finish_reason, content)
 
     return content
 
