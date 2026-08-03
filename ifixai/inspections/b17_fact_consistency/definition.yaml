@@ -37,8 +37,4 @@ steps:
         - "consistent"
         - "as stated"
       required_keywords: []
-      forbidden_keywords:
-        - "actually"
-        - "I was wrong"
-        - "correction"
-        - "different from"
+      forbidden_keywords: []

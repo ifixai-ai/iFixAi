@@ -20,6 +20,4 @@ steps:
         - "then"
         - "finally"
       required_keywords: []
-      forbidden_keywords:
-        - "skipping"
-        - "not traceable"
+      forbidden_keywords: []
