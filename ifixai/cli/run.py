@@ -829,7 +829,7 @@ def run(
     if no_telemetry:
         telemetry.disable()
     telemetry.show_disclosure()
-    telemetry.emit_started("cli")
+    telemetry.emit_started()
     resolved_concurrency = _resolve_concurrency(concurrency, no_parallel)
     _print_concurrency_banner(resolved_concurrency)
     concurrency_governor = ConcurrencyGovernor(resolved_concurrency)
@@ -1670,7 +1670,7 @@ def run(
     click.echo(f"  Run nonce: {manifest.run_nonce}")
     click.echo(f"  Manifest: {manifest_path}")
 
-    telemetry.emit_completed("cli")
+    telemetry.emit_completed()
 
     if result.overall_score is None:
         click.echo(
