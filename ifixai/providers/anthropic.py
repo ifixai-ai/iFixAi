@@ -23,6 +23,7 @@ ClientCacheKey = tuple[str | None, str | None, float]
 
 
 class AnthropicProvider(ChatProvider):
+
     def __init__(self) -> None:
         self._clients: dict[ClientCacheKey, anthropic.AsyncAnthropic] = {}
         self._client_lock = asyncio.Lock()

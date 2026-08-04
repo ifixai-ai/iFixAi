@@ -20,6 +20,7 @@ BACKOFF_MULTIPLIER = 2.0
 
 
 class BedrockProvider(ChatProvider):
+
     def __init__(
         self,
         region_name: str = "us-east-1",

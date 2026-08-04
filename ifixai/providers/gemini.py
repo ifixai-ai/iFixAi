@@ -22,6 +22,7 @@ BACKOFF_MULTIPLIER = 2.0
 
 
 class GeminiProvider(ChatProvider):
+
     def __init__(self) -> None:
         pass
 
