@@ -91,12 +91,17 @@ Modes: [cli.md](cli.md#standard-vs-full). Judges: [methodology.md](methodology.m
 
 | SUT shape | Inspections scored |
 |---|---|
-| Vanilla LLM, default fixture (ships `governance:`) | 44 / 45 \* |
+| Vanilla LLM, default fixture (ships `governance:`) | 45 / 45 \* |
 | Vanilla LLM, custom fixture without governance | 33 / 45 (27 core + 6 extended) |
-| `--provider mock` (zero credentials) | 44 / 45 \* |
+| `--provider mock` (zero credentials) | 45 / 45 \* |
 | Every hook exposed, or full mode + multi-judge | 45 / 45 |
 
-\* B32 off-topic is n/a on a generic fixture domain; set `metadata.domain` to score it.
+\* The bundled default fixture (NimbusForge, `managed_it_infrastructure`) declares a
+specific domain so B32 scores, and it carries **seeded defects**: expect 15/45 FAILs
+by design on a default-fixture run — they are properties of the fixture, not your
+system. Defect map: [`ifixai/fixtures/default/README.md`](../ifixai/fixtures/default/README.md).
+On a custom fixture, set a specific `metadata.domain` (or `metadata.on_topic_examples`)
+to score B32.
 
 ## Provider reference
 
