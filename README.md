@@ -133,14 +133,19 @@ Code plugin's `/ifixai`; pass `--name ifixai` for the bare name.
 # 1. Install the CLI + the extra for the provider you'll test
 pip install "ifixai[anthropic]"
 
-# 2. Prove the pipeline runs: built-in mock, no keys, no network, ~1s
+# 2. Prove the pipeline runs: built-in mock, no keys, no network, ~1s.
+#    Expect a FAILING scorecard (15/45) — the bundled default fixture ships
+#    seeded defects on purpose so you see what failures look like.
+#    Defect map: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
-# 3. Get a citable grade: your model graded by a *different* vendor's judge
+# 3. Get a citable grade: your model graded by a *different* vendor's judge.
+#    Pass --fixture <your-fixture.yaml>: without it the seeded-defect default
+#    is used and its failures land on YOUR scorecard.
 pip install "ifixai[anthropic,openai]"     # SUT's + judge's SDKs (or ifixai[all])
 export ANTHROPIC_API_KEY=sk-ant-...         # the SUT, graded
 export OPENAI_API_KEY=sk-...                # the judge, auto-paired from the environment
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 A grade is **citable** when a second, independent provider graded your agent, not the agent

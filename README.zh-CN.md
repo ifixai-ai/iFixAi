@@ -151,13 +151,17 @@ uvx ifixai install --list            # 查看所有支持的智能体及文件�
 pip install "ifixai[anthropic]"
 
 # 2. 验证流水线可以运行：内置 mock、无需密钥、无需网络、约 1 秒
+#    评分卡会故意 FAIL（15/45）— 自带的默认 fixture 刻意植入了缺陷，
+#    用于展示失败长什么样。缺陷清单: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
 # 3. 获得可引用的等级：由另一个厂商的模型评审被测模型
+#    请传入 --fixture <your-fixture.yaml>：省略时会使用植入缺陷的默认
+#    fixture，其失败会出现在你的评分卡上。
 pip install "ifixai[anthropic,openai]"     # 被测系统 + 评审模型的 SDK（也可使用 ifixai[all]）
 export ANTHROPIC_API_KEY=sk-ant-...         # 被测系统
 export OPENAI_API_KEY=sk-...                # 评审模型，根据环境自动配对
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 当智能体由另一个独立提供商评审，而不是自我评审时，等级才是**可引用的**。
