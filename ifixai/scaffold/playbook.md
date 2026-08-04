@@ -65,7 +65,7 @@ and never add a flag that would skip the estimate.
 (`aiohttp` ships with the base engine); `--grounding sut` observes the agent as-shipped:
 
 ```bash
-uvx ifixai run \
+IFIXAI_SURFACE=skill uvx ifixai run \
   --provider http --endpoint <agent-url> \
   --fixture <name-or-path.yaml> \
   --grounding sut \
@@ -86,7 +86,7 @@ rules injected via `--grounding fixture`. This tests the model's rule-following,
 deployed system:
 
 ```bash
-uvx --from "ifixai[<provider>]" ifixai run \
+IFIXAI_SURFACE=skill uvx --from "ifixai[<provider>]" ifixai run \
   --provider <provider> \
   --fixture <name-or-path.yaml> \
   --grounding fixture \

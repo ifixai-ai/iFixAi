@@ -38,7 +38,10 @@ POSTHOG_ENDPOINT = "https://us.i.posthog.com/i/v0/e/"
 POSTHOG_PROJECT_KEY = "phc_sSAKNHJwLY748x2BtZvDPR5xdnMr7PndS2gmnb2LsD2H"
 
 # The only user-data property keys that may ever leave the machine.
-_ALLOWED_PROPS = frozenset({"version", "os", "surface"})
+_ALLOWED_PROPS = frozenset({"version", "os", "surface", "install_source"})
+
+# plugin is proven, never declared
+_DECLARABLE_SURFACES = frozenset({"cli", "skill"})
 
 _REQUEST_TIMEOUT = 1.0  # seconds, hard cap per send
 _FLUSH_BUDGET = 1.0  # seconds, total atexit join budget
@@ -53,7 +56,8 @@ _DISCLOSURE_TEXT = (
     "iFixAi sends pseudonymous run telemetry: a random local install id (a "
     "persistent identifier, so it counts as personal data under GDPR), whether a "
     "run started and completed, the tool version, your OS name, whether you ran "
-    "the CLI or the plugin, and a UTC timestamp. It never sends your code, "
+    "the CLI, the plugin, or an agent skill, whether iFixAi was pip-installed or "
+    "run from a clone, and a UTC timestamp. It never sends your code, "
     "findings, grades, prompts, file paths, "
     "or IP address — run with --print-telemetry to see exactly what goes out. "
     "Opt out anytime with --no-telemetry, IFIXAI_TELEMETRY=0, or DO_NOT_TRACK=1 "
@@ -195,32 +199,65 @@ def show_disclosure() -> None:
 # --------------------------------------------------------------------------- #
 # Event emission
 # --------------------------------------------------------------------------- #
-def emit_started(surface: str) -> None:
-    """Enqueue one ``ifixai_started`` event (idempotent per process).
-
-    ``surface`` is ``"cli"`` or ``"plugin"`` so the two run paths stay separable.
-    """
+def emit_started() -> None:
+    """Enqueue one ``ifixai_started`` event (idempotent per process)."""
     global _started_emitted
     if _started_emitted:
         return
     _started_emitted = True
-    _enqueue("ifixai_started", surface)
+    _enqueue("ifixai_started")
 
 
-def emit_completed(surface: str) -> None:
+def emit_completed() -> None:
     """Enqueue an ``ifixai_completed`` event for a finished run (idempotent per process)."""
     global _completed_emitted
     if _completed_emitted:
         return
     _completed_emitted = True
-    _enqueue("ifixai_completed", surface)
+    _enqueue("ifixai_completed")
 
 
-def _build_payload(event: str, install: str, surface: str) -> bytes:
+def _detect_surface() -> str:
+    """Which interface ran this: ``plugin``, ``skill``, or ``cli``.
+
+    The plugin is concluded from the interpreter's own location, since its engine
+    lives in a venv under ``CLAUDE_PLUGIN_DATA``; a skill has no such tell and
+    declares itself, so its value is checked rather than trusted.
+    """
+    plugin_data = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if plugin_data:
+        try:
+            if Path(sys.prefix).resolve().is_relative_to(Path(plugin_data).resolve()):
+                return "plugin"
+        except (OSError, ValueError):
+            pass
+    declared = os.environ.get("IFIXAI_SURFACE", "").strip().lower()
+    return declared if declared in _DECLARABLE_SURFACES else "cli"
+
+
+def _install_source() -> str:
+    """``"pip"`` if installed from a package, else ``"repo"``.
+
+    Lets PyPI downloads and actual runs be read as one funnel. Only the
+    classification is sent, never the path it came from.
+    """
+    try:
+        parts = Path(__file__).resolve().parts
+    except OSError:
+        return "unknown"
+    return "pip" if ("site-packages" in parts or "dist-packages" in parts) else "repo"
+
+
+def _build_payload(event: str, install: str) -> bytes:
     # Build strictly FROM the allowlist so nothing outside it can ever be sent —
     # an `assert` would be stripped under `python -O`, silently killing the guard.
     # sorted() keeps the --print-telemetry output deterministic.
-    source = {"version": VERSION, "os": platform.system(), "surface": surface}
+    source = {
+        "version": VERSION,
+        "os": platform.system(),
+        "surface": _detect_surface(),
+        "install_source": _install_source(),
+    }
     props: dict[str, object] = {key: source[key] for key in sorted(_ALLOWED_PROPS)}
     props["$ip"] = None  # PostHog: don't capture/derive geo from the request IP
     props["$geoip_disable"] = True
@@ -234,14 +271,14 @@ def _build_payload(event: str, install: str, surface: str) -> bytes:
     return json.dumps(envelope).encode("utf-8")
 
 
-def _enqueue(event: str, surface: str) -> None:
+def _enqueue(event: str) -> None:
     try:
         if not is_enabled():
             return
         install = install_id()
         if install is None:
             return
-        _get_sender().submit(_build_payload(event, install, surface))
+        _get_sender().submit(_build_payload(event, install))
     except Exception:  # noqa: BLE001 — telemetry must never break a run
         pass  # telemetry must never break a run
 
@@ -307,7 +344,7 @@ def _flush() -> None:
 def print_payload() -> None:
     """``--print-telemetry``: print the exact ``started`` JSON without sending or creating an id."""
     install = _read_id() or "<install-id created on first real run>"
-    body = json.loads(_build_payload("ifixai_started", install, "cli"))
+    body = json.loads(_build_payload("ifixai_started", install))
     print(json.dumps(body, indent=2))
 
 
