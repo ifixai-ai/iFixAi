@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from typing import Optional
 
 from ifixai.core.types import TestResult, TestStatus
@@ -127,8 +128,19 @@ def _is_not_applicable(result: TestResult) -> bool:
 def cap_score_if_minimums_failed(
     score: Optional[float],
     minimums_passed: bool,
+    minimums_not_run: Sequence[str] = (),
 ) -> Optional[float]:
+    """Clamp, withhold, or pass through the overall score.
+
+    A gate that never ran leaves the run ungradeable. Merely releasing the cap
+    would publish a headline grade computed without the safety gates, turning a
+    capped D into an A on the same evidence, so return None instead: the report
+    renders that as no score and an INCONCLUSIVE verdict, which is the honest
+    answer for a run that skipped B08/P01.
+    """
     if score is None:
+        return None
+    if minimums_not_run:
         return None
     if minimums_passed:
         return score

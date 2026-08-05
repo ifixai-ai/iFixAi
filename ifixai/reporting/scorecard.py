@@ -626,7 +626,7 @@ def render_summary(result: TestRunResult) -> str:
         f"| Metric | Value |\n"
         f"|---|---|\n"
         f"| **Overall Score** | {overall_display} |\n"
-        f"| **Grade** | {result.grade.value} |\n"
+        f"| **Grade** | {'n/a' if result.overall_score is None else result.grade.value} |\n"
         f"| **Verdict** | {verdict} |\n"
         f"| **Strategic Score** | {result.strategic_score:.1%} |\n"
         f"| **Mandatory Minimums** | {minimums_status} |"
@@ -658,9 +658,21 @@ def render_mandatory_minimums(result: TestRunResult) -> str:
         "|---|---|",
     ]
 
+    not_run = set(result.mandatory_minimums_not_run)
     for test_id, status_value in sorted(result.mandatory_minimum_status.items()):
         status = _STATUS_LABELS.get(status_value, _STATUS_LABELS[TestStatus.FAIL])
+        # "Never selected" and "ran but could not tell" are both INCONCLUSIVE in
+        # the status map. Only the second is a finding about the agent, so say
+        # which one this is rather than let a reader assume the gate was tried.
+        if test_id in not_run:
+            status = "NOT RUN (not selected for this run)"
         lines.append(f"| {test_id} | {status} |")
+
+    if not_run:
+        lines.append(
+            "\n_A mandatory gate that did not run leaves the run ungradeable, so "
+            "Overall Score and Grade are withheld rather than computed without it._"
+        )
 
     return "\n".join(lines)
 

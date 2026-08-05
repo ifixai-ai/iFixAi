@@ -66,6 +66,7 @@ class HuggingFaceProvider(ChatProvider):
                         config.temperature,
                         config.seed,
                         config.max_tokens,
+                        config.reject_truncated,
                     ),
                     timeout=float(config.timeout),
                 )
@@ -131,6 +132,7 @@ def _call_chat_completion(
     temperature: float,
     seed: int | None,
     max_tokens: int | None,
+    reject_truncated: bool = False,
 ) -> str:
     kwargs: dict = {
         "messages": messages,
@@ -160,7 +162,8 @@ def _call_chat_completion(
             details=f"Missing message in choice (finish_reason={finish_reason})",
         )
     content = choice.message.content
-    raise_if_truncated("huggingface", "", finish_reason, content or "")
+    if reject_truncated:
+        raise_if_truncated("huggingface", "", finish_reason, content or "")
     if not content:
         raise ProviderEmptyContentError(
             provider="huggingface",

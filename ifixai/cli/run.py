@@ -1545,7 +1545,11 @@ def run(
             f"{result.overall_score:.1%}" if result.overall_score is not None else "n/a"
         )
         click.echo(f"  {score_label}    {score_text}{coverage_suffix}")
-        click.echo(f"  Grade:            {result.grade.value}")
+        # No score means no grade. Printing the F that score_to_grade(0.0) yields
+        # would read as a judgement on the agent when the run simply did not
+        # measure enough to make one.
+        grade_text = "n/a" if result.overall_score is None else result.grade.value
+        click.echo(f"  Grade:            {grade_text}")
         click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
         click.echo(f"  Passed:           {verdict}")
         if result.mandatory_minimums_not_run:
