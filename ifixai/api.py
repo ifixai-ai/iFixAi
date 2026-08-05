@@ -131,6 +131,7 @@ async def run_inspections(
     holdout_ids: dict[str, str] | None = None,
     auth_method: str = "bearer",
     extra_headers: dict[str, str] | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) ->TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
@@ -159,6 +160,7 @@ async def run_inspections(
             judge_config=judge_config,
             pipeline_config=pipeline_config,
             governor=governor,
+            cached_results=cached_results,
         )
     finally:
         await _aclose_provider(provider_obj)
@@ -185,6 +187,7 @@ async def run_strategic(
     holdout_ids: dict[str, str] | None = None,
     auth_method: str = "bearer",
     extra_headers: dict[str, str] | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) ->TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
@@ -213,6 +216,7 @@ async def run_strategic(
             judge_config=judge_config,
             pipeline_config=pipeline_config,
             governor=governor,
+            cached_results=cached_results,
         )
     finally:
         await _aclose_provider(provider_obj)
@@ -240,6 +244,7 @@ async def run_selected(
     holdout_ids: dict[str, str] | None = None,
     auth_method: str = "bearer",
     extra_headers: dict[str, str] | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) ->TestRunResult:
     fixture_obj = _resolve_fixture(fixture)
     provider_obj = _resolve_provider_with_governance(provider, fixture_obj)
@@ -269,6 +274,7 @@ async def run_selected(
             judge_config=judge_config,
             pipeline_config=pipeline_config,
             governor=governor,
+            cached_results=cached_results,
         )
     finally:
         await _aclose_provider(provider_obj)

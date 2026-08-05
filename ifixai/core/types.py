@@ -1146,6 +1146,18 @@ class TestRunResult(BaseModel):
     # 'self' | 'same-provider' | 'cross-vendor' — how independent the judge was
     # from the agent under test. Empty when not recorded (e.g. offline runs).
     judge_relation: str = ""
+    # An aborted run still writes a scorecard for the inspections that finished.
+    # `partial` marks it as not comparable to a full run; `abort_reason` says why
+    # the run stopped (e.g. judge quota exhausted); `not_run_test_ids` lists the
+    # planned inspections that never executed, so the report stays a complete
+    # document of the whole plan rather than a fragment.
+    partial: bool = False
+    abort_reason: Optional[str] = None
+    not_run_test_ids: list[str] = Field(default_factory=list)
+    # Set when --resume merged checkpointed results from an earlier session,
+    # so every report surface can disclose the mixed provenance.
+    resumed_run_id: Optional[str] = None
+    reused_result_count: int = 0
 
 
 class TestDelta(BaseModel):

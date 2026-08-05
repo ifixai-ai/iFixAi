@@ -107,6 +107,7 @@ async def run_all(
     pipeline_config: EvaluationPipelineConfig | None = None,
     governor: ConcurrencyGovernor | None = None,
     capabilities: ProviderCapabilities | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult:
 
     if capabilities is None:
@@ -116,9 +117,10 @@ async def run_all(
 
     pipeline = _build_pipeline(pipeline_config, judge)
 
+    to_run, reused_results = _split_cached(INSPECTION_REGISTRY, cached_results)
     try:
         test_results = await _execute_inspections(
-            inspections=INSPECTION_REGISTRY,
+            inspections=to_run,
             specs=ALL_SPECS,
             provider=provider,
             config=config,
@@ -129,6 +131,7 @@ async def run_all(
             pipeline=pipeline,
             governor=governor,
         )
+        test_results = _merge_cached(reused_results, test_results)
 
         try:
             violations = await CrossHookValidator().run(provider, config)
@@ -174,6 +177,7 @@ async def run_strategic(
     pipeline_config: EvaluationPipelineConfig | None = None,
     governor: ConcurrencyGovernor | None = None,
     capabilities: ProviderCapabilities | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult:
 
     if capabilities is None:
@@ -189,10 +193,11 @@ async def run_strategic(
         if bid in STRATEGIC_TEST_IDS
     }
     strategic_specs = [s for s in ALL_SPECS if s.test_id in STRATEGIC_TEST_IDS]
+    to_run, reused_results = _split_cached(strategic_inspections, cached_results)
 
     try:
         test_results = await _execute_inspections(
-            inspections=strategic_inspections,
+            inspections=to_run,
             specs=strategic_specs,
             provider=provider,
             config=config,
@@ -203,6 +208,7 @@ async def run_strategic(
             pipeline=pipeline,
             governor=governor,
         )
+        test_results = _merge_cached(reused_results, test_results)
 
         try:
             violations = await CrossHookValidator().run(provider, config)
@@ -248,6 +254,7 @@ async def run_selected(
     pipeline_config: EvaluationPipelineConfig | None = None,
     governor: ConcurrencyGovernor | None = None,
     capabilities: ProviderCapabilities | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult:
     """Run an explicit subset of inspections by test id.
 
@@ -269,10 +276,11 @@ async def run_selected(
         if bid in test_ids
     }
     selected_specs = [s for s in ALL_SPECS if s.test_id in test_ids]
+    to_run, reused_results = _split_cached(selected_inspections, cached_results)
 
     try:
         test_results = await _execute_inspections(
-            inspections=selected_inspections,
+            inspections=to_run,
             specs=selected_specs,
             provider=provider,
             config=config,
@@ -283,6 +291,7 @@ async def run_selected(
             pipeline=pipeline,
             governor=governor,
         )
+        test_results = _merge_cached(reused_results, test_results)
 
         try:
             violations = await CrossHookValidator().run(provider, config)
@@ -351,6 +360,81 @@ async def run_single(
         )
     finally:
         await _aclose_judge(judge)
+
+
+def _split_cached(
+    inspections: dict[str, object],
+    cached_results: dict[str, TestResult] | None,
+) -> tuple[dict[str, object], list[TestResult]]:
+    """Split a selection into inspections to run and checkpointed results to reuse.
+
+    Only ids in this run's selection are honored, so a stale checkpoint entry
+    can never smuggle an out-of-scope result into the scorecard.
+    """
+    if not cached_results:
+        return inspections, []
+    reused = {bid: r for bid, r in cached_results.items() if bid in inspections}
+    remaining = {
+        bid: inspection for bid, inspection in inspections.items() if bid not in reused
+    }
+    return remaining, list(reused.values())
+
+
+def _merge_cached(
+    reused_results: list[TestResult],
+    fresh_results: list[TestResult],
+) -> list[TestResult]:
+    if not reused_results:
+        return fresh_results
+    return sorted([*reused_results, *fresh_results], key=lambda r: r.test_id)
+
+
+def build_partial_result(
+    completed: list[TestResult],
+    planned_ids: list[str],
+    abort_reason: str,
+    system_name: str,
+    system_version: str,
+    fixture_name: str,
+    provider_name: str,
+    run_mode: str,
+    sut_temperature: float = 0.0,
+    sut_seed: int | None = None,
+) -> TestRunResult:
+    """Scorecard for whatever finished before an aborted run stopped.
+
+    Marked `partial` and never PASS: missing mandatory inspections read as
+    unevaluated gate failures, and the warning below says exactly what did
+    not run. The point is to not discard paid-for results on abort.
+    """
+    result = _build_result(
+        test_results=sorted(completed, key=lambda r: r.test_id),
+        system_name=system_name,
+        system_version=system_version,
+        fixture_name=fixture_name,
+        provider_name=provider_name,
+        run_mode=run_mode,
+        sut_temperature=sut_temperature,
+        sut_seed=sut_seed,
+    )
+    result.partial = True
+    result.abort_reason = abort_reason
+    result.passed = False
+    completed_ids = {r.test_id for r in completed}
+    missing = [tid for tid in planned_ids if tid not in completed_ids]
+    result.not_run_test_ids = missing
+    if len(missing) > 10:
+        missing_label = f"{', '.join(missing[:10])} and {len(missing) - 10} more"
+    else:
+        missing_label = ", ".join(missing)
+    result.warnings.insert(
+        0,
+        f"PARTIAL RUN — aborted before completion: {abort_reason}. "
+        f"{len(completed_ids)} of {len(planned_ids)} inspections completed; "
+        f"not run: {missing_label}. Scores reflect only what ran and are not "
+        "comparable to a full run.",
+    )
+    return result
 
 
 async def _execute_inspections(
