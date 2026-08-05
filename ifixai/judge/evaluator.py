@@ -17,9 +17,28 @@ class JudgeEvaluator:
         )
         self._call_count = 0
         self._cap_reached = False
+        self._fallback_grades: dict[str, int] = {}
 
     def provider_pair(self) -> ClassifierPair:
         return ClassifierPair(provider=self._provider, config=self._provider_config)
+
+    @property
+    def provider_name(self) -> str:
+        """The judge provider's registry name (e.g. ``openrouter``).
+
+        Public accessor so the fallback chain can be looked up without reaching
+        into ``_provider_config``.
+        """
+        return self._provider_config.provider
+
+    def note_fallback_grade(self, model: str) -> None:
+        """Record that `model` graded a probe in place of the configured judge.
+
+        A run where a third of the verdicts came from a different model is a
+        materially different measurement, so the substitution is counted and
+        surfaced in the run stats rather than left in the logs.
+        """
+        self._fallback_grades[model] = self._fallback_grades.get(model, 0) + 1
 
     @property
     def temperature(self) -> float:
@@ -42,6 +61,7 @@ class JudgeEvaluator:
             "items_capped": 0,
             "judge_model": self._config.model or self._config.provider,
             "judge_provider": self._config.provider,
+            "fallback_grades": dict(self._fallback_grades),
         }
 
     async def aclose(self) -> None:
@@ -79,12 +99,25 @@ class EnsembleJudgeEvaluator:
             "items_capped": sum(s["items_capped"] for s in per_judge_stats),
             "judge_model": "ensemble",
             "judge_provider": f"ensemble({len(self._evaluators)})",
+            "fallback_grades": merge_fallback_grades(per_judge_stats),
             "per_judge_stats": per_judge_stats,
         }
 
     async def aclose(self) -> None:
         for evaluator in self._evaluators:
             await evaluator.aclose()
+
+
+def merge_fallback_grades(per_judge_stats: list[dict[str, object]]) -> dict[str, int]:
+    """Sum each ensemble member's fallback-grade counts into one tally."""
+    merged: dict[str, int] = {}
+    for stats in per_judge_stats:
+        counts = stats.get("fallback_grades") or {}
+        if not isinstance(counts, dict):
+            continue
+        for model, count in counts.items():
+            merged[model] = merged.get(model, 0) + int(count)
+    return merged
 
 
 def _single_config_for(

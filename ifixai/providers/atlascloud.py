@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_for_http_status,
     raise_if_choice_errored,
     raise_if_truncated,
 )
@@ -127,6 +128,9 @@ class AtlasCloudProvider(ChatProvider):
             raise ProviderConnectionError(
                 provider="atlascloud", endpoint=base_url, details=str(exc)
             ) from exc
+        except openai.APIStatusError as exc:
+            # 408/5xx is the gateway having a moment, not a dead provider.
+            raise_for_http_status("atlascloud", base_url, exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
                 provider="atlascloud", endpoint=base_url, details=str(exc)

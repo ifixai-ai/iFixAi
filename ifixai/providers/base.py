@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, NoReturn
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
@@ -176,6 +176,17 @@ def friendly_provider_message(detail: str) -> str | None:
             "Rate limited by the provider. Lower --concurrency or wait a moment "
             "and retry."
         )
+    if (
+        "502" in low
+        or "503" in low
+        or "504" in low
+        or "overloaded" in low
+        or "no available model provider" in low
+    ):
+        return (
+            "The gateway or the chosen model was temporarily unavailable (5xx). "
+            "Retry, or add fallback judge models (see docs/cli.md)."
+        )
     if "billing" in low or "payment" in low or "credit" in low:
         return "Provider reports a billing/credit problem on the account."
     return None
@@ -215,6 +226,27 @@ class ProviderTruncatedError(ProviderResponseError):
     pass
 
 
+class ProviderOverloadedError(ProviderResponseError):
+    """The gateway or the model behind it was unavailable for this call.
+
+    Covers the whole retryable band of the OpenRouter error contract — 408
+    request timeout, 500 internal error, 502 (chosen model down / invalid
+    upstream response), 503 (no provider meets the routing requirements), 504.
+    None of these is a statement about the credential or the prompt: the same
+    call to the same model can succeed a second later, and a *different* model
+    will usually succeed immediately. Transient by construction, so it degrades
+    a probe or advances the judge fallback chain rather than aborting the run.
+
+    Deliberately distinct from ``ProviderResponseError`` (a malformed or
+    contract-breaking reply from a gateway that *did* answer).
+    """
+
+    pass
+
+
+RETRYABLE_HTTP_STATUS_CODES: frozenset[int] = frozenset({408, 500, 502, 503, 504})
+
+
 # Upstream conditions that clear on their own. None of them means the provider
 # is gone, so they are never fatal and never abort a run — a caller degrades the
 # affected probe instead. Declared after the classes it names so the tuple can
@@ -224,6 +256,7 @@ TRANSIENT_PROVIDER_ERRORS: tuple[type[BaseException], ...] = (
     ProviderRateLimitError,
     ProviderTimeoutError,
     ProviderConnectionError,
+    ProviderOverloadedError,
 )
 
 
@@ -271,7 +304,30 @@ def raise_if_choice_errored(
         raise ProviderRateLimitError(
             provider=provider, endpoint=endpoint, details=detail
         )
+    if code in RETRYABLE_HTTP_STATUS_CODES:
+        raise ProviderOverloadedError(
+            provider=provider, endpoint=endpoint, details=detail
+        )
     raise ProviderTruncatedError(provider=provider, endpoint=endpoint, details=detail)
+
+
+def raise_for_http_status(provider: str, endpoint: str, exc: Exception) -> NoReturn:
+    """Translate an OpenAI-SDK HTTP error into the matching provider exception.
+
+    Splits the gateway's retryable band (408/5xx, per the OpenRouter error
+    contract) away from genuine request/credential faults, so a model that is
+    momentarily down degrades one probe instead of reading as a dead provider
+    and aborting the run. Always raises.
+    """
+    status = getattr(exc, "status_code", None)
+    details = f"HTTP {status}: {exc}" if status is not None else str(exc)
+    if status in RETRYABLE_HTTP_STATUS_CODES:
+        raise ProviderOverloadedError(
+            provider=provider, endpoint=endpoint, details=details
+        ) from exc
+    raise ProviderResponseError(
+        provider=provider, endpoint=endpoint, details=details
+    ) from exc
 
 
 class ChatProvider(ABC):

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "providers": {
+    "openrouter": {
+      "attempts_per_model": 2,
+      "models": [
+        {
+          "model": "z-ai/glm-5.2",
+          "note": "Z.ai GLM-5.2 - strong instruction following, very low cost"
+        },
+        {
+          "model": "qwen/qwen3-235b-a22b-2507",
+          "note": "Qwen3 235B A22B Instruct - large open-weights, no reasoning preamble"
+        },
+        {
+          "model": "deepseek/deepseek-v3.2",
+          "note": "DeepSeek V3.2 - reliable JSON, among the cheapest capable judges"
+        },
+        {
+          "model": "google/gemini-2.5-flash",
+          "note": "Gemini 2.5 Flash - different vendor lineage, fast and inexpensive"
+        },
+        {
+          "model": "anthropic/claude-haiku-4.5",
+          "note": "Claude Haiku 4.5 - fast Anthropic fallback"
+        },
+        {
+          "model": "openai/gpt-4o-mini",
+          "note": "GPT-4o mini - last resort, near-universal availability"
+        }
+      ]
+    }
+  }
+}

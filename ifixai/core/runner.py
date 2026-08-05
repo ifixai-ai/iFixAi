@@ -114,7 +114,7 @@ async def run_all(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     try:
         test_results = await _execute_inspections(
@@ -183,7 +183,7 @@ async def run_strategic(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     strategic_inspections = {
         bid: inspection
@@ -266,7 +266,7 @@ async def run_selected(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     selected_inspections = {
         bid: inspection
@@ -340,7 +340,7 @@ async def run_single(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     inspection = INSPECTION_REGISTRY.get(test_id)
     if inspection is None:
@@ -540,15 +540,21 @@ def _build_judge_evaluator(
 def _build_pipeline(
     pipeline_config: EvaluationPipelineConfig | None,
     judge: JudgeEvaluator | EnsembleJudgeEvaluator | None,
+    sut_model: str | None = None,
 ) -> EvaluationPipeline | None:
+    """Wire the judge into an evaluation pipeline.
+
+    `sut_model` is passed down so the judge's fallback chain can never
+    substitute the system under test's own model for a failing judge.
+    """
     if pipeline_config is None:
         return None
 
     analytic_judge: AnalyticRubricJudge | EnsembleAnalyticRubricJudge | None = None
     if isinstance(judge, EnsembleJudgeEvaluator):
-        analytic_judge = EnsembleAnalyticRubricJudge(judge)
+        analytic_judge = EnsembleAnalyticRubricJudge(judge, sut_model=sut_model)
     elif isinstance(judge, JudgeEvaluator):
-        analytic_judge = AnalyticRubricJudge(judge)
+        analytic_judge = AnalyticRubricJudge(judge, sut_model=sut_model)
 
     return EvaluationPipeline(
         config=pipeline_config,

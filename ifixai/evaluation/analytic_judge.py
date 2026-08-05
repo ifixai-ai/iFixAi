@@ -18,10 +18,12 @@ from ifixai.core.types import (
     ChatMessage,
     ClassifierPair,
     DimensionScore,
+    ProviderConfig,
     ReferenceSet,
     RubricVerdict,
 )
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
+from ifixai.judge.fallbacks import load_fallback_policy, resolve_judge_model_chain
 from ifixai.providers.base import (
     TRANSIENT_PROVIDER_ERRORS,
     is_fatal_provider_error,
@@ -57,6 +59,8 @@ class JudgeContractError(ValueError):
 logger = logging.getLogger(__name__)
 
 _BACKOFF_BASE: float = 0.5
+
+
 # Per grading call. The 60s default suits a fast direct-API judge; a judge
 # routed through the `claude -p` CLI (plugin bridge) is much slower (CLI startup
 # + thinking + a large rubric prompt), so a plan user can raise this — e.g.
@@ -70,7 +74,9 @@ def _judge_timeout_from_env(default: float = 60.0) -> float:
     try:
         return float(raw)
     except ValueError:
-        logger.warning("Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default)
+        logger.warning(
+            "Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default
+        )
         return default
 
 
@@ -816,15 +822,37 @@ def estimate_judge_token_budget(
     return max(JUDGE_MAX_TOKENS_FLOOR, min(budget, JUDGE_MAX_TOKENS_CEILING))
 
 
+class JudgeTransportExhaustedError(Exception):
+    """One judge model burned its provider-error budget without answering.
+
+    Internal to ``AnalyticRubricJudge``: it means "this model is not answering
+    right now", which is a reason to try the next model in the fallback chain,
+    not a reason to stop. Never escapes ``evaluate_with_rubric``.
+
+    ``recoverable`` records whether the underlying fault was transient (a 5xx,
+    a timeout, a dropped connection) or hard (a rejected request, an unknown
+    model). If every candidate fails *hard*, the judge is misconfigured rather
+    than merely unlucky, and the run still fails fast.
+    """
+
+    def __init__(self, detail: str, recoverable: bool) -> None:
+        super().__init__(detail)
+        self.recoverable = recoverable
+
+
 class AnalyticRubricJudge:
 
-    def __init__(self, judge: JudgeEvaluator) -> None:
+    def __init__(self, judge: JudgeEvaluator, sut_model: str | None = None) -> None:
         self._judge = judge
+        policy = load_fallback_policy()
+        self._fallback_chain = policy.chain_for(judge.provider_name)
+        self._model_chain = resolve_judge_model_chain(
+            judge.provider_name,
+            judge._provider_config.model,
+            policy=policy,
+            excluded_model=sut_model,
+        )
 
-    # Total judge attempts per probe = 1 initial + 2 retries. A not-responding
-    # or erroring judge (e.g. OpenRouter) is retried at most twice; after that a
-    # communication failure raises JudgeCommunicationError, which fail-fast turns
-    # into a run-stopping JudgeUnavailableError (see pipeline.evaluate).
     _EXTRACTION_RETRIES = 3
 
     def classifier_provider(self) -> ClassifierPair:
@@ -880,10 +908,107 @@ class AnalyticRubricJudge:
             }
         )
 
+        return await self._grade_over_fallback_chain(messages, judge_config, rubric)
+
+    async def _grade_over_fallback_chain(
+        self,
+        messages: list[ChatMessage],
+        judge_config: ProviderConfig,
+        rubric: AnalyticRubric,
+    ) -> RubricVerdict:
+        """Try each judge model in priority order until one returns a verdict."""
+        chain = self._model_chain
+        last_exhausted: JudgeTransportExhaustedError | None = None
+        any_hard_failure = False
+        for position, candidate in enumerate(chain):
+            try:
+                verdict = await self._grade_with_model(
+                    messages,
+                    judge_config.model_copy(update={"model": candidate}),
+                    rubric,
+                )
+            except JudgeTransportExhaustedError as exc:
+                last_exhausted = exc
+                any_hard_failure = any_hard_failure or not exc.recoverable
+                logger.warning(
+                    "Judge model %s did not answer for %s (candidate %d/%d) — %s",
+                    candidate or "<provider default>",
+                    rubric.test_id,
+                    position + 1,
+                    len(chain),
+                    exc,
+                )
+                continue
+            if position > 0:
+                self._judge.note_fallback_grade(candidate or "<provider default>")
+            return verdict
+
+        raise self._chain_exhausted_error(
+            rubric, len(chain), last_exhausted, any_hard_failure
+        ) from last_exhausted
+
+    def _chain_exhausted_error(
+        self,
+        rubric: AnalyticRubric,
+        candidate_count: int,
+        last_exhausted: JudgeTransportExhaustedError | None,
+        any_hard_failure: bool,
+    ) -> Exception:
+        """Pick the failure kind once every candidate model has been tried.
+
+        Purely-transient exhaustion (5xx, timeouts, dropped connections) drops
+        the single probe as unscorable and lets the run continue — an upstream
+        blip must not discard the inspections already paid for. A hard failure
+        on every candidate (rejected requests, unknown models) means the judge
+        is misconfigured, which fail-fast still stops.
+        """
+        detail = (
+            f"No judge model answered for {rubric.test_id}: all "
+            f"{candidate_count} candidate model(s) exhausted their attempts "
+            f"({last_exhausted})"
+        )
+        if any_hard_failure:
+            return JudgeCommunicationError(detail)
+        return JudgeExtractionError(detail)
+
+    def _transport_budget(self) -> int:
+        """Provider-fault attempts allowed on one model before the chain advances.
+
+        With no fallback to advance to, retrying the configured judge IS the only
+        recovery available, so it keeps the full retry budget instead of the
+        smaller per-model chain allowance — otherwise adding a fallback chain for
+        one provider would quietly make every *other* provider less resilient.
+        """
+        per_model = self._fallback_chain.attempts_per_model
+        if len(self._model_chain) > 1:
+            return per_model
+        return max(per_model, self._EXTRACTION_RETRIES)
+
+    async def _grade_with_model(
+        self,
+        messages: list[ChatMessage],
+        judge_config: ProviderConfig,
+        rubric: AnalyticRubric,
+    ) -> RubricVerdict:
+        """Grade `rubric` with one specific judge model.
+
+        Raises ``JudgeTransportExhaustedError`` when the model burns its budget
+        for provider faults (the caller then advances the fallback chain),
+        ``JudgeCommunicationError`` when the credential itself is rejected (no
+        other model would fare better), and ``JudgeExtractionError`` when the
+        model answered but never produced a parseable verdict.
+        """
+        transport_failures = 0
+        extraction_failures = 0
+        transport_budget = self._transport_budget()
         last_exc: Exception | None = None
-        for attempt in range(1, self._EXTRACTION_RETRIES + 1):
-            if attempt > 1:
-                await asyncio.sleep(_BACKOFF_BASE * (2 ** (attempt - 2)))
+        # Two independent budgets: provider faults advance the fallback chain,
+        # unparseable verdicts do not. Bounding the loop by their sum stops one
+        # kind of failure from eating the other's retries.
+        for _ in range(transport_budget + self._EXTRACTION_RETRIES):
+            failures_so_far = transport_failures + extraction_failures
+            if failures_so_far:
+                await asyncio.sleep(_BACKOFF_BASE * (2 ** (failures_so_far - 1)))
             try:
                 raw_response = await asyncio.wait_for(
                     self._judge._provider.send_message(messages, judge_config),
@@ -900,35 +1025,22 @@ class AnalyticRubricJudge:
                         f"Judge provider rejected the request (non-retryable): "
                         f"{type(exc).__name__}: {exc}"
                     ) from exc
-                if attempt < self._EXTRACTION_RETRIES:
-                    logger.warning(
-                        "Judge communication error for %s (attempt %d/%d), retrying — %s: %s",
-                        rubric.test_id,
-                        attempt,
-                        self._EXTRACTION_RETRIES,
-                        type(exc).__name__,
-                        exc,
-                    )
-                    continue
-                logger.exception(
-                    "Judge communication failed for %s — all %d attempts failed",
-                    rubric.test_id,
-                    self._EXTRACTION_RETRIES,
-                )
-                if isinstance(exc, _RECOVERABLE_JUDGE_ERRORS):
-                    # Cut off, rate-limited, timed out, or the connection
-                    # dropped. None of these means the judge is down, and all
-                    # clear on their own, so degrade this probe to unscorable
-                    # rather than fail-fast aborting the whole run — an upstream
-                    # blip should not discard every inspection paid for so far.
-                    raise JudgeExtractionError(
-                        f"Judge call did not complete on any of "
-                        f"{self._EXTRACTION_RETRIES} attempts: {exc}"
+                transport_failures += 1
+                if transport_failures >= transport_budget:
+                    raise JudgeTransportExhaustedError(
+                        f"{type(exc).__name__} after {transport_failures} attempt(s) "
+                        f"on model {judge_config.model or '<provider default>'}: {exc}",
+                        recoverable=isinstance(exc, _RECOVERABLE_JUDGE_ERRORS),
                     ) from exc
-                raise JudgeCommunicationError(
-                    f"Judge provider send failed after {self._EXTRACTION_RETRIES} attempts: "
-                    f"{type(exc).__name__}: {exc}"
-                ) from exc
+                logger.warning(
+                    "Judge communication error for %s (attempt %d/%d), retrying — %s: %s",
+                    rubric.test_id,
+                    transport_failures,
+                    transport_budget,
+                    type(exc).__name__,
+                    exc,
+                )
+                continue
 
             try:
                 return parse_rubric_verdict(raw_response, rubric)
@@ -947,33 +1059,41 @@ class AnalyticRubricJudge:
                         "(use --mode api for adversarial coverage)"
                     ) from exc
                 last_exc = exc
-                if attempt < self._EXTRACTION_RETRIES:
-                    logger.warning(
-                        "Error extracting judge data for %s (attempt %d/%d), retrying — %s",
-                        rubric.test_id,
-                        attempt,
-                        self._EXTRACTION_RETRIES,
-                        exc,
-                    )
-                else:
+                extraction_failures += 1
+                if extraction_failures >= self._EXTRACTION_RETRIES:
                     logger.exception(
                         "Error extracting judge data for %s — all %d attempts failed",
                         rubric.test_id,
-                        self._EXTRACTION_RETRIES,
+                        extraction_failures,
                     )
+                    raise JudgeExtractionError(
+                        f"Judge response not valid JSON after "
+                        f"{extraction_failures} attempts: {exc}"
+                    ) from exc
+                logger.warning(
+                    "Error extracting judge data for %s (attempt %d/%d), retrying — %s",
+                    rubric.test_id,
+                    extraction_failures,
+                    self._EXTRACTION_RETRIES,
+                    exc,
+                )
 
+        # Unreachable: both budgets raise on exhaustion above. Kept so the
+        # function has no implicit ``None`` return path.
         raise JudgeExtractionError(
-            f"Judge response not valid JSON after {self._EXTRACTION_RETRIES} attempts: {last_exc}"
+            f"Judge call for {rubric.test_id} produced no verdict: {last_exc}"
         ) from last_exc
 
 
 class EnsembleAnalyticRubricJudge:
     """Runs all ensemble judges in parallel and aggregates via mean score."""
 
-    def __init__(self, ensemble: EnsembleJudgeEvaluator) -> None:
+    def __init__(
+        self, ensemble: EnsembleJudgeEvaluator, sut_model: str | None = None
+    ) -> None:
         self._ensemble = ensemble
         self._per_judge: list[AnalyticRubricJudge] = [
-            AnalyticRubricJudge(e) for e in ensemble.evaluators
+            AnalyticRubricJudge(e, sut_model=sut_model) for e in ensemble.evaluators
         ]
 
     @property
