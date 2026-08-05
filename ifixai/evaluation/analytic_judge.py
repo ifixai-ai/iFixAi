@@ -26,6 +26,7 @@ from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 from ifixai.judge.fallbacks import load_fallback_policy, resolve_judge_model_chain
 from ifixai.providers.base import (
     TRANSIENT_PROVIDER_ERRORS,
+    ProviderTruncatedError,
     is_fatal_provider_error,
 )
 
@@ -852,6 +853,9 @@ class AnalyticRubricJudge:
             policy=policy,
             excluded_model=sut_model,
         )
+        self._retired_models: set[str | None] = set()
+        self._last_exhausted: JudgeTransportExhaustedError | None = None
+        self._any_hard_failure = False
 
     _EXTRACTION_RETRIES = 3
 
@@ -916,11 +920,24 @@ class AnalyticRubricJudge:
         judge_config: ProviderConfig,
         rubric: AnalyticRubric,
     ) -> RubricVerdict:
-        """Try each judge model in priority order until one returns a verdict."""
-        chain = self._model_chain
-        last_exhausted: JudgeTransportExhaustedError | None = None
-        any_hard_failure = False
-        for position, candidate in enumerate(chain):
+        """Try each live judge model in priority order until one returns a verdict.
+
+        Models retired earlier in the run are skipped outright: re-probing a dead
+        judge on every grade is what turned one inspection into 9.5 minutes.
+        """
+        live = [m for m in self._model_chain if m not in self._retired_models]
+        if not live:
+            # Every model is retired. Calling them again would re-pay a full
+            # timeout per probe to learn what this run already knows, so the
+            # remaining probes drop for free.
+            raise self._chain_exhausted_error(
+                rubric,
+                len(self._model_chain),
+                self._last_exhausted,
+                self._any_hard_failure,
+            ) from self._last_exhausted
+
+        for candidate in live:
             try:
                 verdict = await self._grade_with_model(
                     messages,
@@ -928,24 +945,34 @@ class AnalyticRubricJudge:
                     rubric,
                 )
             except JudgeTransportExhaustedError as exc:
-                last_exhausted = exc
-                any_hard_failure = any_hard_failure or not exc.recoverable
-                logger.warning(
-                    "Judge model %s did not answer for %s (candidate %d/%d) — %s",
-                    candidate or "<provider default>",
-                    rubric.test_id,
-                    position + 1,
-                    len(chain),
-                    exc,
-                )
+                self._retire_model(candidate, rubric.test_id, exc)
                 continue
-            if position > 0:
+            if candidate != self._model_chain[0]:
                 self._judge.note_fallback_grade(candidate or "<provider default>")
             return verdict
 
         raise self._chain_exhausted_error(
-            rubric, len(chain), last_exhausted, any_hard_failure
-        ) from last_exhausted
+            rubric, len(live), self._last_exhausted, self._any_hard_failure
+        ) from self._last_exhausted
+
+    def _retire_model(
+        self,
+        candidate: str | None,
+        test_id: str,
+        exc: JudgeTransportExhaustedError,
+    ) -> None:
+        """Take `candidate` out of the chain for the rest of the run."""
+        self._last_exhausted = exc
+        self._any_hard_failure = self._any_hard_failure or not exc.recoverable
+        if candidate in self._retired_models:
+            return
+        self._retired_models.add(candidate)
+        logger.warning(
+            "Retiring judge model %s for this run after it failed on %s — %s",
+            candidate or "<provider default>",
+            test_id,
+            exc,
+        )
 
     def _chain_exhausted_error(
         self,
@@ -1026,7 +1053,17 @@ class AnalyticRubricJudge:
                         f"{type(exc).__name__}: {exc}"
                     ) from exc
                 transport_failures += 1
-                if transport_failures >= transport_budget:
+                self._judge.note_transport_failure(
+                    judge_config.model or "<provider default>"
+                )
+                # A model that overran the token budget will overrun it again on
+                # the same prompt: retrying only re-buys the same truncated
+                # generation. Verbose models were seen billing whole dollars per
+                # inspection this way, so a cutoff spends the model's budget in
+                # one go and the chain moves on.
+                if transport_failures >= transport_budget or isinstance(
+                    exc, ProviderTruncatedError
+                ):
                     raise JudgeTransportExhaustedError(
                         f"{type(exc).__name__} after {transport_failures} attempt(s) "
                         f"on model {judge_config.model or '<provider default>'}: {exc}",

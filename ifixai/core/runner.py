@@ -36,6 +36,7 @@ from ifixai.reporting.scorecard import (
     exploratory_inspection_warnings,
     extraction_error_warnings,
     insufficient_evidence_warnings,
+    judge_substitution_warnings,
     scorecard_warnings,
 )
 from ifixai.scoring.category_weights import (
@@ -228,6 +229,7 @@ async def run_strategic(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="strategic",
+            judge_stats=judge.get_stats() if judge else None,
             selected_ids=set(STRATEGIC_TEST_IDS),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
@@ -311,6 +313,7 @@ async def run_selected(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="selected",
+            judge_stats=judge.get_stats() if judge else None,
             selected_ids=set(test_ids),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
@@ -635,6 +638,10 @@ def _build_result(
             seen.add(msg)
             combined_warnings.append(msg)
     for msg in extraction_error_warnings(test_results):
+        if msg not in seen:
+            seen.add(msg)
+            combined_warnings.append(msg)
+    for msg in judge_substitution_warnings(judge_stats):
         if msg not in seen:
             seen.add(msg)
             combined_warnings.append(msg)

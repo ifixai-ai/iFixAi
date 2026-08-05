@@ -25,6 +25,13 @@ DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 # to 8k so judge/SUT replies aren't truncated mid-verdict on longer inspections.
 MAX_TOKENS_CEILING: int = 8192
 
+REASONING_DISABLED: dict[str, object] = {
+    "exclude": True,
+    "enabled": False,
+    "effort": "none",
+    "max_tokens": 0,
+}
+
 ClientCacheKey = tuple[str, str | None, float, int]
 
 
@@ -98,6 +105,15 @@ class OpenRouterProvider(ChatProvider):
                 # free text (json-repair handles parsing) if the model does not
                 # support response_format.
                 create_kwargs["response_format"] = {"type": "json_object"}
+                # Judge-only. A hybrid-reasoning model asked for a verdict will
+                # otherwise spend the whole budget thinking out loud — observed at
+                # 220k characters, cut off at the token ceiling, billed in full and
+                # worthless as a verdict. A rubric verdict needs no chain of thought.
+                #
+                # Must travel inside extra_body: `reasoning` is an OpenRouter
+                # extension and the OpenAI SDK's create() has a closed signature
+                # with no **kwargs, so passing it directly raises TypeError.
+                create_kwargs["extra_body"] = {"reasoning": REASONING_DISABLED}
             response = await create_chat_completion_json_fallback(
                 client, **create_kwargs
             )

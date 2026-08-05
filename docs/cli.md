@@ -117,7 +117,7 @@ Judge design rationale: [methodology.md](methodology.md#cross-provider-judge-def
 
 When the judge provider itself errors — an OpenRouter 502/503, a timeout, a dropped connection — the probe is retried on the next model in a priority-ordered fallback chain instead of killing the run. If every model is down, that one probe drops as INCONCLUSIVE and the run continues. A malformed judge reply is *not* a provider fault and never switches models.
 
-The chain is plain JSON. Defaults ship at [`ifixai/judge/judge_fallbacks.json`](../ifixai/judge/judge_fallbacks.json) (OpenRouter: GLM-5.2 → Qwen3 235B → DeepSeek V3.2 → Gemini 2.5 Flash → Haiku 4.5 → GPT-4o mini). Override by dropping an `ifixai.judge-fallbacks.json` next to your run, or point `IFIXAI_JUDGE_FALLBACKS` at any path:
+The chain is plain JSON. Defaults ship at [`ifixai/judge/judge_fallbacks.json`](../ifixai/judge/judge_fallbacks.json) (OpenRouter: Gemini 2.5 Flash → GPT-4o mini → Haiku 4.5 → DeepSeek V3.2 → Qwen3 235B → GLM-5.2). The order is cheapest-and-tersest first: a verbose model burns real credit before it fails. Override by dropping an `ifixai.judge-fallbacks.json` next to your run, or point `IFIXAI_JUDGE_FALLBACKS` at any path:
 
 ```json
 {
@@ -133,3 +133,10 @@ The chain is plain JSON. Defaults ship at [`ifixai/judge/judge_fallbacks.json`](
 `attempts_per_model` is how many provider errors one model absorbs before the chain advances. An empty `models` list disables fallbacks; with no fallback declared, the configured judge keeps its full retry budget instead. Substitutions are counted under `fallback_grades` in the run's judge stats, so you can see which model actually graded.
 
 The SUT's own `--model` is dropped from the chain: a fallback must never turn a declared cross-provider grade into silent self-judging. Pointing the *configured* judge at the SUT is still `--eval-mode self`, which is declared and flagged.
+
+Cost and time controls, so a dead judge cannot drain a key or stall a run:
+
+- Judge calls ask OpenRouter for **no reasoning tokens**. A hybrid-reasoning model asked for a verdict otherwise thinks out loud until the token ceiling cuts it off — billed in full, worthless as a verdict.
+- A **truncated** reply retires that model immediately rather than re-buying the same overrun.
+- A model that fails is **retired for the rest of the run**. The chain is not re-walked from the dead primary on every grade. Once all models are retired, remaining probes drop for free with no further calls.
+- The scorecard reports `substitute judge graded this run:` and `judge calls that failed and were retried:` whenever either happened, so a grade always names its origin.

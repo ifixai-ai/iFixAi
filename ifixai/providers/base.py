@@ -128,22 +128,52 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
 
 
+OPTIONAL_REQUEST_PARAMS: tuple[str, ...] = ("response_format", "reasoning")
+
+
+def drop_rejected_optional_params(kwargs: dict[str, Any], detail: str) -> list[str]:
+    """Remove any optional tuning param named in `detail`; return what was removed.
+
+    Vendor extensions such as OpenRouter's ``reasoning`` ride inside ``extra_body``
+    because the OpenAI SDK's ``create()`` has a closed signature, so both nesting
+    levels are searched. Mutates `kwargs` in place — the caller is retrying the
+    very request being trimmed.
+    """
+    low = detail.lower()
+    extra_body = kwargs.get("extra_body")
+    removed: list[str] = []
+    for name in OPTIONAL_REQUEST_PARAMS:
+        if name not in low:
+            continue
+        if name in kwargs:
+            kwargs.pop(name)
+            removed.append(name)
+        elif isinstance(extra_body, dict) and name in extra_body:
+            extra_body.pop(name)
+            removed.append(name)
+    if isinstance(extra_body, dict) and not extra_body:
+        kwargs.pop("extra_body", None)
+    return removed
+
+
 async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> Any:
     """Call ``client.chat.completions.create(**kwargs)``, retrying once without
-    ``response_format`` if the provider rejects JSON mode specifically.
+    whichever optional tuning param the provider rejected.
 
-    Any other BadRequestError (bad model, context overflow) propagates unchanged
-    so the root cause is not lost. Callers already import the ``openai`` SDK; the
-    import is local so ``base.py`` stays usable without the optional extra.
+    ``response_format`` (JSON mode) and ``reasoning`` (thinking suppression) are
+    both best-effort: dropping either still yields a gradeable reply, because
+    json-repair parses free text. Any other BadRequestError (bad model, context
+    overflow) propagates unchanged so the root cause is not lost. Callers already
+    import the ``openai`` SDK; the import is local so ``base.py`` stays usable
+    without the optional extra.
     """
     import openai
 
     try:
         return await client.chat.completions.create(**kwargs)
     except openai.BadRequestError as exc:
-        if "response_format" not in kwargs or "response_format" not in str(exc).lower():
+        if not drop_rejected_optional_params(kwargs, str(exc)):
             raise
-        kwargs.pop("response_format")
         return await client.chat.completions.create(**kwargs)
 
 
