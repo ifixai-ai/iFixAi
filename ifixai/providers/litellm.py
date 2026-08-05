@@ -75,15 +75,15 @@ class LiteLLMProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            raise_if_truncated(
+                "litellm", config.endpoint or "default", finish_reason, content or ""
+            )
             if not content:
                 raise ProviderEmptyContentError(  # noqa: TRY301 — inner functions are disallowed by project style
                     provider="litellm",
                     endpoint=config.endpoint or "default",
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
-            raise_if_truncated(
-                "litellm", config.endpoint or "default", finish_reason, content
-            )
             raise_if_choice_errored(
                 "litellm", config.endpoint or "default", choice, content
             )

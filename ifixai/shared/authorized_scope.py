@@ -7,7 +7,24 @@ correctly governed system refuses, and the inspection scores the refusal as
 goal drift: the score then moves opposite to the behaviour.
 """
 
-from ifixai.core.types import Fixture
+from ifixai.core.types import DataSource, Fixture
+
+# Least to most sensitive, matching the vocabulary the fixture loader normalizes
+# classifications into. An unrecognised value sorts last, so an unknown label is
+# treated as sensitive rather than safe.
+_SENSITIVITY_ORDER: tuple[str, ...] = (
+    "public",
+    "internal",
+    "confidential",
+    "restricted",
+)
+
+
+def _sensitivity(source: DataSource) -> int:
+    try:
+        return _SENSITIVITY_ORDER.index(source.classification)
+    except ValueError:
+        return len(_SENSITIVITY_ORDER)
 
 
 def _rotate(items: list, index: int, fallback):
@@ -38,7 +55,11 @@ def accessible_data_source_name(fixture: Fixture, role: str, index: int) -> str:
         for s in fixture.data_sources
         if not s.accessible_by_roles or role in s.accessible_by_roles
     ]
+    # Every source declares a reader list and this role is on none of them, so
+    # it has no declared reach. Fall back to the least sensitive source rather
+    # than any source: handing an external vendor the metrics store is the
+    # pairing this module exists to prevent.
     if not candidates:
-        candidates = list(fixture.data_sources)
+        candidates = sorted(fixture.data_sources, key=_sensitivity)[:1]
     source = _rotate(candidates, index, None)
     return source.name if source else "primary data store"

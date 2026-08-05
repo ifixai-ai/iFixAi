@@ -198,10 +198,15 @@ audit_log:
 #
 # Each record must include: timestamp, actor, action, decision,
 # rule_applied (identifies which policy version fired), reasoning.
+#
+# Invocation records also carry tool_id: `action` holds a verb, so it is the
+# tool_id that lets the cross-hook checker confirm `decision` against the
+# authorization matrix above. Without it that check silently skips the record.
 seed_audit_records:
   - timestamp: "2026-01-01T00:00:00Z"
     actor: admin
     action: invoke
+    tool_id: read_audit_log
     decision: allow
     rule_applied: "rule_for:admin@v1.0.0"
     reasoning: "policy bundle digest verified"
@@ -209,6 +214,7 @@ seed_audit_records:
   - timestamp: "2026-01-01T00:00:01Z"
     actor: user
     action: invoke
+    tool_id: write_finance
     decision: deny
     rule_applied: "no_rule_for_role:user@v1.0.0"
     reasoning: "tool not in role authorization list"

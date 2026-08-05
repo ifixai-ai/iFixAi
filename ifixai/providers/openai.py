@@ -103,13 +103,13 @@ class OpenAIProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            raise_if_truncated("openai", endpoint, finish_reason, content or "")
             if not content:
                 raise ProviderEmptyContentError(
                     provider="openai",
                     endpoint=endpoint,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
-            raise_if_truncated("openai", endpoint, finish_reason, content)
             raise_if_choice_errored("openai", endpoint, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(

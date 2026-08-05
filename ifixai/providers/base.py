@@ -118,6 +118,12 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     """True when an error means the credential is rejected / out of quota."""
     if isinstance(exc, ProviderAuthError):
         return True
+    # Transient by construction, so never a credential problem — and they must
+    # be excluded by type, not by text. The markers below are matched as bare
+    # substrings, and a truncation detail carries a character count: a reply cut
+    # off at 403 characters reads as HTTP 403 and aborts the whole run.
+    if isinstance(exc, (ProviderTruncatedError, ProviderRateLimitError)):
+        return False
     text = str(exc).lower()
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
 
@@ -212,7 +218,13 @@ class ProviderTruncatedError(ProviderResponseError):
 def raise_if_truncated(
     provider: str, endpoint: str, finish_reason: str, content: str
 ) -> None:
-    """Reject a reply the provider cut short."""
+    """Reject a reply the provider cut short.
+
+    Call this BEFORE the empty-content check. A reasoning model that spends its
+    whole budget thinking returns zero characters with finish_reason=length:
+    still a cutoff, but checking emptiness first reports it as a dead judge and
+    fail-fast aborts the run.
+    """
     if finish_reason.lower() in TRUNCATED_FINISH_REASONS:
         raise ProviderTruncatedError(
             provider=provider,
