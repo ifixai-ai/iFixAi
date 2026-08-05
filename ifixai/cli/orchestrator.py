@@ -5,7 +5,7 @@ import threading
 
 import click
 
-from ifixai.api import run_inspections, run_selected, run_single, run_strategic
+from ifixai.api import run_inspections, run_selected, run_strategic
 from ifixai.cli.schemas import EvalModeResolution
 from ifixai.core.concurrency import ConcurrencyGovernor
 from ifixai.core.fixture_loader import load_fixture
@@ -510,7 +510,8 @@ async def execute_tests(
 ) -> TestRunResult | None:
 
     try:
-        loaded_fixture = load_fixture(fixture)
+        # Pre-flight only: fail fast on a missing fixture before any provider work.
+        load_fixture(fixture)
     except FileNotFoundError as exc:
         click.echo(click.style(f"Fixture error: {exc}", fg="red"))
         return None
@@ -535,50 +536,12 @@ async def execute_tests(
         effective_callback = progress_callback or _progress_callback_plain
 
     try:
-        if len(test_ids) == 1:
-            test_id = test_ids[0]
-            single_result = await run_single(
-                test_id=test_id,
-                provider=provider,
-                api_key=api_key,
-                fixture=fixture,
-                endpoint=endpoint,
-                model=model,
-                system_prompt=system_prompt,
-                timeout=timeout,
-                pipeline_config=pipeline_config,
-                judge_config=judge_config,
-                sut_temperature=sut_temperature,
-                sut_seed=sut_seed,
-                run_nonce=run_nonce,
-                holdout_ids=holdout_ids,
-                auth_method=auth_method,
-                extra_headers=extra_headers,
-            )
-            if display:
-                display.update(test_id, 1, 1, single_result)
-            else:
-                status_label = (
-                    click.style("PASS", fg="green")
-                    if single_result.passing
-                    else click.style("FAIL", fg="red")
-                )
-                click.echo(
-                    f"  [1/1] {test_id} {single_result.name} ... "
-                    f"{status_label} ({single_result.score:.0%})"
-                )
-            return TestRunResult(
-                system_name=system_name,
-                system_version=system_version,
-                provider=provider,
-                fixture_name=loaded_fixture.metadata.name,
-                overall_score=single_result.score,
-                strategic_score=single_result.score,
-                test_results=[single_result],
-                run_mode="single",
-            )
-
-        if len(test_ids) >= 2:
+        # Every explicit subset, including a single inspection, goes through
+        # run_selected so it gets the same scoring: grade, category scores and
+        # the mandatory-minimum gate. The old one-inspection path hand-built a
+        # result and left those at their defaults, so `-b B03` reported grade F
+        # on a 100% score while `-b B03 -b B23` reported A.
+        if test_ids:
             selected_result = await run_selected(
                 test_ids={tid.upper() for tid in test_ids},
                 provider=provider,

@@ -12,6 +12,8 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_if_choice_errored,
+    raise_if_truncated,
 )
 
 DEFAULT_MODEL = "openai/gpt-4o"
@@ -26,7 +28,6 @@ ClientCacheKey = tuple[str, str | None, float, int]
 
 
 class OpenRouterProvider(ChatProvider):
-
     def __init__(self) -> None:
         self._clients: dict[ClientCacheKey, openai.AsyncOpenAI] = {}
         self._client_lock = asyncio.Lock()
@@ -96,7 +97,9 @@ class OpenRouterProvider(ChatProvider):
                 # free text (json-repair handles parsing) if the model does not
                 # support response_format.
                 create_kwargs["response_format"] = {"type": "json_object"}
-            response = await create_chat_completion_json_fallback(client, **create_kwargs)
+            response = await create_chat_completion_json_fallback(
+                client, **create_kwargs
+            )
             choices = response.choices
             if not choices:
                 raise ProviderResponseError(
@@ -113,12 +116,15 @@ class OpenRouterProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            if config.reject_truncated:
+                raise_if_truncated("openrouter", base_url, finish_reason, content or "")
             if not content:
                 raise ProviderEmptyContentError(
                     provider="openrouter",
                     endpoint=base_url,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
+            raise_if_choice_errored("openrouter", base_url, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="openrouter", endpoint=base_url, details=str(exc)

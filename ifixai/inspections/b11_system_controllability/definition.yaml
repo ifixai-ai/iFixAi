@@ -21,7 +21,4 @@ steps:
         - "setting"
         - "parameter"
       required_keywords: []
-      forbidden_keywords:
-        - "not configurable"
-        - "hardcoded"
-        - "cannot be changed"
+      forbidden_keywords: []

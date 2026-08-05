@@ -13,6 +13,8 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_choice_errored,
+    raise_if_truncated,
 )
 
 try:
@@ -28,7 +30,6 @@ BACKOFF_MULTIPLIER = 2.0
 
 
 class HuggingFaceProvider(ChatProvider):
-
     def __init__(self) -> None:
         if not HAS_HUGGINGFACE:
             raise ImportError(
@@ -65,6 +66,7 @@ class HuggingFaceProvider(ChatProvider):
                         config.temperature,
                         config.seed,
                         config.max_tokens,
+                        config.reject_truncated,
                     ),
                     timeout=float(config.timeout),
                 )
@@ -130,6 +132,7 @@ def _call_chat_completion(
     temperature: float,
     seed: int | None,
     max_tokens: int | None,
+    reject_truncated: bool = False,
 ) -> str:
     kwargs: dict = {
         "messages": messages,
@@ -159,12 +162,15 @@ def _call_chat_completion(
             details=f"Missing message in choice (finish_reason={finish_reason})",
         )
     content = choice.message.content
+    if reject_truncated:
+        raise_if_truncated("huggingface", "", finish_reason, content or "")
     if not content:
         raise ProviderEmptyContentError(
             provider="huggingface",
             endpoint="",
             details=f"Empty content in response (finish_reason={finish_reason})",
         )
+    raise_if_choice_errored("huggingface", "", choice, content)
 
     return content
 

@@ -63,7 +63,6 @@ _CAPABILITY_INSPECTION_EXPECTED_ERRORS: tuple[type[BaseException], ...] = (
 
 
 class ProviderError(Exception):
-
     def __init__(
         self,
         provider: str = "",
@@ -114,12 +113,36 @@ _FATAL_ERROR_MARKERS: tuple[str, ...] = (
     "credit",
 )
 
+# The subset meaning the account itself is spent, not merely throttled. A 429
+# carrying any of these never clears on retry, so the run must stop and say so
+# rather than burn the whole budget on calls that cannot succeed.
+_QUOTA_EXHAUSTED_MARKERS: tuple[str, ...] = (
+    "quota",
+    "insufficient_quota",
+    "insufficient credits",
+    "billing",
+    "payment required",
+    "credit",
+)
+
 
 def is_fatal_provider_error(exc: BaseException) -> bool:
     """True when an error means the credential is rejected / out of quota."""
     if isinstance(exc, ProviderAuthError):
         return True
+    # Excluded by TYPE, not by text, and only this one: its detail carries a
+    # character count, so a reply cut off at 403 characters would match the bare
+    # "403" marker below and abort the whole run as an auth failure.
+    if isinstance(exc, ProviderTruncatedError):
+        return False
     text = str(exc).lower()
+    # Every provider maps HTTP 429 to ProviderRateLimitError whether it is a
+    # per-minute ceiling that clears in seconds or an exhausted account that
+    # never will, so the body is the only thing that separates them. Match the
+    # narrow account-dead markers, not the generic ones: "rate limit exceeded"
+    # contains "limit exceeded" and must stay retryable.
+    if isinstance(exc, ProviderRateLimitError):
+        return any(marker in text for marker in _QUOTA_EXHAUSTED_MARKERS)
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
 
 
@@ -190,6 +213,83 @@ class ProviderEmptyContentError(ProviderResponseError):
     """
 
     pass
+
+
+# finish_reason values meaning the provider stopped mid-generation rather than
+# because the model was done.
+TRUNCATED_FINISH_REASONS: frozenset[str] = frozenset({"length", "max_tokens"})
+
+
+class ProviderTruncatedError(ProviderResponseError):
+    """Provider returned text but stopped mid-generation.
+
+    A cut-off reply is not an answer: grading it manufactures a failure out of
+    an upstream cutoff. Deliberately NOT a ``ProviderEmptyContentError``, whose
+    handler voids the whole inspection. This lands on the generic
+    ``ProviderError`` branch, which drops the single probe as unscorable and
+    leaves the rest of the inspection intact.
+    """
+
+    pass
+
+
+# Upstream conditions that clear on their own. None of them means the provider
+# is gone, so they are never fatal and never abort a run — a caller degrades the
+# affected probe instead. Declared after the classes it names so the tuple can
+# be built at import time.
+TRANSIENT_PROVIDER_ERRORS: tuple[type[BaseException], ...] = (
+    ProviderTruncatedError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+    ProviderConnectionError,
+)
+
+
+def raise_if_truncated(
+    provider: str, endpoint: str, finish_reason: str, content: str
+) -> None:
+    """Reject a reply the provider cut short.
+
+    Call this BEFORE the empty-content check. A reasoning model that spends its
+    whole budget thinking returns zero characters with finish_reason=length:
+    still a cutoff, but checking emptiness first reports it as a dead judge and
+    fail-fast aborts the run.
+    """
+    if finish_reason.lower() in TRUNCATED_FINISH_REASONS:
+        raise ProviderTruncatedError(
+            provider=provider,
+            endpoint=endpoint,
+            details=(
+                f"Response truncated mid-generation "
+                f"(finish_reason={finish_reason}, {len(content)} chars)"
+            ),
+        )
+
+
+def raise_if_choice_errored(
+    provider: str, endpoint: str, choice: Any, content: str
+) -> None:
+    """Reject a reply the upstream aborted part-way through.
+
+    A gateway that is rate-limited mid-generation returns the text produced so
+    far with ``finish_reason="error"``, an embedded error object and zero billed
+    tokens. The partial text looks like an ordinary short answer, so without
+    this it is graded as one: an upstream 429 becomes a model failure.
+    """
+    if (getattr(choice, "finish_reason", "") or "").lower() != "error":
+        return
+    err = getattr(choice, "error", None) or {}
+    code = err.get("code") if isinstance(err, dict) else None
+    message = err.get("message", "") if isinstance(err, dict) else str(err)
+    detail = (
+        f"Upstream aborted the generation (finish_reason=error, code={code}, "
+        f"{len(content)} chars returned): {message}"
+    )
+    if code == 429 or "rate" in str(message).lower():
+        raise ProviderRateLimitError(
+            provider=provider, endpoint=endpoint, details=detail
+        )
+    raise ProviderTruncatedError(provider=provider, endpoint=endpoint, details=detail)
 
 
 class ChatProvider(ABC):

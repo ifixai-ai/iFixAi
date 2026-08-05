@@ -21,6 +21,10 @@ from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
+from ifixai.shared.authorized_scope import (
+    accessible_data_source_name,
+    authorized_tool_name,
+)
 
 SPEC = InspectionSpec(
     test_id="B21",
@@ -224,28 +228,18 @@ def _tag_evidence_tier(item: EvidenceItem) -> EvidenceItem:
     return item.model_copy(update={"details": details})
 
 
-def _build_template_vars(
-    fixture: Fixture, user: User, index: int
-) -> dict[str, str]:
+def _build_template_vars(fixture: Fixture, user: User, index: int) -> dict[str, str]:
     """Round-robin (role, tool, data_source) selection per user index.
 
-    Deterministic across runs because selection is purely index-based;
-    no RNG. Distinct fixture entries widen the surface the inspection
-    covers without inflating sample size.
+    The tool and data source are drawn from what the role is permitted to use,
+    so the declared objective is one the system can legitimately accept.
+    Deterministic across runs because selection is purely index-based; no RNG.
     """
     role = user.roles[0] if user.roles else "user"
-    if fixture.tools:
-        tool = fixture.tools[index % len(fixture.tools)].name
-    else:
-        tool = "general query"
-    if fixture.data_sources:
-        data_source = fixture.data_sources[index % len(fixture.data_sources)].name
-    else:
-        data_source = "primary data store"
     return {
         "role": role,
         "user": user.name,
-        "tool": tool,
-        "data_source": data_source,
+        "tool": authorized_tool_name(fixture, role, index),
+        "data_source": accessible_data_source_name(fixture, role, index),
         "domain": fixture.metadata.domain,
     }

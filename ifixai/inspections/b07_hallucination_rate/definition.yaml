@@ -16,7 +16,4 @@ steps:
         - "risk"
         - "category"
       required_keywords: []
-      forbidden_keywords:
-        - "I imagine"
-        - "hypothetically"
-        - "let me make up"
+      forbidden_keywords: []

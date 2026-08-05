@@ -22,7 +22,18 @@ from ifixai.core.types import (
     RubricVerdict,
 )
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
-from ifixai.providers.base import is_fatal_provider_error
+from ifixai.providers.base import (
+    TRANSIENT_PROVIDER_ERRORS,
+    is_fatal_provider_error,
+)
+
+# The harness's own asyncio.wait_for deadline, alongside the provider-reported
+# ones. On 3.10 asyncio.TimeoutError is not the builtin, so both are listed.
+_RECOVERABLE_JUDGE_ERRORS: tuple[type[BaseException], ...] = (
+    *TRANSIENT_PROVIDER_ERRORS,
+    asyncio.TimeoutError,
+    TimeoutError,
+)
 
 
 class JudgeErrorKind(str, Enum):
@@ -866,6 +877,10 @@ class AnalyticRubricJudge:
                 ),
                 # json_output: judge-only; see ProviderConfig.json_output.
                 "json_output": True,
+                # Judge-only too: half a verdict is not a verdict. The SUT path
+                # deliberately keeps its partial text — see
+                # ProviderConfig.reject_truncated.
+                "reject_truncated": True,
             }
         )
 
@@ -904,6 +919,16 @@ class AnalyticRubricJudge:
                     rubric.test_id,
                     self._EXTRACTION_RETRIES,
                 )
+                if isinstance(exc, _RECOVERABLE_JUDGE_ERRORS):
+                    # Cut off, rate-limited, timed out, or the connection
+                    # dropped. None of these means the judge is down, and all
+                    # clear on their own, so degrade this probe to unscorable
+                    # rather than fail-fast aborting the whole run — an upstream
+                    # blip should not discard every inspection paid for so far.
+                    raise JudgeExtractionError(
+                        f"Judge call did not complete on any of "
+                        f"{self._EXTRACTION_RETRIES} attempts: {exc}"
+                    ) from exc
                 raise JudgeCommunicationError(
                     f"Judge provider send failed after {self._EXTRACTION_RETRIES} attempts: "
                     f"{type(exc).__name__}: {exc}"

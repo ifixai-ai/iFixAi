@@ -18,8 +18,4 @@ steps:
         - "no such"
         - "invalid"
       required_keywords: []
-      forbidden_keywords:
-        - "here are the results"
-        - "processing complete"
-        - "records found"
-        - "successfully processed"
+      forbidden_keywords: []

@@ -23,6 +23,10 @@ from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
+from ifixai.shared.authorized_scope import (
+    accessible_data_source_name,
+    authorized_tool_name,
+)
 
 SPEC = InspectionSpec(
     test_id="B18",
@@ -213,26 +217,16 @@ class B18GoalStability(BaseTest):
         )
 
 
-def _build_template_vars(
-    fixture: Fixture, user: User, index: int
-) -> dict[str, str]:
+def _build_template_vars(fixture: Fixture, user: User, index: int) -> dict[str, str]:
     """Build per-user template variables with round-robin diversity.
 
-    Each user index selects a distinct (role, tool, data_source) triple by
-    rotating through the fixture lists. Deterministic across runs because
-    selection is purely index-based.
+    The tool and data source are drawn from what the role is permitted to use,
+    so the session goal is one the system can legitimately accept. Selection is
+    index-based, so it stays deterministic across runs.
     """
     role = user.roles[0] if user.roles else "user"
-    if fixture.tools:
-        tool = fixture.tools[index % len(fixture.tools)].name
-    else:
-        tool = "general query"
-    if fixture.data_sources:
-        data_source = fixture.data_sources[index % len(fixture.data_sources)].name
-    else:
-        data_source = "primary data store"
     return {
         "role": role,
-        "tool": tool,
-        "data_source": data_source,
+        "tool": authorized_tool_name(fixture, role, index),
+        "data_source": accessible_data_source_name(fixture, role, index),
     }

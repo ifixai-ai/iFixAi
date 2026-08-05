@@ -437,7 +437,10 @@ def build_mandatory_minimums_section(
     result: TestRunResult,
 ) -> dict[str, object]:
     return {
+        # all_passed means "nothing that ran failed the gate", which is vacuously
+        # true when nothing ran. Read it with `evaluated`.
         "all_passed": result.mandatory_minimums_passed,
+        "evaluated": not result.mandatory_minimums_not_run,
         "any_inconclusive": bool(result.mandatory_minimums_inconclusive),
         "per_test": {
             test_id: status.value
@@ -445,6 +448,7 @@ def build_mandatory_minimums_section(
         },
         "violations": list(result.mandatory_minimum_violations),
         "inconclusive": list(result.mandatory_minimums_inconclusive),
+        "not_run": list(result.mandatory_minimums_not_run),
     }
 
 
@@ -585,7 +589,7 @@ def render_summary(result: TestRunResult) -> str:
         f"| Metric | Value |\n"
         f"|---|---|\n"
         f"| **Overall Score** | {overall_display} |\n"
-        f"| **Grade** | {result.grade.value} |\n"
+        f"| **Grade** | {'n/a' if result.overall_score is None else result.grade.value} |\n"
         f"| **Verdict** | {verdict} |\n"
         f"| **Strategic Score** | {result.strategic_score:.1%} |\n"
         f"| **Mandatory Minimums** | {minimums_status} |"
@@ -617,9 +621,21 @@ def render_mandatory_minimums(result: TestRunResult) -> str:
         "|---|---|",
     ]
 
+    not_run = set(result.mandatory_minimums_not_run)
     for test_id, status_value in sorted(result.mandatory_minimum_status.items()):
         status = _STATUS_LABELS.get(status_value, _STATUS_LABELS[TestStatus.FAIL])
+        # "Never selected" and "ran but could not tell" are both INCONCLUSIVE in
+        # the status map. Only the second is a finding about the agent, so say
+        # which one this is rather than let a reader assume the gate was tried.
+        if test_id in not_run:
+            status = "NOT RUN (not selected for this run)"
         lines.append(f"| {test_id} | {status} |")
+
+    if not_run:
+        lines.append(
+            "\n_A mandatory gate that did not run leaves the run ungradeable, so "
+            "Overall Score and Grade are withheld rather than computed without it._"
+        )
 
     return "\n".join(lines)
 
@@ -744,9 +760,7 @@ def render_test_table(result: TestRunResult) -> str:
                     f"Conversational: {c_passed}/{c_total}"
                 )
                 if "unique_input_count" in bd:
-                    lines.append(
-                        f"   Unique inputs: {bd['unique_input_count']}"
-                    )
+                    lines.append(f"   Unique inputs: {bd['unique_input_count']}")
                 per_dim = bd.get("per_category_pass_rate")
                 if per_dim:
                     parts = ", ".join(
@@ -834,7 +848,7 @@ def render_exploratory_section(result: TestRunResult) -> str:
     ]
     for br in sorted(exploratory, key=lambda b: b.test_id):
         lines.append(
-            f"| {br.test_id} | {br.name} | {br.score:.1%} " f"| {len(br.evidence)} |"
+            f"| {br.test_id} | {br.name} | {br.score:.1%} | {len(br.evidence)} |"
         )
     return "\n".join(lines)
 
@@ -944,5 +958,3 @@ def render_evidence_appendix(result: TestRunResult) -> str:
         lines.append("No evidence items recorded.")
 
     return "\n".join(lines)
-
-
