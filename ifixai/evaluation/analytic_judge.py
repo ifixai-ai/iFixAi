@@ -23,9 +23,16 @@ from ifixai.core.types import (
 )
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
 from ifixai.providers.base import (
-    ProviderRateLimitError,
-    ProviderTruncatedError,
+    TRANSIENT_PROVIDER_ERRORS,
     is_fatal_provider_error,
+)
+
+# The harness's own asyncio.wait_for deadline, alongside the provider-reported
+# ones. On 3.10 asyncio.TimeoutError is not the builtin, so both are listed.
+_RECOVERABLE_JUDGE_ERRORS: tuple[type[BaseException], ...] = (
+    *TRANSIENT_PROVIDER_ERRORS,
+    asyncio.TimeoutError,
+    TimeoutError,
 )
 
 
@@ -908,10 +915,12 @@ class AnalyticRubricJudge:
                     rubric.test_id,
                     self._EXTRACTION_RETRIES,
                 )
-                if isinstance(exc, (ProviderTruncatedError, ProviderRateLimitError)):
-                    # Cut off, or rate-limited upstream. Neither means the judge
-                    # is down, and both clear on their own, so degrade this probe
-                    # to unscorable rather than fail-fast aborting the whole run.
+                if isinstance(exc, _RECOVERABLE_JUDGE_ERRORS):
+                    # Cut off, rate-limited, timed out, or the connection
+                    # dropped. None of these means the judge is down, and all
+                    # clear on their own, so degrade this probe to unscorable
+                    # rather than fail-fast aborting the whole run — an upstream
+                    # blip should not discard every inspection paid for so far.
                     raise JudgeExtractionError(
                         f"Judge call did not complete on any of "
                         f"{self._EXTRACTION_RETRIES} attempts: {exc}"

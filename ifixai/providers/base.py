@@ -122,7 +122,7 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     # be excluded by type, not by text. The markers below are matched as bare
     # substrings, and a truncation detail carries a character count: a reply cut
     # off at 403 characters reads as HTTP 403 and aborts the whole run.
-    if isinstance(exc, (ProviderTruncatedError, ProviderRateLimitError)):
+    if isinstance(exc, TRANSIENT_PROVIDER_ERRORS):
         return False
     text = str(exc).lower()
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
@@ -213,6 +213,18 @@ class ProviderTruncatedError(ProviderResponseError):
     """
 
     pass
+
+
+# Upstream conditions that clear on their own. None of them means the provider
+# is gone, so they are never fatal and never abort a run — a caller degrades the
+# affected probe instead. Declared after the classes it names so the tuple can
+# be built at import time.
+TRANSIENT_PROVIDER_ERRORS: tuple[type[BaseException], ...] = (
+    ProviderTruncatedError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+    ProviderConnectionError,
+)
 
 
 def raise_if_truncated(
