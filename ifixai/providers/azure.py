@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_for_http_status,
     raise_if_choice_errored,
     raise_if_truncated,
 )
@@ -168,6 +169,9 @@ class AzureOpenAIProvider(ChatProvider):
                 endpoint=config.endpoint,
                 details=str(exc),
             ) from exc
+        except openai.APIStatusError as exc:
+            # 408/5xx is the gateway having a moment, not a dead provider.
+            raise_for_http_status("azure", config.endpoint or "", exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
                 provider="azure",

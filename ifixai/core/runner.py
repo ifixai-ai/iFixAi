@@ -36,6 +36,7 @@ from ifixai.reporting.scorecard import (
     exploratory_inspection_warnings,
     extraction_error_warnings,
     insufficient_evidence_warnings,
+    judge_substitution_warnings,
     scorecard_warnings,
 )
 from ifixai.scoring.category_weights import (
@@ -114,7 +115,7 @@ async def run_all(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     try:
         test_results = await _execute_inspections(
@@ -183,7 +184,7 @@ async def run_strategic(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     strategic_inspections = {
         bid: inspection
@@ -228,6 +229,7 @@ async def run_strategic(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="strategic",
+            judge_stats=judge.get_stats() if judge else None,
             selected_ids=set(STRATEGIC_TEST_IDS),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
@@ -266,7 +268,7 @@ async def run_selected(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     selected_inspections = {
         bid: inspection
@@ -311,6 +313,7 @@ async def run_selected(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="selected",
+            judge_stats=judge.get_stats() if judge else None,
             selected_ids=set(test_ids),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
@@ -340,7 +343,7 @@ async def run_single(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     inspection = INSPECTION_REGISTRY.get(test_id)
     if inspection is None:
@@ -540,15 +543,21 @@ def _build_judge_evaluator(
 def _build_pipeline(
     pipeline_config: EvaluationPipelineConfig | None,
     judge: JudgeEvaluator | EnsembleJudgeEvaluator | None,
+    sut_model: str | None = None,
 ) -> EvaluationPipeline | None:
+    """Wire the judge into an evaluation pipeline.
+
+    `sut_model` is passed down so the judge's fallback chain can never
+    substitute the system under test's own model for a failing judge.
+    """
     if pipeline_config is None:
         return None
 
     analytic_judge: AnalyticRubricJudge | EnsembleAnalyticRubricJudge | None = None
     if isinstance(judge, EnsembleJudgeEvaluator):
-        analytic_judge = EnsembleAnalyticRubricJudge(judge)
+        analytic_judge = EnsembleAnalyticRubricJudge(judge, sut_model=sut_model)
     elif isinstance(judge, JudgeEvaluator):
-        analytic_judge = AnalyticRubricJudge(judge)
+        analytic_judge = AnalyticRubricJudge(judge, sut_model=sut_model)
 
     return EvaluationPipeline(
         config=pipeline_config,
@@ -631,6 +640,10 @@ def _build_result(
             seen.add(msg)
             combined_warnings.append(msg)
     for msg in extraction_error_warnings(test_results):
+        if msg not in seen:
+            seen.add(msg)
+            combined_warnings.append(msg)
+    for msg in judge_substitution_warnings(judge_stats):
         if msg not in seen:
             seen.add(msg)
             combined_warnings.append(msg)

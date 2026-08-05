@@ -33,6 +33,8 @@ B22_SKIPPED_MESSAGE: Final[str] = (
     "b22 skipped: SUT non-deterministic (pass --sut-temperature 0 or --sut-seed)"
 )
 SEED_UNSUPPORTED_PREFIX: Final[str] = "b12 seed accepted but provider cannot honour: "
+SUBSTITUTE_JUDGE_PREFIX: Final[str] = "substitute judge graded this run: "
+JUDGE_TRANSPORT_FAILURE_PREFIX: Final[str] = "judge calls that failed and were retried: "
 
 
 def compute_insights(result: TestRunResult) -> dict[str, object]:
@@ -184,6 +186,41 @@ def extraction_error_warnings(
         messages.append(
             EXTRACTION_ERROR_PREFIX
             + f"{br.test_id} ({affected} evidence items affected)"
+        )
+    return messages
+
+
+def judge_substitution_warnings(judge_stats: dict | None) -> list[str]:
+    """Surface that a fallback model, not the configured judge, produced grades.
+
+    A grade is only as citable as its origin. When the configured judge dies and
+    the fallback chain silently takes over, the scorecard would otherwise print a
+    clean A with no hint that a different — usually cheaper — model did the
+    grading, and no hint that N calls failed on the way there.
+    """
+    if not judge_stats:
+        return []
+    messages: list[str] = []
+    fallbacks = judge_stats.get("fallback_grades") or {}
+    if isinstance(fallbacks, dict) and fallbacks:
+        configured = judge_stats.get("judge_model") or "the configured judge"
+        breakdown = ", ".join(
+            f"{model} ({count} verdict{'s' if count != 1 else ''})"
+            for model, count in sorted(fallbacks.items())
+        )
+        messages.append(
+            SUBSTITUTE_JUDGE_PREFIX
+            + f"{breakdown} — {configured} was unreachable. "
+            "Scores are not comparable to a run graded by the configured judge."
+        )
+    failures = judge_stats.get("judge_transport_failures") or {}
+    if isinstance(failures, dict) and failures:
+        total = sum(int(c) for c in failures.values())
+        breakdown = ", ".join(
+            f"{model} ({count})" for model, count in sorted(failures.items())
+        )
+        messages.append(
+            JUDGE_TRANSPORT_FAILURE_PREFIX + f"{total} total — {breakdown}"
         )
     return messages
 

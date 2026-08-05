@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, NoReturn
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
@@ -130,10 +130,11 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     """True when an error means the credential is rejected / out of quota."""
     if isinstance(exc, ProviderAuthError):
         return True
-    # Excluded by TYPE, not by text, and only this one: its detail carries a
-    # character count, so a reply cut off at 403 characters would match the bare
-    # "403" marker below and abort the whole run as an auth failure.
-    if isinstance(exc, ProviderTruncatedError):
+    # Transient by construction, so never a credential problem — and they must
+    # be excluded by type, not by text. The markers below are matched as bare
+    # substrings, and a truncation detail carries a character count: a reply cut
+    # off at 403 characters reads as HTTP 403 and aborts the whole run.
+    if isinstance(exc, TRANSIENT_PROVIDER_ERRORS):
         return False
     text = str(exc).lower()
     # Every provider maps HTTP 429 to ProviderRateLimitError whether it is a
@@ -146,22 +147,52 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
 
 
+OPTIONAL_REQUEST_PARAMS: tuple[str, ...] = ("response_format", "reasoning")
+
+
+def drop_rejected_optional_params(kwargs: dict[str, Any], detail: str) -> list[str]:
+    """Remove any optional tuning param named in `detail`; return what was removed.
+
+    Vendor extensions such as OpenRouter's ``reasoning`` ride inside ``extra_body``
+    because the OpenAI SDK's ``create()`` has a closed signature, so both nesting
+    levels are searched. Mutates `kwargs` in place — the caller is retrying the
+    very request being trimmed.
+    """
+    low = detail.lower()
+    extra_body = kwargs.get("extra_body")
+    removed: list[str] = []
+    for name in OPTIONAL_REQUEST_PARAMS:
+        if name not in low:
+            continue
+        if name in kwargs:
+            kwargs.pop(name)
+            removed.append(name)
+        elif isinstance(extra_body, dict) and name in extra_body:
+            extra_body.pop(name)
+            removed.append(name)
+    if isinstance(extra_body, dict) and not extra_body:
+        kwargs.pop("extra_body", None)
+    return removed
+
+
 async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> Any:
     """Call ``client.chat.completions.create(**kwargs)``, retrying once without
-    ``response_format`` if the provider rejects JSON mode specifically.
+    whichever optional tuning param the provider rejected.
 
-    Any other BadRequestError (bad model, context overflow) propagates unchanged
-    so the root cause is not lost. Callers already import the ``openai`` SDK; the
-    import is local so ``base.py`` stays usable without the optional extra.
+    ``response_format`` (JSON mode) and ``reasoning`` (thinking suppression) are
+    both best-effort: dropping either still yields a gradeable reply, because
+    json-repair parses free text. Any other BadRequestError (bad model, context
+    overflow) propagates unchanged so the root cause is not lost. Callers already
+    import the ``openai`` SDK; the import is local so ``base.py`` stays usable
+    without the optional extra.
     """
     import openai
 
     try:
         return await client.chat.completions.create(**kwargs)
     except openai.BadRequestError as exc:
-        if "response_format" not in kwargs or "response_format" not in str(exc).lower():
+        if not drop_rejected_optional_params(kwargs, str(exc)):
             raise
-        kwargs.pop("response_format")
         return await client.chat.completions.create(**kwargs)
 
 
@@ -193,6 +224,17 @@ def friendly_provider_message(detail: str) -> str | None:
         return (
             "Rate limited by the provider. Lower --concurrency or wait a moment "
             "and retry."
+        )
+    if (
+        "502" in low
+        or "503" in low
+        or "504" in low
+        or "overloaded" in low
+        or "no available model provider" in low
+    ):
+        return (
+            "The gateway or the chosen model was temporarily unavailable (5xx). "
+            "Retry, or add fallback judge models (see docs/cli.md)."
         )
     if "billing" in low or "payment" in low or "credit" in low:
         return "Provider reports a billing/credit problem on the account."
@@ -233,6 +275,27 @@ class ProviderTruncatedError(ProviderResponseError):
     pass
 
 
+class ProviderOverloadedError(ProviderResponseError):
+    """The gateway or the model behind it was unavailable for this call.
+
+    Covers the whole retryable band of the OpenRouter error contract — 408
+    request timeout, 500 internal error, 502 (chosen model down / invalid
+    upstream response), 503 (no provider meets the routing requirements), 504.
+    None of these is a statement about the credential or the prompt: the same
+    call to the same model can succeed a second later, and a *different* model
+    will usually succeed immediately. Transient by construction, so it degrades
+    a probe or advances the judge fallback chain rather than aborting the run.
+
+    Deliberately distinct from ``ProviderResponseError`` (a malformed or
+    contract-breaking reply from a gateway that *did* answer).
+    """
+
+    pass
+
+
+RETRYABLE_HTTP_STATUS_CODES: frozenset[int] = frozenset({408, 500, 502, 503, 504})
+
+
 # Upstream conditions that clear on their own. None of them means the provider
 # is gone, so they are never fatal and never abort a run — a caller degrades the
 # affected probe instead. Declared after the classes it names so the tuple can
@@ -242,6 +305,7 @@ TRANSIENT_PROVIDER_ERRORS: tuple[type[BaseException], ...] = (
     ProviderRateLimitError,
     ProviderTimeoutError,
     ProviderConnectionError,
+    ProviderOverloadedError,
 )
 
 
@@ -289,7 +353,30 @@ def raise_if_choice_errored(
         raise ProviderRateLimitError(
             provider=provider, endpoint=endpoint, details=detail
         )
+    if code in RETRYABLE_HTTP_STATUS_CODES:
+        raise ProviderOverloadedError(
+            provider=provider, endpoint=endpoint, details=detail
+        )
     raise ProviderTruncatedError(provider=provider, endpoint=endpoint, details=detail)
+
+
+def raise_for_http_status(provider: str, endpoint: str, exc: Exception) -> NoReturn:
+    """Translate an OpenAI-SDK HTTP error into the matching provider exception.
+
+    Splits the gateway's retryable band (408/5xx, per the OpenRouter error
+    contract) away from genuine request/credential faults, so a model that is
+    momentarily down degrades one probe instead of reading as a dead provider
+    and aborting the run. Always raises.
+    """
+    status = getattr(exc, "status_code", None)
+    details = f"HTTP {status}: {exc}" if status is not None else str(exc)
+    if status in RETRYABLE_HTTP_STATUS_CODES:
+        raise ProviderOverloadedError(
+            provider=provider, endpoint=endpoint, details=details
+        ) from exc
+    raise ProviderResponseError(
+        provider=provider, endpoint=endpoint, details=details
+    ) from exc
 
 
 class ChatProvider(ABC):
