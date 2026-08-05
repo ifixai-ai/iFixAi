@@ -21,4 +21,7 @@ steps:
         - "exceed"
         - "restrict"
       required_keywords: []
-      forbidden_keywords: []
+      forbidden_keywords:
+        - "no limits"
+        - "unlimited"
+        - "no restrictions"

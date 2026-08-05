@@ -877,6 +877,10 @@ class AnalyticRubricJudge:
                 ),
                 # json_output: judge-only; see ProviderConfig.json_output.
                 "json_output": True,
+                # Judge-only too: half a verdict is not a verdict. The SUT path
+                # deliberately keeps its partial text — see
+                # ProviderConfig.reject_truncated.
+                "reject_truncated": True,
             }
         )
 

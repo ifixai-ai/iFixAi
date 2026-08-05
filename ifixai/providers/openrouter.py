@@ -116,7 +116,8 @@ class OpenRouterProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
-            raise_if_truncated("openrouter", base_url, finish_reason, content or "")
+            if config.reject_truncated:
+                raise_if_truncated("openrouter", base_url, finish_reason, content or "")
             if not content:
                 raise ProviderEmptyContentError(
                     provider="openrouter",

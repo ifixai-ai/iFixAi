@@ -133,9 +133,10 @@ class AzureOpenAIProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
-            raise_if_truncated(
-                "azure", config.endpoint or "", finish_reason, content or ""
-            )
+            if config.reject_truncated:
+                raise_if_truncated(
+                    "azure", config.endpoint or "", finish_reason, content or ""
+                )
             if not content:
                 raise ProviderEmptyContentError(
                     provider="azure",

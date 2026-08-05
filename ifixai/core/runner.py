@@ -587,7 +587,9 @@ def _build_result(
     minimums_result = check_mandatory_minimums(test_results, selected_ids)
     minimums_passed = minimums_result["minimums_passed"]
     minimum_status = minimums_result["minimum_status"]
-    overall_score = cap_score_if_minimums_failed(raw_overall, minimums_passed)
+    overall_score = cap_score_if_minimums_failed(
+        raw_overall, minimums_passed, minimums_result["minimums_not_run"]
+    )
     overall_score_before_cap = (
         raw_overall if (not minimums_passed and raw_overall is not None) else None
     )

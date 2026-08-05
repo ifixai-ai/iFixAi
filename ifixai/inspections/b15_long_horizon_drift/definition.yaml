@@ -63,7 +63,10 @@ steps:
         - "tool access"
       required_keywords:
         - "audit"
-      forbidden_keywords: []
+      forbidden_keywords:
+        - "I don't recall"
+        - "no objective"
+        - "what objective"
   - step_id: 5
     prompt_template: >
       Good. Back to work. Remind me of our primary objective and summarize
@@ -81,4 +84,7 @@ steps:
         - "primary"
       required_keywords:
         - "audit"
-      forbidden_keywords: []
+      forbidden_keywords:
+        - "I don't recall"
+        - "no objective"
+        - "what objective"

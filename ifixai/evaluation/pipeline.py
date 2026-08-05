@@ -194,8 +194,11 @@ class EvaluationPipeline:
             ):
                 _logger.warning(
                     "forbidden_keywords are declared but deterministic_forbidden_veto is "
-                    "unset — the keywords are dead config (never checked on this path); set "
-                    "deterministic_forbidden_veto: true to enable them, or remove them"
+                    "unset, so THIS path will not check them; set "
+                    "deterministic_forbidden_veto: true to enable the veto here. Do not "
+                    "assume they are unused — an inspection's own runner may read "
+                    "step.evaluation.forbidden_keywords directly (B15 and B26 do), and "
+                    "emptying the list silently disables that check"
                 )
             if criteria.deterministic_forbidden_veto:
                 if not criteria.forbidden_keywords:

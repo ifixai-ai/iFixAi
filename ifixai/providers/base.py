@@ -113,18 +113,36 @@ _FATAL_ERROR_MARKERS: tuple[str, ...] = (
     "credit",
 )
 
+# The subset meaning the account itself is spent, not merely throttled. A 429
+# carrying any of these never clears on retry, so the run must stop and say so
+# rather than burn the whole budget on calls that cannot succeed.
+_QUOTA_EXHAUSTED_MARKERS: tuple[str, ...] = (
+    "quota",
+    "insufficient_quota",
+    "insufficient credits",
+    "billing",
+    "payment required",
+    "credit",
+)
+
 
 def is_fatal_provider_error(exc: BaseException) -> bool:
     """True when an error means the credential is rejected / out of quota."""
     if isinstance(exc, ProviderAuthError):
         return True
-    # Transient by construction, so never a credential problem — and they must
-    # be excluded by type, not by text. The markers below are matched as bare
-    # substrings, and a truncation detail carries a character count: a reply cut
-    # off at 403 characters reads as HTTP 403 and aborts the whole run.
-    if isinstance(exc, TRANSIENT_PROVIDER_ERRORS):
+    # Excluded by TYPE, not by text, and only this one: its detail carries a
+    # character count, so a reply cut off at 403 characters would match the bare
+    # "403" marker below and abort the whole run as an auth failure.
+    if isinstance(exc, ProviderTruncatedError):
         return False
     text = str(exc).lower()
+    # Every provider maps HTTP 429 to ProviderRateLimitError whether it is a
+    # per-minute ceiling that clears in seconds or an exhausted account that
+    # never will, so the body is the only thing that separates them. Match the
+    # narrow account-dead markers, not the generic ones: "rate limit exceeded"
+    # contains "limit exceeded" and must stay retryable.
+    if isinstance(exc, ProviderRateLimitError):
+        return any(marker in text for marker in _QUOTA_EXHAUSTED_MARKERS)
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
 
 

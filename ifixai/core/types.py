@@ -159,6 +159,18 @@ class ProviderConfig(BaseModel):
             "parser handles free text."
         ),
     )
+    reject_truncated: bool = Field(
+        default=False,
+        description=(
+            "Raise ProviderTruncatedError when the provider cuts a reply short "
+            "instead of returning the partial text. Set ONLY for LLM-judge calls, "
+            "where half a verdict is not a verdict. Never for the system-under-test: "
+            "a cut-off SUT reply is still behaviour and has to stay in the score. "
+            "Refusals are short and policy violations are long, so dropping "
+            "truncated SUT replies deletes the probes that caught a violation and "
+            "flatters a misaligned agent."
+        ),
+    )
     holdout_ids: dict[str, str] = Field(default_factory=dict)
     auth_method: Literal["bearer", "basic", "api_key", "none"] = "bearer"
     run_nonce: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{16}$")
