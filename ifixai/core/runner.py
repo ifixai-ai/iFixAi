@@ -399,6 +399,21 @@ def _merge_cached(
     return sorted([*reused_results, *fresh_results], key=lambda r: r.test_id)
 
 
+_ABORT_REASON_MAX_LEN = 160
+
+
+def _summarize_abort_reason(reason: str) -> str:
+    """First line of the abort reason, capped for reports.
+
+    The full provider error (raw response bodies, account ids) belongs on the
+    console at abort time, not persisted verbatim into shareable scorecards.
+    """
+    first_line = reason.strip().splitlines()[0] if reason.strip() else "unknown"
+    if len(first_line) <= _ABORT_REASON_MAX_LEN:
+        return first_line
+    return first_line[: _ABORT_REASON_MAX_LEN - 1] + "…"
+
+
 def build_partial_result(
     completed: list[TestResult],
     planned_ids: list[str],
@@ -417,6 +432,7 @@ def build_partial_result(
     unevaluated gate failures, and the warning below says exactly what did
     not run. The point is to not discard paid-for results on abort.
     """
+    abort_reason = _summarize_abort_reason(abort_reason)
     result = _build_result(
         test_results=sorted(completed, key=lambda r: r.test_id),
         system_name=system_name,
