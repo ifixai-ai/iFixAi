@@ -54,22 +54,27 @@ from ifixai.core.types import (
     EvaluationPipelineConfig,
     ProviderConfig,
     RunMode,
+    TestResult,
 )
+from ifixai.evaluation.checkpoint import load_checkpoint
 from ifixai.evaluation.manifest import (
+    RunManifest,
     build_manifest,
     generate_run_nonce,
     is_valid_run_nonce,
+    load_manifest,
     write_manifest,
 )
 from ifixai.evaluation.normalizer import NORMALIZER_VERSION
 from ifixai.evaluation.types import ModelDescriptor
 from ifixai.harness.registry import (
+    ALL_SPECS,
     CATEGORY_NAMES,
     SPEC_BY_ID,
     resolve_category_test_ids,
 )
 from ifixai.harness.suites import SUITE_NAMES, resolve_suite
-from ifixai.inspections.holdout_ids import generate_holdout_ids
+from ifixai.inspections.holdout_ids import HoldoutIds, generate_holdout_ids
 from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.resolver import (
@@ -92,6 +97,7 @@ from ifixai.reporting.health import (
     measurement_failure_banner,
     run_health,
 )
+from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
 from ifixai.utils.fixture_digest import compute_fixture_digest
 from ifixai.utils.rubric_digest import compute_rubric_digests_for_tests_layout
 from ifixai.wizard import generate_fixture_from_wizard, run_wizard
@@ -137,6 +143,24 @@ PROVIDER_CHOICES = [
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]
+
+
+def _judge_bias_class(eval_mode: str) -> str:
+    """'self', 'none' (deterministic-only), or 'external' — the grading
+    property that must stay constant across resumed sessions."""
+    if eval_mode == "self":
+        return "self"
+    if eval_mode == "deterministic":
+        return "none"
+    return "external"
+
+
+def _manifest_diff(previous: RunManifest, current: RunManifest) -> list[str]:
+    """Names of the manifest fields whose values differ (identity fields only)."""
+    exclude = {"run_id", "timestamp"}
+    prev = previous.model_dump(mode="json", exclude=exclude)
+    cur = current.model_dump(mode="json", exclude=exclude)
+    return sorted(k for k in prev.keys() | cur.keys() if prev.get(k) != cur.get(k))
 
 
 def _resolve_concurrency(flag_value: int | None, no_parallel: bool) -> int:
@@ -525,6 +549,15 @@ def _print_concurrency_banner(resolved: int) -> None:
     "one subdirectory per run_id.",
 )
 @click.option(
+    "--resume",
+    "resume_run_id",
+    default=None,
+    help="Resume an interrupted run by its run ID (printed at run start; the "
+    "directory name under --reliability-out). Completed inspections are "
+    "restored from the run's checkpoint and only the remaining ones execute. "
+    "Requires the same flags/config as the original run.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -717,6 +750,7 @@ def run(
     profile: str,
     run_mode: str | None,
     reliability_out: str,
+    resume_run_id: str | None,
     dry_run: bool,
     judge_budget: int,
     concurrency: int | None,
@@ -824,6 +858,49 @@ def run(
     b30_seed_pinned = b30_seed is not None
     b29_seed_pinned = b29_seed is not None
     b32_seed_pinned = b32_seed is not None
+
+    # --resume: reuse the original run's per-run random values (nonce, corpus
+    # seeds, holdout ids) so the manifest rebuilt below hashes to the same
+    # run_id. Everything the user chose (model, fixture, judges, selection)
+    # must be re-passed identically; the identity check at manifest time
+    # refuses to resume when it differs.
+    resume_manifest = None
+    if resume_run_id:
+        manifest_file = Path(reliability_out) / resume_run_id / "manifest.json"
+        if not manifest_file.exists():
+            click.echo(
+                click.style(
+                    f"Error: --resume {resume_run_id}: no manifest at "
+                    f"{manifest_file}. Check the run ID and --reliability-out.",
+                    fg="red",
+                ),
+                err=True,
+            )
+            sys.exit(1)
+        resume_manifest = load_manifest(manifest_file)
+        if run_nonce is not None and run_nonce != resume_manifest.run_nonce:
+            click.echo(
+                click.style(
+                    "--run-nonce is ignored with --resume; reusing the "
+                    "original run's nonce.",
+                    fg="yellow",
+                ),
+                err=True,
+            )
+        effective_run_nonce = resume_manifest.run_nonce
+        effective_b12_seed = resume_manifest.b12_seed
+        effective_b14_seed = resume_manifest.b14_seed
+        effective_b28_seed = resume_manifest.b28_seed
+        effective_b30_seed = resume_manifest.b30_seed
+        effective_b29_seed = resume_manifest.b29_seed
+        effective_b32_seed = resume_manifest.b32_seed
+        b12_seed_pinned = resume_manifest.b12_seed_pinned
+        b14_seed_pinned = resume_manifest.b14_seed_pinned
+        b28_seed_pinned = resume_manifest.b28_seed_pinned
+        b30_seed_pinned = resume_manifest.b30_seed_pinned
+        b29_seed_pinned = resume_manifest.b29_seed_pinned
+        b32_seed_pinned = resume_manifest.b32_seed_pinned
+        holdout_seed = resume_manifest.holdout_seed
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
     if no_telemetry:
@@ -1100,7 +1177,22 @@ def run(
                 fg="cyan",
             )
         )
-    holdout = generate_holdout_ids(holdout_seed)
+    if resume_manifest is not None and resume_manifest.holdout_ids:
+        try:
+            holdout = HoldoutIds(**resume_manifest.holdout_ids)
+        except TypeError:
+            # Manifest written by a version with a different holdout shape.
+            click.echo(
+                click.style(
+                    f"Error: cannot resume {resume_run_id}: its holdout ids "
+                    "don't match this ifixai version. Start a fresh run.",
+                    fg="red",
+                ),
+                err=True,
+            )
+            sys.exit(1)
+    else:
+        holdout = generate_holdout_ids(holdout_seed)
     test_config = ProviderConfig(
         provider=provider,
         endpoint=endpoint,
@@ -1448,36 +1540,230 @@ def run(
         f"Grounding: {_GROUNDING_LABEL.get(grounding_mode, grounding_mode.value)}"
     )
 
+    # The manifest is built and written BEFORE the run: its run_id keys the
+    # per-inspection checkpoint, so a run that dies mid-way (judge quota,
+    # crash, Ctrl-C) can be resumed with --resume instead of repaying for
+    # completed inspections. test_versions comes from the planned selection,
+    # which for a completed run is identical to what the results would yield.
+    if test:
+        planned_ids = [tid.upper() for tid in test]
+    elif strategic:
+        strategic_set = set(STRATEGIC_TEST_IDS)
+        planned_ids = [s.test_id for s in ALL_SPECS if s.test_id in strategic_set]
+    else:
+        planned_ids = [s.test_id for s in ALL_SPECS]
+    test_versions = {}
+    for tid in planned_ids:
+        spec = SPEC_BY_ID.get(tid)
+        test_versions[tid] = spec.version if spec is not None else "1.0.0"
+
+    manifest_mode = RunMode.FULL if profile.lower() == "full" else RunMode.STANDARD
+    model_descriptor = ModelDescriptor(
+        provider=provider or "unknown",
+        model_id=model or "unknown",
+        version=system_version,
+        family=provider or None,
+    )
+    resolved_fixture_path = resolve_fixture_path(fixture)
+    judge_identity_descriptor: ModelDescriptor | None = None
+    if eval_mode_auto_selected_judge is not None:
+        judge_identity_descriptor = ModelDescriptor(
+            provider=eval_mode_auto_selected_judge,
+            model_id=(
+                judge_model[-1]
+                if judge_model
+                else f"{eval_mode_auto_selected_judge}-default"
+            ),
+            version="auto-paired",
+            family=eval_mode_auto_selected_judge,
+        )
+    governance_fixture_digest_value: str | None = None
+    if governance_path is not None:
+        governance_fixture_digest_value = compute_fixture_digest(governance_path)
+
+    manifest = build_manifest(
+        mode=manifest_mode,
+        model_under_test=model_descriptor,
+        judge_models=[],
+        normalizer_version=NORMALIZER_VERSION,
+        test_versions=test_versions,
+        rubric_hashes=compute_rubric_digests_for_tests_layout(_TESTS_DIR),
+        fixture_digest=compute_fixture_digest(resolved_fixture_path),
+        governance_fixture_digest=governance_fixture_digest_value,
+        governance_source=governance_source,
+        mode_filter=(list(test) if test else (["strategic"] if strategic else ["all"])),
+        judge_identity=judge_identity_descriptor,
+        b12_seed=effective_b12_seed,
+        b14_seed=effective_b14_seed,
+        b28_seed=effective_b28_seed,
+        b30_seed=effective_b30_seed,
+        b12_seed_pinned=b12_seed_pinned,
+        b14_seed_pinned=b14_seed_pinned,
+        b28_seed_pinned=b28_seed_pinned,
+        b30_seed_pinned=b30_seed_pinned,
+        b29_seed=effective_b29_seed,
+        b32_seed=effective_b32_seed,
+        b29_seed_pinned=b29_seed_pinned,
+        b32_seed_pinned=b32_seed_pinned,
+        holdout_seed=holdout_seed,
+        holdout_ids=holdout.to_dict(),
+        run_nonce=effective_run_nonce,
+    )
+
+    if resume_manifest is not None and manifest.run_id != resume_manifest.run_id:
+        changed = _manifest_diff(resume_manifest, manifest)
+        click.echo(
+            click.style(
+                f"Error: cannot resume {resume_run_id}: the run configuration "
+                f"changed since that run (differs in: {', '.join(changed) or 'unknown fields'}). "
+                "A resumed run must use the same model, fixture, judges, "
+                "selection and seeds. Start a fresh run instead.",
+                fg="red",
+            ),
+            err=True,
+        )
+        sys.exit(1)
+
+    # The judge's bias class (self / external / none) must not change across
+    # sessions: a resumed scorecard mixing self-judged and cross-judged results
+    # would carry the final session's honesty banners only. Swapping the judge
+    # MODEL within the same class is allowed (that's the escape hatch for a
+    # dead judge) — reused results keep their original grading, disclosed in
+    # the scorecard.
+    session_file = Path(reliability_out) / manifest.run_id / "session.json"
+    bias_class = _judge_bias_class(eval_mode)
+    if resume_manifest is not None and session_file.exists():
+        try:
+            prior_session = json.loads(session_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            prior_session = {}
+        prior_class = prior_session.get("judge_bias_class")
+        if prior_class is not None and prior_class != bias_class:
+            click.echo(
+                click.style(
+                    f"Error: cannot resume {resume_run_id}: the original run "
+                    f"was graded '{prior_class}' but this session would grade "
+                    f"'{bias_class}'. Mixing self-judged and independently "
+                    "judged results in one scorecard is not allowed. Rerun "
+                    "with the original evaluation mode, or start a fresh run.",
+                    fg="red",
+                ),
+                err=True,
+            )
+            sys.exit(1)
+        prior_judge = prior_session.get("judge")
+        if prior_judge is not None and prior_judge != judge_label:
+            click.echo(
+                click.style(
+                    f"Judge changed since the original session (was "
+                    f"{prior_judge}, now {judge_label}); reused results keep "
+                    "the original judge's grading.",
+                    fg="yellow",
+                )
+            )
+
+    manifest_path = write_manifest(manifest, Path(reliability_out))
+    session_file.write_text(
+        json.dumps({"judge_bias_class": bias_class, "judge": judge_label}),
+        encoding="utf-8",
+    )
+    click.echo(
+        f"Run ID: {manifest.run_id}  "
+        f"(if interrupted, resume with --resume {manifest.run_id})"
+    )
+
+    cached_results: dict[str, TestResult] = {}
+    if resume_manifest is not None:
+        planned_set = set(planned_ids)
+        cached_results = {
+            tid: res
+            for tid, res in load_checkpoint(
+                Path(reliability_out), manifest.run_id
+            ).items()
+            if tid in planned_set
+        }
+        click.echo(
+            click.style(
+                f"Resuming: {len(cached_results)} of {len(planned_ids)} "
+                f"inspections restored from checkpoint; running the remaining "
+                f"{len(planned_ids) - len(cached_results)}.",
+                fg="cyan",
+            )
+        )
+
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    result = asyncio.run(
-        execute_tests(
-            provider=provider,
-            api_key=api_key,
-            fixture=fixture,
-            endpoint=endpoint,
-            auth_method=auth_method,
-            extra_headers=extra_headers_dict,
-            model=model,
-            system_prompt=effective_system_prompt,
-            strategic=strategic,
-            test_ids=test,
-            timeout=timeout,
-            system_name=resolved_name,
-            system_version=system_version,
-            pipeline_config=pipeline_config,
-            judge_config=judge_config,
-            governor=concurrency_governor,
-            sut_temperature=sut_temperature,
-            sut_seed=sut_seed,
-            run_nonce=effective_run_nonce,
-            self_judged=(eval_mode == "self"),
-            holdout_ids=holdout.to_dict(),
+    try:
+        result = asyncio.run(
+            execute_tests(
+                provider=provider,
+                api_key=api_key,
+                fixture=fixture,
+                endpoint=endpoint,
+                auth_method=auth_method,
+                extra_headers=extra_headers_dict,
+                model=model,
+                system_prompt=effective_system_prompt,
+                strategic=strategic,
+                test_ids=test,
+                timeout=timeout,
+                system_name=resolved_name,
+                system_version=system_version,
+                pipeline_config=pipeline_config,
+                judge_config=judge_config,
+                governor=concurrency_governor,
+                sut_temperature=sut_temperature,
+                sut_seed=sut_seed,
+                run_nonce=effective_run_nonce,
+                self_judged=(eval_mode == "self"),
+                holdout_ids=holdout.to_dict(),
+                checkpoint_dir=Path(reliability_out),
+                checkpoint_run_id=manifest.run_id,
+                cached_results=cached_results,
+            )
         )
-    )
+    except KeyboardInterrupt:
+        click.echo()
+        click.echo(
+            click.style(
+                "Interrupted. Completed inspections are checkpointed; rerun "
+                f"with the same flags plus --resume {manifest.run_id} to finish "
+                "without repeating them.",
+                fg="yellow",
+            ),
+            err=True,
+        )
+        sys.exit(130)
 
     if result is None:
         sys.exit(1)
+
+    if result.partial:
+        click.echo()
+        click.echo(
+            click.style(
+                f"*** PARTIAL RESULTS *** run aborted: {result.abort_reason}",
+                fg="red",
+                bold=True,
+            )
+        )
+        click.echo(
+            click.style(
+                f"Writing a scorecard for the {len(result.test_results)} "
+                f"completed inspection(s). Run the rest with "
+                f"--resume {manifest.run_id}.",
+                fg="yellow",
+            )
+        )
+    if cached_results:
+        result.resumed_run_id = manifest.run_id
+        result.reused_result_count = len(cached_results)
+        result.warnings.append(
+            f"Resumed run {manifest.run_id}: {len(cached_results)} of "
+            f"{len(planned_ids)} inspection results reused from a previous "
+            "session. Judge-call stats cover only this session; reused "
+            "results keep the grading of the judge that originally ran them."
+        )
 
     governance_warning = _governance_source_warning(governance_source)
     if governance_warning is not None and governance_warning not in result.warnings:
@@ -1623,64 +1909,6 @@ def run(
         )
         click.echo(f"  Interactive artifact -> {artifact_out}")
 
-    run_mode = RunMode.FULL if profile.lower() == "full" else RunMode.STANDARD
-    model_descriptor = ModelDescriptor(
-        provider=provider or "unknown",
-        model_id=model or "unknown",
-        version=system_version,
-        family=provider or None,
-    )
-    test_versions = {}
-    for br in result.test_results:
-        bare_id = br.test_id.replace("SSCI-", "")
-        spec = SPEC_BY_ID.get(bare_id)
-        test_versions[bare_id] = spec.version if spec is not None else "1.0.0"
-    resolved_fixture_path = resolve_fixture_path(fixture)
-    judge_identity_descriptor: ModelDescriptor | None = None
-    if eval_mode_auto_selected_judge is not None:
-        judge_identity_descriptor = ModelDescriptor(
-            provider=eval_mode_auto_selected_judge,
-            model_id=(
-                judge_model[-1]
-                if judge_model
-                else f"{eval_mode_auto_selected_judge}-default"
-            ),
-            version="auto-paired",
-            family=eval_mode_auto_selected_judge,
-        )
-    governance_fixture_digest_value: str | None = None
-    if governance_path is not None:
-        governance_fixture_digest_value = compute_fixture_digest(governance_path)
-
-    manifest = build_manifest(
-        mode=run_mode,
-        model_under_test=model_descriptor,
-        judge_models=[],
-        normalizer_version=NORMALIZER_VERSION,
-        test_versions=test_versions,
-        rubric_hashes=compute_rubric_digests_for_tests_layout(_TESTS_DIR),
-        fixture_digest=compute_fixture_digest(resolved_fixture_path),
-        governance_fixture_digest=governance_fixture_digest_value,
-        governance_source=governance_source,
-        mode_filter=(list(test) if test else (["strategic"] if strategic else ["all"])),
-        judge_identity=judge_identity_descriptor,
-        b12_seed=effective_b12_seed,
-        b14_seed=effective_b14_seed,
-        b28_seed=effective_b28_seed,
-        b30_seed=effective_b30_seed,
-        b12_seed_pinned=b12_seed_pinned,
-        b14_seed_pinned=b14_seed_pinned,
-        b28_seed_pinned=b28_seed_pinned,
-        b30_seed_pinned=b30_seed_pinned,
-        b29_seed=effective_b29_seed,
-        b32_seed=effective_b32_seed,
-        b29_seed_pinned=b29_seed_pinned,
-        b32_seed_pinned=b32_seed_pinned,
-        holdout_seed=holdout_seed,
-        holdout_ids=holdout.to_dict(),
-        run_nonce=effective_run_nonce,
-    )
-    manifest_path = write_manifest(manifest, Path(reliability_out))
     click.echo()
     click.echo(click.style("Run manifest", bold=True))
     click.echo(f"  Mode:     {manifest.mode.value}")
@@ -1689,6 +1917,11 @@ def run(
     click.echo(f"  Manifest: {manifest_path}")
 
     telemetry.emit_completed()
+
+    if result.partial:
+        # Reports and checkpoint are on disk; a partial run still exits
+        # non-zero so CI can never mistake it for a full result.
+        sys.exit(1)
 
     if result.overall_score is None:
         click.echo(

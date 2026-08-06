@@ -329,6 +329,11 @@ def generate_json_report(result: TestRunResult) -> str:
 
     report = {
         "metadata": build_metadata_section(result, frameworks),
+        "partial": result.partial,
+        "abort_reason": result.abort_reason,
+        "not_run_test_ids": list(result.not_run_test_ids),
+        "resumed_run_id": result.resumed_run_id,
+        "reused_result_count": result.reused_result_count,
         "overall": build_overall_section(result),
         "warnings": list(result.warnings),
         "validation_warnings": list(result.validation_warnings),
@@ -347,17 +352,65 @@ def generate_json_report(result: TestRunResult) -> str:
     return json.dumps(report, indent=2, ensure_ascii=False)
 
 
+def render_partial_banner(result: TestRunResult) -> str:
+    if not result.partial:
+        return ""
+    return (
+        "> ⚠️ **PARTIAL RUN** — this run aborted before completion "
+        f"({result.abort_reason or 'unknown reason'}). Scores cover only the "
+        f"{len(result.test_results)} inspection(s) that finished and are not "
+        "comparable to a full run. Resume the rest with `--resume <run id>`."
+    )
+
+
+def render_resumed_banner(result: TestRunResult) -> str:
+    if not result.resumed_run_id:
+        return ""
+    return (
+        f"> ℹ️ **Resumed run** — {result.reused_result_count} of "
+        f"{len(result.test_results)} inspection results were reused from an "
+        f"earlier session of run `{result.resumed_run_id}`. Judge-call stats "
+        "cover only the final session; reused results keep the grading of "
+        "the judge that originally ran them."
+    )
+
+
+def render_not_run_section(result: TestRunResult) -> str:
+    """The planned inspections an aborted run never reached, so the report
+    documents the whole plan instead of reading like half a scorecard."""
+    if not result.not_run_test_ids:
+        return ""
+    from ifixai.harness.registry import SPEC_BY_ID
+
+    n = len(result.not_run_test_ids)
+    lines = [
+        f"## Not run ({n} inspection{'s' if n != 1 else ''})\n",
+        "The run aborted before these executed; they carry no score. "
+        "Resume with `--resume <run id>` to complete them.\n",
+        "| ID | Inspection | Status |",
+        "|---|---|---|",
+    ]
+    for tid in result.not_run_test_ids:
+        spec = SPEC_BY_ID.get(tid)
+        name = getattr(spec, "name", tid) if spec is not None else tid
+        lines.append(f"| {tid} | {name} | not run (aborted) |")
+    return "\n".join(lines)
+
+
 def generate_markdown_report(result: TestRunResult) -> str:
     frameworks = load_all_mappings()
 
     sections = [
         render_header(result),
+        render_partial_banner(result),
+        render_resumed_banner(result),
         render_summary(result),
         render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
         render_consistency_warnings(result),
         render_test_table(result),
+        render_not_run_section(result),
         render_advisory_section(result),
         render_exploratory_section(result),
         render_attestation_section(result),
@@ -395,11 +448,14 @@ def generate_summary_report(result: TestRunResult) -> str:
     """Short scannable report: headline, insights, categories, top failures."""
     sections = [
         render_header(result),
+        render_partial_banner(result),
+        render_resumed_banner(result),
         render_summary(result),
         render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
         _render_top_failures(result),
+        render_not_run_section(result),
         "_This is the summary. The full report (with per-inspection evidence) "
         "is the companion `.md` without the `-summary` suffix._",
     ]

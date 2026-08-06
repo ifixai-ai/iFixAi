@@ -1,7 +1,9 @@
 import io
+import logging
 import os
 import sys
 import threading
+from pathlib import Path
 
 import click
 
@@ -9,6 +11,7 @@ from ifixai.api import run_inspections, run_selected, run_strategic
 from ifixai.cli.schemas import EvalModeResolution
 from ifixai.core.concurrency import ConcurrencyGovernor
 from ifixai.core.fixture_loader import load_fixture
+from ifixai.core.runner import build_partial_result
 from ifixai.core.types import (
     EvaluationPipelineConfig,
     InspectionCategory,
@@ -16,6 +19,7 @@ from ifixai.core.types import (
     TestRunResult,
     TestStatus,
 )
+from ifixai.evaluation.checkpoint import save_checkpoint
 from ifixai.evaluation.errors import JudgeUnavailableError
 from ifixai.harness.registry import ALL_SPECS, SPEC_BY_ID
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
@@ -25,6 +29,8 @@ from ifixai.providers.resolver import (
     select_cross_provider_judge,
 )
 from ifixai.scoring.category_weights import STRATEGIC_TEST_IDS
+
+_logger = logging.getLogger(__name__)
 
 
 def _enable_windows_vt_processing() -> bool:
@@ -507,14 +513,24 @@ async def execute_tests(
     holdout_ids: dict[str, str] | None = None,
     auth_method: str = "bearer",
     extra_headers: dict[str, str] | None = None,
+    checkpoint_dir: Path | None = None,
+    checkpoint_run_id: str | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult | None:
 
     try:
-        # Pre-flight only: fail fast on a missing fixture before any provider work.
-        load_fixture(fixture)
+        # Fail fast on a missing fixture before any provider work; the loaded
+        # fixture also names the partial scorecard if the run aborts.
+        loaded_fixture = load_fixture(fixture)
     except FileNotFoundError as exc:
         click.echo(click.style(f"Fixture error: {exc}", fg="red"))
         return None
+
+    # Crash resilience: every completed inspection is checkpointed to disk the
+    # moment it lands, so an abort (judge down, quota exhausted, Ctrl-C, crash)
+    # loses at most the in-flight inspection instead of the whole paid run.
+    # `completed` also feeds the partial scorecard written on abort.
+    completed: dict[str, TestResult] = dict(cached_results or {})
 
     # Animated in-place display needs ANSI cursor escapes. On Windows,
     # those are inert unless VT processing is enabled on the console
@@ -532,8 +548,60 @@ async def execute_tests(
         display = BenchmarkProgressDisplay(_build_display_tests(strategic, test_ids))
         display.start()
         effective_callback = display.update
+        for cached_id, cached_result in completed.items():
+            display.update(cached_id, 0, 0, cached_result)
     else:
         effective_callback = progress_callback or _progress_callback_plain
+        for cached_id in sorted(completed):
+            click.echo(f"  [reused] {cached_id} ... from checkpoint")
+
+    inner_callback = effective_callback
+
+    def _checkpointing_callback(
+        test_id: str, index: int, total: int, result: TestResult
+    ) -> None:
+        completed[test_id] = result
+        if checkpoint_dir is not None and checkpoint_run_id is not None:
+            try:
+                save_checkpoint(checkpoint_dir, checkpoint_run_id, completed)
+            except Exception:  # a checkpoint hiccup must never abort the run it protects
+                _logger.exception("Checkpoint write failed; continuing the run")
+        inner_callback(test_id, index, total, result)
+
+    effective_callback = _checkpointing_callback
+
+    def _partial_result(abort_reason: str) -> TestRunResult | None:
+        """Salvage a scorecard from `completed` when the run aborts; None if
+        nothing finished (there is nothing to save)."""
+        if not completed:
+            return None
+        planned = [tid for tid, _ in _build_display_tests(strategic, test_ids)]
+        if test_ids:
+            partial_mode = "selected"
+        elif strategic:
+            partial_mode = "strategic"
+        else:
+            partial_mode = "full"
+        try:
+            partial = build_partial_result(
+                completed=list(completed.values()),
+                planned_ids=planned,
+                abort_reason=abort_reason,
+                system_name=system_name or provider,
+                system_version=system_version,
+                fixture_name=loaded_fixture.metadata.name,
+                provider_name=provider,
+                run_mode=partial_mode,
+                sut_temperature=sut_temperature,
+                sut_seed=sut_seed,
+            )
+        except Exception:
+            # The checkpoint on disk still has every completed result; a
+            # scoring failure here must not also erase the abort message.
+            _logger.exception("Could not build the partial scorecard")
+            return None
+        partial.self_judged = self_judged
+        return partial
 
     try:
         # Every explicit subset, including a single inspection, goes through
@@ -563,6 +631,7 @@ async def execute_tests(
                 holdout_ids=holdout_ids,
                 auth_method=auth_method,
                 extra_headers=extra_headers,
+                cached_results=cached_results,
             )
             selected_result.self_judged = self_judged
             return selected_result
@@ -588,6 +657,7 @@ async def execute_tests(
                 holdout_ids=holdout_ids,
                 auth_method=auth_method,
                 extra_headers=extra_headers,
+                cached_results=cached_results,
             )
             strategic_result.self_judged = self_judged
             return strategic_result
@@ -612,6 +682,7 @@ async def execute_tests(
             holdout_ids=holdout_ids,
             auth_method=auth_method,
             extra_headers=extra_headers,
+            cached_results=cached_results,
         )
 
     except JudgeUnavailableError as exc:
@@ -625,10 +696,10 @@ async def execute_tests(
         click.echo(
             click.style(f"\n*** RUN STOPPED *** {exc.detail}", fg="red"), err=True
         )
-        return None
+        return _partial_result(exc.detail)
     except Exception as exc:  # noqa: BLE001 — top-level run guard; report any failure to the user
         click.echo(click.style(f"Test execution failed: {exc}", fg="red"))
-        return None
+        return _partial_result(str(exc))
 
     else:
         inspections_result.self_judged = self_judged
