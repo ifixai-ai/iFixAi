@@ -19,6 +19,7 @@ from ifixai.harness.suites import suite_catalog
 
 _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key → many models (OpenAI, Anthropic, Google, Llama…)",
+    "orcarouter": "OrcaRouter — one key → many models (OpenAI, Anthropic, Google, DeepSeek…)",
     "openai": "OpenAI API — GPT-4o / o-series",
     "anthropic": "Anthropic API — Claude family",
     "gemini": "Google Gemini",
@@ -44,6 +45,7 @@ _MODE_DESCRIPTIONS: dict[str, str] = {
 
 _ALL_PROVIDERS = [
     "openrouter",
+    "orcarouter",
     "openai",
     "anthropic",
     "gemini",

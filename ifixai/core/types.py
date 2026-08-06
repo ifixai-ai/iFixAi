@@ -152,11 +152,11 @@ class ProviderConfig(BaseModel):
             "Request structured JSON output from the provider (response_format="
             "json_object). Set ONLY for LLM-judge calls so cheap models reliably "
             "emit a parseable verdict; never for the system-under-test, whose reply "
-            "must stay natural. Honored by the openai, openrouter, azure, litellm "
-            "(response_format) and gemini (response_mime_type) providers, which fall "
-            "back to free text if the model rejects it; a no-op on providers with no "
-            "JSON mode (anthropic, bedrock, huggingface), where the json-repair "
-            "parser handles free text."
+            "must stay natural. Honored by the openai, openrouter, orcarouter, azure, "
+            "litellm (response_format) and gemini (response_mime_type) providers, "
+            "which fall back to free text if the model rejects it; a no-op on "
+            "providers with no JSON mode (anthropic, bedrock, huggingface), where "
+            "the json-repair parser handles free text."
         ),
     )
     reject_truncated: bool = Field(

@@ -7,6 +7,7 @@ ENV_VAR_BY_PROVIDER: dict[str, str] = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "atlascloud": "ATLASCLOUD_API_KEY",
+    "orcarouter": "ORCAROUTER_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "azure": "AZURE_OPENAI_API_KEY",
     "bedrock": "AWS_ACCESS_KEY_ID",
@@ -14,6 +15,7 @@ ENV_VAR_BY_PROVIDER: dict[str, str] = {
 }
 
 _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (
+    re.compile(r"^sk-orca-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-or-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^ak-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-ant-[A-Za-z0-9_-]{20,}$"),
@@ -26,6 +28,10 @@ _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (
 )
 
 _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
+    (
+        re.compile(r"sk-orca-[A-Za-z0-9_-]{20,}"),
+        "***REDACTED_ORCAROUTER_KEY***",
+    ),
     (
         re.compile(r"sk-or-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_OPENROUTER_KEY***",

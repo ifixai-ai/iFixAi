@@ -126,6 +126,7 @@ PROVIDER_CHOICES = [
     "mock",
     "openai",
     "atlascloud",
+    "orcarouter",
     "gemini",
     "anthropic",
     "azure",
