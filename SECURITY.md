@@ -41,6 +41,7 @@ The scrubber (`ifixai/providers/secrets.py::scrub_secrets`) is parametrically ve
 |---|---|---|
 | `openai` | `sk-[A-Za-z0-9_-]{20,}` | `***REDACTED_OPENAI_KEY***` |
 | `atlascloud` | `(ak|apikey)-[A-Za-z0-9_-]{20,}` | `***REDACTED_ATLASCLOUD_KEY***` |
+| `orcarouter` | `sk-orca-[A-Za-z0-9_-]{20,}` (matched before `openrouter` and `openai`) | `***REDACTED_ORCAROUTER_KEY***` |
 | `openrouter` | `sk-or-[A-Za-z0-9_-]{20,}` (matched before `openai`) | `***REDACTED_OPENROUTER_KEY***` |
 | `anthropic` | `sk-ant-[A-Za-z0-9_-]{20,}`, `anthropic_[A-Za-z0-9_-]{20,}` | `***REDACTED_ANTHROPIC_KEY***` |
 | `gemini` | `AIzaSy[0-9A-Za-z_-]{33}` | `***REDACTED_GEMINI_KEY***` |

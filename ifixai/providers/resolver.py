@@ -45,6 +45,11 @@ except ImportError:
     AtlasCloudProvider = None
 
 try:
+    from ifixai.providers.orcarouter import OrcaRouterProvider
+except ImportError:
+    OrcaRouterProvider = None
+
+try:
     from ifixai.providers.openrouter import OpenRouterProvider
 except ImportError:
     OpenRouterProvider = None
@@ -60,6 +65,7 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "mock",
     "openai",
     "atlascloud",
+    "orcarouter",
     "openrouter",
     "anthropic",
     "gemini",
@@ -79,6 +85,7 @@ _PROVIDER_MAP: dict[str, type] = {
         "http": HttpProvider,
         "openai": OpenAIProvider,
         "atlascloud": AtlasCloudProvider,
+        "orcarouter": OrcaRouterProvider,
         "openrouter": OpenRouterProvider,
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
@@ -151,6 +158,7 @@ def resolve_provider(provider: str | object) -> object:
 _PROVIDER_CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "openai": ("OPENAI_API_KEY",),
     "atlascloud": ("ATLASCLOUD_API_KEY", "ATLAS_CLOUD_API_KEY"),
+    "orcarouter": ("ORCAROUTER_API_KEY",),
     "anthropic": ("ANTHROPIC_API_KEY",),
     "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     "azure": ("AZURE_OPENAI_API_KEY",),
@@ -169,6 +177,7 @@ _JUDGE_PREFERENCE_ORDER: tuple[str, ...] = (
     "anthropic",
     "openai",
     "atlascloud",
+    "orcarouter",
     "gemini",
     "openrouter",
     "azure",

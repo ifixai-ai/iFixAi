@@ -66,7 +66,7 @@ The scorecard adds a `warnings[]` note: declared, not measured at runtime. Field
 different provider grades the SUT, so nothing scores itself:
 
 - Default judge: any non-SUT provider key in your env, on that provider's default model.
-- Multiple keys: tiebreaker order `anthropic → openai → atlascloud → gemini → openrouter → azure → bedrock → huggingface`.
+- Multiple keys: tiebreaker order `anthropic → openai → atlascloud → orcarouter → gemini → openrouter → azure → bedrock → huggingface`.
 - No non-SUT key: the run refuses unless you pass `--eval-mode self`.
 - Override: `--judge-provider` / `--judge-api-key` / `--judge-model`. Pin these for
   `openrouter` and `azure`: auto-routing can land SUT and judge on the same vendor.
@@ -114,6 +114,7 @@ the SUT key from the environment: pass `--api-key` / `-k`, or enter it when prom
 | `anthropic` | `.[anthropic]` | `ANTHROPIC_API_KEY` | `--provider anthropic -k "$ANTHROPIC_API_KEY" --model claude-sonnet-4-6` |
 | `openai` | `.[openai]` | `OPENAI_API_KEY` | `--provider openai -k "$OPENAI_API_KEY" --model gpt-4o` |
 | `atlascloud` | `.[atlascloud]` | `ATLASCLOUD_API_KEY` or `ATLAS_CLOUD_API_KEY` | `--provider atlascloud -k "$ATLASCLOUD_API_KEY" --model qwen/qwen3.5-flash` |
+| `orcarouter` | `.[orcarouter]` | `ORCAROUTER_API_KEY` | `--provider orcarouter -k "$ORCAROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `openrouter` | `.[openrouter]` | `OPENROUTER_API_KEY` | `--provider openrouter -k "$OPENROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `gemini` | `.[gemini]` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `--provider gemini -k "$GEMINI_API_KEY"` |
 | `azure` | `.[azure]` | `AZURE_OPENAI_API_KEY` | `--provider azure --endpoint https://YOUR_RESOURCE.openai.azure.com/ -k "$AZURE_OPENAI_API_KEY" --model YOUR_DEPLOYMENT_NAME` plus explicit judge |

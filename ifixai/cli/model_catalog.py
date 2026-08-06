@@ -4,6 +4,7 @@ from __future__ import annotations
 
 DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
+    "orcarouter": "openai/gpt-4o",
     "openai": "gpt-4o",
     "anthropic": "claude-3-5-sonnet-latest",
     "gemini": "gemini-2.0-flash",
@@ -13,6 +14,21 @@ DEFAULT_MODEL: dict[str, str] = {
 }
 
 MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
+    "orcarouter": [
+        ("anthropic/claude-sonnet-4.6", "Anthropic Claude Sonnet 4.6 — strong reasoning & safety"),
+        ("anthropic/claude-haiku-4.5", "Anthropic Claude Haiku 4.5 — fast & cheap"),
+        ("openai/gpt-5.5", "OpenAI GPT-5.5 — flagship general reasoning"),
+        ("openai/gpt-5-mini", "OpenAI GPT-5 Mini — cheaper & faster"),
+        ("openai/gpt-4.1", "OpenAI GPT-4.1 — strong, widely available"),
+        ("openai/gpt-4o", "OpenAI GPT-4o — strong, broadly available"),
+        ("google/gemini-3.5-flash", "Google Gemini 3.5 Flash — fast and inexpensive"),
+        ("google/gemini-3.1-flash-lite", "Google Gemini 3.1 Flash Lite — fast, low cost"),
+        ("deepseek/deepseek-v4-pro", "DeepSeek V4 Pro — open reasoning, very low cost"),
+        ("qwen/qwen3-max", "Qwen3 Max — strong, very low cost"),
+        ("grok/grok-4.3", "Grok 4.3 — xAI flagship"),
+        ("kimi/kimi-k2.6", "Kimi K2.6 — strong reasoning, low cost"),
+        ("orcarouter/auto", "OrcaRouter Auto — smart adaptive routing (model-agnostic)"),
+    ],
     "openrouter": [
         ("anthropic/claude-sonnet-4.5", "Anthropic Claude Sonnet 4.5 — strong reasoning & safety"),
         ("anthropic/claude-opus-4.1", "Anthropic Claude Opus 4.1 — most capable, pricier"),
