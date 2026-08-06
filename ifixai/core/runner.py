@@ -36,6 +36,7 @@ from ifixai.reporting.scorecard import (
     exploratory_inspection_warnings,
     extraction_error_warnings,
     insufficient_evidence_warnings,
+    judge_substitution_warnings,
     scorecard_warnings,
 )
 from ifixai.scoring.category_weights import (
@@ -115,7 +116,7 @@ async def run_all(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     to_run, reused_results = _split_cached(INSPECTION_REGISTRY, cached_results)
     try:
@@ -134,13 +135,15 @@ async def run_all(
         test_results = _merge_cached(reused_results, test_results)
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -185,7 +188,7 @@ async def run_strategic(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     strategic_inspections = {
         bid: inspection
@@ -211,13 +214,15 @@ async def run_strategic(
         test_results = _merge_cached(reused_results, test_results)
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -230,6 +235,8 @@ async def run_strategic(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="strategic",
+            judge_stats=judge.get_stats() if judge else None,
+            selected_ids=set(STRATEGIC_TEST_IDS),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
             consistency_warnings=consistency_warnings,
@@ -268,7 +275,7 @@ async def run_selected(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     selected_inspections = {
         bid: inspection
@@ -294,13 +301,15 @@ async def run_selected(
         test_results = _merge_cached(reused_results, test_results)
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -313,6 +322,8 @@ async def run_selected(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="selected",
+            judge_stats=judge.get_stats() if judge else None,
+            selected_ids=set(test_ids),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
             consistency_warnings=consistency_warnings,
@@ -341,13 +352,12 @@ async def run_single(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     inspection = INSPECTION_REGISTRY.get(test_id)
     if inspection is None:
         raise ValueError(
-            f"Unknown test: {test_id}. "
-            f"Available: {sorted(INSPECTION_REGISTRY.keys())}"
+            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
         )
     try:
         return await inspection.execute(
@@ -493,7 +503,14 @@ async def _run_sequential(
     for index, (test_id, inspection) in enumerate(inspections.items(), start=1):
         spec = spec_map.get(test_id)
         try:
-            result = await inspection.execute(provider, config, fixture, capabilities, pipeline_config=pipeline_config, pipeline=pipeline)  # type: ignore[union-attr]
+            result = await inspection.execute(
+                provider,
+                config,
+                fixture,
+                capabilities,
+                pipeline_config=pipeline_config,
+                pipeline=pipeline,
+            )  # type: ignore[union-attr]
         except _EXPECTED_INSPECTION_ERRORS as exc:
             _logger.exception(
                 "Inspection %s failed during sequential execution", test_id
@@ -610,15 +627,21 @@ def _build_judge_evaluator(
 def _build_pipeline(
     pipeline_config: EvaluationPipelineConfig | None,
     judge: JudgeEvaluator | EnsembleJudgeEvaluator | None,
+    sut_model: str | None = None,
 ) -> EvaluationPipeline | None:
+    """Wire the judge into an evaluation pipeline.
+
+    `sut_model` is passed down so the judge's fallback chain can never
+    substitute the system under test's own model for a failing judge.
+    """
     if pipeline_config is None:
         return None
 
     analytic_judge: AnalyticRubricJudge | EnsembleAnalyticRubricJudge | None = None
     if isinstance(judge, EnsembleJudgeEvaluator):
-        analytic_judge = EnsembleAnalyticRubricJudge(judge)
+        analytic_judge = EnsembleAnalyticRubricJudge(judge, sut_model=sut_model)
     elif isinstance(judge, JudgeEvaluator):
-        analytic_judge = AnalyticRubricJudge(judge)
+        analytic_judge = AnalyticRubricJudge(judge, sut_model=sut_model)
 
     return EvaluationPipeline(
         config=pipeline_config,
@@ -640,6 +663,7 @@ def _build_result(
     consistency_capped: bool = False,
     sut_temperature: float = 0.0,
     sut_seed: int | None = None,
+    selected_ids: set[str] | None = None,
 ) -> TestRunResult:
 
     test_weights = {spec.test_id: spec.weight for spec in ALL_SPECS}
@@ -653,10 +677,12 @@ def _build_result(
 
     raw_overall = compute_overall_score(category_scores, GRADED_CATEGORY_WEIGHTS)
 
-    minimums_result = check_mandatory_minimums(test_results)
+    minimums_result = check_mandatory_minimums(test_results, selected_ids)
     minimums_passed = minimums_result["minimums_passed"]
     minimum_status = minimums_result["minimum_status"]
-    overall_score = cap_score_if_minimums_failed(raw_overall, minimums_passed)
+    overall_score = cap_score_if_minimums_failed(
+        raw_overall, minimums_passed, minimums_result["minimums_not_run"]
+    )
     overall_score_before_cap = (
         raw_overall if (not minimums_passed and raw_overall is not None) else None
     )
@@ -701,6 +727,10 @@ def _build_result(
         if msg not in seen:
             seen.add(msg)
             combined_warnings.append(msg)
+    for msg in judge_substitution_warnings(judge_stats):
+        if msg not in seen:
+            seen.add(msg)
+            combined_warnings.append(msg)
     b22_msg = b22_determinism_warning(test_results, sut_temperature, sut_seed)
     if b22_msg is not None and b22_msg not in seen:
         combined_warnings.append(b22_msg)
@@ -708,7 +738,14 @@ def _build_result(
     if b32_msg is not None and b32_msg not in seen:
         combined_warnings.append(b32_msg)
 
-    is_passed = overall_score is not None and overall_score >= PASS_THRESHOLD
+    # A run that never exercised the safety gate cannot report PASS, however
+    # well the inspections it did run scored. The score stays the honest
+    # measurement of what ran; only the verdict is withheld.
+    is_passed = (
+        overall_score is not None
+        and overall_score >= PASS_THRESHOLD
+        and not minimums_result["minimums_not_run"]
+    )
 
     return TestRunResult(
         system_name=system_name,
@@ -729,6 +766,7 @@ def _build_result(
         mandatory_minimums_passed=minimums_passed,
         mandatory_minimums_inconclusive=inconclusive_minimums,
         mandatory_minimum_violations=violations,
+        mandatory_minimums_not_run=list(minimums_result["minimums_not_run"]),
         score_capped=cap_bound or consistency_capped,
         gaps=gaps,
         run_mode=run_mode,

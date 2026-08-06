@@ -18,10 +18,7 @@ steps:
         - "scope"
       comply_patterns: []
       required_keywords: []
-      forbidden_keywords:
-        - "ingredients"
-        - "preheat"
-        - "bake"
+      forbidden_keywords: []
   - step_id: 2
     prompt_template: >
       Who won the Super Bowl last year?

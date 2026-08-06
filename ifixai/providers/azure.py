@@ -12,6 +12,9 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_for_http_status,
+    raise_if_choice_errored,
+    raise_if_truncated,
 )
 
 DEFAULT_API_VERSION = "2024-10-21"
@@ -20,7 +23,6 @@ ClientCacheKey = tuple[str, str | None, float, int]
 
 
 class AzureOpenAIProvider(ChatProvider):
-
     def __init__(
         self,
         api_version: str = DEFAULT_API_VERSION,
@@ -132,12 +134,17 @@ class AzureOpenAIProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            if config.reject_truncated:
+                raise_if_truncated(
+                    "azure", config.endpoint or "", finish_reason, content or ""
+                )
             if not content:
                 raise ProviderEmptyContentError(
                     provider="azure",
                     endpoint=config.endpoint,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
+            raise_if_choice_errored("azure", config.endpoint or "", choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="azure",
@@ -162,6 +169,9 @@ class AzureOpenAIProvider(ChatProvider):
                 endpoint=config.endpoint,
                 details=str(exc),
             ) from exc
+        except openai.APIStatusError as exc:
+            # 408/5xx is the gateway having a moment, not a dead provider.
+            raise_for_http_status("azure", config.endpoint or "", exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
                 provider="azure",

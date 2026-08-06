@@ -1,4 +1,4 @@
-﻿"""The `ifixai run` command.
+"""The `ifixai run` command.
 
 Runs ifixai tests against a target AI assistant with real-time
 progress output. Supports both non-interactive (flags) and interactive
@@ -233,7 +233,7 @@ def _parse_extra_headers(value: "str | dict | None") -> dict[str, str]:
         ) from exc
     if not isinstance(parsed, dict):
         raise click.BadParameter(
-            "--extra-headers must be a JSON object (e.g. '{\"X-Tenant\": \"acme\"}').",
+            '--extra-headers must be a JSON object (e.g. \'{"X-Tenant": "acme"}\').',
             param_hint="--extra-headers",
         )
     return {str(k): str(v) for k, v in parsed.items()}
@@ -370,7 +370,7 @@ def _print_concurrency_banner(resolved: int) -> None:
     default=None,
     help=(
         "Extra HTTP headers for --provider http as a JSON object, e.g. "
-        "'{\"X-Tenant\": \"acme\"}'. Merged over the auth header. Also settable "
+        '\'{"X-Tenant": "acme"}\'. Merged over the auth header. Also settable '
         "via the IFIXAI_EXTRA_HEADERS env var."
     ),
 )
@@ -979,7 +979,9 @@ def run(
     if judge_provider and len(judge_api_key) < len(judge_provider):
         resolved_keys = list(judge_api_key)
         while len(resolved_keys) < len(judge_provider):
-            resolved_keys.append(_lookup_env_api_key(judge_provider[len(resolved_keys)]) or "")
+            resolved_keys.append(
+                _lookup_env_api_key(judge_provider[len(resolved_keys)]) or ""
+            )
         judge_api_key = tuple(resolved_keys)
 
     if eval_mode == "full" and len(judge_provider) < 2:
@@ -1204,7 +1206,9 @@ def run(
         auth_method=auth_method,
         extra_headers=extra_headers_dict,
     )
-    conn_result = asyncio.run(_test_conn(cast(ChatProvider, resolved_provider), test_config))
+    conn_result = asyncio.run(
+        _test_conn(cast(ChatProvider, resolved_provider), test_config)
+    )
     simulation_mode = False
     if not conn_result.success:
         click.echo(
@@ -1827,9 +1831,23 @@ def run(
             f"{result.overall_score:.1%}" if result.overall_score is not None else "n/a"
         )
         click.echo(f"  {score_label}    {score_text}{coverage_suffix}")
-        click.echo(f"  Grade:            {result.grade.value}")
+        # No score means no grade. Printing the F that score_to_grade(0.0) yields
+        # would read as a judgement on the agent when the run simply did not
+        # measure enough to make one.
+        grade_text = "n/a" if result.overall_score is None else result.grade.value
+        click.echo(f"  Grade:            {grade_text}")
         click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
         click.echo(f"  Passed:           {verdict}")
+        if result.mandatory_minimums_not_run:
+            click.echo(
+                "  "
+                + click.style(
+                    "⚠ safety gate not evaluated — "
+                    f"{', '.join(result.mandatory_minimums_not_run)} were not in this "
+                    "run. The grade reflects only what ran.",
+                    fg="yellow",
+                )
+            )
         if result.self_judged:
             click.echo(
                 "  "

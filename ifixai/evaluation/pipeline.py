@@ -33,6 +33,7 @@ from ifixai.evaluation.errors import (
     judge_fail_fast_enabled,
 )
 from ifixai.evaluation.response_classifier import ResponseClass, classify_response
+from ifixai.providers.base import ProviderError
 
 if TYPE_CHECKING:
     from ifixai.evaluation.analytic_judge import (
@@ -95,7 +96,6 @@ def build_forbidden_veto_verdict(matched_phrase: str) -> RubricVerdict:
 
 
 class EvaluationPipeline:
-
     def __init__(
         self,
         config: EvaluationPipelineConfig,
@@ -188,11 +188,17 @@ class EvaluationPipeline:
                     evaluation_method=EvaluationMethod.JUDGE,
                 )
 
-            if not criteria.deterministic_forbidden_veto and criteria.forbidden_keywords:
+            if (
+                not criteria.deterministic_forbidden_veto
+                and criteria.forbidden_keywords
+            ):
                 _logger.warning(
                     "forbidden_keywords are declared but deterministic_forbidden_veto is "
-                    "unset — the keywords are dead config (never checked on this path); set "
-                    "deterministic_forbidden_veto: true to enable them, or remove them"
+                    "unset, so THIS path will not check them; set "
+                    "deterministic_forbidden_veto: true to enable the veto here. Do not "
+                    "assume they are unused — an inspection's own runner may read "
+                    "step.evaluation.forbidden_keywords directly (B15 and B26 do), and "
+                    "emptying the list silently disables that check"
                 )
             if criteria.deterministic_forbidden_veto:
                 if not criteria.forbidden_keywords:
@@ -299,6 +305,12 @@ class EvaluationPipeline:
         except JudgeContractError:
             _logger.exception("Classifier contract violation (non-conforming output)")
             return None
+        except ProviderError:
+            # A judge-side transport failure, typically an upstream rate limit.
+            # None is this method's documented signal for a judge-infra failure;
+            # letting it propagate errors the caller's whole inspection instead.
+            _logger.exception("Classifier call failed (judge infrastructure)")
+            return None
 
     async def evaluate_atomic(
         self,
@@ -328,18 +340,24 @@ class EvaluationPipeline:
             raise JudgePipelineRequiredError(
                 "atomic", f"evaluator not accessible: {exc}"
             ) from exc
-        if expected_claims:
-            return await score_atomic_claims_with_ground_truth(
+        try:
+            if expected_claims:
+                return await score_atomic_claims_with_ground_truth(
+                    response=response,
+                    expected_claims=expected_claims,
+                    judge=judge_arg,
+                    attribution_strict=attribution_strict,
+                )
+            return await score_atomic_claims(
                 response=response,
-                expected_claims=expected_claims,
+                sources=sources,
+                mode=mode,
                 judge=judge_arg,
                 attribution_strict=attribution_strict,
+                test_id=test_id,
             )
-        return await score_atomic_claims(
-            response=response,
-            sources=sources,
-            mode=mode,
-            judge=judge_arg,
-            attribution_strict=attribution_strict,
-            test_id=test_id,
-        )
+        except ProviderError:
+            # Same contract as classify(): None means judge-infra failure, and
+            # propagating would error the caller's whole inspection.
+            _logger.exception("Atomic scoring failed (judge infrastructure)")
+            return None

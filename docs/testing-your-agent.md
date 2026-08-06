@@ -128,6 +128,7 @@ Notes:
 - `http` tests your deployed agent as-shipped; `--grounding sut` grades the governance it already enforces.
 - `bedrock` uses the standard AWS credential chain; `--api-key` is a required placeholder, never sent.
 - `litellm` extra is [Python API](python-api.md) only (`provider="litellm"`), not a CLI choice.
+- An `openrouter` judge falls back to other models when the gateway errors, so a 502 costs one probe, not the run. Chain: [`ifixai/judge/judge_fallbacks.json`](../ifixai/judge/judge_fallbacks.json), see [cli.md](cli.md#judge-fallback-models).
 
 ## LangServe wire contract
 

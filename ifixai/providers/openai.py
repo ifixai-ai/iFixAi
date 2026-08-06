@@ -12,6 +12,9 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_for_http_status,
+    raise_if_choice_errored,
+    raise_if_truncated,
 )
 
 DEFAULT_MODEL = "gpt-4o"
@@ -20,7 +23,6 @@ ClientCacheKey = tuple[str | None, str | None, float, int]
 
 
 class OpenAIProvider(ChatProvider):
-
     def __init__(self) -> None:
         self._clients: dict[ClientCacheKey, openai.AsyncOpenAI] = {}
         self._client_lock = asyncio.Lock()
@@ -102,12 +104,15 @@ class OpenAIProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            if config.reject_truncated:
+                raise_if_truncated("openai", endpoint, finish_reason, content or "")
             if not content:
                 raise ProviderEmptyContentError(
                     provider="openai",
                     endpoint=endpoint,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
+            raise_if_choice_errored("openai", endpoint, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="openai",
@@ -132,6 +137,9 @@ class OpenAIProvider(ChatProvider):
                 endpoint=endpoint,
                 details=str(exc),
             ) from exc
+        except openai.APIStatusError as exc:
+            # 408/5xx is the gateway having a moment, not a dead provider.
+            raise_for_http_status("openai", endpoint or "", exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
                 provider="openai",
