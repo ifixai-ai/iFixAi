@@ -62,8 +62,8 @@ def main() -> None:
     bin_dir = _venv_bin(venv)
     engine = _exe(bin_dir, "ifixai")
 
-    # Local/dev engine override, for testing the plugin BEFORE the pinned version
-    # is on PyPI. Set IFIXAI_ENGINE_SPEC to a wheel path, a directory, or
+    # Local/dev engine override, for running the plugin against an unreleased or
+    # local engine build. Set IFIXAI_ENGINE_SPEC to a wheel path, a directory, or
     # "-e /path/to/repo" and the engine installs from there instead of
     # requirements.txt. When set we always (re)install — dev builds change without
     # the pin changing. Unset = the published pin (the real-user path).

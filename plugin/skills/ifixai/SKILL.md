@@ -5,14 +5,6 @@ description: Guide the user through running iFixAi's operational-misalignment di
 
 # iFixAi: run the diagnostic on your own agent, on any model
 
-> **Status: developer preview.** Verified offline end to end (the test suite
-> gates CI + release). A live run calls the agent under test and the judge(s) on
-> real provider APIs, billed to each provider's account. The interactive results
-> artifact is a self-contained HTML view; Claude Code artifacts are beta and
-> Team/Enterprise-only, so where they aren't available, fall back to the static
-> report. Run adversarial probes only against a **throwaway key with no real
-> secrets**.
-
 ## What this does
 
 Runs iFixAi's operational-misalignment inspections against the user's own agent
