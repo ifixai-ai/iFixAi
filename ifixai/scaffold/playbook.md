@@ -161,7 +161,7 @@ Build the picture from what already exists before asking anything:
 
 - Scan the WHOLE repo for two things before anything else: an endpoint to talk to the agent,
   and any custom agent definition. Sweep the tree rather than checking a fixed list of
-  filenames: `grep -rniE "IFIXAI_HTTP_ENDPOINT|OPENAI_BASE_URL|ANTHROPIC_BASE_URL|AGENT_URL|base_url" .`
+  filenames: `grep -rniE --exclude-dir={.git,.venv,node_modules,dist,build} "IFIXAI_HTTP_ENDPOINT|OPENAI_BASE_URL|ANTHROPIC_BASE_URL|AGENT_URL|base_url" .`
   for the endpoint, and per-agent definition files plus agent code on any framework (SDK,
   LangGraph, CrewAI, AutoGen, a YAML agent config) for the agent.
 - An endpoint to talk to the agent (the real-agent path): scan widely, accept narrowly. Only

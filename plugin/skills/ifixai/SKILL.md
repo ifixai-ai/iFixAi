@@ -143,9 +143,9 @@ of filenames. Two searches, both cheap:
 
 ```bash
 # an endpoint the repo states plainly
-grep -rniE "IFIXAI_HTTP_ENDPOINT|OPENAI_BASE_URL|ANTHROPIC_BASE_URL|AGENT_URL|base_url" .
+grep -rniE --exclude-dir={.git,.venv,node_modules,dist,build} "IFIXAI_HTTP_ENDPOINT|OPENAI_BASE_URL|ANTHROPIC_BASE_URL|AGENT_URL|base_url" .
 # an agent definition, in any framework
-ls .claude/agents/ agents/ 2>/dev/null; grep -rlniE "system_prompt|SystemMessage|Agent\(|create_agent|crewai|langgraph|autogen" --include="*.py" --include="*.ts" --include="*.yaml" .
+ls .claude/agents/ agents/ 2>/dev/null; grep -rlniE --exclude-dir={.git,.venv,node_modules,dist,build} "system_prompt|SystemMessage|Agent\(|create_agent|crewai|langgraph|autogen" --include="*.py" --include="*.ts" --include="*.yaml" .
 ```
 
 The real-agent path (Step 6 offers it first) needs a URL where the agent serves an
