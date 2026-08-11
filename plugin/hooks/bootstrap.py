@@ -97,7 +97,7 @@ def main() -> None:
         # would re-provision every session.
         stamp.write_bytes(req.read_bytes())
 
-    print(f"iFixAi: engine ready in {venv} — run /ifixai-community:ifixai to start.", file=sys.stderr)
+    print(f"iFixAi: engine ready in {venv} — run /ifixai:ifixai to start.", file=sys.stderr)
 
 
 if __name__ == "__main__":

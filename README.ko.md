@@ -95,21 +95,25 @@ Windows Python PATH 문제입니다.
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai@ifixai-community
 ```
 
 그다음 *"내 환경에서 iFixAi 돌려줘"* 라고 하거나 **`/ifixai:ifixai`** 를 입력하세요.
 (보이지 않으면 Claude Code를 재시작하거나 `/reload-plugins`를 실행하세요.)
+이미 `ifixai@ifixai-ai` 를 쓰고 있다면 그대로도 동작하며, 새 마켓플레이스 이름으로 옮기려면
+먼저 `/plugin marketplace remove ifixai-ai` 를 실행한 뒤 위의 두 명령을 실행하세요.
 
 **Codex** — 터미널에서:
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai@ifixai-community
 ```
 
 그다음 Codex를 실행해 *"내 환경에서 iFixAi 돌려줘"* 라고 하세요. Codex는 플러그인 훅을
-신뢰할지 한 번 묻고, 첫 세션에서 엔진을 프로비저닝합니다.
+신뢰할지 한 번 묻고, 첫 세션에서 엔진을 프로비저닝합니다. 이미 `ifixai@ifixai-ai` 를 쓰고
+있다면 `codex plugin marketplace upgrade` 가 이름이 바뀐 마켓플레이스에서 실패하므로, 먼저
+`codex plugin marketplace remove ifixai-ai` 를 실행한 뒤 위의 두 명령을 실행하세요.
 
 ### Skill (모든 에이전트)
 

@@ -112,21 +112,26 @@ Python の `Scripts\` フォルダーを PATH に追加するか、`python -m if
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai@ifixai-community
 ```
 
 次に *「自分の環境で iFixAi を実行して」* と依頼するか、**`/ifixai:ifixai`** と入力します。
 （表示されない場合は Claude Code を再起動するか、`/reload-plugins` を実行してください。）
+すでに `ifixai@ifixai-ai` を使っている場合、そのままでも動作しますが、新しいマーケットプレイス名に
+切り替えるには先に `/plugin marketplace remove ifixai-ai` を実行し、上記の 2 つのコマンドを実行します。
 
 **Codex**：ターミナルで次を実行します。
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai@ifixai-community
 ```
 
 その後 Codex を起動し、*「自分の環境で iFixAi を実行して」* と依頼します。Codex は
 プラグインのフックを信頼するか一度だけ確認し、最初のセッションでエンジンを用意します。
+すでに `ifixai@ifixai-ai` を使っている場合、`codex plugin marketplace upgrade` は改名後の
+マーケットプレイスで失敗するため、先に `codex plugin marketplace remove ifixai-ai` を実行し、
+上記の 2 つのコマンドを実行します。
 
 ### Skill（すべてのエージェント）
 

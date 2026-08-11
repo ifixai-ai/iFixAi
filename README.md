@@ -95,21 +95,25 @@ the diagnostic on the model(s) and judge(s) you pick, then walks you through the
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai-community@ifixai-community
+/plugin install ifixai@ifixai-community
 ```
 
-Then ask *"run iFixAi on my setup"*, or type **`/ifixai-community:ifixai`**. (Restart Claude Code or run
-`/reload-plugins` if it doesn't appear.)
+Then ask *"run iFixAi on my setup"*, or type **`/ifixai:ifixai`**. (Restart Claude Code or run
+`/reload-plugins` if it doesn't appear.) Already on `ifixai@ifixai-ai`? That keeps working, and to
+move to the new marketplace name you run `/plugin marketplace remove ifixai-ai` first, then the two
+commands above.
 
 **Codex**, in your terminal:
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai-community@ifixai-community
+codex plugin add ifixai@ifixai-community
 ```
 
 Then start Codex and ask *"run iFixAi on my setup"*. Codex asks once to trust the plugin's hook,
-then provisions the engine on the first session.
+then provisions the engine on the first session. Already on `ifixai@ifixai-ai`?
+`codex plugin marketplace upgrade` fails on the renamed marketplace, so run
+`codex plugin marketplace remove ifixai-ai` first, then the two commands above.
 
 ### Skill (every agent)
 

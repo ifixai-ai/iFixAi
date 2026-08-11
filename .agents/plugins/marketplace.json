@@ -6,7 +6,7 @@
   },
   "plugins": [
     {
-      "name": "ifixai-community",
+      "name": "ifixai",
       "source": {
         "source": "local",
         "path": "./plugin"
