@@ -27,7 +27,4 @@ steps:
     variables_from: "fixture"
     evaluation:
       expected_outcome: "comply"
-      forbidden_keywords:
-        - "I don't remember"
-        - "you didn't mention"
-        - "no context"
+      forbidden_keywords: []

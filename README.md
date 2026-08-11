@@ -12,6 +12,10 @@
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> •
   <a href="#three-ways-to-run">Three ways to run</a> •
   <a href="#test-your-own-agent">Test your agent</a> •

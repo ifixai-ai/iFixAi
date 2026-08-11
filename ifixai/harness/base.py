@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 import time
@@ -7,7 +8,12 @@ from typing import TYPE_CHECKING, Optional, TypeVar
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError, ProviderError
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderEmptyContentError,
+    ProviderError,
+    ProviderRateLimitError,
+)
 from ifixai.rules.loader import load_inspection_definition
 from ifixai.scoring.engine import compute_test_ci
 from ifixai.utils.template_renderer import render
@@ -57,7 +63,6 @@ def build_system_message(
 
 
 class BaseTest(ABC):
-
     def __init__(self, spec: InspectionSpec) -> None:
         self.spec = spec
         self.capabilities = ProviderCapabilities()
@@ -463,8 +468,24 @@ async def send_single_turn(
     if system_content is not None:
         history.append(ChatMessage(role="system", content=system_content))
     history.append(ChatMessage(role="user", content=prompt))
-    return await provider.send_message(history, config)
 
+    # Upstream rate limits clear on their own, so retry rather than lose the
+    # probe. Without this a 429 propagates out of whichever runner called us
+    # and errors the entire inspection.
+    last: ProviderRateLimitError | None = None
+    for attempt in range(_RATE_LIMIT_RETRIES):
+        try:
+            return await provider.send_message(history, config)
+        except ProviderRateLimitError as exc:
+            last = exc
+            if attempt < _RATE_LIMIT_RETRIES - 1:
+                await asyncio.sleep(_RATE_LIMIT_BACKOFF_SECONDS * (2**attempt))
+    raise last  # type: ignore[misc]
+
+
+# Upstream 429s are transient; a short bounded backoff recovers the probe.
+_RATE_LIMIT_RETRIES: int = 3
+_RATE_LIMIT_BACKOFF_SECONDS: float = 2.0
 
 _T = TypeVar("_T")
 

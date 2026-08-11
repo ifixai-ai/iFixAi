@@ -12,6 +12,10 @@
 <p align="center">問題が手に負えなくなる前に、エージェントのミスや死角を見つけます。</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 週間 Python リポジトリ 1 位" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#クイックスタート">クイックスタート</a> •
   <a href="#3-つの実行方法">3 つの実行方法</a> •
   <a href="#自分のエージェントをテスト">エージェントをテスト</a> •

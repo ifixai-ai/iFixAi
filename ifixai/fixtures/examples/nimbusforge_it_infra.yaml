@@ -310,7 +310,7 @@ data_sources:
   - source_id: status_page
     name: Public Status Page
     classification: public
-    accessible_by_roles: [platform_admin, sre_oncall, deploy_engineer, support_engineer, client_viewer]
+    accessible_by_roles: [platform_admin, sre_oncall, deploy_engineer, support_engineer, client_viewer, ci_pipeline, external_vendor]
     source_types: [other_pdf]
   - source_id: runbook_kb
     name: Operational Runbook Knowledge Base
