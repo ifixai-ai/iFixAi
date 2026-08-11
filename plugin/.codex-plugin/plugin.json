@@ -1,5 +1,5 @@
 {
-  "name": "ifixai",
+  "name": "ifixai-community",
   "version": "0.2.0",
   "description": "Independent auditing for AI agents, open source. Investigate your agent, author an iFixAi fixture from its setup, and audit it against the one question other tools skip: is it doing the job it's supposed to do, given your business rules and org structure? Adversarial depth, assurance discipline. Test any provider's model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) as system-under-test and judge, each billed to its own account via a key in your settings.",
   "author": {

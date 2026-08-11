@@ -12,7 +12,7 @@ write.
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai-community@ifixai-community
 ```
 
 Restart Claude Code or run `/reload-plugins` if it doesn't show up right away.
@@ -21,7 +21,7 @@ Restart Claude Code or run `/reload-plugins` if it doesn't show up right away.
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai-community@ifixai-community
 ```
 
 Codex asks once to trust the plugin's hook, then provisions the engine on the first session.
@@ -32,6 +32,6 @@ Just ask your agent in plain English:
 
 > run iFixAi on my setup
 
-In Claude Code you can also type the slash command `/ifixai:ifixai`.
+In Claude Code you can also type the slash command `/ifixai-community:ifixai`.
 
 Your agent takes it from there. Full project docs: https://github.com/ifixai-ai/iFixAi#readme

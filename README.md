@@ -91,17 +91,17 @@ the diagnostic on the model(s) and judge(s) you pick, then walks you through the
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai-community@ifixai-community
 ```
 
-Then ask *"run iFixAi on my setup"*, or type **`/ifixai:ifixai`**. (Restart Claude Code or run
+Then ask *"run iFixAi on my setup"*, or type **`/ifixai-community:ifixai`**. (Restart Claude Code or run
 `/reload-plugins` if it doesn't appear.)
 
 **Codex**, in your terminal:
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai-community@ifixai-community
 ```
 
 Then start Codex and ask *"run iFixAi on my setup"*. Codex asks once to trust the plugin's hook,
