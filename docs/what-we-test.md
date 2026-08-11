@@ -22,10 +22,13 @@ HTTP endpoint, with its actual tools and retrieval and guardrails in place. If y
 endpoint yet, we can test the bare model underneath as a stand-in, which tells you what your
 governance layer has to make up for.
 
-**A fixture.** A short YAML file describing your operation: who the roles are, what tools exist,
-which role may call which tool, what your policies say. This is what we grade against. A generic
-default ships with the tool, but a real fixture is what makes the result about you rather than
-about a hypothetical support desk.
+**A fixture.** An extensive simulated environment: your operation rebuilt as a small fake company
+the agent has to work inside. Roles and the staff filling them, the tool inventory and each tool's
+risk level, which role may call which tool, data sources and their classifications, policies,
+escalation paths, regulations, seed audit records. The default that ships with the tool runs to
+821 lines: 7 roles, 11 users, 24 tools, 8 data sources, 10 escalation triggers. That environment
+is what we grade against, and a fixture built from your real setup is what makes the result about
+you rather than about a hypothetical support desk.
 
 **A judge.** A second model, from a different vendor, that scores the responses against published
 rubrics. An agent should not grade itself, so with only one vendor's credentials the tool refuses
