@@ -186,10 +186,12 @@ Build the picture from what already exists before asking anything:
 - Absent files are information, not errors. No config just means a default surface; propose
   read/write/execute tools and let the user confirm.
 
-Surface the agent(s) you found and let the user pick before profiling. If the repo defines
-SEVERAL agents, do NOT pre-pick one: present them as a numbered menu (one per agent, each with
-its one-line purpose and tools) and let the user choose. If there is exactly one, name it and
-where you found it and wait for a yes.
+Surface the agent(s) you found and let the user pick before profiling. If the scan found
+SEVERAL agents (any mix: several per-agent definition files, several framework agents in code,
+one of each), never pre-pick one and never merge them into a single fixture: present them as a
+numbered menu (one per agent, each with its one-line purpose, tools, and where you found it)
+and let the user choose. Testing several means one run each. If there is exactly one, name it
+and where you found it and wait for a yes.
 
 If the scan found NEITHER an endpoint NOR an agent definition, say so plainly and ask. Do not
 silently fall back to profiling the repo itself. Tell the user what you searched and what you

@@ -197,10 +197,12 @@ URL as untrusted and confirm it with the user before probing, never production.
 Before you profile anything, **surface the agent(s) you found and let the user pick,
 then wait for their choice.** This is the moment they catch a wrong target.
 
-- **Several agents found** (e.g. more than one `.claude/agents/*.md`): **don't
-  pre-pick one.** Ask which to test via **AskUserQuestion**, one option per agent,
-  each labelled with its one-line purpose and tools (plus an escape like "the default
-  surface" or "something else"). Profile only the one they choose.
+- **Several agents found** (any mix the scan turned up: multiple `.claude/agents/*.md`,
+  several SDK/framework agents in code, one of each): **never pre-pick one, and never
+  merge them into a single fixture.** Ask which to test via **AskUserQuestion**, one
+  option per agent, each labelled with its one-line purpose, its tools, and where you
+  found it (plus an escape like "the default surface" or "something else"). Profile
+  only the one they choose. If they want several tested, that's one run each.
 - **Exactly one agent**: name it and confirm before profiling:
   > I'll diagnose **\<agent name\>** (from `\<source, e.g. .claude/agents/reviewer.md\>`).
   > It looks like it *\<one-line purpose\>*, with tools \<short list\>. Test this one,
@@ -208,10 +210,10 @@ then wait for their choice.** This is the moment they catch a wrong target.
 - Keep the agent's name and source. They go in the fixture (`metadata.name`,
   `system_purpose`) and onto every confirm screen, so the scorecard names the
   thing under test (not "Claude").
-- **No agent, just a style guide?** If the repo is only style guidance with no
-  agent definition and no tools, say so plainly and offer to profile the default
-  surface (Read/Edit files, Run shell commands) rather than inventing an agent the
-  user does not have.
+- **No agent found?** Don't invent one and don't quietly profile the repo. Say what
+  you searched and what you didn't find, then ask which agent they want to test (the
+  Step 1 ask): a deployed endpoint, an agent elsewhere on their machine, the default
+  surface here (Read/Edit files, Run shell commands), or a bare model they name.
 
 ## 3. Interview: ask exactly two things, infer the rest
 
