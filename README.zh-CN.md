@@ -112,21 +112,23 @@ PATH 问题，并非 iFixAi 本身的问题。
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai@ifixai-community
 ```
 
 然后提出 *“在我的设置上运行 iFixAi”*，或输入 **`/ifixai:ifixai`**。（如果没有显示，
-请重启 Claude Code 或运行 `/reload-plugins`。）
+请重启 Claude Code 或运行 `/reload-plugins`。）如果你已经装了 `ifixai@ifixai-ai`，它仍然可用；
+要切换到新的插件市场名称，请先运行 `/plugin marketplace remove ifixai-ai`，再执行上面两条命令。
 
 **Codex**，在终端中执行：
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai@ifixai-community
 ```
 
 然后启动 Codex 并提出 *“在我的设置上运行 iFixAi”*。Codex 会请求一次插件钩子信任，
-随后在首个会话中配置引擎。
+随后在首个会话中配置引擎。如果你已经装了 `ifixai@ifixai-ai`，`codex plugin marketplace upgrade`
+会因插件市场改名而失败，请先运行 `codex plugin marketplace remove ifixai-ai`，再执行上面两条命令。
 
 ### Skill（适用于所有智能体）
 

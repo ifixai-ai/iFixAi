@@ -24,7 +24,8 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 
 ## 💡 Wanting to understand why → explanation
 
-- **[Methodology](methodology.md)**: why the five pillars, why a cross-provider judge, what operational misalignment means, and how iFixAi compares to other eval frameworks.
+- **[What we test, and how](what-we-test.md)**: the plain-language walkthrough, no code. Start here if you are evaluating the product rather than running it.
+- **[Methodology](methodology.md)**: why the five pillars, why a cross-provider judge, what we actually measure, and how iFixAi compares to other eval frameworks.
 
 ## See it in practice
 

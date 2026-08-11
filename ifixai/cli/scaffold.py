@@ -20,7 +20,7 @@ import click
 
 PLAYBOOK_PATH = Path(__file__).resolve().parent.parent / "scaffold" / "playbook.md"
 
-DESCRIPTION = "Run iFixAi's operational-misalignment diagnostic on your own agent."
+DESCRIPTION = "Run an independent iFixAi audit on your own agent."
 DEFAULT_COMMAND_NAME = "ifixai-skill"
 # A command name becomes a file name and (for Zed) a directory name, so keep it to
 # safe characters and reject anything that could traverse the path.
