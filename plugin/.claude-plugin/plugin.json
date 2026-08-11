@@ -2,7 +2,7 @@
   "name": "ifixai",
   "displayName": "iFixAi",
   "version": "0.2.0",
-  "description": "Investigate your agent, author an iFixAi fixture from its setup, and run iFixAi's operational-misalignment diagnostic against it — test any provider's model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) as system-under-test and judge, each billed to its own account via a key in your settings.",
+  "description": "Independent auditing for AI agents, open source. Claude investigates your agent, authors an iFixAi fixture from its setup, and audits it against the one question other tools skip: is it doing the job it's supposed to do, given your business rules and org structure? Adversarial depth, assurance discipline. Test any provider's model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) as system-under-test and judge, each billed to its own account via a key in your settings.",
   "author": {
     "name": "iFixAi",
     "url": "https://github.com/ifixai-ai/iFixAi"

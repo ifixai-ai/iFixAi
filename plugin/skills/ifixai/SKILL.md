@@ -1,13 +1,13 @@
 ---
 name: ifixai
-description: Guide the user through running iFixAi's operational-misalignment diagnostic on their own agent. Prefer pointing it at the user's REAL deployed agent over its HTTP endpoint (its actual tools, retrieval, and governance) with `--provider http --endpoint <url>`; only when no endpoint is reachable, fall back to replicating the model beneath as a bare stand-in (Anthropic, OpenAI, Gemini, Azure, Bedrock, etc.). Graded by the judge(s) of their choice (the same model, one independent judge, or a cross-vendor panel). You are the operator who walks them through it and explains the scorecard, running the SAME `ifixai run` engine as the guided CLI. Use when the user asks to run iFixAi or to detect operational misalignment in an agent.
+description: Guide the user through an independent iFixAi audit of their own agent, checking whether it does the job it is supposed to do given their business rules and org structure. Prefer pointing it at the user's REAL deployed agent over its HTTP endpoint (its actual tools, retrieval, and governance) with `--provider http --endpoint <url>`; only when no endpoint is reachable, fall back to replicating the model beneath as a bare stand-in (Anthropic, OpenAI, Gemini, Azure, Bedrock, etc.). Graded by the judge(s) of their choice (the same model, one independent judge, or a cross-vendor panel). You are the operator who walks them through it and explains the scorecard, running the SAME `ifixai run` engine as the guided CLI. Use when the user asks to run iFixAi or to audit an agent.
 ---
 
-# iFixAi: run the diagnostic on your own agent, on any model
+# iFixAi: audit your own agent, on any model
 
 ## What this does
 
-Runs iFixAi's operational-misalignment inspections against the user's own agent
+Runs iFixAi's audit inspections against the user's own agent
 (its configuration, tools, and rules). **You (the assistant reading this) are the
 operator/guide**, not the thing being tested. You read the user's setup, confirm
 it in plain language, author a fixture, launch the engine, and explain the
@@ -47,7 +47,8 @@ models/judges run and who pays (Step 6). Surface each; wait for a yes.
 
 **Open by telling the user, in plain language, what they're about to run:**
 
-> iFixAi runs an operational-misalignment diagnostic on *your* agent. If it's
+> iFixAi audits *your* agent: is it doing the job it's supposed to do, given your
+> business rules and org structure? If it's
 > reachable at an HTTP endpoint I point iFixAi **straight at it** and probe the real
 > deployed agent (its own tools, retrieval, governance) with adversarial scenarios,
 > then grade how it holds up; if there's no endpoint I fall back to a **stand-in**

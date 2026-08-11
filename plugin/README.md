@@ -1,9 +1,10 @@
 # iFixAi plugin (Claude Code and Codex)
 
-Let your coding agent run iFixAi's operational-misalignment diagnostic on your own agent. It
-discovers your setup, builds the test fixture, names the cost before anything is billed, runs the
-diagnostic on the model(s) and judge(s) you pick, then walks you through the scorecard. No flags or
-fixtures to write.
+Let your coding agent run an independent, open-source iFixAi audit on your own agent: is it
+doing the job it's supposed to do, given your business rules and org structure? It discovers your
+setup, builds the test fixture, names the cost before anything is billed, runs the audit on the
+model(s) and judge(s) you pick, then walks you through the scorecard. No flags or fixtures to
+write.
 
 ## Install
 

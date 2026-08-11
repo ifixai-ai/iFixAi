@@ -1,7 +1,8 @@
 # iFixAi
 
-iFixAi runs an operational-misalignment diagnostic against an agent: it probes the agent with
-adversarial scenarios and grades the replies into a scorecard. Prefer testing the **real
+iFixAi audits an agent against the job it is supposed to do, given the business rules and org
+structure it operates under: it probes the agent with adversarial scenarios and grades the
+replies into a scorecard. Prefer testing the **real
 deployed agent** over its HTTP endpoint (`--provider http --endpoint <url>`), which exercises
 its actual tools, retrieval, and governance; only when no endpoint is reachable, fall back to
 rebuilding the agent as a test fixture and probing the **bare model** beneath it (called

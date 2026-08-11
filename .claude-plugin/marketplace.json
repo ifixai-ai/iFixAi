@@ -1,6 +1,6 @@
 {
   "name": "ifixai-ai",
-  "description": "iFixAi tools for Claude Code — Claude guides you through running the open-source operational-misalignment diagnostic on your own agent, testing any model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) graded by the judge(s) of your choice.",
+  "description": "iFixAi tools for Claude Code. Claude guides you through an independent, open-source audit of your own agent: is it doing the job it's supposed to do, given your business rules and org structure? Test any model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) graded by the judge(s) of your choice.",
   "owner": {
     "name": "iFixAi",
     "url": "https://github.com/ifixai-ai/iFixAi"
@@ -9,7 +9,7 @@
     {
       "name": "ifixai",
       "source": "./plugin",
-      "description": "Claude guides you through iFixAi's operational-misalignment diagnostic on your own agent — discovers your setup, confirms the cost, and runs the inspection suite. Test any model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) graded by self, one independent judge, or a cross-vendor panel; each provider is billed to its own account via a key in your settings, never the command line. Results render as an interactive artifact (with a static-report fallback).",
+      "description": "Independent auditing for AI agents, open source. Claude discovers your setup, confirms the cost, and audits your agent against the one question other tools skip: is it doing the job it's supposed to do, given your business rules and org structure? Test any model (Anthropic, OpenAI, Gemini, Azure, Bedrock, …) graded by self, one independent judge, or a cross-vendor panel; each provider is billed to its own account via a key in your settings, never the command line. Results render as an interactive artifact (with a static-report fallback).",
       "category": "testing",
       "tags": ["evaluation", "alignment", "safety", "diagnostic", "agent-testing"]
     }
