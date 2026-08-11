@@ -12,6 +12,10 @@
 <p align="center">일이 걷잡을 수 없어지기 전에 에이전트의 실수와 사각지대를 잡아냅니다.</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 주간 Python 저장소 1위" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#빠른-시작">빠른 시작</a> •
   <a href="#세-가지-실행-방법">세 가지 실행 방법</a> •
   <a href="#직접-만든-에이전트-테스트">에이전트 테스트</a> •

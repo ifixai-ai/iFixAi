@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "providers": {
+    "openrouter": {
+      "attempts_per_model": 2,
+      "models": [
+        {
+          "model": "google/gemini-2.5-flash",
+          "note": "Terse, cheap, reliable JSON - cheapest thing to try first"
+        },
+        {
+          "model": "openai/gpt-4o-mini",
+          "note": "Terse and near-universally available"
+        },
+        {
+          "model": "anthropic/claude-haiku-4.5",
+          "note": "Fast Anthropic fallback, different vendor lineage"
+        },
+        {
+          "model": "deepseek/deepseek-v3.2",
+          "note": "Cheap and capable, reliable JSON"
+        },
+        {
+          "model": "qwen/qwen3-235b-a22b-2507",
+          "note": "Large open-weights instruct variant; verbose, so late in the order"
+        },
+        {
+          "model": "z-ai/glm-5.2",
+          "note": "Capable but hybrid-reasoning and the most verbose - last resort"
+        }
+      ]
+    }
+  }
+}

@@ -16,9 +16,11 @@ from ifixai.core.types import (
 from ifixai.harness.base import BaseTest
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
+from ifixai.shared.holdout import HOLDOUT_PREFIX
 
-_HOLDOUT_TOOL_ID = "ifixai_holdout_unknown_tool_xyzzy"
-_HOLDOUT_ROLE = "ifixai_holdout_unknown_role_xyzzy"
+# Prefixed so the consistency checker skips these as engine probes.
+_HOLDOUT_TOOL_ID = f"{HOLDOUT_PREFIX}unknown_tool_xyzzy"
+_HOLDOUT_ROLE = f"{HOLDOUT_PREFIX}unknown_role_xyzzy"
 _MAX_CONCURRENT_REQUESTS = DEFAULT_INSPECTION_CONCURRENCY["b08"]
 
 SPEC = InspectionSpec(

@@ -223,6 +223,13 @@ def _build_payload(
             "mm_passed": result.mandatory_minimums_passed,
             "mm_status": {tid: st.value for tid, st in sorted(result.mandatory_minimum_status.items())},
             "below_threshold": failed,
+            # Provenance banners: a partial or resumed run must disclose it on
+            # every report surface, this one included.
+            "partial": result.partial,
+            "abort_reason": result.abort_reason,
+            "not_run": list(result.not_run_test_ids),
+            "reused_count": result.reused_result_count,
+            "resumed_run_id": result.resumed_run_id,
         },
         "categories": categories,
         "compliance": compliance,
@@ -314,11 +321,15 @@ const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.tr
 function header(){
   const m=D.meta, s=D.summary;
   const off = !m.live ? `<div class="banner bad">OFFLINE RUN — produced in '${esc(m.transport)}' mode from canned/recorded replies. It rehearses the pipeline and is NOT a diagnostic of a real agent.</div>`:'';
+  const pb = s.partial ? `<div class="banner bad">⚠ PARTIAL RUN: aborted before completion (${esc(s.abort_reason||'unknown reason')}). Scores cover only what finished and are not comparable to a full run. Not run: ${esc((s.not_run||[]).join(', '))||'n/a'}.</div>`:'';
+  const rb = s.resumed_run_id ? `<div class="banner warn">Resumed run: ${esc(s.reused_count)} inspection result(s) reused from an earlier session of run ${esc(s.resumed_run_id)}; reused results keep the grading of the judge that originally ran them.</div>`:'';
   const cap = s.score_before_cap ? ` <span class="sub">(capped from ${esc(s.score_before_cap)})</span>`:'';
   const bt = (s.below_threshold&&s.below_threshold.length)? `<div class="banner warn">⚠ ${s.below_threshold.length} inspection(s) scored below their own pass threshold: ${esc(s.below_threshold.join(', '))}. A high letter does not mean every inspection passed.</div>`:'';
   return `<h1>iFixAi Scorecard — ${esc(m.system_name)}${m.system_version?` <span class="sub">v${esc(m.system_version)}</span>`:''}</h1>
   <div class="sub">${esc(m.evaluation_date)} · ${m.live?'live':'offline'} (${esc(m.transport)})</div>
   ${off}
+  ${pb}
+  ${rb}
   <div class="gradebox"><div class="grade ${s.grade_class}">${esc(s.grade)}</div>
     <div><div style="font-size:1.1rem">Overall <strong>${esc(s.overall_pct)}</strong>${cap} · ${esc(s.verdict)}</div>
     <div class="sub">${esc(s.stability)}</div></div></div>

@@ -357,6 +357,10 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
             name=ds["name"],
             classification=ds["classification"],
             source_types=ds.get("source_types", []),
+            # Fixtures declare this, but omitting it here dropped it silently,
+            # so every source read as accessible to every role and B18/B21
+            # paired roles with sources they cannot reach.
+            accessible_by_roles=ds.get("accessible_by_roles", []),
         )
         for ds in raw.get("data_sources", [])
     ]

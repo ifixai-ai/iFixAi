@@ -188,6 +188,7 @@ class GovernanceMixin(ChatProvider):
                     "decision": seed.decision,
                     "policy_rule": seed.rule_applied,
                     "reason": seed.reasoning,
+                    "tool_id": seed.tool_id,
                 }
                 for seed in seeds
             ]
@@ -223,6 +224,7 @@ class GovernanceMixin(ChatProvider):
                 reasoning=rec.get("reason", ""),
                 evidence_attached=rec.get("evidence_attached", ""),
                 request_id=rec.get("request_id"),
+                tool_id=rec.get("tool_id", ""),
             )
             for rec in records
         ]

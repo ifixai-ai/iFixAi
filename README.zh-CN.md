@@ -12,6 +12,10 @@
 <p align="center">在问题失控之前，发现智能体的错误和盲区。</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 本周 Python 排名第一的仓库" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#快速开始">快速开始</a> •
   <a href="#三种运行方式">三种运行方式</a> •
   <a href="#测试你自己的智能体">测试你的智能体</a> •

@@ -36,6 +36,7 @@ from ifixai.reporting.scorecard import (
     exploratory_inspection_warnings,
     extraction_error_warnings,
     insufficient_evidence_warnings,
+    judge_substitution_warnings,
     scorecard_warnings,
 )
 from ifixai.scoring.category_weights import (
@@ -107,6 +108,7 @@ async def run_all(
     pipeline_config: EvaluationPipelineConfig | None = None,
     governor: ConcurrencyGovernor | None = None,
     capabilities: ProviderCapabilities | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult:
 
     if capabilities is None:
@@ -114,11 +116,12 @@ async def run_all(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
+    to_run, reused_results = _split_cached(INSPECTION_REGISTRY, cached_results)
     try:
         test_results = await _execute_inspections(
-            inspections=INSPECTION_REGISTRY,
+            inspections=to_run,
             specs=ALL_SPECS,
             provider=provider,
             config=config,
@@ -129,15 +132,18 @@ async def run_all(
             pipeline=pipeline,
             governor=governor,
         )
+        test_results = _merge_cached(reused_results, test_results)
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -174,6 +180,7 @@ async def run_strategic(
     pipeline_config: EvaluationPipelineConfig | None = None,
     governor: ConcurrencyGovernor | None = None,
     capabilities: ProviderCapabilities | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult:
 
     if capabilities is None:
@@ -181,7 +188,7 @@ async def run_strategic(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     strategic_inspections = {
         bid: inspection
@@ -189,10 +196,11 @@ async def run_strategic(
         if bid in STRATEGIC_TEST_IDS
     }
     strategic_specs = [s for s in ALL_SPECS if s.test_id in STRATEGIC_TEST_IDS]
+    to_run, reused_results = _split_cached(strategic_inspections, cached_results)
 
     try:
         test_results = await _execute_inspections(
-            inspections=strategic_inspections,
+            inspections=to_run,
             specs=strategic_specs,
             provider=provider,
             config=config,
@@ -203,15 +211,18 @@ async def run_strategic(
             pipeline=pipeline,
             governor=governor,
         )
+        test_results = _merge_cached(reused_results, test_results)
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -224,6 +235,8 @@ async def run_strategic(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="strategic",
+            judge_stats=judge.get_stats() if judge else None,
+            selected_ids=set(STRATEGIC_TEST_IDS),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
             consistency_warnings=consistency_warnings,
@@ -248,6 +261,7 @@ async def run_selected(
     pipeline_config: EvaluationPipelineConfig | None = None,
     governor: ConcurrencyGovernor | None = None,
     capabilities: ProviderCapabilities | None = None,
+    cached_results: dict[str, TestResult] | None = None,
 ) -> TestRunResult:
     """Run an explicit subset of inspections by test id.
 
@@ -261,7 +275,7 @@ async def run_selected(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     selected_inspections = {
         bid: inspection
@@ -269,10 +283,11 @@ async def run_selected(
         if bid in test_ids
     }
     selected_specs = [s for s in ALL_SPECS if s.test_id in test_ids]
+    to_run, reused_results = _split_cached(selected_inspections, cached_results)
 
     try:
         test_results = await _execute_inspections(
-            inspections=selected_inspections,
+            inspections=to_run,
             specs=selected_specs,
             provider=provider,
             config=config,
@@ -283,15 +298,18 @@ async def run_selected(
             pipeline=pipeline,
             governor=governor,
         )
+        test_results = _merge_cached(reused_results, test_results)
 
         try:
-            violations = await CrossHookValidator().run(provider, config)
+            violations = await CrossHookValidator().run(provider, config, fixture)
         except Exception:
             _logger.exception("CrossHookValidator failed; skipping consistency checks")
             violations = []
 
         if violations:
-            test_results, consistency_capped = apply_consistency_cap(test_results, violations)
+            test_results, consistency_capped = apply_consistency_cap(
+                test_results, violations
+            )
             consistency_warnings = [v.detail for v in violations]
         else:
             consistency_capped = False
@@ -304,6 +322,8 @@ async def run_selected(
             fixture_name=fixture.metadata.name,
             provider_name=config.provider,
             run_mode="selected",
+            judge_stats=judge.get_stats() if judge else None,
+            selected_ids=set(test_ids),
             provider_capabilities=capabilities,
             warnings=scorecard_warnings(judge_config, config.provider, config.model),
             consistency_warnings=consistency_warnings,
@@ -332,13 +352,12 @@ async def run_single(
 
     judge = _build_judge_evaluator(judge_config)
 
-    pipeline = _build_pipeline(pipeline_config, judge)
+    pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
     inspection = INSPECTION_REGISTRY.get(test_id)
     if inspection is None:
         raise ValueError(
-            f"Unknown test: {test_id}. "
-            f"Available: {sorted(INSPECTION_REGISTRY.keys())}"
+            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
         )
     try:
         return await inspection.execute(
@@ -351,6 +370,97 @@ async def run_single(
         )
     finally:
         await _aclose_judge(judge)
+
+
+def _split_cached(
+    inspections: dict[str, object],
+    cached_results: dict[str, TestResult] | None,
+) -> tuple[dict[str, object], list[TestResult]]:
+    """Split a selection into inspections to run and checkpointed results to reuse.
+
+    Only ids in this run's selection are honored, so a stale checkpoint entry
+    can never smuggle an out-of-scope result into the scorecard.
+    """
+    if not cached_results:
+        return inspections, []
+    reused = {bid: r for bid, r in cached_results.items() if bid in inspections}
+    remaining = {
+        bid: inspection for bid, inspection in inspections.items() if bid not in reused
+    }
+    return remaining, list(reused.values())
+
+
+def _merge_cached(
+    reused_results: list[TestResult],
+    fresh_results: list[TestResult],
+) -> list[TestResult]:
+    if not reused_results:
+        return fresh_results
+    return sorted([*reused_results, *fresh_results], key=lambda r: r.test_id)
+
+
+_ABORT_REASON_MAX_LEN = 160
+
+
+def _summarize_abort_reason(reason: str) -> str:
+    """First line of the abort reason, capped for reports.
+
+    The full provider error (raw response bodies, account ids) belongs on the
+    console at abort time, not persisted verbatim into shareable scorecards.
+    """
+    first_line = reason.strip().splitlines()[0] if reason.strip() else "unknown"
+    if len(first_line) <= _ABORT_REASON_MAX_LEN:
+        return first_line
+    return first_line[: _ABORT_REASON_MAX_LEN - 1] + "…"
+
+
+def build_partial_result(
+    completed: list[TestResult],
+    planned_ids: list[str],
+    abort_reason: str,
+    system_name: str,
+    system_version: str,
+    fixture_name: str,
+    provider_name: str,
+    run_mode: str,
+    sut_temperature: float = 0.0,
+    sut_seed: int | None = None,
+) -> TestRunResult:
+    """Scorecard for whatever finished before an aborted run stopped.
+
+    Marked `partial` and never PASS: missing mandatory inspections read as
+    unevaluated gate failures, and the warning below says exactly what did
+    not run. The point is to not discard paid-for results on abort.
+    """
+    abort_reason = _summarize_abort_reason(abort_reason)
+    result = _build_result(
+        test_results=sorted(completed, key=lambda r: r.test_id),
+        system_name=system_name,
+        system_version=system_version,
+        fixture_name=fixture_name,
+        provider_name=provider_name,
+        run_mode=run_mode,
+        sut_temperature=sut_temperature,
+        sut_seed=sut_seed,
+    )
+    result.partial = True
+    result.abort_reason = abort_reason
+    result.passed = False
+    completed_ids = {r.test_id for r in completed}
+    missing = [tid for tid in planned_ids if tid not in completed_ids]
+    result.not_run_test_ids = missing
+    if len(missing) > 10:
+        missing_label = f"{', '.join(missing[:10])} and {len(missing) - 10} more"
+    else:
+        missing_label = ", ".join(missing)
+    result.warnings.insert(
+        0,
+        f"PARTIAL RUN — aborted before completion: {abort_reason}. "
+        f"{len(completed_ids)} of {len(planned_ids)} inspections completed; "
+        f"not run: {missing_label}. Scores reflect only what ran and are not "
+        "comparable to a full run.",
+    )
+    return result
 
 
 async def _execute_inspections(
@@ -409,7 +519,14 @@ async def _run_sequential(
     for index, (test_id, inspection) in enumerate(inspections.items(), start=1):
         spec = spec_map.get(test_id)
         try:
-            result = await inspection.execute(provider, config, fixture, capabilities, pipeline_config=pipeline_config, pipeline=pipeline)  # type: ignore[union-attr]
+            result = await inspection.execute(
+                provider,
+                config,
+                fixture,
+                capabilities,
+                pipeline_config=pipeline_config,
+                pipeline=pipeline,
+            )  # type: ignore[union-attr]
         except _EXPECTED_INSPECTION_ERRORS as exc:
             _logger.exception(
                 "Inspection %s failed during sequential execution", test_id
@@ -526,15 +643,21 @@ def _build_judge_evaluator(
 def _build_pipeline(
     pipeline_config: EvaluationPipelineConfig | None,
     judge: JudgeEvaluator | EnsembleJudgeEvaluator | None,
+    sut_model: str | None = None,
 ) -> EvaluationPipeline | None:
+    """Wire the judge into an evaluation pipeline.
+
+    `sut_model` is passed down so the judge's fallback chain can never
+    substitute the system under test's own model for a failing judge.
+    """
     if pipeline_config is None:
         return None
 
     analytic_judge: AnalyticRubricJudge | EnsembleAnalyticRubricJudge | None = None
     if isinstance(judge, EnsembleJudgeEvaluator):
-        analytic_judge = EnsembleAnalyticRubricJudge(judge)
+        analytic_judge = EnsembleAnalyticRubricJudge(judge, sut_model=sut_model)
     elif isinstance(judge, JudgeEvaluator):
-        analytic_judge = AnalyticRubricJudge(judge)
+        analytic_judge = AnalyticRubricJudge(judge, sut_model=sut_model)
 
     return EvaluationPipeline(
         config=pipeline_config,
@@ -556,6 +679,7 @@ def _build_result(
     consistency_capped: bool = False,
     sut_temperature: float = 0.0,
     sut_seed: int | None = None,
+    selected_ids: set[str] | None = None,
 ) -> TestRunResult:
 
     test_weights = {spec.test_id: spec.weight for spec in ALL_SPECS}
@@ -569,10 +693,12 @@ def _build_result(
 
     raw_overall = compute_overall_score(category_scores, GRADED_CATEGORY_WEIGHTS)
 
-    minimums_result = check_mandatory_minimums(test_results)
+    minimums_result = check_mandatory_minimums(test_results, selected_ids)
     minimums_passed = minimums_result["minimums_passed"]
     minimum_status = minimums_result["minimum_status"]
-    overall_score = cap_score_if_minimums_failed(raw_overall, minimums_passed)
+    overall_score = cap_score_if_minimums_failed(
+        raw_overall, minimums_passed, minimums_result["minimums_not_run"]
+    )
     overall_score_before_cap = (
         raw_overall if (not minimums_passed and raw_overall is not None) else None
     )
@@ -617,6 +743,10 @@ def _build_result(
         if msg not in seen:
             seen.add(msg)
             combined_warnings.append(msg)
+    for msg in judge_substitution_warnings(judge_stats):
+        if msg not in seen:
+            seen.add(msg)
+            combined_warnings.append(msg)
     b22_msg = b22_determinism_warning(test_results, sut_temperature, sut_seed)
     if b22_msg is not None and b22_msg not in seen:
         combined_warnings.append(b22_msg)
@@ -624,7 +754,14 @@ def _build_result(
     if b32_msg is not None and b32_msg not in seen:
         combined_warnings.append(b32_msg)
 
-    is_passed = overall_score is not None and overall_score >= PASS_THRESHOLD
+    # A run that never exercised the safety gate cannot report PASS, however
+    # well the inspections it did run scored. The score stays the honest
+    # measurement of what ran; only the verdict is withheld.
+    is_passed = (
+        overall_score is not None
+        and overall_score >= PASS_THRESHOLD
+        and not minimums_result["minimums_not_run"]
+    )
 
     return TestRunResult(
         system_name=system_name,
@@ -645,6 +782,7 @@ def _build_result(
         mandatory_minimums_passed=minimums_passed,
         mandatory_minimums_inconclusive=inconclusive_minimums,
         mandatory_minimum_violations=violations,
+        mandatory_minimums_not_run=list(minimums_result["minimums_not_run"]),
         score_capped=cap_bound or consistency_capped,
         gaps=gaps,
         run_mode=run_mode,
