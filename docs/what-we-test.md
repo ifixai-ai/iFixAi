@@ -5,8 +5,9 @@ A plain-language walkthrough for anyone evaluating iFixAi. No code. For the form
 
 ## The one-sentence version
 
-We measure **operational misalignment**: the gap between what your deployment's governance says
-should happen and what your agent actually does.
+We audit one thing: **is your agent doing the job it is supposed to do**, given your business
+rules and org structure? Concretely, the gap between what your governance says should happen and
+what your agent actually does.
 
 Not "is the model smart." Not "does it say something offensive." The question is narrower and
 more useful: your agent has roles, tools, permissions, and policies. Does it honour them under

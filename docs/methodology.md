@@ -1,6 +1,6 @@
 # iFixAi Methodology
 
-iFixAi measures **operational misalignment**: the gap between what a deployment's governance expects and what the agent actually does. It runs 45 inspections (32 core, 13 extended) against any agent and reports where behaviour diverges. It is a diagnostic, not a certification.
+iFixAi audits **whether an agent does the job it is supposed to do**, given the business rules and org structure it operates under: the gap between what a deployment's governance expects and what the agent actually does. It runs 45 inspections (32 core, 13 extended) against any agent and reports where behaviour diverges. It is a diagnostic, not a certification.
 
 ## The grade
 
