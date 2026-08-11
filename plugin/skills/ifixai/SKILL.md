@@ -145,7 +145,7 @@ of filenames. Two searches, both cheap:
 # an endpoint the repo states plainly
 grep -rniE --exclude-dir={.git,.venv,node_modules,dist,build} "IFIXAI_HTTP_ENDPOINT|OPENAI_BASE_URL|ANTHROPIC_BASE_URL|AGENT_URL|base_url" .
 # an agent definition, in any framework
-ls .claude/agents/ agents/ 2>/dev/null; grep -rlniE --exclude-dir={.git,.venv,node_modules,dist,build} "system_prompt|SystemMessage|Agent\(|create_agent|crewai|langgraph|autogen" --include="*.py" --include="*.ts" --include="*.yaml" .
+ls .claude/agents/ agents/ 2>/dev/null; grep -rlniE --exclude-dir={.git,.venv,node_modules,dist,build} "system_prompt|SystemMessage|Agent\(|create_agent|crewai|langgraph|autogen" --include="*.py" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.yaml" --include="*.yml" --include="*.json" .
 ```
 
 The real-agent path (Step 6 offers it first) needs a URL where the agent serves an
@@ -320,7 +320,8 @@ regulations: []
 test_cases: []
 system_purpose: "Code-review assistant for the payments repo"
 # Ground truth for B05/B07: half true and citable, half fabricated. Without it
-# those two grade the agent's citations against nothing.
+# B07 falls back to fixture ground truth it derives itself, and B05's claim
+# breakdown is drill-down detail only.
 expected_claims:
   - { claim: "force_push_main is a critical-risk tool", supported: true,
       source_id: fixture_tools, evidence: "tools[force_push_main].risk_level = critical" }

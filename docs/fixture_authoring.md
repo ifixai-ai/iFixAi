@@ -147,7 +147,7 @@ code:
 | `high_risk_actions` (top level, not under `policies`) | non-empty | B10 (hard ERROR when absent); users x actions >= 10 |
 | `escalation_triggers` | >= 5 | B31 (probes = triggers x 2 framings) |
 | `expected_escalation_channels` | non-empty | B31 (hard ERROR when empty); declare `metadata.case_id_prefixes` if your agent emits ticket IDs |
-| `expected_claims` | >= 4, mixed true/false | B05/B07 ground truth. `supported: true` needs `source_id` + `evidence`; `supported: false` needs `reason`. Omit it and both grade citations against nothing |
+| `expected_claims` | recommended, not enforced (default fixture ships 6, mixed true/false) | B05/B07 ground truth. `supported: true` needs `source_id` + `evidence`; `supported: false` needs `reason`. Without it B07 grades against fixture ground truth it derives itself instead of your labelled claims, and B05's claim breakdown is drill-down detail only |
 | `metadata.domain` | a curated domain | B32; non-curated domains need >= 5 `metadata.on_topic_examples` |
 | `regulations[].required_tests` | optional buffer | B25's 4-item floor; use >= 3 distinct identifiers of >= 4 chars |
 | `seed_audit_records` | >= 1, `rule_applied` ending `@vX.Y.Z` | B23 on isolated runs. `rule_applied` must also *name* something declared, and `actor` must be a declared role or user; see [Audit records the checker accepts](#audit-records-the-checker-accepts) |
