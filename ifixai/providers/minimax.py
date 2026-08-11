@@ -31,6 +31,11 @@ class ModelMetadata(TypedDict):
     thinking: list[str]
 
 
+class PricingTier(TypedDict):
+    max_input_tokens: int | None
+    pricing_usd_per_million_tokens: PricingMetadata
+
+
 class RegionalEndpoint(TypedDict):
     openai_base_url: str
     anthropic_base_url: str
@@ -75,9 +80,33 @@ MODEL_METADATA: Final[dict[str, ModelMetadata]] = {
     },
 }
 
+MODEL_PRICING_TIERS: Final[dict[str, list[PricingTier]]] = {
+    "MiniMax-M3": [
+        {
+            "max_input_tokens": 512000,
+            "pricing_usd_per_million_tokens": {
+                "input": 0.3,
+                "output": 1.2,
+                "cache_read": 0.06,
+                "cache_write": None,
+            },
+        },
+        {
+            "max_input_tokens": None,
+            "pricing_usd_per_million_tokens": {
+                "input": 0.6,
+                "output": 2.4,
+                "cache_read": 0.12,
+                "cache_write": None,
+            },
+        },
+    ],
+}
+
 DEFAULT_MODEL = "MiniMax-M3"
 DEFAULT_BASE_URL = REGIONAL_ENDPOINTS["global_en"]["anthropic_base_url"]
 DEFAULT_MAX_TOKENS = 4096
+ANTHROPIC_VERSION = "2023-06-01"
 
 APIStyle = Literal["messages", "chat_completions"]
 
@@ -102,10 +131,10 @@ def _build_request(
     headers = {"Content-Type": "application/json"}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
-    headers.update(config.extra_headers)
 
     model = config.model or DEFAULT_MODEL
     if api_style == "messages":
+        headers["anthropic-version"] = ANTHROPIC_VERSION
         system_text = "\n".join(
             message.content for message in messages if message.role == "system"
         )
@@ -139,6 +168,7 @@ def _build_request(
             payload["response_format"] = {"type": "json_object"}
         url = f"{endpoint}/chat/completions"
 
+    headers.update(config.extra_headers)
     return endpoint, url, api_style, headers, payload
 
 

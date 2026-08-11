@@ -7,6 +7,7 @@ from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.governance_mixin import GovernanceMixin
 from ifixai.providers.http import HttpProvider
 from ifixai.providers.langchain import LangChainProvider
+from ifixai.providers.minimax import MiniMaxProvider
 from ifixai.providers.mock_governance import MockGovernanceProvider
 
 try:
@@ -43,11 +44,6 @@ try:
     from ifixai.providers.atlascloud import AtlasCloudProvider
 except ImportError:
     AtlasCloudProvider = None
-
-try:
-    from ifixai.providers.minimax import MiniMaxProvider
-except ImportError:
-    MiniMaxProvider = None  # type: ignore[misc, assignment]
 
 try:
     from ifixai.providers.openrouter import OpenRouterProvider

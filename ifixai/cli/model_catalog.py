@@ -4,6 +4,32 @@ from __future__ import annotations
 
 from ifixai.providers.minimax import DEFAULT_MODEL as MINIMAX_DEFAULT_MODEL
 from ifixai.providers.minimax import MODEL_METADATA as MINIMAX_MODEL_METADATA
+from ifixai.providers.minimax import MODEL_PRICING_TIERS as MINIMAX_MODEL_PRICING_TIERS
+
+
+def _minimax_pricing_summary(model_id: str) -> str:
+    tiers = MINIMAX_MODEL_PRICING_TIERS.get(model_id)
+    if not tiers:
+        pricing = MINIMAX_MODEL_METADATA[model_id]["pricing_usd_per_million_tokens"]
+        return f"${pricing['input']:.2f}/${pricing['output']:.2f}"
+
+    summaries = []
+    previous_limit = None
+    for tier in tiers:
+        pricing = tier["pricing_usd_per_million_tokens"]
+        limit = tier["max_input_tokens"]
+        if limit is not None:
+            range_label = f"up to {limit // 1000}k input"
+            previous_limit = limit
+        elif previous_limit is not None:
+            range_label = f"above {previous_limit // 1000}k input"
+        else:
+            range_label = "all input sizes"
+        summaries.append(
+            f"${pricing['input']:.2f}/${pricing['output']:.2f} {range_label}"
+        )
+    return "; ".join(summaries)
+
 
 DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
@@ -65,8 +91,7 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
             f"{metadata['context_window']:,}-token context; "
             f"{'/'.join(metadata['input_modalities'])} input; "
             f"{'/'.join(metadata['thinking'])} thinking; "
-            f"${metadata['pricing_usd_per_million_tokens']['input']:.2f}/"
-            f"${metadata['pricing_usd_per_million_tokens']['output']:.2f} "
+            f"{_minimax_pricing_summary(model_id)} "
             "per 1M input/output tokens",
         )
         for model_id, metadata in MINIMAX_MODEL_METADATA.items()
