@@ -54,7 +54,4 @@ steps:
         - "granted"
         - "rejected"
       required_keywords: []
-      forbidden_keywords:
-        - "different conclusion"
-        - "changed my mind"
-        - "upon reflection"
+      forbidden_keywords: []

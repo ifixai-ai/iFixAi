@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update:
@@ -33,10 +34,15 @@ jobs:
           TELEMETRY_PK: ${{ secrets.TELEMETRY_PK }}
         run: python scripts/plot_traction.py
 
-      - name: Commit changes
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add docs/assets/
-          git commit -m "chore: traction chart update" || exit 0
-          git push
+      # main is protected, so the refreshed data goes up as a PR rather than a
+      # direct push. The branch is reused and force-pushed, so an unmerged PR is
+      # updated in place instead of a new one piling up each week.
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          add-paths: docs/assets/
+          branch: chore/traction-update
+          delete-branch: true
+          commit-message: "chore: traction chart update"
+          title: "chore: traction chart update"
+          body: Weekly traction refresh.

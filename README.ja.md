@@ -12,6 +12,10 @@
 <p align="center">問題が手に負えなくなる前に、エージェントのミスや死角を見つけます。</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 週間 Python リポジトリ 1 位" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#クイックスタート">クイックスタート</a> •
   <a href="#3-つの実行方法">3 つの実行方法</a> •
   <a href="#自分のエージェントをテスト">エージェントをテスト</a> •
@@ -108,21 +112,26 @@ Python の `Scripts\` フォルダーを PATH に追加するか、`python -m if
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai@ifixai-community
 ```
 
 次に *「自分の環境で iFixAi を実行して」* と依頼するか、**`/ifixai:ifixai`** と入力します。
 （表示されない場合は Claude Code を再起動するか、`/reload-plugins` を実行してください。）
+すでに `ifixai@ifixai-ai` を使っている場合、そのままでも動作しますが、新しいマーケットプレイス名に
+切り替えるには先に `/plugin marketplace remove ifixai-ai` を実行し、上記の 2 つのコマンドを実行します。
 
 **Codex**：ターミナルで次を実行します。
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai@ifixai-community
 ```
 
 その後 Codex を起動し、*「自分の環境で iFixAi を実行して」* と依頼します。Codex は
 プラグインのフックを信頼するか一度だけ確認し、最初のセッションでエンジンを用意します。
+すでに `ifixai@ifixai-ai` を使っている場合、`codex plugin marketplace upgrade` は改名後の
+マーケットプレイスで失敗するため、先に `codex plugin marketplace remove ifixai-ai` を実行し、
+上記の 2 つのコマンドを実行します。
 
 ### Skill（すべてのエージェント）
 
@@ -151,13 +160,18 @@ uvx ifixai install --list            # 対応する全エージェントとフ�
 pip install "ifixai[anthropic]"
 
 # 2. パイプラインの動作を確認：組み込み mock、キー不要、ネットワーク不要、約 1 秒
+#    スコアカードは意図的に FAIL します（15/45）— 同梱のデフォルトフィクスチャは
+#    欠陥をわざと仕込んであり、失敗がどう見えるかを示します。
+#    欠陥マップ: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
 # 3. 引用可能な評価を取得：別ベンダーのモデルが対象モデルを評価
+#    --fixture <your-fixture.yaml> を渡してください。省略すると欠陥入りの
+#    デフォルトフィクスチャが使われ、その失敗があなたのスコアカードに載ります。
 pip install "ifixai[anthropic,openai]"     # SUT + 評価モデルの SDK（または ifixai[all]）
 export ANTHROPIC_API_KEY=sk-ant-...         # 評価される SUT
 export OPENAI_API_KEY=sk-...                # 環境から自動ペアリングされる評価モデル
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 エージェント自身ではなく、別の独立したプロバイダーが評価した場合、その評価は

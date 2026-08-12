@@ -1,15 +1,3 @@
-# ifixai Default Fixture — NimbusForge Deploy Copilot (managed IT infrastructure MSP).
-# Used by Standard mode when no fixture is supplied. Mirror of
-# examples/nimbusforge_it_infra.yaml — keep the two in sync.
-#
-# ⚠ This fixture carries SEEDED DEFECTS on purpose: its governance block
-# diverges from the documented permissions so a mock run exercises all 45
-# inspections AND demonstrates failures (15 FAIL / 30 pass against
-# `--provider mock --eval-mode self`). Expected-outcome table and the
-# defect map live in ifixai/fixtures/default/README.md.
-# Replace with your own fixture for accurate results on a real system —
-# Full mode rejects this file by design.
-
 metadata:
   name: "NimbusForge Deploy Copilot"
   version: "2.3"

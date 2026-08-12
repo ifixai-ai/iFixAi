@@ -33,6 +33,8 @@ B22_SKIPPED_MESSAGE: Final[str] = (
     "b22 skipped: SUT non-deterministic (pass --sut-temperature 0 or --sut-seed)"
 )
 SEED_UNSUPPORTED_PREFIX: Final[str] = "b12 seed accepted but provider cannot honour: "
+SUBSTITUTE_JUDGE_PREFIX: Final[str] = "substitute judge graded this run: "
+JUDGE_TRANSPORT_FAILURE_PREFIX: Final[str] = "judge calls that failed and were retried: "
 
 
 def compute_insights(result: TestRunResult) -> dict[str, object]:
@@ -188,6 +190,41 @@ def extraction_error_warnings(
     return messages
 
 
+def judge_substitution_warnings(judge_stats: dict | None) -> list[str]:
+    """Surface that a fallback model, not the configured judge, produced grades.
+
+    A grade is only as citable as its origin. When the configured judge dies and
+    the fallback chain silently takes over, the scorecard would otherwise print a
+    clean A with no hint that a different — usually cheaper — model did the
+    grading, and no hint that N calls failed on the way there.
+    """
+    if not judge_stats:
+        return []
+    messages: list[str] = []
+    fallbacks = judge_stats.get("fallback_grades") or {}
+    if isinstance(fallbacks, dict) and fallbacks:
+        configured = judge_stats.get("judge_model") or "the configured judge"
+        breakdown = ", ".join(
+            f"{model} ({count} verdict{'s' if count != 1 else ''})"
+            for model, count in sorted(fallbacks.items())
+        )
+        messages.append(
+            SUBSTITUTE_JUDGE_PREFIX
+            + f"{breakdown} — {configured} was unreachable. "
+            "Scores are not comparable to a run graded by the configured judge."
+        )
+    failures = judge_stats.get("judge_transport_failures") or {}
+    if isinstance(failures, dict) and failures:
+        total = sum(int(c) for c in failures.values())
+        breakdown = ", ".join(
+            f"{model} ({count})" for model, count in sorted(failures.items())
+        )
+        messages.append(
+            JUDGE_TRANSPORT_FAILURE_PREFIX + f"{total} total — {breakdown}"
+        )
+    return messages
+
+
 def b22_determinism_warning(
     test_results: list[TestResult],
     sut_temperature: float,
@@ -292,6 +329,11 @@ def generate_json_report(result: TestRunResult) -> str:
 
     report = {
         "metadata": build_metadata_section(result, frameworks),
+        "partial": result.partial,
+        "abort_reason": result.abort_reason,
+        "not_run_test_ids": list(result.not_run_test_ids),
+        "resumed_run_id": result.resumed_run_id,
+        "reused_result_count": result.reused_result_count,
         "overall": build_overall_section(result),
         "warnings": list(result.warnings),
         "validation_warnings": list(result.validation_warnings),
@@ -310,17 +352,65 @@ def generate_json_report(result: TestRunResult) -> str:
     return json.dumps(report, indent=2, ensure_ascii=False)
 
 
+def render_partial_banner(result: TestRunResult) -> str:
+    if not result.partial:
+        return ""
+    return (
+        "> ⚠️ **PARTIAL RUN** — this run aborted before completion "
+        f"({result.abort_reason or 'unknown reason'}). Scores cover only the "
+        f"{len(result.test_results)} inspection(s) that finished and are not "
+        "comparable to a full run. Resume the rest with `--resume <run id>`."
+    )
+
+
+def render_resumed_banner(result: TestRunResult) -> str:
+    if not result.resumed_run_id:
+        return ""
+    return (
+        f"> ℹ️ **Resumed run** — {result.reused_result_count} of "
+        f"{len(result.test_results)} inspection results were reused from an "
+        f"earlier session of run `{result.resumed_run_id}`. Judge-call stats "
+        "cover only the final session; reused results keep the grading of "
+        "the judge that originally ran them."
+    )
+
+
+def render_not_run_section(result: TestRunResult) -> str:
+    """The planned inspections an aborted run never reached, so the report
+    documents the whole plan instead of reading like half a scorecard."""
+    if not result.not_run_test_ids:
+        return ""
+    from ifixai.harness.registry import SPEC_BY_ID
+
+    n = len(result.not_run_test_ids)
+    lines = [
+        f"## Not run ({n} inspection{'s' if n != 1 else ''})\n",
+        "The run aborted before these executed; they carry no score. "
+        "Resume with `--resume <run id>` to complete them.\n",
+        "| ID | Inspection | Status |",
+        "|---|---|---|",
+    ]
+    for tid in result.not_run_test_ids:
+        spec = SPEC_BY_ID.get(tid)
+        name = getattr(spec, "name", tid) if spec is not None else tid
+        lines.append(f"| {tid} | {name} | not run (aborted) |")
+    return "\n".join(lines)
+
+
 def generate_markdown_report(result: TestRunResult) -> str:
     frameworks = load_all_mappings()
 
     sections = [
         render_header(result),
+        render_partial_banner(result),
+        render_resumed_banner(result),
         render_summary(result),
         render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
         render_consistency_warnings(result),
         render_test_table(result),
+        render_not_run_section(result),
         render_advisory_section(result),
         render_exploratory_section(result),
         render_attestation_section(result),
@@ -358,11 +448,14 @@ def generate_summary_report(result: TestRunResult) -> str:
     """Short scannable report: headline, insights, categories, top failures."""
     sections = [
         render_header(result),
+        render_partial_banner(result),
+        render_resumed_banner(result),
         render_summary(result),
         render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
         _render_top_failures(result),
+        render_not_run_section(result),
         "_This is the summary. The full report (with per-inspection evidence) "
         "is the companion `.md` without the `-summary` suffix._",
     ]
@@ -437,7 +530,10 @@ def build_mandatory_minimums_section(
     result: TestRunResult,
 ) -> dict[str, object]:
     return {
+        # all_passed means "nothing that ran failed the gate", which is vacuously
+        # true when nothing ran. Read it with `evaluated`.
         "all_passed": result.mandatory_minimums_passed,
+        "evaluated": not result.mandatory_minimums_not_run,
         "any_inconclusive": bool(result.mandatory_minimums_inconclusive),
         "per_test": {
             test_id: status.value
@@ -445,6 +541,7 @@ def build_mandatory_minimums_section(
         },
         "violations": list(result.mandatory_minimum_violations),
         "inconclusive": list(result.mandatory_minimums_inconclusive),
+        "not_run": list(result.mandatory_minimums_not_run),
     }
 
 
@@ -585,7 +682,7 @@ def render_summary(result: TestRunResult) -> str:
         f"| Metric | Value |\n"
         f"|---|---|\n"
         f"| **Overall Score** | {overall_display} |\n"
-        f"| **Grade** | {result.grade.value} |\n"
+        f"| **Grade** | {'n/a' if result.overall_score is None else result.grade.value} |\n"
         f"| **Verdict** | {verdict} |\n"
         f"| **Strategic Score** | {result.strategic_score:.1%} |\n"
         f"| **Mandatory Minimums** | {minimums_status} |"
@@ -617,9 +714,21 @@ def render_mandatory_minimums(result: TestRunResult) -> str:
         "|---|---|",
     ]
 
+    not_run = set(result.mandatory_minimums_not_run)
     for test_id, status_value in sorted(result.mandatory_minimum_status.items()):
         status = _STATUS_LABELS.get(status_value, _STATUS_LABELS[TestStatus.FAIL])
+        # "Never selected" and "ran but could not tell" are both INCONCLUSIVE in
+        # the status map. Only the second is a finding about the agent, so say
+        # which one this is rather than let a reader assume the gate was tried.
+        if test_id in not_run:
+            status = "NOT RUN (not selected for this run)"
         lines.append(f"| {test_id} | {status} |")
+
+    if not_run:
+        lines.append(
+            "\n_A mandatory gate that did not run leaves the run ungradeable, so "
+            "Overall Score and Grade are withheld rather than computed without it._"
+        )
 
     return "\n".join(lines)
 
@@ -744,9 +853,7 @@ def render_test_table(result: TestRunResult) -> str:
                     f"Conversational: {c_passed}/{c_total}"
                 )
                 if "unique_input_count" in bd:
-                    lines.append(
-                        f"   Unique inputs: {bd['unique_input_count']}"
-                    )
+                    lines.append(f"   Unique inputs: {bd['unique_input_count']}")
                 per_dim = bd.get("per_category_pass_rate")
                 if per_dim:
                     parts = ", ".join(
@@ -834,7 +941,7 @@ def render_exploratory_section(result: TestRunResult) -> str:
     ]
     for br in sorted(exploratory, key=lambda b: b.test_id):
         lines.append(
-            f"| {br.test_id} | {br.name} | {br.score:.1%} " f"| {len(br.evidence)} |"
+            f"| {br.test_id} | {br.name} | {br.score:.1%} | {len(br.evidence)} |"
         )
     return "\n".join(lines)
 
@@ -944,5 +1051,3 @@ def render_evidence_appendix(result: TestRunResult) -> str:
         lines.append("No evidence items recorded.")
 
     return "\n".join(lines)
-
-

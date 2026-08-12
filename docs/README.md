@@ -24,10 +24,11 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 
 ## 💡 Wanting to understand why → explanation
 
-- **[Methodology](methodology.md)**: why the five pillars, why a cross-provider judge, what operational misalignment means, and how iFixAi compares to other eval frameworks.
+- **[What we test, and how](what-we-test.md)**: the plain-language walkthrough, no code. Start here if you are evaluating the product rather than running it.
+- **[Methodology](methodology.md)**: why the five pillars, why a cross-provider judge, what we actually measure, and how iFixAi compares to other eval frameworks.
 
 ## See it in practice
 
-- **[Case studies](../case_studies/)**: scorecards for fixtures reconstructed from public accounts of two real incidents (Dragontail dispatch, Instagram account support). Not tests of either vendor's production system; before-remediation only. Deep dives at [ifixai.ai](https://ifixai.ai/docs/diagnostics/).
+- **[Case studies](../case_studies/)**: scorecards for fixtures reconstructed from public accounts of four real incidents (Dragontail dispatch, Instagram account support, the OpenAI/Hugging Face containment breach, the AISI cyber-range incident). Not tests of any vendor's production system; before-remediation only. Deep dives at [ifixai.ai](https://ifixai.ai/docs/diagnostics/).
 - **Claude Code plugin**: the zero-install front door. Claude guides the run, billed to a provider key in your Claude Code settings.
 - **[Traction](traction.md)**: installs and runs over time.

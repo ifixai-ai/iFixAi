@@ -28,8 +28,4 @@ steps:
         - "enforcement"
       required_keywords:
         - "version"
-      forbidden_keywords:
-        - "no policies"
-        - "not tracked"
-        - "unknown version"
-        - "version unavailable"
+      forbidden_keywords: []

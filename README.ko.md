@@ -12,6 +12,10 @@
 <p align="center">일이 걷잡을 수 없어지기 전에 에이전트의 실수와 사각지대를 잡아냅니다.</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 주간 Python 저장소 1위" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#빠른-시작">빠른 시작</a> •
   <a href="#세-가지-실행-방법">세 가지 실행 방법</a> •
   <a href="#직접-만든-에이전트-테스트">에이전트 테스트</a> •
@@ -91,21 +95,25 @@ Windows Python PATH 문제입니다.
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai@ifixai-community
 ```
 
 그다음 *"내 환경에서 iFixAi 돌려줘"* 라고 하거나 **`/ifixai:ifixai`** 를 입력하세요.
 (보이지 않으면 Claude Code를 재시작하거나 `/reload-plugins`를 실행하세요.)
+이미 `ifixai@ifixai-ai` 를 쓰고 있다면 그대로도 동작하며, 새 마켓플레이스 이름으로 옮기려면
+먼저 `/plugin marketplace remove ifixai-ai` 를 실행한 뒤 위의 두 명령을 실행하세요.
 
 **Codex** — 터미널에서:
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai@ifixai-community
 ```
 
 그다음 Codex를 실행해 *"내 환경에서 iFixAi 돌려줘"* 라고 하세요. Codex는 플러그인 훅을
-신뢰할지 한 번 묻고, 첫 세션에서 엔진을 프로비저닝합니다.
+신뢰할지 한 번 묻고, 첫 세션에서 엔진을 프로비저닝합니다. 이미 `ifixai@ifixai-ai` 를 쓰고
+있다면 `codex plugin marketplace upgrade` 가 이름이 바뀐 마켓플레이스에서 실패하므로, 먼저
+`codex plugin marketplace remove ifixai-ai` 를 실행한 뒤 위의 두 명령을 실행하세요.
 
 ### Skill (모든 에이전트)
 
@@ -136,13 +144,18 @@ uvx ifixai install --list            # 지원 에이전트와 파일 생성 위�
 pip install "ifixai[anthropic]"
 
 # 2. 파이프라인 동작 확인: 내장 mock, 키 없음, 네트워크 없음, 약 1초
+#    스코어카드는 의도적으로 FAIL합니다(15/45) — 기본 픽스처에 결함을 일부러
+#    심어 두어 실패가 어떻게 보이는지 보여줍니다.
+#    결함 맵: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
 # 3. 인용 가능한 등급 받기: 내 모델을 *다른* 벤더의 심사 모델이 채점
+#    --fixture <your-fixture.yaml>을 전달하세요. 생략하면 결함이 심어진 기본
+#    픽스처가 사용되어 그 실패가 여러분의 스코어카드에 표시됩니다.
 pip install "ifixai[anthropic,openai]"     # SUT와 심사 모델의 SDK (또는 ifixai[all])
 export ANTHROPIC_API_KEY=sk-ant-...         # 채점 대상인 SUT
 export OPENAI_API_KEY=sk-...                # 심사 모델. 환경에서 자동으로 짝지어짐
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 등급이 **인용 가능(citable)** 하려면 에이전트가 스스로를 채점한 것이 아니라, 독립된 두

@@ -12,6 +12,9 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     create_chat_completion_json_fallback,
+    raise_for_http_status,
+    raise_if_choice_errored,
+    raise_if_truncated,
 )
 
 DEFAULT_MODEL = "openai/gpt-4o"
@@ -22,11 +25,17 @@ DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 # to 8k so judge/SUT replies aren't truncated mid-verdict on longer inspections.
 MAX_TOKENS_CEILING: int = 8192
 
+REASONING_DISABLED: dict[str, object] = {
+    "exclude": True,
+    "enabled": False,
+    "effort": "none",
+    "max_tokens": 0,
+}
+
 ClientCacheKey = tuple[str, str | None, float, int]
 
 
 class OpenRouterProvider(ChatProvider):
-
     def __init__(self) -> None:
         self._clients: dict[ClientCacheKey, openai.AsyncOpenAI] = {}
         self._client_lock = asyncio.Lock()
@@ -96,7 +105,18 @@ class OpenRouterProvider(ChatProvider):
                 # free text (json-repair handles parsing) if the model does not
                 # support response_format.
                 create_kwargs["response_format"] = {"type": "json_object"}
-            response = await create_chat_completion_json_fallback(client, **create_kwargs)
+                # Judge-only. A hybrid-reasoning model asked for a verdict will
+                # otherwise spend the whole budget thinking out loud — observed at
+                # 220k characters, cut off at the token ceiling, billed in full and
+                # worthless as a verdict. A rubric verdict needs no chain of thought.
+                #
+                # Must travel inside extra_body: `reasoning` is an OpenRouter
+                # extension and the OpenAI SDK's create() has a closed signature
+                # with no **kwargs, so passing it directly raises TypeError.
+                create_kwargs["extra_body"] = {"reasoning": REASONING_DISABLED}
+            response = await create_chat_completion_json_fallback(
+                client, **create_kwargs
+            )
             choices = response.choices
             if not choices:
                 raise ProviderResponseError(
@@ -113,12 +133,15 @@ class OpenRouterProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            if config.reject_truncated:
+                raise_if_truncated("openrouter", base_url, finish_reason, content or "")
             if not content:
                 raise ProviderEmptyContentError(
                     provider="openrouter",
                     endpoint=base_url,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
+            raise_if_choice_errored("openrouter", base_url, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="openrouter", endpoint=base_url, details=str(exc)
@@ -135,6 +158,11 @@ class OpenRouterProvider(ChatProvider):
             raise ProviderConnectionError(
                 provider="openrouter", endpoint=base_url, details=str(exc)
             ) from exc
+        except openai.APIStatusError as exc:
+            # OpenRouter's retryable band (408 timeout, 500 internal, 502 model
+            # down, 503 no routable provider, 504) is split off here as a
+            # transient overload; everything else stays a response error.
+            raise_for_http_status("openrouter", base_url, exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
                 provider="openrouter", endpoint=base_url, details=str(exc)

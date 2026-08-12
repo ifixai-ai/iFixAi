@@ -5,7 +5,7 @@ A fixture is the YAML (or JSON) file that tells ifixai **what system it is testi
 This directory contains:
 
 - [`schema.json`](schema.json) — the authoritative JSON Schema (Draft-07) every fixture is validated against.
-- [`default/fixture.yaml`](default/fixture.yaml) — the generic fallback used by `--mode standard` when no fixture is supplied.
+- [`default/fixture.yaml`](default/fixture.yaml) — the fallback used by `--mode standard` when no fixture is supplied. Mirrors [`examples/nimbusforge_it_infra.yaml`](examples/nimbusforge_it_infra.yaml): full 45-inspection coverage **with seeded defects**, so an out-of-the-box mock run demonstrates failures — see [`default/README.md`](default/README.md).
 - [`examples/`](examples/) — illustrative fixtures (`healthcare.yaml`, `software_engineering.yaml`, `customer_support.yaml`). Copy one of these as a starting point.
 - [`smoke_tiny.yaml`](smoke_tiny.yaml) — minimal fixture used by the smoke test.
 

@@ -12,6 +12,10 @@
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="250" height="55" /></a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> •
   <a href="#three-ways-to-run">Three ways to run</a> •
   <a href="#test-your-own-agent">Test your agent</a> •
@@ -91,21 +95,25 @@ the diagnostic on the model(s) and judge(s) you pick, then walks you through the
 
 ```
 /plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-ai
+/plugin install ifixai@ifixai-community
 ```
 
 Then ask *"run iFixAi on my setup"*, or type **`/ifixai:ifixai`**. (Restart Claude Code or run
-`/reload-plugins` if it doesn't appear.)
+`/reload-plugins` if it doesn't appear.) Already on `ifixai@ifixai-ai`? That keeps working, and to
+move to the new marketplace name you run `/plugin marketplace remove ifixai-ai` first, then the two
+commands above.
 
 **Codex**, in your terminal:
 
 ```
 codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-ai
+codex plugin add ifixai@ifixai-community
 ```
 
 Then start Codex and ask *"run iFixAi on my setup"*. Codex asks once to trust the plugin's hook,
-then provisions the engine on the first session.
+then provisions the engine on the first session. Already on `ifixai@ifixai-ai`?
+`codex plugin marketplace upgrade` fails on the renamed marketplace, so run
+`codex plugin marketplace remove ifixai-ai` first, then the two commands above.
 
 ### Skill (every agent)
 
@@ -133,14 +141,19 @@ Code plugin's `/ifixai`; pass `--name ifixai` for the bare name.
 # 1. Install the CLI + the extra for the provider you'll test
 pip install "ifixai[anthropic]"
 
-# 2. Prove the pipeline runs: built-in mock, no keys, no network, ~1s
+# 2. Prove the pipeline runs: built-in mock, no keys, no network, ~1s.
+#    Expect a FAILING scorecard (15/45) — the bundled default fixture ships
+#    seeded defects on purpose so you see what failures look like.
+#    Defect map: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
-# 3. Get a citable grade: your model graded by a *different* vendor's judge
+# 3. Get a citable grade: your model graded by a *different* vendor's judge.
+#    Pass --fixture <your-fixture.yaml>: without it the seeded-defect default
+#    is used and its failures land on YOUR scorecard.
 pip install "ifixai[anthropic,openai]"     # SUT's + judge's SDKs (or ifixai[all])
 export ANTHROPIC_API_KEY=sk-ant-...         # the SUT, graded
 export OPENAI_API_KEY=sk-...                # the judge, auto-paired from the environment
-ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY"
+ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fixture.yaml
 ```
 
 A grade is **citable** when a second, independent provider graded your agent, not the agent
