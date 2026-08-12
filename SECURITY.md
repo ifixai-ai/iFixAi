@@ -40,7 +40,8 @@ The scrubber (`ifixai/providers/secrets.py::scrub_secrets`) is parametrically ve
 | Provider | Credential shape matched | Redaction token |
 |---|---|---|
 | `openai` | `sk-[A-Za-z0-9_-]{20,}` | `***REDACTED_OPENAI_KEY***` |
-| `minimax` | `sk-cp-[A-Za-z0-9_-]+` or a three-segment JWT beginning with `eyJ` | `***REDACTED_MINIMAX_KEY***` |
+| `minimax` | `sk-cp-[A-Za-z0-9_-]+` | `***REDACTED_MINIMAX_KEY***` |
+| any (JWT-shaped bearer tokens, incl. `minimax`) | three-segment JWT beginning with `eyJ` | `***REDACTED_JWT***` |
 | `atlascloud` | `(ak|apikey)-[A-Za-z0-9_-]{20,}` | `***REDACTED_ATLASCLOUD_KEY***` |
 | `openrouter` | `sk-or-[A-Za-z0-9_-]{20,}` (matched before `openai`) | `***REDACTED_OPENROUTER_KEY***` |
 | `anthropic` | `sk-ant-[A-Za-z0-9_-]{20,}`, `anthropic_[A-Za-z0-9_-]{20,}` | `***REDACTED_ANTHROPIC_KEY***` |

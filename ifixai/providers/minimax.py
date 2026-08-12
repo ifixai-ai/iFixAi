@@ -6,10 +6,12 @@ import aiohttp
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
+    RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
     ProviderAuthError,
     ProviderConnectionError,
     ProviderEmptyContentError,
+    ProviderOverloadedError,
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
@@ -104,11 +106,19 @@ MODEL_PRICING_TIERS: Final[dict[str, list[PricingTier]]] = {
 }
 
 DEFAULT_MODEL = "MiniMax-M3"
-DEFAULT_BASE_URL = REGIONAL_ENDPOINTS["global_en"]["anthropic_base_url"]
+DEFAULT_BASE_URL = REGIONAL_ENDPOINTS["global_en"]["openai_base_url"]
 DEFAULT_MAX_TOKENS = 4096
 ANTHROPIC_VERSION = "2023-06-01"
 
 APIStyle = Literal["messages", "chat_completions"]
+
+
+class MiniMaxRequest(TypedDict):
+    endpoint: str
+    url: str
+    api_style: APIStyle
+    headers: dict[str, str]
+    payload: dict[str, Any]
 
 
 def _api_style(endpoint: str) -> APIStyle:
@@ -117,7 +127,7 @@ def _api_style(endpoint: str) -> APIStyle:
         values["anthropic_base_url"].rstrip("/")
         for values in REGIONAL_ENDPOINTS.values()
     }
-    if normalized in messages_endpoints or normalized.endswith("/anthropic"):
+    if normalized in messages_endpoints or "/anthropic" in normalized:
         return "messages"
     return "chat_completions"
 
@@ -125,7 +135,7 @@ def _api_style(endpoint: str) -> APIStyle:
 def _build_request(
     messages: list[ChatMessage],
     config: ProviderConfig,
-) -> tuple[str, str, APIStyle, dict[str, str], dict[str, Any]]:
+) -> MiniMaxRequest:
     endpoint = (config.endpoint or DEFAULT_BASE_URL).rstrip("/")
     api_style = _api_style(endpoint)
     headers = {"Content-Type": "application/json"}
@@ -150,7 +160,7 @@ def _build_request(
         }
         if system_text:
             payload["system"] = system_text
-        url = f"{endpoint}/v1/messages"
+        url = f"{endpoint.removesuffix('/v1')}/v1/messages"
     else:
         payload = {
             "model": model,
@@ -169,7 +179,13 @@ def _build_request(
         url = f"{endpoint}/chat/completions"
 
     headers.update(config.extra_headers)
-    return endpoint, url, api_style, headers, payload
+    return {
+        "endpoint": endpoint,
+        "url": url,
+        "api_style": api_style,
+        "headers": headers,
+        "payload": payload,
+    }
 
 
 def _extract_response_text(
@@ -233,22 +249,16 @@ class MiniMaxProvider(ChatProvider):
         messages: list[ChatMessage],
         config: ProviderConfig,
     ) -> str:
-        endpoint, url, api_style, headers, payload = _build_request(messages, config)
+        request = _build_request(messages, config)
         timeout = aiohttp.ClientTimeout(total=config.timeout)
         last_error: Exception | None = None
 
         for attempt in range(config.max_retries + 1):
             try:
-                return await self._send_request(
-                    endpoint,
-                    url,
-                    api_style,
-                    headers,
-                    payload,
-                    timeout,
-                )
+                return await self._send_request(request, timeout)
             except (
                 ProviderConnectionError,
+                ProviderOverloadedError,
                 ProviderRateLimitError,
                 ProviderTimeoutError,
             ) as exc:
@@ -259,25 +269,23 @@ class MiniMaxProvider(ChatProvider):
 
         raise last_error or ProviderConnectionError(
             provider="minimax",
-            endpoint=endpoint,
+            endpoint=request["endpoint"],
             details="Max retries exhausted",
         )
 
     async def _send_request(
         self,
-        endpoint: str,
-        url: str,
-        api_style: APIStyle,
-        headers: dict[str, str],
-        payload: dict[str, Any],
+        request: MiniMaxRequest,
         timeout: aiohttp.ClientTimeout,
     ) -> str:
+        endpoint = request["endpoint"]
+        api_style = request["api_style"]
         session = await self.get_session()
         try:
             async with session.post(
-                url,
-                json=payload,
-                headers=headers,
+                request["url"],
+                json=request["payload"],
+                headers=request["headers"],
                 timeout=timeout,
             ) as response:
                 body = await response.text()
@@ -292,6 +300,12 @@ class MiniMaxProvider(ChatProvider):
                         provider="minimax",
                         endpoint=endpoint,
                         details="HTTP 429: rate limited",
+                    )
+                if response.status in RETRYABLE_HTTP_STATUS_CODES:
+                    raise ProviderOverloadedError(
+                        provider="minimax",
+                        endpoint=endpoint,
+                        details=f"HTTP {response.status}: {scrub_secrets(body[:500])}",
                     )
                 if response.status >= 400:
                     raise ProviderResponseError(
@@ -314,15 +328,15 @@ class MiniMaxProvider(ChatProvider):
                         details="Response JSON was not an object",
                     )
                 return _extract_response_text(data, api_style, endpoint)
-        except aiohttp.ClientError as exc:
-            raise ProviderConnectionError(
-                provider="minimax",
-                endpoint=endpoint,
-                details=str(exc),
-            ) from exc
         except asyncio.TimeoutError as exc:
             raise ProviderTimeoutError(
                 provider="minimax",
                 endpoint=endpoint,
                 details="Request timed out",
+            ) from exc
+        except aiohttp.ClientError as exc:
+            raise ProviderConnectionError(
+                provider="minimax",
+                endpoint=endpoint,
+                details=str(exc),
             ) from exc

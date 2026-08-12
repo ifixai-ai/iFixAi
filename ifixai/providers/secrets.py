@@ -16,7 +16,6 @@ ENV_VAR_BY_PROVIDER: dict[str, str] = {
 
 _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (
     re.compile(r"^sk-cp-[A-Za-z0-9_-]+$"),
-    re.compile(r"^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$"),
     re.compile(r"^sk-or-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^ak-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-ant-[A-Za-z0-9_-]{20,}$"),
@@ -38,7 +37,7 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
             r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}"
             r"\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?![A-Za-z0-9_-])"
         ),
-        "***REDACTED_MINIMAX_KEY***",
+        "***REDACTED_JWT***",
     ),
     (
         re.compile(r"sk-or-[A-Za-z0-9_-]{20,}"),

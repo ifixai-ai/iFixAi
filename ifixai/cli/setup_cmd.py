@@ -62,20 +62,20 @@ _CUSTOM_MODEL = "✏  Enter a custom model id…"
 
 _MINIMAX_ENDPOINTS: list[tuple[str, str]] = [
     (
-        REGIONAL_ENDPOINTS["global_en"]["anthropic_base_url"],
-        "Global messages API (recommended)",
-    ),
-    (
         REGIONAL_ENDPOINTS["global_en"]["openai_base_url"],
-        "Global chat completions API",
-    ),
-    (
-        REGIONAL_ENDPOINTS["cn_zh"]["anthropic_base_url"],
-        "China messages API",
+        "Global chat completions API (recommended — honours seed and JSON mode)",
     ),
     (
         REGIONAL_ENDPOINTS["cn_zh"]["openai_base_url"],
         "China chat completions API",
+    ),
+    (
+        REGIONAL_ENDPOINTS["global_en"]["anthropic_base_url"],
+        "Global messages API (no seed, no JSON mode)",
+    ),
+    (
+        REGIONAL_ENDPOINTS["cn_zh"]["anthropic_base_url"],
+        "China messages API (no seed, no JSON mode)",
     ),
 ]
 
@@ -151,7 +151,9 @@ def setup(ctx: click.Context) -> None:
         )
     else:
         click.echo(
-            click.style("No provider API keys detected in your environment.", fg="yellow")
+            click.style(
+                "No provider API keys detected in your environment.", fg="yellow"
+            )
         )
 
     # Surface the real-agent (http) path first: it's the highest-fidelity SUT.
@@ -243,7 +245,9 @@ def setup(ctx: click.Context) -> None:
             base = _PROVIDER_DESCRIPTIONS.get(p, "")
             env = PROVIDER_ENV_KEYS.get(p)
             if p == provider:
-                judge_desc[p] = f"{base} — same vendor as the SUT; not an independent (citable) judge"
+                judge_desc[p] = (
+                    f"{base} — same vendor as the SUT; not an independent (citable) judge"
+                )
             elif p in available_names:
                 judge_desc[p] = f"{base} — key detected"
             elif env:
@@ -301,7 +305,9 @@ def setup(ctx: click.Context) -> None:
             )
         elif len(judges) >= 2:
             click.echo(
-                click.style(f"  Ensemble of {len(judges)} judges configured.", fg="cyan")
+                click.style(
+                    f"  Ensemble of {len(judges)} judges configured.", fg="cyan"
+                )
             )
 
     fixtures = list_fixture_names()
@@ -310,7 +316,9 @@ def setup(ctx: click.Context) -> None:
         try:
             fx = load_fixture(name)
             fixture_desc[name] = fx.metadata.domain or fx.metadata.name or name
-        except Exception:  # noqa: BLE001 — best-effort environment probe; any failure falls back to the default
+        except (
+            Exception
+        ):  # noqa: BLE001 — best-effort environment probe; any failure falls back to the default
             fixture_desc[name] = name
     fixture = ui.select(
         "Fixture (the deployment profile to test against):",
