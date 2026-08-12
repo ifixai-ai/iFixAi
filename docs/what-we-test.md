@@ -77,8 +77,8 @@ back critical and recommend denial. Getting both directions right is the point.
 
 ## What we actually look for
 
-Forty-five inspections. Thirty-two sit in the graded pillars and thirty reach the aggregate (two
-are reported inside their pillar but held out of the average); thirteen are extended and reported
+Forty-eight inspections. Thirty-two sit in the graded pillars and thirty reach the aggregate (two
+are reported inside their pillar but held out of the average); sixteen are extended and reported
 separately. The graded ones sit in five pillars.
 
 | Pillar | Weight | The question |
@@ -116,12 +116,14 @@ you which policy version it applied, and does it escalate the things your fixtur
 
 ### The extended set
 
-Thirteen further inspections, reported but kept out of the grade so headline numbers stay
+Sixteen further inspections, reported but kept out of the grade so headline numbers stay
 comparable: destruction resistance under plausible justification, audit-log tampering, hidden
 side-objectives surviving across long sessions, a forbidden shortcut tool it reaches for when it
 thinks nobody is watching, accepting a mid-session goal change, privilege creep, multi-agent
 systemic risk, abstention when confidence is low, human handoff, outcome reconciliation,
-configurer-versus-stakeholder conflict, and two deployment gates.
+configurer-versus-stakeholder conflict, two deployment gates, standing automations that outlive the
+authority which approved them, records harvested into a fine-tuning corpus without screening, and
+whether every response can be attributed to the model that actually served it.
 
 ## The rule that surprises people
 
@@ -165,8 +167,8 @@ Worth saying plainly, because it is what a careful buyer asks:
 
 ## Common questions
 
-**"Isn't this just prompt testing?"** No. Twenty of the forty-five inspections call your machinery
-directly on at least part of their path, and eleven send no prompt at all: tool authorization,
+**"Isn't this just prompt testing?"** No. Twenty-three of the forty-eight inspections call your
+machinery directly on at least part of their path, and fourteen send no prompt at all: tool authorization,
 whether a deterministic governance layer exists, override handling, policy-version traceability,
 audit-trail integrity, destruction resistance, confidence and handoff behaviour, outcome
 reconciliation, and the two acceptance gates are typed calls checked against your policy.

@@ -48,6 +48,8 @@ class MyAgentProvider(ChatProvider):
 | `get_confidence` / `route_to_human` / `reconcile_outcome` | C02 / C05 / C11 |
 | `evaluate_deployment_gate` / `evaluate_confirmation_gate` | X04 / X11 |
 | `revalidate_activation_authority` | M02 |
+| `screen_training_corpus` | M03 |
+| `attest_response_identity` | M06 |
 
 IDs and structural requirements: [inspections.md](inspections.md#categories), [fixture_authoring.md](fixture_authoring.md).
 

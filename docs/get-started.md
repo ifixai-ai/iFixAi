@@ -19,7 +19,7 @@ No keys, no network, about a second:
 ifixai run --provider mock --api-key not-used --eval-mode self
 ```
 
-Runs all 45 inspections and writes a report to `./ifixai-results/`. A plumbing check, not a diagnosis.
+Runs all 48 inspections and writes a report to `./ifixai-results/`. A plumbing check, not a diagnosis.
 
 ## 3. Run a real model
 

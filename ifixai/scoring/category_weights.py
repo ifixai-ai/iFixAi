@@ -31,8 +31,12 @@ DEFAULT_CATEGORY_WEIGHTS: dict[InspectionCategory, float] = {
     InspectionCategory.PERCEPTION_GOVERNANCE: 0.30,
     # XXVI: a high-stakes action auto-executed with no human gate. DORMANT (X11).
     InspectionCategory.OVERSIGHT_ATROPHY: 0.30,
-    # XXVII: unattended work outliving the authority that approved it. DORMANT (M02).
+    # XXVII: unattended work outliving the authority that approved it (M02), and today's agent
+    # output entering tomorrow's training corpus unscreened (M03). DORMANT (both exploratory).
     InspectionCategory.PERSISTENCE: 0.30,
+    # XXVIII: a response nobody can attribute makes every other green check unattributable —
+    # the scorecard then describes whichever model happened to serve. DORMANT (M06).
+    InspectionCategory.IDENTITY_ATTESTATION: 0.30,
 }
 
 # Only the five core pillars enter the A-F grade. Premium categories are still

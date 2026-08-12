@@ -209,6 +209,18 @@ from ifixai.inspections.m02_standing_authority_revalidation.runner import (
 from ifixai.inspections.m02_standing_authority_revalidation.runner import (
     M02StandingAuthorityRevalidation,
 )
+from ifixai.inspections.m03_finetune_corpus_contamination.runner import (
+    SPEC as M03_SPEC,
+)
+from ifixai.inspections.m03_finetune_corpus_contamination.runner import (
+    M03FineTuneCorpusContamination,
+)
+from ifixai.inspections.m06_model_identity_attestation.runner import (
+    SPEC as M06_SPEC,
+)
+from ifixai.inspections.m06_model_identity_attestation.runner import (
+    M06ModelIdentityAttestation,
+)
 from ifixai.inspections.p01_destruction_resistance.runner import (
     SPEC as P01_SPEC,
 )
@@ -318,6 +330,8 @@ ALL_SPECS = [
     X04_SPEC,
     X11_SPEC,
     M02_SPEC,
+    M03_SPEC,
+    M06_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -333,13 +347,18 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # Categories XXII–XXVI); X04 (deployed-detection-performance acceptance gate,
 # PERCEPTION_GOVERNANCE XXIII) and X11 (automation-bias / pre-action confirmation gate,
 # OVERSIGHT_ATROPHY XXVI — human-oversight atrophy) are the two current members. M-series:
-# M01..M12 (Persistence — integrity of state that outlives the session, Category XXVII, which
-# is where the M-series opens because the X-series' five classes consume XXII–XXVI in full);
-# M02 (standing-automation authority re-validation) is the first, so the 'M' alternative with
-# a 01..12 NN range is added here. All ranges share the NN shape; the S alternative (01..08)
-# admits S02 ∈ 0[1-8], the X alternative (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1] (the
-# X04 addition already widened the pattern to the full X-series range), and the M alternative
-# (01..12) admits M02 ∈ 0[1-9]|1[0-2].
+# M01..M12 (M-series, Categories XXVII–XXVIII: it opens at XXVII because the X-series' five
+# classes consume XXII–XXVI in full, and its failure classes then take contiguous numerals the
+# same way the C-series takes XIV–XXI). PERSISTENCE (XXVII — integrity of state that outlives
+# the session) is its first class, home of M02 (standing-automation authority re-validation) and
+# M03 (fine-tune corpus contamination gate); IDENTITY_ATTESTATION (XXVIII — knowing what, and
+# whom, you are running) is its second, home of M06 (runtime model-identity attestation and
+# silent-substitution detection). The 'M' alternative with a 01..12 NN range was added for M02.
+# All ranges share the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8], the X
+# alternative (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1] (the X04 addition already widened
+# the pattern to the full X-series range), and the M alternative (01..12) — added for M02 —
+# already admits M03 and M06, so neither required a pattern change (pinned by
+# test_id_pattern_already_admits_m03 / test_id_pattern_already_admits_m06).
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
     r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1])|M(0[1-9]|1[0-2]))$"
@@ -415,6 +434,8 @@ def create_inspection(spec_id: str) -> BaseTest:
         "X04": X04DetectionPerformanceGate,
         "X11": X11PreActionConfirmationGate,
         "M02": M02StandingAuthorityRevalidation,
+        "M03": M03FineTuneCorpusContamination,
+        "M06": M06ModelIdentityAttestation,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -451,9 +472,12 @@ CATEGORIES = {
     # (Category XXVI) is the human-oversight-atrophy member, home of X11.
     23: InspectionCategory.PERCEPTION_GOVERNANCE,
     26: InspectionCategory.OVERSIGHT_ATROPHY,
-    # Category XXVII — PERSISTENCE, home of the M-series (M01–M12) and of M02. It opens at
-    # XXVII because the X-series' five failure classes consume XXII–XXVI in full.
+    # Category XXVII — PERSISTENCE, the M-series' (M01–M12) FIRST failure class, home of M02 and
+    # M03. It opens at XXVII because the X-series' five failure classes consume XXII–XXVI in full.
     27: InspectionCategory.PERSISTENCE,
+    # Category XXVIII — IDENTITY_ATTESTATION, the M-series' SECOND failure class (contiguous
+    # numerals, as with the C- and X-series), home of M06.
+    28: InspectionCategory.IDENTITY_ATTESTATION,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -474,6 +498,7 @@ CATEGORY_DESCRIPTIONS = {
     23: "PERCEPTION_GOVERNANCE — Perception-Deployment Governance & Assurance Gates",
     26: "OVERSIGHT_ATROPHY — Human-Oversight Atrophy & Pre-Action Confirmation Gates",
     27: "PERSISTENCE — Integrity of State That Outlives the Session",
+    28: "IDENTITY_ATTESTATION — Knowing What (and Whom) You Are Running",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS
