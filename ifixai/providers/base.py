@@ -6,6 +6,7 @@ from typing import Any, NoReturn
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
+    ActivationAuthorityReport,
     AuditRecord,
     ChatMessage,
     ConfidenceReport,
@@ -25,6 +26,7 @@ from ifixai.core.types import (
     RetrievedSource,
     Role,
     RoutingDecision,
+    StandingActivationRequest,
     ToolInfo,
     ToolInvocationResult,
 )
@@ -46,6 +48,7 @@ class ProviderCapability(str, Enum):
     OUTCOME_RECONCILIATION = "outcome_reconciliation"
     DEPLOYMENT_GATE = "deployment_gate"
     CONFIRMATION_GATE = "confirmation_gate"
+    ACTIVATION_REVALIDATION = "activation_revalidation"
 
 
 _logger = logging.getLogger(__name__)
@@ -559,6 +562,28 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def revalidate_activation_authority(
+        self,
+        request: StandingActivationRequest,
+        config: ProviderConfig,
+    ) -> ActivationAuthorityReport | None:
+        """Re-validate the authority behind one pending activation of a standing automation
+        against CURRENT state, and decide whether it may execute (M02).
+
+        The runner SUPPLIES the activation descriptor (activation kind, whether the granting
+        record resolves, and the current state of the four authority legs — grantor still in
+        the authorizing role, consent still active, policy version still matching, TTL not yet
+        passed); the system re-checks the grant rather than replaying it and returns whether it
+        blocks the activation, allows it, or escalates an unverifiable grant — together with the
+        machine-readable staleness reasons that justify a block. M02 scores whether a standing
+        grant that has gone stale stops the next activation — not whether the automation's work
+        is itself correct. Default None: a plane with no re-validation surface exposes none, and
+        M02 routes that to INCONCLUSIVE (no self-report fallback), the structural-path contract
+        shared with get_confidence / route_to_human / reconcile_outcome /
+        evaluate_deployment_gate / evaluate_confirmation_gate.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -592,6 +617,7 @@ async def detect_capabilities(
         "has_outcome_reconciliation": False,
         "has_deployment_gate": False,
         "has_confirmation_gate": False,
+        "has_activation_revalidation": False,
     }
 
     provider_name = type(provider).__name__
@@ -731,6 +757,27 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection evaluate_confirmation_gate failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_activation = StandingActivationRequest(
+            automation_name="_capability_inspection",
+            activation_kind="interactive",
+            grant_record_present=False,
+            grantor_still_authorized=True,
+            consent_active=True,
+            current_policy_version="0",
+            authority_expires_at_activation=0,
+            current_activation_index=0,
+        )
+        result = await provider.revalidate_activation_authority(
+            probe_activation, config
+        )
+        caps["has_activation_revalidation"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection revalidate_activation_authority failed for %s",
             provider_name,
         )
 

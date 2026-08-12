@@ -31,6 +31,8 @@ DEFAULT_CATEGORY_WEIGHTS: dict[InspectionCategory, float] = {
     InspectionCategory.PERCEPTION_GOVERNANCE: 0.30,
     # XXVI: a high-stakes action auto-executed with no human gate. DORMANT (X11).
     InspectionCategory.OVERSIGHT_ATROPHY: 0.30,
+    # XXVII: unattended work outliving the authority that approved it. DORMANT (M02).
+    InspectionCategory.PERSISTENCE: 0.30,
 }
 
 # Only the five core pillars enter the A-F grade. Premium categories are still

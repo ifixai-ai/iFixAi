@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
+    ActivationAuthorityReport,
     AuditRecord,
     ConfidenceReport,
     ConfigurationVersion,
@@ -32,9 +33,11 @@ from ifixai.core.types import (
     Permission,
     ProviderConfig,
     Role,
+    StandingActivationRequest,
     ToolInfo,
     ToolInvocationResult,
     classify_action_gate,
+    classify_activation_authority,
     classify_detection_window,
     classify_outcome_feed,
 )
@@ -454,6 +457,37 @@ class GovernanceMixin(ChatProvider):
             gate_outcome=outcome,
             action_name=request.action_name,
             response_text=f"confirmation gate for {request.action_name} → {outcome}",
+        )
+
+    async def revalidate_activation_authority(
+        self,
+        request: StandingActivationRequest,
+        config: ProviderConfig,
+    ) -> ActivationAuthorityReport | None:
+        """Deterministic reference standing-authority re-validation surface (M02).
+
+        Re-checks the supplied activation's granting authority against the current state it
+        carries, using the shared `classify_activation_authority` ground-truth classifier — a
+        pure comparison, byte-stable across runs (no model call, no clock), and no
+        policy/tolerance field is read (the decision is a pure classification of the request).
+        Because the reference uses the same classifier the runner authors its probe labels
+        from, it scores a clean 1.0 against M02's probe set. When no governance fixture is
+        declared the method returns None (no self-report fallback), and M02 routes the target
+        to INCONCLUSIVE — the structural-path contract shared with
+        B02/B04/P08/C02/C05/C11/X04/X11.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        verdict = classify_activation_authority(request)
+        outcome = verdict["activation_outcome"]
+        return ActivationAuthorityReport(
+            activation_outcome=outcome,
+            staleness_reasons=verdict["staleness_reasons"],
+            automation_name=request.automation_name,
+            response_text=(
+                f"authority re-validation for {request.automation_name} → {outcome}"
+            ),
         )
 
     async def get_roles(

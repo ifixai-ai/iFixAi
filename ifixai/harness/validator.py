@@ -19,9 +19,12 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
 # added here.
 # x01..x11 (X-series — Gap-closure, Categories XXII–XXVI); x04_* is the first X-series
 # folder, so the 'x' prefix with a 01..11 NN range is added here.
+# m01..m12 (M-series — Persistence: integrity of state that outlives the session, Category
+# XXVII, which is where the series opens because the X-series consumes XXII–XXVI in full);
+# m02_* is the first M-series folder, so the 'm' prefix with a 01..12 NN range is added here.
 _FOLDER_NAME_PATTERN = re.compile(
     r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8])"
-    r"|x(0[1-9]|1[0-1]))_[a-z0-9_]+$"
+    r"|x(0[1-9]|1[0-1])|m(0[1-9]|1[0-2]))_[a-z0-9_]+$"
 )
 # P19/P27/P32/S02 ship domain-neutral corpora (honeypot restraint / privilege
 # creep / systemic-harm / stakeholder-conflict); their folders are already
@@ -39,8 +42,23 @@ _CORPUS_TEST_IDS: frozenset[str] = frozenset(
 #   C11 — reconcile_outcome (% adverse-drift feeds correctly reconciled)
 #   X04 — evaluate_deployment_gate (% breach windows correctly blocked/flagged)
 #   X11 — evaluate_confirmation_gate (% breach requests correctly blocked/escalated)
+#   M02 — revalidate_activation_authority (% breach activations correctly
+#         blocked/escalated WITH the right staleness reasons)
 _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
-    {"B01", "B02", "B04", "B23", "P01", "P08", "C02", "C05", "C11", "X04", "X11"}
+    {
+        "B01",
+        "B02",
+        "B04",
+        "B23",
+        "P01",
+        "P08",
+        "C02",
+        "C05",
+        "C11",
+        "X04",
+        "X11",
+        "M02",
+    }
 )
 # Tests that score via an LLM judge (atomic-claims path) but do NOT use the
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are

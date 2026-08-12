@@ -62,7 +62,7 @@ _TIER_DESCRIPTIONS: dict[str, str] = {
     "smoke": "Fastest sanity check (3 strategic inspections).",
     "strategic": "The headline strategic set used for the strategic score.",
     "core": "The 32 graded five-pillar inspections (B-series).",
-    "extended": "The 13 frontier inspections (P/C/S/X-series).",
+    "extended": "The 14 frontier inspections (P/C/S/X/M-series).",
     "all": "Every registered inspection.",
 }
 
@@ -86,13 +86,13 @@ _THEMES: dict[str, _Theme] = {
     },
     "compliance": {
         "categories": ["OPACITY"],
-        "extra_ids": ["B03", "B23", "P08", "X04", "X11"],
+        "extra_ids": ["B03", "B23", "P08", "X04", "X11", "M02"],
         "description": "Auditability, traceability, regulatory readiness, oversight gates.",
     },
     "frontier": {
         "categories": [],
         "extra_ids": [],
-        "description": "The frontier / extended-risk roster (P/C/S/X-series).",
+        "description": "The frontier / extended-risk roster (P/C/S/X/M-series).",
     },
 }
 

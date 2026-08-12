@@ -203,6 +203,12 @@ from ifixai.inspections.c11_operational_outcome_conformance.runner import (
 from ifixai.inspections.c11_operational_outcome_conformance.runner import (
     C11OperationalOutcomeConformance,
 )
+from ifixai.inspections.m02_standing_authority_revalidation.runner import (
+    SPEC as M02_SPEC,
+)
+from ifixai.inspections.m02_standing_authority_revalidation.runner import (
+    M02StandingAuthorityRevalidation,
+)
 from ifixai.inspections.p01_destruction_resistance.runner import (
     SPEC as P01_SPEC,
 )
@@ -311,6 +317,7 @@ ALL_SPECS = [
     S02_SPEC,
     X04_SPEC,
     X11_SPEC,
+    M02_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -325,13 +332,17 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # (configurer-vs-stakeholder conflict) is the first. X-series: X01..X11 (Gap-closure,
 # Categories XXII–XXVI); X04 (deployed-detection-performance acceptance gate,
 # PERCEPTION_GOVERNANCE XXIII) and X11 (automation-bias / pre-action confirmation gate,
-# OVERSIGHT_ATROPHY XXVI — human-oversight atrophy) are the two current members. All ranges
-# share the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8] and the X alternative
-# (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1] (the X04 addition already widened the
-# pattern to the full X-series range, so X11 needs no further widening).
+# OVERSIGHT_ATROPHY XXVI — human-oversight atrophy) are the two current members. M-series:
+# M01..M12 (Persistence — integrity of state that outlives the session, Category XXVII, which
+# is where the M-series opens because the X-series' five classes consume XXII–XXVI in full);
+# M02 (standing-automation authority re-validation) is the first, so the 'M' alternative with
+# a 01..12 NN range is added here. All ranges share the NN shape; the S alternative (01..08)
+# admits S02 ∈ 0[1-8], the X alternative (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1] (the
+# X04 addition already widened the pattern to the full X-series range), and the M alternative
+# (01..12) admits M02 ∈ 0[1-9]|1[0-2].
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
-    r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1]))$"
+    r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1])|M(0[1-9]|1[0-2]))$"
 )
 _LEGACY_PREFIXES = ("SSCI-",)
 
@@ -350,7 +361,8 @@ def normalize_test_id(value: str) -> str:
             break
     if not _TEST_ID_PATTERN.match(candidate):
         raise ValueError(
-            f"Unknown test id: {value!r}. Expected B01..B32 or P01..P32 (bare form)."
+            f"Unknown test id: {value!r}. Expected B01..B32, P01..P32, C01..C16, "
+            "S01..S08, X01..X11 or M01..M12 (bare form)."
         )
     return candidate
 
@@ -402,6 +414,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "S02": S02ConfigurerStakeholderConflict,
         "X04": X04DetectionPerformanceGate,
         "X11": X11PreActionConfirmationGate,
+        "M02": M02StandingAuthorityRevalidation,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -438,6 +451,9 @@ CATEGORIES = {
     # (Category XXVI) is the human-oversight-atrophy member, home of X11.
     23: InspectionCategory.PERCEPTION_GOVERNANCE,
     26: InspectionCategory.OVERSIGHT_ATROPHY,
+    # Category XXVII — PERSISTENCE, home of the M-series (M01–M12) and of M02. It opens at
+    # XXVII because the X-series' five failure classes consume XXII–XXVI in full.
+    27: InspectionCategory.PERSISTENCE,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -457,6 +473,7 @@ CATEGORY_DESCRIPTIONS = {
     18: "STAKEHOLDER_CONFLICT — Stakeholder & Multi-Principal Integrity",
     23: "PERCEPTION_GOVERNANCE — Perception-Deployment Governance & Assurance Gates",
     26: "OVERSIGHT_ATROPHY — Human-Oversight Atrophy & Pre-Action Confirmation Gates",
+    27: "PERSISTENCE — Integrity of State That Outlives the Session",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS
