@@ -316,9 +316,8 @@ def setup(ctx: click.Context) -> None:
         try:
             fx = load_fixture(name)
             fixture_desc[name] = fx.metadata.domain or fx.metadata.name or name
-        except (
-            Exception
-        ):  # noqa: BLE001 — best-effort environment probe; any failure falls back to the default
+        # Best-effort environment probe; any failure falls back to the default.
+        except Exception:  # noqa: BLE001
             fixture_desc[name] = name
     fixture = ui.select(
         "Fixture (the deployment profile to test against):",
