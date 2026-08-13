@@ -77,8 +77,8 @@ back critical and recommend denial. Getting both directions right is the point.
 
 ## What we actually look for
 
-Forty-eight inspections. Thirty-two sit in the graded pillars and thirty reach the aggregate (two
-are reported inside their pillar but held out of the average); sixteen are extended and reported
+Forty-nine inspections. Thirty-two sit in the graded pillars and thirty reach the aggregate (two
+are reported inside their pillar but held out of the average); seventeen are extended and reported
 separately. The graded ones sit in five pillars.
 
 | Pillar | Weight | The question |
@@ -116,14 +116,15 @@ you which policy version it applied, and does it escalate the things your fixtur
 
 ### The extended set
 
-Sixteen further inspections, reported but kept out of the grade so headline numbers stay
+Seventeen further inspections, reported but kept out of the grade so headline numbers stay
 comparable: destruction resistance under plausible justification, audit-log tampering, hidden
 side-objectives surviving across long sessions, a forbidden shortcut tool it reaches for when it
 thinks nobody is watching, accepting a mid-session goal change, privilege creep, multi-agent
 systemic risk, abstention when confidence is low, human handoff, outcome reconciliation,
 configurer-versus-stakeholder conflict, two deployment gates, standing automations that outlive the
-authority which approved them, records harvested into a fine-tuning corpus without screening, and
-whether every response can be attributed to the model that actually served it.
+authority which approved them, records harvested into a fine-tuning corpus without screening,
+whether every response can be attributed to the model that actually served it, and whether authority
+handed to an agent in another organization is narrowed to the task it was handed for.
 
 ## The rule that surprises people
 

@@ -62,7 +62,6 @@ stochasticity to absorb.
 
 import asyncio
 import logging
-from collections import Counter
 from collections.abc import Callable
 from typing import Optional, TypedDict
 
@@ -72,6 +71,7 @@ from ifixai.core.types import (
     DelegationHandoffClaim,
     DelegationScopeReport,
     EvaluationMethod,
+    EvaluationPipelineConfig,
     EvidenceItem,
     Fixture,
     InspectionCategory,
@@ -85,6 +85,7 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest
 from ifixai.inspections.m07_cross_org_delegation_scope.diagnostics import (
     coverage_summary,
@@ -100,6 +101,10 @@ from ifixai.inspections.m07_cross_org_delegation_scope.probes import (
     expected_granted_scope,
     probe_case_id,
     select_probe_items,
+)
+from ifixai.inspections.user_selection import (
+    capped_unique_users,
+    warn_on_duplicate_user_ids,
 )
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader, RuleLoadError
@@ -254,8 +259,8 @@ class M07CrossOrgDelegationScope(BaseTest):
         config: ProviderConfig,
         fixture: Fixture,
         capabilities: Optional[ProviderCapabilities] = None,
-        pipeline_config: Optional[object] = None,
-        pipeline: Optional[object] = None,
+        pipeline_config: Optional[EvaluationPipelineConfig] = None,
+        pipeline: Optional[EvaluationPipeline] = None,
     ) -> TestResult:
         """Short-circuit to INCONCLUSIVE when the fixture cannot supply enough scored probes to clear the
         evidence floor — BEFORE any attenuate_delegation_scope call. predicted = (audited users) x
@@ -577,79 +582,19 @@ def _scored_items(evidence: list[EvidenceItem]) -> list[EvidenceItem]:
 
 
 def _capped_users(fixture: Fixture) -> list[User]:
-    """The users M07 audits: sorted by `user_id`, de-duplicated on it, then capped at `_MAX_USERS`.
+    """The users M07 audits — the shared sort / de-duplicate / cap selection, bound to `_MAX_USERS`.
 
-    All three steps, in that order, and each earns its place:
-
-    SORT FIRST, because a bare `fixture.users[:_MAX_USERS]` slice selects in FILE order, so two fixtures
-    carrying the same users in a different order audit different users and emit different evidence ids —
-    deterministic per file, but not stable under a harmless reshuffle, which is weaker than the
-    byte-stability this inspection claims.
-
-    DE-DUPLICATE on `user_id`, because it is the evidence id's only user-varying component
-    (`probe_case_id`) and `Fixture` does not constrain it to be unique. Two users sharing an id produce
-    colliding `test_case_id`s — the record's primary key — so downstream joins silently lose rows, and
-    `coverage_summary`'s `user_count` (a set over `user_id`) reports fewer users than actually ran, i.e.
-    a diagnostic states a number that is false. Two distinct principals under one id are unrepresentable
-    in the evidence record however this is resolved; keeping the first and warning is the option that
-    leaves the record self-consistent. Rejected alternatives: putting an index in the id changes every id
-    for no gain on well-formed fixtures, and raising in the fixture gate would make M07 the only
-    inspection that rejects a schema-valid fixture its 48 siblings accept.
-
-    CAP LAST, so the cap counts what will actually run.
-
-    Deliberately NOT `harness.base.sample_capped`, though that helper also sorts-then-caps: above the cap
-    it draws a SEEDED subsample, and M07 is seed-free by construction (design spec section 7). Using it
-    would reintroduce the RNG branch and the unread config field the seed-free design exists to avoid,
-    and it does not de-duplicate.
-
-    The score is unaffected by any of this (every selected user runs every probe, and a probe's verdict
-    does not depend on who issued the hop) — this governs the integrity of the evidence record.
-
-    Pure and side-effect free: `execute` calls it to predict the evidence count and `run` calls it again
-    to enumerate, so a log line in here would fire twice and read as two separate drops. The warning
-    lives at the single `run` call site instead (`_warn_on_duplicate_user_ids`).
-
-    NOTE: `m06_model_identity_attestation/runner.py` still carries the unsorted, un-deduplicated slice,
-    and M02/M03 build ids the same way. Fixing them changes which users a >5-user fixture audits for
-    SHIPPED inspections, so it is tracked separately rather than folded into this change.
+    The rationale for each step (and for not reaching for `sample_capped`) lives with the shared
+    implementation in `ifixai/inspections/user_selection.py`, which M02, M03 and M06 also use: all four
+    key their evidence ids on `user_id`, so a divergence in how they pick users is a divergence in what
+    their records mean.
     """
-    seen: set[str] = set()
-    unique: list[User] = []
-    # (user_id, name) rather than user_id alone: among users sharing an id, a key of user_id alone leaves
-    # the retained principal to the stable sort, i.e. to fixture FILE order — the same instability the
-    # sort exists to remove, merely pushed from the id onto the name recorded in the evidence.
-    for user in sorted(fixture.users, key=lambda candidate: (candidate.user_id, candidate.name)):
-        if user.user_id not in seen:
-            seen.add(user.user_id)
-            unique.append(user)
-    return unique[:_MAX_USERS]
+    return capped_unique_users(fixture.users, _MAX_USERS)
 
 
 def _warn_on_duplicate_user_ids(fixture: Fixture) -> None:
-    """Warn once, naming every repeated `user_id` that actually cost a principal its place in the audit.
-
-    Called from `run` only. `_capped_users` drops the repeats silently by design — see its docstring for
-    why dropping beats the alternatives — but a silent drop would leave the operator wondering why their
-    six-user fixture reports five, so the reason is stated once per run rather than per dropped user.
-
-    Scoped to the AUDITED ids, not to the whole fixture: only `_MAX_USERS` users are ever audited, so a
-    duplicate sitting outside the cap costs nothing — the second entry was never going to be probed.
-    Warning about it would send the operator to fix a fixture whose audit is unaffected.
-    """
-    audited = {user.user_id for user in _capped_users(fixture)}
-    occurrences = Counter(user.user_id for user in fixture.users)
-    repeated = sorted(
-        user_id
-        for user_id, count in occurrences.items()
-        if count > 1 and user_id in audited
-    )
-    if repeated:
-        logger.warning(
-            "M07 fixture repeats user_id(s) %s; evidence ids are keyed on user_id, so only the first "
-            "user under each id is audited (a repeat would collide with an already-audited principal)",
-            repeated,
-        )
+    """Warn once from `run` when a repeated `user_id` cost a principal its place in the audit."""
+    warn_on_duplicate_user_ids(logger, "M07", fixture.users, _MAX_USERS)
 
 
 def _users_present(fixture: Fixture) -> bool:

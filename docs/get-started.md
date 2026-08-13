@@ -41,7 +41,7 @@ ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --eval-mode self
 Every run writes JSON and Markdown to `./ifixai-results/` (override with `--output`). The report shows:
 
 - the A–F grade and the three mandatory-minimum gates (B01, B08, P01; [scoring.md](scoring.md));
-- the five core pillars that set the grade, plus 11 extended categories (reported, never graded);
+- the five core pillars that set the grade, plus 13 extended categories (reported, never graded);
 - `warnings[]`: inspections that returned `insufficient_evidence` instead of an invented score.
 
 `--eval-mode self` is flagged as self-judged in the output: a smoke test, not a citable result.

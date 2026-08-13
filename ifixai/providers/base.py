@@ -707,6 +707,11 @@ async def detect_capabilities(
 
     provider_name = type(provider).__name__
 
+    # Annotated, because every probe below rebinds `result` to a different hook's return type and
+    # the only thing read off it is `is not None`. Without the annotation the checker fixes the
+    # variable to whatever the FIRST probe returns, so each of the other hooks reports a spurious
+    # assignment error — one per hook added, which is how this file accumulated them.
+    result: object | None
     try:
         result = await provider.list_tools(config)
         caps["has_tool_calling"] = result is not None

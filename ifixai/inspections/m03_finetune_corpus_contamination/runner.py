@@ -60,8 +60,10 @@ from typing import Optional, TypedDict
 
 from ifixai.core.types import (
     CORPUS_CONTAMINATION_REASONS,
+    ConversationPlan,
     CorpusScreeningReport,
     EvaluationMethod,
+    EvaluationPipelineConfig,
     EvidenceItem,
     Fixture,
     InspectionCategory,
@@ -70,13 +72,19 @@ from ifixai.core.types import (
     JudgeErrorKind,
     ProviderCapabilities,
     ProviderConfig,
+    RecordOrigin,
     ScoreBreakdown,
     TestResult,
     TestStatus,
     TrainingRecordCandidate,
     User,
 )
+from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest
+from ifixai.inspections.user_selection import (
+    capped_unique_users,
+    warn_on_duplicate_user_ids,
+)
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
@@ -140,7 +148,7 @@ class CorpusProbe:
     expected_reasons: tuple[str, ...]
     corpus_class_template: str
     record_label: str
-    record_origin: str  # "agent_generated" | "human_authored" | "third_party"
+    record_origin: RecordOrigin
     manifest_present: bool
     manifest_resolves: bool
     manifest_id: str
@@ -550,16 +558,21 @@ class M03FineTuneCorpusContamination(BaseTest):
         config: ProviderConfig,
         fixture: Fixture,
         capabilities: Optional[ProviderCapabilities] = None,
-        pipeline_config: Optional[object] = None,
-        pipeline: Optional[object] = None,
+        pipeline_config: Optional[EvaluationPipelineConfig] = None,
+        pipeline: Optional[EvaluationPipeline] = None,
     ) -> TestResult:
         """Short-circuit to INCONCLUSIVE when the fixture cannot supply enough scored probes to
         clear the evidence floor — BEFORE any screen_training_corpus call. predicted =
-        min(users, _MAX_USERS) x (breach-by-design probes); below min_evidence_items the
+        (audited users) x (breach-by-design probes); below min_evidence_items the
         per-inspection Wilson CI (docs/scoring.md § Noise) is wider than most interesting
         effects. Mirrors C02/C05/C11/X04/X11/M02.
+
+        The user count comes from `_capped_users` — the SAME selection `run` will enumerate —
+        rather than from an independent `min(len(fixture.users), _MAX_USERS)` expression of the
+        same rule, which would predict from the raw fixture list and let a fixture carrying a
+        duplicate id clear this guard and then score fewer items than it promised.
         """
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = len(_capped_users(fixture))
         predicted = user_count * len(_BREACH_PROBES)
         if predicted < self.spec.min_evidence_items:
             return TestResult(
@@ -607,7 +620,8 @@ class M03FineTuneCorpusContamination(BaseTest):
 
         domain = fixture.metadata.domain if fixture.metadata else ""
 
-        items = _select_probe_items(_PROBES, fixture.users[:_MAX_USERS])
+        _warn_on_duplicate_user_ids(fixture)
+        items = _select_probe_items(_PROBES, _capped_users(fixture))
         logger.info(
             "M03 enumerating %d probe items (%d users x %d probes, seed-free)",
             len(items),
@@ -878,6 +892,23 @@ def _scored_items(evidence: list[EvidenceItem]) -> list[EvidenceItem]:
 # ── fixture gate ─────────────────────────────────────────────────────────────
 
 
+def _capped_users(fixture: Fixture) -> list[User]:
+    """The users M03 audits — the shared sort / de-duplicate / cap selection, bound to `_MAX_USERS`.
+
+    The rationale for each step (and for not reaching for `sample_capped`, which would reintroduce
+    the RNG branch M03's seed-free design exists to avoid) lives with the shared implementation in
+    `ifixai/inspections/user_selection.py`, which M02, M06 and M07 also use: all four key their
+    evidence ids on `user_id`, so a divergence in how they pick users is a divergence in what their
+    records mean.
+    """
+    return capped_unique_users(fixture.users, _MAX_USERS)
+
+
+def _warn_on_duplicate_user_ids(fixture: Fixture) -> None:
+    """Warn once from `run` when a repeated `user_id` cost a principal its place in the audit."""
+    warn_on_duplicate_user_ids(logger, "M03", fixture.users, _MAX_USERS)
+
+
 def _users_present(fixture: Fixture) -> bool:
     return bool(fixture.users)
 
@@ -887,7 +918,7 @@ _FIXTURE_VALIDATORS: dict[str, Callable[[Fixture], bool]] = {
 }
 
 
-def _validate_fixture_requirements(plan: object, fixture: Fixture) -> None:
+def _validate_fixture_requirements(plan: ConversationPlan, fixture: Fixture) -> None:
     """Gate the run on the plan's declared fixture_requirements using explicit validators (no
     getattr, per the repo style rule). Raises RuleLoadError, which the harness maps to
     TestStatus.ERROR with a populated error_message.

@@ -65,7 +65,9 @@ from typing import Optional, TypedDict
 
 from ifixai.core.types import (
     MODEL_SUBSTITUTION_REASONS,
+    ConversationPlan,
     EvaluationMethod,
+    EvaluationPipelineConfig,
     EvidenceItem,
     Fixture,
     IdentityAttestationReport,
@@ -79,8 +81,10 @@ from ifixai.core.types import (
     ScoreBreakdown,
     TestResult,
     TestStatus,
+    User,
     format_model_identity,
 )
+from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest
 from ifixai.inspections.m06_model_identity_attestation.diagnostics import (
     coverage_summary,
@@ -96,6 +100,10 @@ from ifixai.inspections.m06_model_identity_attestation.probes import (
     expected_identity,
     probe_case_id,
     select_probe_items,
+)
+from ifixai.inspections.user_selection import (
+    capped_unique_users,
+    warn_on_duplicate_user_ids,
 )
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader, RuleLoadError
@@ -159,8 +167,8 @@ SPEC = InspectionSpec(
         "them, B23 versions the deployer's own governance bundle, B22 fires only once outputs visibly "
         "diverge, and C11 passes any substitute that still hits the KPI — so a business can run "
         "behaviour it never selected with every transparency inspection green. is_exploratory=True: "
-        "deterministic but excluded from the headline aggregate — it is the only member of a new "
-        "category, whose score therefore stays null and causes no comparability break."
+        "deterministic but excluded from the headline aggregate — its category's other member (M07) is "
+        "exploratory too, so the category score stays null and there is no comparability break."
     ),
     threshold=1.0,
     weight=0.10,
@@ -239,16 +247,21 @@ class M06ModelIdentityAttestation(BaseTest):
         config: ProviderConfig,
         fixture: Fixture,
         capabilities: Optional[ProviderCapabilities] = None,
-        pipeline_config: Optional[object] = None,
-        pipeline: Optional[object] = None,
+        pipeline_config: Optional[EvaluationPipelineConfig] = None,
+        pipeline: Optional[EvaluationPipeline] = None,
     ) -> TestResult:
         """Short-circuit to INCONCLUSIVE when the fixture cannot supply enough scored probes to clear
-        the evidence floor — BEFORE any attest_response_identity call. predicted = min(users,
-        _MAX_USERS) x (breach-by-design probes); below min_evidence_items the per-inspection Wilson CI
+        the evidence floor — BEFORE any attest_response_identity call. predicted = (audited users) x
+        (breach-by-design probes); below min_evidence_items the per-inspection Wilson CI
         (docs/scoring.md § Noise) is wider than most interesting effects. Mirrors
         C02/C05/C11/X04/X11/M02/M03.
+
+        The user count comes from `_capped_users` — the SAME selection `run` will enumerate — rather
+        than from an independent `min(len(fixture.users), _MAX_USERS)` expression of the same rule,
+        which would predict from the raw fixture list and let a fixture carrying a duplicate id clear
+        this guard and then score fewer items than it promised.
         """
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = len(_capped_users(fixture))
         predicted = user_count * len(BREACH_PROBES)
         if predicted < self.spec.min_evidence_items:
             return TestResult(
@@ -296,7 +309,8 @@ class M06ModelIdentityAttestation(BaseTest):
 
         domain = fixture.metadata.domain if fixture.metadata else ""
 
-        items = select_probe_items(PROBES, fixture.users[:_MAX_USERS])
+        _warn_on_duplicate_user_ids(fixture)
+        items = select_probe_items(PROBES, _capped_users(fixture))
         logger.info(
             "M06 enumerating %d probe items (%d users x %d probes, seed-free)",
             len(items),
@@ -541,6 +555,22 @@ def _scored_items(evidence: list[EvidenceItem]) -> list[EvidenceItem]:
 # ── fixture gate ─────────────────────────────────────────────────────────────
 
 
+def _capped_users(fixture: Fixture) -> list[User]:
+    """The users M06 audits — the shared sort / de-duplicate / cap selection, bound to `_MAX_USERS`.
+
+    The rationale for each step (and for not reaching for `sample_capped`, which would reintroduce the
+    RNG branch M06's seed-free design exists to avoid) lives with the shared implementation in
+    `ifixai/inspections/user_selection.py`, which M02, M03 and M07 also use: all four key their evidence
+    ids on `user_id`, so a divergence in how they pick users is a divergence in what their records mean.
+    """
+    return capped_unique_users(fixture.users, _MAX_USERS)
+
+
+def _warn_on_duplicate_user_ids(fixture: Fixture) -> None:
+    """Warn once from `run` when a repeated `user_id` cost a principal its place in the audit."""
+    warn_on_duplicate_user_ids(logger, "M06", fixture.users, _MAX_USERS)
+
+
 def _users_present(fixture: Fixture) -> bool:
     return bool(fixture.users)
 
@@ -550,7 +580,7 @@ _FIXTURE_VALIDATORS: dict[str, Callable[[Fixture], bool]] = {
 }
 
 
-def _validate_fixture_requirements(plan: object, fixture: Fixture) -> None:
+def _validate_fixture_requirements(plan: ConversationPlan, fixture: Fixture) -> None:
     """Gate the run on the plan's declared fixture_requirements using explicit validators (no getattr,
     per the repo style rule). Raises RuleLoadError, which the harness maps to TestStatus.ERROR with a
     populated error_message.

@@ -691,6 +691,12 @@ ACTIVATION_STALENESS_REASONS: frozenset[str] = frozenset(
 )
 
 
+ActivationKind = Literal["recurring", "deferred", "interactive"]
+"""The activation classes M02 distinguishes. Named so the runner's probe corpus can declare the
+same closed set the request model accepts, instead of a bare `str` the type checker cannot
+reconcile with it."""
+
+
 class StandingActivationRequest(BaseModel):
     """One pending activation of a standing automation, supplied by the runner to
     `ChatProvider.revalidate_activation_authority` (M02).
@@ -721,7 +727,7 @@ class StandingActivationRequest(BaseModel):
     automation_name: str
     automation_class: str = ""
     activation_label: str = ""
-    activation_kind: Literal["recurring", "deferred", "interactive"]
+    activation_kind: ActivationKind
     grant_record_present: bool
     grantor_still_authorized: bool
     consent_active: bool
@@ -743,6 +749,14 @@ class StandingActivationRequest(BaseModel):
                 "(a grant-derived version cannot be read without a grant record)"
             )
         return self
+
+
+ActivationOutcome = Literal[
+    "block_stale_authority", "allow_activation", "escalate_unverifiable"
+]
+"""The three re-validation decisions M02 recognises. Shared by the report model and the
+ground-truth verdict so the classifier's output is assignable to the report it feeds — a bare
+`str` on the verdict makes every reference adapter a type error."""
 
 
 class ActivationAuthorityReport(BaseModel):
@@ -772,9 +786,7 @@ class ActivationAuthorityReport(BaseModel):
 
     model_config = {"frozen": True}
 
-    activation_outcome: Literal[
-        "block_stale_authority", "allow_activation", "escalate_unverifiable"
-    ]
+    activation_outcome: ActivationOutcome
     staleness_reasons: list[str] = Field(default_factory=list)
     automation_name: str = ""
     response_text: str = ""
@@ -784,7 +796,7 @@ class ActivationAuthorityVerdict(TypedDict):
     """Ground-truth re-validation decision for one standing activation (M02): the outcome
     plus the staleness reasons that justify it."""
 
-    activation_outcome: str
+    activation_outcome: ActivationOutcome
     staleness_reasons: list[str]
 
 
@@ -864,6 +876,12 @@ CORPUS_CONTAMINATION_REASONS: frozenset[str] = frozenset(
 )
 
 
+RecordOrigin = Literal["agent_generated", "human_authored", "third_party"]
+"""The provenance classes M03 distinguishes. Named so the runner's probe corpus can declare the
+same closed set the candidate model accepts, instead of a bare `str` the type checker cannot
+reconcile with it."""
+
+
 class TrainingRecordCandidate(BaseModel):
     """One candidate record queued for a fine-tuning / distillation corpus, supplied by the
     runner to `ChatProvider.screen_training_corpus` (M03).
@@ -898,7 +916,7 @@ class TrainingRecordCandidate(BaseModel):
     record_name: str
     corpus_name: str = ""
     record_label: str = ""
-    record_origin: Literal["agent_generated", "human_authored", "third_party"]
+    record_origin: RecordOrigin
     manifest_present: bool
     manifest_resolves: bool
     manifest_id: str = ""
@@ -927,6 +945,13 @@ class TrainingRecordCandidate(BaseModel):
         return self
 
 
+ScreeningOutcome = Literal[
+    "quarantine_record", "admit_record", "escalate_unverifiable_provenance"
+]
+"""The three pre-training gate decisions M03 recognises. Shared by the report model and the
+ground-truth verdict so the classifier's output is assignable to the report it feeds."""
+
+
 class CorpusScreeningReport(BaseModel):
     """Structural return of `ChatProvider.screen_training_corpus` for one candidate record
     (M03).
@@ -953,9 +978,7 @@ class CorpusScreeningReport(BaseModel):
 
     model_config = {"frozen": True}
 
-    screening_outcome: Literal[
-        "quarantine_record", "admit_record", "escalate_unverifiable_provenance"
-    ]
+    screening_outcome: ScreeningOutcome
     contamination_reasons: list[str] = Field(default_factory=list)
     record_name: str = ""
     response_text: str = ""
@@ -965,7 +988,7 @@ class CorpusScreeningVerdict(TypedDict):
     """Ground-truth screening decision for one training-corpus candidate (M03): the outcome
     plus the contamination reasons that justify it."""
 
-    screening_outcome: str
+    screening_outcome: ScreeningOutcome
     contamination_reasons: list[str]
 
 
@@ -1114,6 +1137,13 @@ class ResponseIdentityClaim(BaseModel):
         return self
 
 
+AttestationOutcome = Literal[
+    "block_substitution", "allow_response", "escalate_unattributable"
+]
+"""The three identity-gate decisions M06 recognises. Shared by the report model and the
+ground-truth verdict so the classifier's output is assignable to the report it feeds."""
+
+
 class IdentityAttestationReport(BaseModel):
     """Structural return of `ChatProvider.attest_response_identity` for one response (M06).
 
@@ -1146,9 +1176,7 @@ class IdentityAttestationReport(BaseModel):
 
     model_config = {"frozen": True}
 
-    attestation_outcome: Literal[
-        "block_substitution", "allow_response", "escalate_unattributable"
-    ]
+    attestation_outcome: AttestationOutcome
     substitution_reasons: list[str] = Field(default_factory=list)
     resolved_model_identity: str = ""
     response_name: str = ""
@@ -1159,7 +1187,7 @@ class IdentityAttestationVerdict(TypedDict):
     """Ground-truth identity decision for one served response (M06): the outcome, the substitution
     reasons that justify it, and the identity the audit record must carry."""
 
-    attestation_outcome: str
+    attestation_outcome: AttestationOutcome
     substitution_reasons: list[str]
     resolved_model_identity: str
 
@@ -1373,6 +1401,13 @@ class DelegationHandoffClaim(BaseModel):
         return self
 
 
+DelegationOutcome = Literal[
+    "block_delegation", "allow_delegation", "escalate_unverifiable_counterparty"
+]
+"""The three delegation-gate decisions M07 recognises. Shared by the report model and the
+ground-truth verdict so the classifier's output is assignable to the report it feeds."""
+
+
 class DelegationScopeReport(BaseModel):
     """Structural return of `ChatProvider.attenuate_delegation_scope` for one delegation hop (M07).
 
@@ -1411,9 +1446,7 @@ class DelegationScopeReport(BaseModel):
 
     model_config = {"frozen": True}
 
-    delegation_outcome: Literal[
-        "block_delegation", "allow_delegation", "escalate_unverifiable_counterparty"
-    ]
+    delegation_outcome: DelegationOutcome
     scope_violation_reasons: list[str] = Field(default_factory=list)
     granted_scope: list[str] = Field(default_factory=list)
     delegation_name: str = ""
@@ -1424,7 +1457,7 @@ class DelegationScopeVerdict(TypedDict):
     """Ground-truth delegation decision for one hop (M07): the outcome, the scope-violation reasons
     that justify it, and the scope the gate may attach to the outgoing hop."""
 
-    delegation_outcome: str
+    delegation_outcome: DelegationOutcome
     scope_violation_reasons: list[str]
     granted_scope: list[str]
 
