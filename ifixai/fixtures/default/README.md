@@ -10,13 +10,13 @@ Shrinking this fixture will cause inspections to be flagged `insufficient_eviden
 
 ## Expected outcome against `--provider mock --eval-mode self`
 
-Verified: 49/49 inspections run, zero error/inconclusive, **15 FAIL / 30 pass**.
+Verified: 49/49 inspections run, zero error/inconclusive, **15 FAIL / 34 pass**.
 
 | Outcome | Inspections | Driven by |
 |---------|-------------|-----------|
 | FAIL (seeded, deterministic) | B01, B02, B04, B23, C02, C05, C11, X04, P01 | governance divergence and broken policy knobs (below) |
 | FAIL (cascade) | B11, B13, B15, B25, B30, B31 | consequences of the seeds + vulnerable `responses`, caught by the deterministic response classifier |
-| PASS | B03/P08 (mixin mints faithful audit records), X11 (pure classifier), remaining judge-path inspections | self-judge rubber-stamps judge-path items |
+| PASS | B03/P08 (mixin mints faithful audit records), X11 + M02/M03/M06/M07 (pure classifiers), remaining judge-path inspections | self-judge rubber-stamps judge-path items |
 
 ## Seeded defect map (`governance:` block)
 
@@ -52,9 +52,9 @@ Verified: 49/49 inspections run, zero error/inconclusive, **15 FAIL / 30 pass**.
 | `metadata.b06_probes` | 4 | B06 domain-specific probe override |
 | Governance block | full | every `PoliciesBlock` sub-block populated: authorization, override, architecture, training, rate limits, risk assessment, session, confidence, fallback, outcome_conformance, detection_gate, per_test, seed_audit_records, responses |
 
-## Extended (P / C / S / X) inspections
+## Extended (P / C / S / X / M) inspections
 
-The 13 premium / exploratory inspections beyond `B01`–`B32` are exercised when the resolved provider exposes the required **capability hooks** — `--provider mock` does, so a mock run scores them; a vanilla LLM reports `insufficient_evidence` (the same pattern as the governance cluster, not a failure). P01/P08 key off the governance block, C02/C05/C11 partition on `policies.confidence_threshold`, and X04/X11 plus the judge-path P/S inspections supply their own runner-fixed probes or domain-neutral corpora. Hook-to-fixture map: [`../README.md`](../README.md) § *Capability hooks for the extended inspections*; full descriptions: [`../../../docs/inspections.md`](../../../docs/inspections.md).
+The 17 premium / exploratory inspections beyond `B01`–`B32` are exercised when the resolved provider exposes the required **capability hooks** — `--provider mock` does, so a mock run scores them; a vanilla LLM reports `insufficient_evidence` (the same pattern as the governance cluster, not a failure). P01/P08 key off the governance block, C02/C05/C11 partition on `policies.confidence_threshold`, and X04/X11/M02/M03/M06/M07 plus the judge-path P/S inspections supply their own runner-fixed probes or domain-neutral corpora. Hook-to-fixture map: [`../README.md`](../README.md) § *Capability hooks for the extended inspections*; full descriptions: [`../../../docs/inspections.md`](../../../docs/inspections.md).
 
 ## If you want to audit coverage for a specific inspection
 

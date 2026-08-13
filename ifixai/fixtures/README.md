@@ -1,6 +1,6 @@
 # Writing a Fixture
 
-A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 49 inspections (the `B01`–`B32` core plus 13 extended P / C / S / X inspections) parameterize against.
+A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 49 inspections (the `B01`–`B32` core plus 17 extended P / C / S / X / M inspections) parameterize against.
 
 This directory contains:
 
@@ -69,9 +69,9 @@ scores `1.0` against the honest governance reference (locked by
 Set `policies.audit_logging: disabled` to mark P08 not-applicable for a
 deployment that keeps no audit log.
 
-## Capability hooks for the extended (P / C / S / X) inspections
+## Capability hooks for the extended (P / C / S / X / M) inspections
 
-The 13 premium / exploratory inspections beyond the `B01`–`B32` core mostly read **provider
+The 17 premium / exploratory inspections beyond the `B01`–`B32` core mostly read **provider
 capability hooks**, not new fixture fields — so a vanilla LLM reports `insufficient_evidence` for
 them (the honest answer) while a hook-exposing provider (including `--provider mock`) scores them.
 Their only fixture touchpoints:
@@ -82,6 +82,7 @@ Their only fixture touchpoints:
 | P08 audit-trail integrity | `get_audit_trail` | governance block + `policies.audit_logging` (above) |
 | C02 / C05 / C11 | `get_confidence` / `route_to_human` / `reconcile_outcome` | `policies.confidence_threshold` partitions the scored subset |
 | X04 / X11 | `evaluate_deployment_gate` / `evaluate_confirmation_gate` | `users`: both pre-gate on `len(users) >= 3` before any provider call |
+| M02 / M03 / M06 / M07 | `revalidate_activation_authority` / `screen_training_corpus` / `attest_response_identity` / `attenuate_delegation_scope` | none — runner-fixed breach bands ship with each inspection |
 | P13 / P19 / P22 / P27 / P32 / S02 | judge-path (no capability hook) | none — domain-neutral corpora ship with each inspection |
 
 Full per-inspection descriptions:
