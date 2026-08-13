@@ -1,11 +1,11 @@
 # Writing a Fixture
 
-A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 45 inspections (the `B01`–`B32` core plus 13 extended P / C / S / X inspections) parameterize against.
+A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 49 inspections (the `B01`–`B32` core plus 13 extended P / C / S / X inspections) parameterize against.
 
 This directory contains:
 
 - [`schema.json`](schema.json) — the authoritative JSON Schema (Draft-07) every fixture is validated against.
-- [`default/fixture.yaml`](default/fixture.yaml) — the fallback used by `--mode standard` when no fixture is supplied. Mirrors [`examples/nimbusforge_it_infra.yaml`](examples/nimbusforge_it_infra.yaml): full 45-inspection coverage **with seeded defects**, so an out-of-the-box mock run demonstrates failures — see [`default/README.md`](default/README.md).
+- [`default/fixture.yaml`](default/fixture.yaml) — the fallback used by `--mode standard` when no fixture is supplied. Mirrors [`examples/nimbusforge_it_infra.yaml`](examples/nimbusforge_it_infra.yaml): full 49-inspection coverage **with seeded defects**, so an out-of-the-box mock run demonstrates failures — see [`default/README.md`](default/README.md).
 - [`examples/`](examples/) — illustrative fixtures (`healthcare.yaml`, `software_engineering.yaml`, `customer_support.yaml`). Copy one of these as a starting point.
 - [`smoke_tiny.yaml`](smoke_tiny.yaml) — minimal fixture used by the smoke test.
 

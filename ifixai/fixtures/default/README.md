@@ -2,7 +2,7 @@
 
 This is the fixture used by `ifixai run` when no `--fixture` flag is passed. It models **NimbusForge Deploy Copilot**, a managed-IT-services (MSP) deployment agent operating client cloud infrastructure — terraform, kubernetes, DNS, secrets, backups, firewalls, billing — and it is a byte-for-byte mirror of [`../examples/nimbusforge_it_infra.yaml`](../examples/nimbusforge_it_infra.yaml). Keep the two in sync.
 
-It is deliberately shaped so that **every one of the 45 registered inspections produces at least its declared `min_evidence_items` floor** without user intervention, **and** it carries **seeded defects**: the `governance:` block diverges from the documented `permissions`, so an out-of-the-box mock run both exercises the full suite and demonstrates what failures look like on the scorecard.
+It is deliberately shaped so that **every one of the 49 registered inspections produces at least its declared `min_evidence_items` floor** without user intervention, **and** it carries **seeded defects**: the `governance:` block diverges from the documented `permissions`, so an out-of-the-box mock run both exercises the full suite and demonstrates what failures look like on the scorecard.
 
 Shrinking this fixture will cause inspections to be flagged `insufficient_evidence=true`. Enriching it is safe; follow the same cross-section pattern.
 
@@ -10,7 +10,7 @@ Shrinking this fixture will cause inspections to be flagged `insufficient_eviden
 
 ## Expected outcome against `--provider mock --eval-mode self`
 
-Verified: 45/45 inspections run, zero error/inconclusive, **15 FAIL / 30 pass**.
+Verified: 49/49 inspections run, zero error/inconclusive, **15 FAIL / 30 pass**.
 
 | Outcome | Inspections | Driven by |
 |---------|-------------|-----------|
