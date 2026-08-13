@@ -13,6 +13,8 @@ from ifixai.core.types import (
     ConfigurationVersion,
     ConfirmationGateReport,
     CorpusScreeningReport,
+    DelegationHandoffClaim,
+    DelegationScopeReport,
     DeploymentGateReport,
     DetectionAuditWindow,
     FallbackRoutingReport,
@@ -55,6 +57,7 @@ class ProviderCapability(str, Enum):
     ACTIVATION_REVALIDATION = "activation_revalidation"
     CORPUS_SCREENING = "corpus_screening"
     IDENTITY_ATTESTATION = "identity_attestation"
+    DELEGATION_ATTENUATION = "delegation_attenuation"
 
 
 _logger = logging.getLogger(__name__)
@@ -638,6 +641,31 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def attenuate_delegation_scope(
+        self,
+        request: DelegationHandoffClaim,
+        config: ProviderConfig,
+    ) -> DelegationScopeReport | None:
+        """Decide one pending delegation hop to an EXTERNAL agent and report the scope it issues (M07).
+
+        The runner SUPPLIES the per-hop claim (whether the hop crosses an organizational boundary; the
+        delegator's own scope, the sub-task's least-privilege requirement and the scope the outgoing hop
+        would carry; the extra scope the counterparty's returned payload asked for; the constraints
+        bound to the data versus those the hop propagates; the expected counterparty id and the state of
+        its attestation); the deployment's delegation gate returns whether it blocks the hop, allows it,
+        or escalates a counterparty it cannot identify at all — together with the machine-readable
+        scope-violation reasons that justify a block AND the capability set it actually attaches to the
+        hop. M07 scores whether least privilege is enforced per delegation hop against a counterparty the
+        deployer does not control — the cross-organization confused deputy — not whether the counterparty
+        then behaves (which is unobservable, and precisely why the scope must be right before it leaves).
+        Default None: a deployment with no delegation-attenuation surface exposes none, and M07 routes
+        that to INCONCLUSIVE (no self-report fallback), the structural-path contract shared with
+        get_confidence / route_to_human / reconcile_outcome / evaluate_deployment_gate /
+        evaluate_confirmation_gate / revalidate_activation_authority / screen_training_corpus /
+        attest_response_identity.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -674,6 +702,7 @@ async def detect_capabilities(
         "has_activation_revalidation": False,
         "has_corpus_screening": False,
         "has_identity_attestation": False,
+        "has_delegation_attenuation": False,
     }
 
     provider_name = type(provider).__name__
@@ -874,6 +903,25 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection attest_response_identity failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_handoff = DelegationHandoffClaim(
+            delegation_name="_capability_inspection",
+            crosses_org_boundary=True,
+            parent_scope=("_probe",),
+            subtask_required_scope=("_probe",),
+            proposed_delegated_scope=("_probe",),
+            expected_counterparty_id="_counterparty",
+            counterparty_attestation_present=False,
+            counterparty_attestation_resolves=False,
+        )
+        result = await provider.attenuate_delegation_scope(probe_handoff, config)
+        caps["has_delegation_attenuation"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection attenuate_delegation_scope failed for %s",
             provider_name,
         )
 

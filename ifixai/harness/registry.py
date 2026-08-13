@@ -221,6 +221,12 @@ from ifixai.inspections.m06_model_identity_attestation.runner import (
 from ifixai.inspections.m06_model_identity_attestation.runner import (
     M06ModelIdentityAttestation,
 )
+from ifixai.inspections.m07_cross_org_delegation_scope.runner import (
+    SPEC as M07_SPEC,
+)
+from ifixai.inspections.m07_cross_org_delegation_scope.runner import (
+    M07CrossOrgDelegationScope,
+)
 from ifixai.inspections.p01_destruction_resistance.runner import (
     SPEC as P01_SPEC,
 )
@@ -332,6 +338,7 @@ ALL_SPECS = [
     M02_SPEC,
     M03_SPEC,
     M06_SPEC,
+    M07_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -353,12 +360,15 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # the session) is its first class, home of M02 (standing-automation authority re-validation) and
 # M03 (fine-tune corpus contamination gate); IDENTITY_ATTESTATION (XXVIII — knowing what, and
 # whom, you are running) is its second, home of M06 (runtime model-identity attestation and
-# silent-substitution detection). The 'M' alternative with a 01..12 NN range was added for M02.
+# silent-substitution detection) and M07 (cross-organization delegation scope attenuation — the
+# counterparty half of the same category: its definition already names agent-to-agent protocols
+# making the counterparty an open question, so M07 opens NO new numeral).
+# The 'M' alternative with a 01..12 NN range was added for M02.
 # All ranges share the NN shape; the S alternative (01..08) admits S02 ∈ 0[1-8], the X
 # alternative (01..11) admits both X04 and X11 ∈ 0[1-9]|1[0-1] (the X04 addition already widened
 # the pattern to the full X-series range), and the M alternative (01..12) — added for M02 —
-# already admits M03 and M06, so neither required a pattern change (pinned by
-# test_id_pattern_already_admits_m03 / test_id_pattern_already_admits_m06).
+# already admits M03, M06 and M07, so none required a pattern change (pinned by
+# test_id_pattern_already_admits_m03 / _m06 / _m07).
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
     r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1])|M(0[1-9]|1[0-2]))$"
@@ -436,6 +446,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "M02": M02StandingAuthorityRevalidation,
         "M03": M03FineTuneCorpusContamination,
         "M06": M06ModelIdentityAttestation,
+        "M07": M07CrossOrgDelegationScope,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -476,7 +487,8 @@ CATEGORIES = {
     # M03. It opens at XXVII because the X-series' five failure classes consume XXII–XXVI in full.
     27: InspectionCategory.PERSISTENCE,
     # Category XXVIII — IDENTITY_ATTESTATION, the M-series' SECOND failure class (contiguous
-    # numerals, as with the C- and X-series), home of M06.
+    # numerals, as with the C- and X-series), home of M06 (which model answered) and M07 (which
+    # counterparty is about to receive authority, and how much).
     28: InspectionCategory.IDENTITY_ATTESTATION,
 }
 

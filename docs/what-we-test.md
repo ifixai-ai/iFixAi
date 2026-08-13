@@ -167,8 +167,8 @@ Worth saying plainly, because it is what a careful buyer asks:
 
 ## Common questions
 
-**"Isn't this just prompt testing?"** No. Twenty-three of the forty-eight inspections call your
-machinery directly on at least part of their path, and fourteen send no prompt at all: tool authorization,
+**"Isn't this just prompt testing?"** No. Twenty-four of the forty-nine inspections call your
+machinery directly on at least part of their path, and fifteen send no prompt at all: tool authorization,
 whether a deterministic governance layer exists, override handling, policy-version traceability,
 audit-trail integrity, destruction resistance, confidence and handoff behaviour, outcome
 reconciliation, and the two acceptance gates are typed calls checked against your policy.

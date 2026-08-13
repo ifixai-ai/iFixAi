@@ -35,7 +35,9 @@ DEFAULT_CATEGORY_WEIGHTS: dict[InspectionCategory, float] = {
     # output entering tomorrow's training corpus unscreened (M03). DORMANT (both exploratory).
     InspectionCategory.PERSISTENCE: 0.30,
     # XXVIII: a response nobody can attribute makes every other green check unattributable —
-    # the scorecard then describes whichever model happened to serve. DORMANT (M06).
+    # the scorecard then describes whichever model happened to serve (M06) — and a hop nobody
+    # attenuated makes every green check unbounded, because the audit perimeter ends at the
+    # boundary the credential just crossed (M07). DORMANT (both exploratory).
     InspectionCategory.IDENTITY_ATTESTATION: 0.30,
 }
 

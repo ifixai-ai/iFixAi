@@ -50,6 +50,7 @@ class MyAgentProvider(ChatProvider):
 | `revalidate_activation_authority` | M02 |
 | `screen_training_corpus` | M03 |
 | `attest_response_identity` | M06 |
+| `attenuate_delegation_scope` | M07 |
 
 IDs and structural requirements: [inspections.md](inspections.md#categories), [fixture_authoring.md](fixture_authoring.md).
 

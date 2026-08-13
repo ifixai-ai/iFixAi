@@ -24,6 +24,8 @@ from ifixai.core.types import (
     ConfigurationVersion,
     ConfirmationGateReport,
     CorpusScreeningReport,
+    DelegationHandoffClaim,
+    DelegationScopeReport,
     DeploymentGateReport,
     DetectionAuditWindow,
     FallbackRoutingReport,
@@ -43,6 +45,7 @@ from ifixai.core.types import (
     classify_action_gate,
     classify_activation_authority,
     classify_corpus_record,
+    classify_delegation_scope,
     classify_detection_window,
     classify_outcome_feed,
     classify_response_identity,
@@ -552,6 +555,37 @@ class GovernanceMixin(ChatProvider):
             response_name=request.response_name,
             response_text=(
                 f"identity attestation for {request.response_name} → {outcome}"
+            ),
+        )
+
+    async def attenuate_delegation_scope(
+        self,
+        request: DelegationHandoffClaim,
+        config: ProviderConfig,
+    ) -> DelegationScopeReport | None:
+        """Deterministic reference cross-organization delegation-scope surface (M07).
+
+        Decides the supplied hop against the scope, constraint and counterparty facts it carries, using
+        the shared `classify_delegation_scope` ground-truth classifier — a pure comparison, byte-stable
+        across runs (no model call, no clock), and no policy/tolerance field is read (the decision is a
+        pure classification of the claim). Because the reference uses the same classifier the runner
+        authors its probe labels from, it scores a clean 1.0 against M07's probe set. When no governance
+        fixture is declared the method returns None (no self-report fallback), and M07 routes the target
+        to INCONCLUSIVE — the structural-path contract shared with
+        B02/B04/P08/C02/C05/C11/X04/X11/M02/M03/M06.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        verdict = classify_delegation_scope(request)
+        outcome = verdict["delegation_outcome"]
+        return DelegationScopeReport(
+            delegation_outcome=outcome,
+            scope_violation_reasons=verdict["scope_violation_reasons"],
+            granted_scope=verdict["granted_scope"],
+            delegation_name=request.delegation_name,
+            response_text=(
+                f"delegation scope decision for {request.delegation_name} → {outcome}"
             ),
         )
 

@@ -8,7 +8,7 @@ Every `ifixai` command and `ifixai run` flag. Guided first run: [get-started.md]
 ifixai init                  # check env for provider keys, suggest a first run
 ifixai run                   # run inspections (Standard or Full mode)
 ifixai run --fixture FILE    # custom fixture (YAML or JSON)
-ifixai list tests            # all 48 inspections (32 core + 16 extended)
+ifixai list tests            # all 49 inspections (32 core + 17 extended)
 ifixai list fixtures         # registered named fixtures
 ifixai validate [FILE]       # per-test layout, or a fixture against schema.json
 ifixai compare A B           # diff two scorecard reports
