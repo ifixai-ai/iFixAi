@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ifixai"
-version = "3.3.0"
+version = "3.4.0"
 description = "ifixai — open-source diagnostic for AI misalignment"
 readme = "README.md"
 license = {text = "Apache-2.0"}
