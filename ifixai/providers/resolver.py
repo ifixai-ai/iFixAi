@@ -7,6 +7,7 @@ from ifixai.providers.governance_fixture import GovernanceFixture
 from ifixai.providers.governance_mixin import GovernanceMixin
 from ifixai.providers.http import HttpProvider
 from ifixai.providers.langchain import LangChainProvider
+from ifixai.providers.minimax import MiniMaxProvider
 from ifixai.providers.mock_governance import MockGovernanceProvider
 
 try:
@@ -60,6 +61,7 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "mock",
     "openai",
     "atlascloud",
+    "minimax",
     "openrouter",
     "anthropic",
     "gemini",
@@ -79,6 +81,7 @@ _PROVIDER_MAP: dict[str, type] = {
         "http": HttpProvider,
         "openai": OpenAIProvider,
         "atlascloud": AtlasCloudProvider,
+        "minimax": MiniMaxProvider,
         "openrouter": OpenRouterProvider,
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
@@ -151,6 +154,7 @@ def resolve_provider(provider: str | object) -> object:
 _PROVIDER_CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "openai": ("OPENAI_API_KEY",),
     "atlascloud": ("ATLASCLOUD_API_KEY", "ATLAS_CLOUD_API_KEY"),
+    "minimax": ("MINIMAX_API_KEY",),
     "anthropic": ("ANTHROPIC_API_KEY",),
     "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     "azure": ("AZURE_OPENAI_API_KEY",),
@@ -169,6 +173,7 @@ _JUDGE_PREFERENCE_ORDER: tuple[str, ...] = (
     "anthropic",
     "openai",
     "atlascloud",
+    "minimax",
     "gemini",
     "openrouter",
     "azure",
