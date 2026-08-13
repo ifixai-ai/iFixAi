@@ -18,25 +18,37 @@ from typing import Any, Optional
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
+    ActivationAuthorityReport,
     AuditRecord,
     ConfidenceReport,
     ConfigurationVersion,
     ConfirmationGateReport,
+    CorpusScreeningReport,
+    DelegationHandoffClaim,
+    DelegationScopeReport,
     DeploymentGateReport,
     DetectionAuditWindow,
     FallbackRoutingReport,
     GovernanceArchitecture,
+    IdentityAttestationReport,
     OutcomeMetricFeed,
     OutcomeReconciliationReport,
     OverrideReceipt,
     Permission,
     ProviderConfig,
+    ResponseIdentityClaim,
     Role,
+    StandingActivationRequest,
     ToolInfo,
     ToolInvocationResult,
+    TrainingRecordCandidate,
     classify_action_gate,
+    classify_activation_authority,
+    classify_corpus_record,
+    classify_delegation_scope,
     classify_detection_window,
     classify_outcome_feed,
+    classify_response_identity,
 )
 from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture, PoliciesBlock
@@ -454,6 +466,127 @@ class GovernanceMixin(ChatProvider):
             gate_outcome=outcome,
             action_name=request.action_name,
             response_text=f"confirmation gate for {request.action_name} → {outcome}",
+        )
+
+    async def revalidate_activation_authority(
+        self,
+        request: StandingActivationRequest,
+        config: ProviderConfig,
+    ) -> ActivationAuthorityReport | None:
+        """Deterministic reference standing-authority re-validation surface (M02).
+
+        Re-checks the supplied activation's granting authority against the current state it
+        carries, using the shared `classify_activation_authority` ground-truth classifier — a
+        pure comparison, byte-stable across runs (no model call, no clock), and no
+        policy/tolerance field is read (the decision is a pure classification of the request).
+        Because the reference uses the same classifier the runner authors its probe labels
+        from, it scores a clean 1.0 against M02's probe set. When no governance fixture is
+        declared the method returns None (no self-report fallback), and M02 routes the target
+        to INCONCLUSIVE — the structural-path contract shared with
+        B02/B04/P08/C02/C05/C11/X04/X11.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        verdict = classify_activation_authority(request)
+        outcome = verdict["activation_outcome"]
+        return ActivationAuthorityReport(
+            activation_outcome=outcome,
+            staleness_reasons=verdict["staleness_reasons"],
+            automation_name=request.automation_name,
+            response_text=(
+                f"authority re-validation for {request.automation_name} → {outcome}"
+            ),
+        )
+
+    async def screen_training_corpus(
+        self,
+        request: TrainingRecordCandidate,
+        config: ProviderConfig,
+    ) -> CorpusScreeningReport | None:
+        """Deterministic reference fine-tune-corpus screening surface (M03).
+
+        Screens the supplied candidate record against the contamination signals it carries,
+        using the shared `classify_corpus_record` ground-truth classifier — a pure comparison,
+        byte-stable across runs (no model call, no clock), and no policy/tolerance field is
+        read (the decision is a pure classification of the candidate). Because the reference
+        uses the same classifier the runner authors its probe labels from, it scores a clean
+        1.0 against M03's probe set. When no governance fixture is declared the method returns
+        None (no self-report fallback), and M03 routes the target to INCONCLUSIVE — the
+        structural-path contract shared with B02/B04/P08/C02/C05/C11/X04/X11/M02.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        verdict = classify_corpus_record(request)
+        outcome = verdict["screening_outcome"]
+        return CorpusScreeningReport(
+            screening_outcome=outcome,
+            contamination_reasons=verdict["contamination_reasons"],
+            record_name=request.record_name,
+            response_text=f"corpus screening for {request.record_name} → {outcome}",
+        )
+
+    async def attest_response_identity(
+        self,
+        request: ResponseIdentityClaim,
+        config: ProviderConfig,
+    ) -> IdentityAttestationReport | None:
+        """Deterministic reference runtime model-identity attestation surface (M06).
+
+        Attributes the supplied response through whichever channel the claim exposes and compares the
+        resolved identity against the declared profile, using the shared `classify_response_identity`
+        ground-truth classifier — a pure comparison, byte-stable across runs (no model call, no clock),
+        and no policy/tolerance field is read (the decision is a pure classification of the claim).
+        Because the reference uses the same classifier the runner authors its probe labels from, it
+        scores a clean 1.0 against M06's probe set. When no governance fixture is declared the method
+        returns None (no self-report fallback), and M06 routes the target to INCONCLUSIVE — the
+        structural-path contract shared with B02/B04/P08/C02/C05/C11/X04/X11/M02/M03.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        verdict = classify_response_identity(request)
+        outcome = verdict["attestation_outcome"]
+        return IdentityAttestationReport(
+            attestation_outcome=outcome,
+            substitution_reasons=verdict["substitution_reasons"],
+            resolved_model_identity=verdict["resolved_model_identity"],
+            response_name=request.response_name,
+            response_text=(
+                f"identity attestation for {request.response_name} → {outcome}"
+            ),
+        )
+
+    async def attenuate_delegation_scope(
+        self,
+        request: DelegationHandoffClaim,
+        config: ProviderConfig,
+    ) -> DelegationScopeReport | None:
+        """Deterministic reference cross-organization delegation-scope surface (M07).
+
+        Decides the supplied hop against the scope, constraint and counterparty facts it carries, using
+        the shared `classify_delegation_scope` ground-truth classifier — a pure comparison, byte-stable
+        across runs (no model call, no clock), and no policy/tolerance field is read (the decision is a
+        pure classification of the claim). Because the reference uses the same classifier the runner
+        authors its probe labels from, it scores a clean 1.0 against M07's probe set. When no governance
+        fixture is declared the method returns None (no self-report fallback), and M07 routes the target
+        to INCONCLUSIVE — the structural-path contract shared with
+        B02/B04/P08/C02/C05/C11/X04/X11/M02/M03/M06.
+        """
+        policies = self._policies(config)
+        if policies is None:
+            return None
+        verdict = classify_delegation_scope(request)
+        outcome = verdict["delegation_outcome"]
+        return DelegationScopeReport(
+            delegation_outcome=outcome,
+            scope_violation_reasons=verdict["scope_violation_reasons"],
+            granted_scope=verdict["granted_scope"],
+            delegation_name=request.delegation_name,
+            response_text=(
+                f"delegation scope decision for {request.delegation_name} → {outcome}"
+            ),
         )
 
     async def get_roles(

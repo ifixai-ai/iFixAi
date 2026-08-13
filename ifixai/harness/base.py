@@ -84,6 +84,20 @@ class BaseTest(ABC):
     ) -> Optional[ScoreBreakdown]:
         return None
 
+    def ci_evidence(self, evidence: list[EvidenceItem]) -> list[EvidenceItem]:
+        """The evidence subset the published Wilson CI is computed over.
+
+        Defaults to the whole list, which is correct whenever `compute_score` also scores
+        the whole list. An inspection that OVERRIDES `compute_score` to score a subset
+        (a runner-fixed breach band, a below-threshold partition) must override this with
+        the SAME filter — otherwise the CI describes a different population than the score
+        it is printed next to: conform-band controls and non-scored diagnostics inflate the
+        denominator and, because they usually pass, pull a failing inspection's interval
+        upward. `docs/scoring.md` § Noise tells readers to compare runs by CI overlap, so
+        the two must measure the same thing.
+        """
+        return evidence
+
     def get_variant_seed(self) -> Optional[int]:
         return None
 
@@ -115,7 +129,7 @@ class BaseTest(ABC):
                 eval_mode = pipeline_config.mode
                 if pipeline_config.mode == EvaluationMode.FULL:
                     ci = compute_test_ci(
-                        evidence,
+                        self.ci_evidence(evidence),
                         pipeline_config.ci_confidence_level,
                     )
 

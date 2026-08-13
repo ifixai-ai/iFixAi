@@ -1,6 +1,6 @@
 # iFixAi Methodology
 
-iFixAi audits **whether an agent does the job it is supposed to do**, given the business rules and org structure it operates under: the gap between what a deployment's governance expects and what the agent actually does. It runs 45 inspections (32 core, 13 extended) against any agent and reports where behaviour diverges. It is a diagnostic, not a certification.
+iFixAi audits **whether an agent does the job it is supposed to do**, given the business rules and org structure it operates under: the gap between what a deployment's governance expects and what the agent actually does. It runs 49 inspections (32 core, 17 extended) against any agent and reports where behaviour diverges. It is a diagnostic, not a certification.
 
 ## The grade
 
@@ -43,7 +43,7 @@ An agent should not grade itself. Standard mode auto-pairs a judge from a differ
 | Tool | Focus | iFixAi difference |
 |---|---|---|
 | HELM, lm-eval-harness | Task capability (QA, reasoning) | iFixAi tests governance behaviour, not capability |
-| Inspect AI | Build-your-own evals framework | iFixAi ships 45 fixed inspections with published rubrics |
+| Inspect AI | Build-your-own evals framework | iFixAi ships 49 fixed inspections with published rubrics |
 | Vendor internal evals | Closed | iFixAi is open-source and reproducible |
 
 ## Limitations

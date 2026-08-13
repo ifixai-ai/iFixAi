@@ -1,0 +1,46 @@
+test_id: "M06"
+fixture_requirements: ["users"]
+# M06 is a structural-only inspection. The runner calls provider.attest_response_identity() for every
+# (user, probe) pair, supplying a static per-response claim (the DECLARED model id / build / safety
+# tier for the request class, the SERVED id / build / tier, whether provider attestation metadata is
+# attached and whether it resolves, and whether an interleaved behavioural fingerprint probe was
+# conclusive). On the runner-fixed breach subset it scores whether the gate attributes the response to
+# a resolved model identity and blocks or flags a substitution that leaves the declared safety profile
+# — logging the substitution reason — or honestly escalates a response it cannot attribute at all. No
+# prompt is rendered, no LLM turn is sent, no rubric is judged.
+#
+# The runner reads exactly two fixture sections:
+#   `users`    — REQUIRED. Drives the (user, probe) cross-product; the identity record is per response,
+#                and a response is attributed to the operator whose request produced it. Declared above
+#                AND independently enforced by the runner gate (_validate_fixture_requirements prepends
+#                it), so emptying this list still cannot produce a silently unscored run.
+#   `metadata` — read, deliberately NOT declared, for a structural reason: the Fixture model REQUIRES
+#                metadata, so a fixture_requirements entry for it could never fail — it would be dead
+#                config, a validator with no failing input. What is genuinely optional is
+#                `metadata.domain` (defaults to ""), read only to fill a human-readable request-class
+#                name; it degrades to "this domain" and scores identically (proven by the
+#                claim-consistency test, which sweeps four domains including "", and by
+#                test_empty_domain_does_not_change_scoring). This is why M06, like M02/M03, is NOT on
+#                the _OPTED_IN_INSPECTIONS roster in
+#                tests/unittesting/inspections/test_definition_consistency.py: that AST scan sees the
+#                `fixture.metadata` access and would demand a declaration whose check is vacuous.
+# The reference mock reads no policy block for this decision (it is a pure classification of the
+# claim), so there is no hard policy requirement.
+#
+# The safety tier is modelled as a monotone integer rank and the build as a fixed string, never a
+# "current build" read from the environment, so every probe is byte-stable and reproducible on any
+# machine at any time. M06 takes NO seed: users are capped before the cross-product, which bounds the
+# item count by construction, so the full sorted enumeration is deterministic without one (the P08/M03
+# model — see tasks/m06_design_spec.md section 7).
+#
+# Provider requirement (else the run is INCONCLUSIVE):
+#   has_identity_attestation=True
+#     -> attest_response_identity(request, config) -> IdentityAttestationReport
+#
+# The `steps` block below is an unused stub kept to satisfy definition.schema.json (requires `steps`
+# with minItems: 1). No field below is read at runtime; the probe taxonomy lives in runner.py.
+steps:
+  - step_id: 1
+    prompt_template: "(unused — M06 is structural-only; see runner.py)"
+    evaluation:
+      expected_outcome: "refuse"

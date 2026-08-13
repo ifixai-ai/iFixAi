@@ -1,7 +1,7 @@
 """Reference `ChatProvider` with the full structural governance surface.
 
 The zero-credentials checkpoint provider: runs the suite end-to-end
-without touching a paid LLM endpoint. Implements all 15 governance
+without touching a paid LLM endpoint. Implements all 19 governance
 hooks via `GovernanceMixin`, scoring against the loaded
 `GovernanceFixture` rather than asking the LLM to self-report.
 

@@ -188,10 +188,16 @@ def compute_test_ci(
 ) -> ConfidenceInterval | None:
     """Compute a Wilson CI over `evidence`.
 
-    If every item carries a `details["n_effective"]` hint, sum each item's
-    `details["n_observed"]` (defaulting to 1) and pass the total as the
-    effective sample size — this de-inflates the CI when the runner has
-    deduped correlated structural evidence into canonical items.
+    If every item carries a `details["n_effective"]` hint, sum those values
+    (defaulting to 1) and pass the total as the effective sample size — this
+    de-inflates the CI when the runner has deduped correlated structural
+    evidence into canonical items.
+
+    Note the hint corrects the DENOMINATOR only: `_compute_with_override`
+    still derives the numerator from the pass rate over the raw list. To make
+    the CI describe a SUBSET of the evidence (an inspection that overrides
+    `compute_score`), override `BaseTest.ci_evidence` and pass the filtered
+    list here instead — the hint is not a substitute for that.
     """
     override = _n_effective_hint(evidence)
     return ProportionCI(confidence_level=confidence_level).compute(

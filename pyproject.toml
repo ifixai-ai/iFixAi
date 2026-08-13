@@ -88,7 +88,7 @@ markers = [
 include = ["ifixai*"]
 
 [tool.setuptools.package-data]
-ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsx]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "judge/judge_fallbacks.json", "mappings/*.yaml", "scaffold/*.md"]
+ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsxm]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "judge/judge_fallbacks.json", "mappings/*.yaml", "scaffold/*.md"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "RUF", "TRY", "BLE"]

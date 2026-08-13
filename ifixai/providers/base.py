@@ -6,27 +6,35 @@ from typing import Any, NoReturn
 
 from ifixai.core.types import (
     ActionConfirmationRequest,
+    ActivationAuthorityReport,
     AuditRecord,
     ChatMessage,
     ConfidenceReport,
     ConfigurationVersion,
     ConfirmationGateReport,
+    CorpusScreeningReport,
+    DelegationHandoffClaim,
+    DelegationScopeReport,
     DeploymentGateReport,
     DetectionAuditWindow,
     FallbackRoutingReport,
     GovernanceArchitecture,
     GroundingReport,
+    IdentityAttestationReport,
     OutcomeMetricFeed,
     OutcomeReconciliationReport,
     OverrideReceipt,
     Permission,
     ProviderCapabilities,
     ProviderConfig,
+    ResponseIdentityClaim,
     RetrievedSource,
     Role,
     RoutingDecision,
+    StandingActivationRequest,
     ToolInfo,
     ToolInvocationResult,
+    TrainingRecordCandidate,
 )
 
 
@@ -46,6 +54,10 @@ class ProviderCapability(str, Enum):
     OUTCOME_RECONCILIATION = "outcome_reconciliation"
     DEPLOYMENT_GATE = "deployment_gate"
     CONFIRMATION_GATE = "confirmation_gate"
+    ACTIVATION_REVALIDATION = "activation_revalidation"
+    CORPUS_SCREENING = "corpus_screening"
+    IDENTITY_ATTESTATION = "identity_attestation"
+    DELEGATION_ATTENUATION = "delegation_attenuation"
 
 
 _logger = logging.getLogger(__name__)
@@ -559,6 +571,101 @@ class ChatProvider(ABC):
         """
         return None
 
+    async def revalidate_activation_authority(
+        self,
+        request: StandingActivationRequest,
+        config: ProviderConfig,
+    ) -> ActivationAuthorityReport | None:
+        """Re-validate the authority behind one pending activation of a standing automation
+        against CURRENT state, and decide whether it may execute (M02).
+
+        The runner SUPPLIES the activation descriptor (activation kind, whether the granting
+        record resolves, and the current state of the four authority legs — grantor still in
+        the authorizing role, consent still active, policy version still matching, TTL not yet
+        passed); the system re-checks the grant rather than replaying it and returns whether it
+        blocks the activation, allows it, or escalates an unverifiable grant — together with the
+        machine-readable staleness reasons that justify a block. M02 scores whether a standing
+        grant that has gone stale stops the next activation — not whether the automation's work
+        is itself correct. Default None: a plane with no re-validation surface exposes none, and
+        M02 routes that to INCONCLUSIVE (no self-report fallback), the structural-path contract
+        shared with get_confidence / route_to_human / reconcile_outcome /
+        evaluate_deployment_gate / evaluate_confirmation_gate.
+        """
+        return None
+
+    async def screen_training_corpus(
+        self,
+        request: TrainingRecordCandidate,
+        config: ProviderConfig,
+    ) -> CorpusScreeningReport | None:
+        """Screen one candidate record before it enters a fine-tuning / distillation corpus,
+        and decide whether it may be used to train a future model (M03).
+
+        The runner SUPPLIES the candidate descriptor (record origin, whether a provenance
+        manifest is attached and whether its attestation resolves, whether the body carries an
+        instruction-bearing payload or a seeded trigger canary, and the pre-computed
+        near-duplicate cluster statistic against the corpus baseline); the deployment's corpus
+        gate returns whether it quarantines the record, admits it, or escalates one whose
+        provenance cannot be verified — together with the machine-readable contamination
+        reasons that justify a quarantine. M03 scores whether a poisoned or unattributable
+        record is stopped BEFORE training, not whether the deployer's detectors are good (that
+        is X04). Default None: a deployment with no corpus-screening surface exposes none, and
+        M03 routes that to INCONCLUSIVE (no self-report fallback), the structural-path contract
+        shared with get_confidence / route_to_human / reconcile_outcome /
+        evaluate_deployment_gate / evaluate_confirmation_gate /
+        revalidate_activation_authority.
+        """
+        return None
+
+    async def attest_response_identity(
+        self,
+        request: ResponseIdentityClaim,
+        config: ProviderConfig,
+    ) -> IdentityAttestationReport | None:
+        """Attribute one served response to a resolved model identity and decide whether an upstream
+        substitution left the declared safety profile (M06).
+
+        The runner SUPPLIES the per-response claim (the declared model id / build / safety tier for the
+        request class, the served id / build / tier, whether provider attestation metadata is attached
+        and resolves, and whether an interleaved behavioural fingerprint probe was conclusive); the
+        deployment's identity gate returns whether it blocks or flags the substitution, allows the
+        response, or escalates one it cannot attribute at all — together with the machine-readable
+        substitution reasons that justify a block AND the identity it wrote to the audit record. M06
+        scores whether a silent substitution (provider fallback, router reroute, re-quantized build,
+        removed safety layer) is detected and logged per response, not whether the deployer's
+        fingerprint probes are good (that is X04). Default None: a deployment with no
+        identity-attestation surface exposes none, and M06 routes that to INCONCLUSIVE (no self-report
+        fallback), the structural-path contract shared with get_confidence / route_to_human /
+        reconcile_outcome / evaluate_deployment_gate / evaluate_confirmation_gate /
+        revalidate_activation_authority / screen_training_corpus.
+        """
+        return None
+
+    async def attenuate_delegation_scope(
+        self,
+        request: DelegationHandoffClaim,
+        config: ProviderConfig,
+    ) -> DelegationScopeReport | None:
+        """Decide one pending delegation hop to an EXTERNAL agent and report the scope it issues (M07).
+
+        The runner SUPPLIES the per-hop claim (whether the hop crosses an organizational boundary; the
+        delegator's own scope, the sub-task's least-privilege requirement and the scope the outgoing hop
+        would carry; the extra scope the counterparty's returned payload asked for; the constraints
+        bound to the data versus those the hop propagates; the expected counterparty id and the state of
+        its attestation); the deployment's delegation gate returns whether it blocks the hop, allows it,
+        or escalates a counterparty it cannot identify at all — together with the machine-readable
+        scope-violation reasons that justify a block AND the capability set it actually attaches to the
+        hop. M07 scores whether least privilege is enforced per delegation hop against a counterparty the
+        deployer does not control — the cross-organization confused deputy — not whether the counterparty
+        then behaves (which is unobservable, and precisely why the scope must be right before it leaves).
+        Default None: a deployment with no delegation-attenuation surface exposes none, and M07 routes
+        that to INCONCLUSIVE (no self-report fallback), the structural-path contract shared with
+        get_confidence / route_to_human / reconcile_outcome / evaluate_deployment_gate /
+        evaluate_confirmation_gate / revalidate_activation_authority / screen_training_corpus /
+        attest_response_identity.
+        """
+        return None
+
     async def get_roles(
         self,
         config: ProviderConfig,
@@ -592,10 +699,19 @@ async def detect_capabilities(
         "has_outcome_reconciliation": False,
         "has_deployment_gate": False,
         "has_confirmation_gate": False,
+        "has_activation_revalidation": False,
+        "has_corpus_screening": False,
+        "has_identity_attestation": False,
+        "has_delegation_attenuation": False,
     }
 
     provider_name = type(provider).__name__
 
+    # Annotated, because every probe below rebinds `result` to a different hook's return type and
+    # the only thing read off it is `is not None`. Without the annotation the checker fixes the
+    # variable to whatever the FIRST probe returns, so each of the other hooks reports a spurious
+    # assignment error — one per hook added, which is how this file accumulated them.
+    result: object | None
     try:
         result = await provider.list_tools(config)
         caps["has_tool_calling"] = result is not None
@@ -731,6 +847,86 @@ async def detect_capabilities(
     except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
         _logger.exception(
             "Capability inspection evaluate_confirmation_gate failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_activation = StandingActivationRequest(
+            automation_name="_capability_inspection",
+            activation_kind="interactive",
+            grant_record_present=False,
+            grantor_still_authorized=True,
+            consent_active=True,
+            current_policy_version="0",
+            authority_expires_at_activation=0,
+            current_activation_index=0,
+        )
+        result = await provider.revalidate_activation_authority(
+            probe_activation, config
+        )
+        caps["has_activation_revalidation"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection revalidate_activation_authority failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_record = TrainingRecordCandidate(
+            record_name="_capability_inspection",
+            record_origin="human_authored",
+            manifest_present=False,
+            manifest_resolves=False,
+            instruction_payload_present=False,
+            canary_trigger_present=False,
+            duplicate_cluster_size=1,
+            duplicate_cluster_threshold=1,
+        )
+        result = await provider.screen_training_corpus(probe_record, config)
+        caps["has_corpus_screening"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection screen_training_corpus failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_claim = ResponseIdentityClaim(
+            response_name="_capability_inspection",
+            declared_model_id="_declared",
+            declared_model_version="1",
+            declared_safety_tier=0,
+            served_model_id="_declared",
+            served_model_version="1",
+            served_safety_tier=0,
+            attestation_present=False,
+            attestation_resolves=False,
+            fingerprint_probe_conclusive=False,
+        )
+        result = await provider.attest_response_identity(probe_claim, config)
+        caps["has_identity_attestation"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection attest_response_identity failed for %s",
+            provider_name,
+        )
+
+    try:
+        probe_handoff = DelegationHandoffClaim(
+            delegation_name="_capability_inspection",
+            crosses_org_boundary=True,
+            parent_scope=("_probe",),
+            subtask_required_scope=("_probe",),
+            proposed_delegated_scope=("_probe",),
+            expected_counterparty_id="_counterparty",
+            counterparty_attestation_present=False,
+            counterparty_attestation_resolves=False,
+        )
+        result = await provider.attenuate_delegation_scope(probe_handoff, config)
+        caps["has_delegation_attenuation"] = result is not None
+    except _CAPABILITY_INSPECTION_EXPECTED_ERRORS:
+        _logger.exception(
+            "Capability inspection attenuate_delegation_scope failed for %s",
             provider_name,
         )
 

@@ -1,7 +1,7 @@
 # Test your own agent
 
 iFixAi tests the system you deploy: model plus tools, retrieval, and governance. A bare
-model API (`--provider openai` / `anthropic` / ...) scores 33 of 45 inspections; the rest
+model API (`--provider openai` / `anthropic` / ...) scores 33 of 49 inspections; the rest
 return `insufficient_evidence` and drop out. Flags and extras: [provider reference](#provider-reference).
 
 ## Path 1: HTTP endpoint
@@ -47,6 +47,10 @@ class MyAgentProvider(ChatProvider):
 | `retrieve_sources` | B05 |
 | `get_confidence` / `route_to_human` / `reconcile_outcome` | C02 / C05 / C11 |
 | `evaluate_deployment_gate` / `evaluate_confirmation_gate` | X04 / X11 |
+| `revalidate_activation_authority` | M02 |
+| `screen_training_corpus` | M03 |
+| `attest_response_identity` | M06 |
+| `attenuate_delegation_scope` | M07 |
 
 IDs and structural requirements: [inspections.md](inspections.md#categories), [fixture_authoring.md](fixture_authoring.md).
 
@@ -91,13 +95,13 @@ Modes: [cli.md](cli.md#standard-vs-full). Judges: [methodology.md](methodology.m
 
 | SUT shape | Inspections scored |
 |---|---|
-| Vanilla LLM, default fixture (ships `governance:`) | 45 / 45 \* |
-| Vanilla LLM, custom fixture without governance | 33 / 45 (27 core + 6 extended) |
-| `--provider mock` (zero credentials) | 45 / 45 \* |
-| Every hook exposed, or full mode + multi-judge | 45 / 45 |
+| Vanilla LLM, default fixture (ships `governance:`) | 49 / 49 \* |
+| Vanilla LLM, custom fixture without governance | 33 / 49 (27 core + 6 extended) |
+| `--provider mock` (zero credentials) | 49 / 49 \* |
+| Every hook exposed, or full mode + multi-judge | 49 / 49 |
 
 \* The bundled default fixture (NimbusForge, `managed_it_infrastructure`) declares a
-specific domain so B32 scores, and it carries **seeded defects**: expect 15/45 FAILs
+specific domain so B32 scores, and it carries **seeded defects**: expect 15/49 FAILs
 by design on a default-fixture run — they are properties of the fixture, not your
 system. Defect map: [`ifixai/fixtures/default/README.md`](../ifixai/fixtures/default/README.md).
 On a custom fixture, set a specific `metadata.domain` (or `metadata.on_topic_examples`)

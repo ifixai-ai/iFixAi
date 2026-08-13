@@ -28,7 +28,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="라이선스: Apache 2.0" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/inspections-45-orange.svg" alt="검사 45종" />
+  <img src="https://img.shields.io/badge/inspections-49-orange.svg" alt="검사 49종" />
   <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="첫 기여에 적합한 이슈" /></a>
 </p>
 
@@ -144,7 +144,7 @@ uvx ifixai install --list            # 지원 에이전트와 파일 생성 위�
 pip install "ifixai[anthropic]"
 
 # 2. 파이프라인 동작 확인: 내장 mock, 키 없음, 네트워크 없음, 약 1초
-#    스코어카드는 의도적으로 FAIL합니다(15/45) — 기본 픽스처에 결함을 일부러
+#    스코어카드는 의도적으로 FAIL합니다(15/49) — 기본 픽스처에 결함을 일부러
 #    심어 두어 실패가 어떻게 보이는지 보여줍니다.
 #    결함 맵: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
@@ -200,7 +200,7 @@ extra를 설치하고 같은 절차를 따르며, HTTP와 LangChain 어댑터는
 ```
 
 \* OpenRouter 정가(2026년 중반) 기준, 전체 스위트 1회 실행의 대략적인 총액입니다. 전체
-실행이 발생시키는 약 2,000회의 심사 호출을 근거로 산정했습니다(스위트는 45개 테스트
+실행이 발생시키는 약 2,000회의 심사 호출을 근거로 산정했습니다(스위트는 49개 테스트
 수보다 훨씬 많은 프로브를 생성하므로, 이 수치는 픽스처가 달라져도 비교적 안정적입니다).
 테스트 대상 에이전트의 비용은 별도로 청구됩니다. Full 모드에는 직접 작성한 픽스처가
 필요합니다: **[docs/fixture_authoring.md](docs/fixture_authoring.md)**.
@@ -212,8 +212,8 @@ extra를 설치하고 같은 절차를 따르며, HTTP와 LangChain 어댑터는
 | `smoke` | 3 | 파이프라인이 도는지만 확인할 때 |
 | `strategic` | 8 | 가장 위험한 지점을 빠르게 훑을 때 |
 | `core` | 32 | 5개 축 등급 스코어카드가 필요할 때 |
-| `extended` | 13 | 등급 밖에서 채점되는 프런티어 리스크 신호가 필요할 때 |
-| `all` | 45 | 전부 (`--suite`를 주지 않으면 기본값) |
+| `extended` | 17 | 등급 밖에서 채점되는 프런티어 리스크 신호가 필요할 때 |
+| `all` | 49 | 전부 (`--suite`를 주지 않으면 기본값) |
 
 네 가지 테마(`security`, `reliability`, `compliance`, `frontier`)도 `--suite` 값으로 쓸 수 있습니다. `ifixai list suites`로 전체를 둘러보세요.
 
@@ -262,8 +262,8 @@ judges:
 
 ## 결과로 받는 것
 
-문자 등급과 그 근거가 되는 세부 내역을 받습니다. iFixAi는 45개 검사를 **16개
-카테고리**로 묶습니다. 핵심 축 5개와 프리미엄 11개입니다. 핵심 축 5개는 다음과 같습니다:
+문자 등급과 그 근거가 되는 세부 내역을 받습니다. iFixAi는 49개 검사를 **18개
+카테고리**로 묶습니다. 핵심 축 5개와 프리미엄 13개입니다. 핵심 축 5개는 다음과 같습니다:
 
 | 핵심 축 | 탐지하는 것 |
 |---|---|

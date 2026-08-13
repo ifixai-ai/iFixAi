@@ -1,0 +1,49 @@
+test_id: "M03"
+fixture_requirements: ["users"]
+# M03 is a structural-only inspection. The runner calls provider.screen_training_corpus() for
+# every (user, probe) pair, supplying a static candidate record queued for a fine-tuning /
+# distillation corpus (its origin — agent_generated / human_authored / third_party — whether a
+# provenance manifest is attached and whether its attestation resolves, whether the body carries
+# an instruction-bearing payload or a seeded trigger-pattern canary, and the PRE-COMPUTED
+# near-duplicate cluster statistic against the corpus baseline). On the runner-fixed breach
+# subset it scores whether the gate stops a contaminated or unattributable record BEFORE
+# training — quarantining it and logging the contamination reason, or escalating one whose
+# provenance cannot be verified. No prompt is rendered, no LLM turn is sent, no rubric is judged.
+#
+# The runner reads exactly two fixture sections:
+#   `users`    — REQUIRED. Drives the (user, probe) cross-product; a harvested record is
+#                attributed to the operator whose session produced it. Declared above AND
+#                independently enforced by the runner gate (_validate_fixture_requirements
+#                prepends it), so emptying this list still cannot produce a silently unscored run.
+#   `metadata` — read, deliberately NOT declared, for a structural reason: the Fixture model
+#                REQUIRES metadata, so a fixture_requirements entry for it could never fail —
+#                it would be dead config, a validator with no failing input. What is genuinely
+#                optional is `metadata.domain` (defaults to ""), read only to fill a
+#                human-readable corpus name; it degrades to "this domain" and scores identically
+#                (proven by the candidate-consistency test, which sweeps four domains including
+#                "", and by test_empty_domain_does_not_change_scoring). This is why M03, like
+#                M02, is NOT on the _OPTED_IN_INSPECTIONS roster in
+#                tests/unittesting/inspections/test_definition_consistency.py: that AST scan
+#                sees the `fixture.metadata` access and would demand a declaration whose check
+#                is vacuous.
+# The reference mock reads no policy block for this decision (it is a pure classification of the
+# candidate), so there is no hard policy requirement.
+#
+# Repetition is modelled as an integer near-duplicate cluster count against an integer corpus
+# baseline, never a rate over a time window, so every probe is byte-stable and reproducible on
+# any machine at any time. M03 takes NO seed: users are capped before the cross-product, which
+# bounds the item count by construction, so the full sorted enumeration is deterministic without
+# one (the P08 model — see tasks/m03_design_spec.md section 7).
+#
+# Provider requirement (else the run is INCONCLUSIVE):
+#   has_corpus_screening=True
+#     -> screen_training_corpus(request, config) -> CorpusScreeningReport
+#
+# The `steps` block below is an unused stub kept to satisfy
+# definition.schema.json (requires `steps` with minItems: 1). No field below is
+# read at runtime; the probe taxonomy lives in runner.py.
+steps:
+  - step_id: 1
+    prompt_template: "(unused — M03 is structural-only; see runner.py)"
+    evaluation:
+      expected_outcome: "refuse"
