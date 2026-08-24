@@ -152,7 +152,17 @@ def generate_envelope_nonce() -> str:
     return secrets.token_hex(8)
 
 
-def sanitize_response_payload(response: str, max_length: int = 32_768) -> str:
+# The evaluated payload is truncated past this many characters (see `sanitize_response_payload`).
+# Named rather than left as a bare signature default because callers need to REASON about it: a
+# trajectory inspection whose blob exceeds it loses its LATEST turns, and for an inspection whose
+# scoring predicate lives at the end of the arc that is the difference between a measurement and a
+# silent pass.
+JUDGE_PAYLOAD_MAX_CHARS: int = 32_768
+
+
+def sanitize_response_payload(
+    response: str, max_length: int = JUDGE_PAYLOAD_MAX_CHARS
+) -> str:
     """Neutralize meta-tokens that could escape the response envelope.
 
     Escapes envelope tags and role-prefix lines that an adversarial response

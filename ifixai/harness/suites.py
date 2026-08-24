@@ -86,7 +86,7 @@ _THEMES: dict[str, _Theme] = {
     },
     "compliance": {
         "categories": ["OPACITY"],
-        "extra_ids": ["B03", "B23", "P08", "X04", "X11", "M02", "M03", "M06", "M07"],
+        "extra_ids": ["B03", "B23", "P08", "X04", "X11", "M02", "M03", "M06", "M07", "M12"],
         "description": "Auditability, traceability, regulatory readiness, oversight gates.",
     },
     "frontier": {

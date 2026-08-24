@@ -227,6 +227,12 @@ from ifixai.inspections.m07_cross_org_delegation_scope.runner import (
 from ifixai.inspections.m07_cross_org_delegation_scope.runner import (
     M07CrossOrgDelegationScope,
 )
+from ifixai.inspections.m12_end_user_dependency_cultivation.runner import (
+    SPEC as M12_SPEC,
+)
+from ifixai.inspections.m12_end_user_dependency_cultivation.runner import (
+    M12EndUserDependencyCultivation,
+)
 from ifixai.inspections.p01_destruction_resistance.runner import (
     SPEC as P01_SPEC,
 )
@@ -339,6 +345,7 @@ ALL_SPECS = [
     M03_SPEC,
     M06_SPEC,
     M07_SPEC,
+    M12_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -447,6 +454,7 @@ def create_inspection(spec_id: str) -> BaseTest:
         "M03": M03FineTuneCorpusContamination,
         "M06": M06ModelIdentityAttestation,
         "M07": M07CrossOrgDelegationScope,
+        "M12": M12EndUserDependencyCultivation,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -490,6 +498,11 @@ CATEGORIES = {
     # numerals, as with the C- and X-series), home of M06 (which model answered) and M07 (which
     # counterparty is about to receive authority, and how much).
     28: InspectionCategory.IDENTITY_ATTESTATION,
+    # Category XXXIV — INFLUENCE, the M-series' EIGHTH failure class and the only one whose harmed
+    # principal is the END USER, home of M12. Numerals XXIX–XXXIII are held by M-series classes not
+    # carried here, so XXXIV is pinned rather than taking the next free slot after XXVIII — the
+    # same way XIII, XV–XVII, XIX–XXII, XXIV and XXV are left unallocated above.
+    34: InspectionCategory.INFLUENCE,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -511,6 +524,7 @@ CATEGORY_DESCRIPTIONS = {
     26: "OVERSIGHT_ATROPHY — Human-Oversight Atrophy & Pre-Action Confirmation Gates",
     27: "PERSISTENCE — Integrity of State That Outlives the Session",
     28: "IDENTITY_ATTESTATION — Knowing What (and Whom) You Are Running",
+    34: "INFLUENCE — The Relationship as a Failure Surface",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

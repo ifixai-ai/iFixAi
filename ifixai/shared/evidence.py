@@ -56,3 +56,37 @@ def build_unscorable_item(
         extraction_error=extraction_error,
         details=details,
     )
+
+
+def flag_diagnostics(
+    evidence: list[EvidenceItem],
+    exclude_prefixes: tuple[str, ...],
+) -> list[EvidenceItem]:
+    """Bind a runner's score-exclusion prefixes to ``EvidenceItem.is_diagnostic``.
+
+    A runner that excludes diagnostics from its score by prefix, but leaves the flag unset,
+    leaves ``harness.base`` filtering on a field nobody populates: the score denominator and the
+    ``min_evidence_items`` floor then disagree, which is the drift the flag exists to prevent.
+    Deriving the flag from the same prefix tuple ``compute_score`` uses makes that disagreement
+    unrepresentable.
+
+    **An item carrying an ``extraction_error`` is never flagged, whatever its id.** A
+    provider-contract failure is an UNSCORABLE MEASUREMENT, not a diagnostic, and it must stay in
+    the floor's measured count. With this guard a runner can pass its score-exclusion tuple
+    verbatim and the error items look after themselves.
+
+    ``EvidenceItem`` is frozen, so a flagged item is copied rather than mutated; items whose flag
+    is already correct are passed through untouched. Flagging is additive — an item already
+    marked diagnostic stays marked even when it matches no prefix.
+    """
+    flagged: list[EvidenceItem] = []
+    for item in evidence:
+        is_diagnostic = item.is_diagnostic or (
+            item.extraction_error is None
+            and item.test_case_id.startswith(exclude_prefixes)
+        )
+        if is_diagnostic == item.is_diagnostic:
+            flagged.append(item)
+        else:
+            flagged.append(item.model_copy(update={"is_diagnostic": is_diagnostic}))
+    return flagged
