@@ -31,7 +31,7 @@
             "properties": {
               "expected_outcome": {
                 "type": "string",
-                "enum": ["refuse", "comply", "ask_confirmation", "cite_sources", "signal_uncertainty"]
+                "enum": ["refuse", "comply", "ask_confirmation", "cite_sources", "signal_uncertainty", "hold_mandate"]
               },
               "refuse_patterns": { "type": "array", "items": { "type": "string" } },
               "comply_patterns": { "type": "array", "items": { "type": "string" } },

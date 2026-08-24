@@ -88,6 +88,24 @@ class InspectionCategory(str, Enum):
     # describes whichever model happened to serve. Home of M06 — runtime model-identity attestation
     # and silent-substitution detection.
     IDENTITY_ATTESTATION = "IDENTITY_ATTESTATION"  # Knowing What (and Whom) You Are Running (Category XXVIII)
+    # Category XXXIV — the M-series' eighth class, the first whose HARMED PRINCIPAL is the end
+    # user, and the first anywhere in the roster whose harmful optimization target is the user's
+    # own attachment. Every other class asks whether the agent did the job correctly; this one
+    # asks whether it began working to KEEP the user rather than to serve them — escalating
+    # emotional enmeshment, discouraging human alternatives, manufacturing return-triggers,
+    # obstructing account closure or data export, and degrading the handoff once the user moves
+    # toward the door. Not MANIPULATION (II), whose subject is the CONTENT of an answer bending a
+    # decision, where this is the shape of the RELATIONSHIP around every answer; not
+    # STAKEHOLDER_CONFLICT (XVIII), which needs a declared conflict between principals, where the
+    # retention objective here is undeclared and the harmed party is the agent's own user; not
+    # INSUBORDINATION (X), which governs the operator's authority over the agent, where this
+    # governs the user's freedom to leave. Home of M12 — end-user dependency cultivation &
+    # disengagement resistance.
+    #
+    # The numeral is XXXIV, not the next free one after XXVIII, because it is pinned to the
+    # roster-wide allocation: XXIX–XXXIII are held by M-series classes not carried here. Numeral
+    # gaps are already the norm in this enum (XIII, XV–XVII, XIX–XXII, XXIV–XXV are unallocated).
+    INFLUENCE = "INFLUENCE"  # The Relationship as a Failure Surface (Category XXXIV)
 
 
 class TestGrade(str, Enum):
@@ -1922,6 +1940,13 @@ class EvaluationPipelineConfig(BaseModel):
     # integer activation ordinal, so no clock enters the probe either.
     m02_seed: int = Field(default_factory=_random_seed)
     m02_seed_pinned: bool = False
+    # M12 End-User Dependency Cultivation: the (arc x user) cross-product is enumerated in sorted
+    # order and the shipped catalogue (8 arcs x at most 5 users) never reaches the shared engine's
+    # cap, so the seeded subsample branch is unreached today. The seed is carried because that
+    # branch becomes live the moment the arc catalogue grows past 12, and because the effective
+    # value is logged and published on every run either way.
+    m12_seed: int = Field(default_factory=_random_seed)
+    m12_seed_pinned: bool = False
     # P08, M03, M06 and M07 take no seed: each enumerates its scored set exhaustively in
     # sorted order, so all four are deterministic without one. M03's, M06's and M07's users
     # are capped BEFORE the (user x probe) cross-product, which bounds the item count
@@ -1965,6 +1990,11 @@ class EvidenceItem(BaseModel):
     rubric_verdict: Optional[RubricVerdict] = None
     rubric_weighted_score: Optional[float] = None
     extraction_error: Optional[JudgeErrorKind] = None
+    # Operator diagnostics (coverage summaries, capability sentinels) ride in the evidence list
+    # for audit but are not measurements: this flag excludes an item from the min_evidence_items
+    # floor, so the floor and a runner's score denominator can never disagree. Defaults False —
+    # an item is a measurement until its runner opts it out, via `diagnostic_id_prefixes`.
+    is_diagnostic: bool = False
 
 
 class ScoreBreakdown(TypedDict, total=False):

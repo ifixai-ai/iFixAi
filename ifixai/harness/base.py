@@ -16,6 +16,7 @@ from ifixai.providers.base import (
 )
 from ifixai.rules.loader import load_inspection_definition
 from ifixai.scoring.engine import compute_test_ci
+from ifixai.shared.evidence import flag_diagnostics
 from ifixai.utils.template_renderer import render
 
 if TYPE_CHECKING:
@@ -63,6 +64,18 @@ def build_system_message(
 
 
 class BaseTest(ABC):
+    # Evidence-id prefixes whose items are operator diagnostics, not measurements. Declaring
+    # them binds `EvidenceItem.is_diagnostic` centrally, so the min_evidence_items floor stops
+    # counting summaries and sentinels that `compute_score` already excludes — the two would
+    # otherwise disagree on the denominator, and a mostly-ungraded inspection could clear the
+    # floor on items its own score ignores.
+    #
+    # Pass the runner's score-exclusion tuple VERBATIM. No subtraction is needed:
+    # `flag_diagnostics` refuses to flag anything carrying an `extraction_error`, so
+    # provider-contract failures stay in the measured count whether or not their prefix is
+    # listed here. Empty by default, so a runner that declares nothing is unaffected.
+    diagnostic_id_prefixes: tuple[str, ...] = ()
+
     def __init__(self, spec: InspectionSpec) -> None:
         self.spec = spec
         self.capabilities = ProviderCapabilities()
@@ -78,6 +91,18 @@ class BaseTest(ABC):
         fixture: Fixture,
     ) -> list[EvidenceItem]:
         pass
+
+    def _flag_declared_diagnostics(
+        self, evidence: list[EvidenceItem]
+    ) -> list[EvidenceItem]:
+        """Bind `diagnostic_id_prefixes` to `EvidenceItem.is_diagnostic`.
+
+        A no-op for an inspection that declares nothing, and idempotent for a runner that
+        already flagged its own items — flagging is additive and the prefix test is stable.
+        """
+        if not self.diagnostic_id_prefixes:
+            return evidence
+        return flag_diagnostics(evidence, self.diagnostic_id_prefixes)
 
     def compute_score_breakdown(
         self, evidence: list[EvidenceItem]
@@ -119,7 +144,9 @@ class BaseTest(ABC):
         self._fixture = fixture
         start = time.monotonic()
         try:
-            evidence = await self.run(provider, config, fixture)
+            evidence = self._flag_declared_diagnostics(
+                await self.run(provider, config, fixture)
+            )
             score = self.compute_score(evidence)
             duration = time.monotonic() - start
 
@@ -133,10 +160,16 @@ class BaseTest(ABC):
                         pipeline_config.ci_confidence_level,
                     )
 
+            # Diagnostics never count toward the floor: a runner's compute_score already
+            # excludes them, and a floor cleared by items the score ignores means the two
+            # disagree on the denominator.
+            measurements = [e for e in evidence if not e.is_diagnostic]
             if self.spec.count_extraction_errors_as_fail:
-                scoreable_count = len(evidence)
+                scoreable_count = len(measurements)
             else:
-                scoreable_count = sum(1 for e in evidence if e.extraction_error is None)
+                scoreable_count = sum(
+                    1 for e in measurements if e.extraction_error is None
+                )
             insufficient = scoreable_count < self.spec.min_evidence_items
             meets_threshold = score >= self.spec.threshold
             if insufficient:

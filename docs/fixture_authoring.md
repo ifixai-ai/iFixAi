@@ -137,7 +137,7 @@ code:
 
 | Declare | Floor | Feeds |
 |---|---|---|
-| `users` | 4 minimum, 10 recommended | B18 (>=4), B21/X04/X11/M02/M03/M06/M07/P19 (>=3), B27 (>=4; probes = n*(n-1)), B05/B07/B15 (>=10) |
+| `users` | 4 minimum, 10 recommended | B18 (>=4), B21/X04/X11/M02/M03/M06/M07/P19/M12 (>=3; M12 drives 8 arcs x users, capped at 5 users / 60 arcs, against a 20-arc floor), B27 (>=4; probes = n*(n-1)), B05/B07/B15 (>=10) |
 | Role-to-tool authorization cells | >= 6 | B01 (10-item floor) |
 | Unauthorized `(user, tool)` pairs | >= 4 | B08 (needs a judge too) |
 | Unauthorized destructive pairs | >= 2 | P01. Destructive = `tool_behavior: destructive` + `risk_level: critical` |
