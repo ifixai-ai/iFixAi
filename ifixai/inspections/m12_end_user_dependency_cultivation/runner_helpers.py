@@ -49,8 +49,8 @@ from ifixai.shared.template_vars import (
 def _select_specs(users: list[User], seed: int) -> list[TrajectorySpec]:
     """Build the (arc, user) trajectory set in a deterministic order, delegating the sort and the
     seeded subsample to the shared engine so the selection logic lives once. Below the cap the
-    sorted cross-product is enumerated with no RNG (the P08/P23/P25 model), which the shipped
-    catalogue always is."""
+    sorted cross-product is enumerated with no RNG (the P08 model), which the shipped catalogue
+    always is."""
     specs = [
         TrajectorySpec(arc=arc, user=user, user_index=index)
         for arc in ARCS
@@ -83,12 +83,22 @@ def _build_template_vars(fixture: Fixture, spec: TrajectorySpec) -> dict[str, st
     Sourcing it from the arc additionally removes the last fixture-dependent variation in the
     payload: the bound M12 measures drift FROM is now runner-authored and frozen like everything
     else in the catalogue, so two runs against different fixtures measure drift from the same
-    stated mandate. The fixture supplies only the actor and domain frame."""
+    stated mandate. The fixture supplies only the actor and domain frame.
+
+    The two shared frames are merged key by key rather than splatted: `dict[str, str]` is what
+    `render` takes, and every placeholder that reaches a prompt is then visible in one place."""
+    actor = build_actor_template_vars(
+        fixture=fixture, user=spec.user, role_fallback="an operations role"
+    )
+    resources = build_resource_template_vars(
+        fixture=fixture, rotation_index=spec.user_index
+    )
     return {
-        **build_actor_template_vars(
-            fixture=fixture, user=spec.user, role_fallback="an operations role"
-        ),
-        **build_resource_template_vars(fixture=fixture, rotation_index=spec.user_index),
+        "role": actor["role"],
+        "user": actor["user"],
+        "domain": actor["domain"],
+        "tool": resources["tool"],
+        "data_source": resources["data_source"],
         "mandate": spec.arc.mandate,
         "routine_task": spec.arc.routine_task,
         "attachment_hook": spec.arc.attachment_hook,
@@ -247,8 +257,8 @@ def _coverage_floor_corrected(result: TestResult) -> TestResult:
     M12 emits 40 scored arcs against a floor of 20, so a deployment that fails or declines every arc
     of ONE cultivation class still clears the total by a wide margin and publishes a clean rate with
     that class never measured. The class a deployment would most want to hide is exactly the one it
-    can afford to lose. This is the M09/M10/M11 lesson (docs/methodology.md — "declining exactly one
-    breach campaign published PASS at 1.00") applied at the level M12's taxonomy partitions on.
+    can afford to lose. The same reasoning is why C11 and X04 gate their own breach bands per axis
+    rather than on the total alone.
 
     BOTH axes are gated, not just the class. With the shipped catalogue the class floor happens to
     imply the exit-vector floor -- losing any one vector always strands a single-arc class -- but
@@ -393,12 +403,16 @@ def _truncation_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
     Without it an operator sees only a thinner scored set and no reason for it. The condition is a
     property of the DEPLOYMENT's verbosity, not of its behaviour, so it is disclosed rather than
     scored — but it is disclosed loudly, because it is the one failure mode that would otherwise
-    make a verbose agent look clean at the exit."""
+    make a verbose agent look clean at the exit.
+
+    Selected on `judge_payload_ceiling`, which ONLY `_oversized_payload_item` sets. `blob_chars` is
+    the wrong key: `_arc_details` stamps it on every scored arc too, so an arc the JUDGE failed to
+    adjudicate (a contract or communication error carrying an unrelated cause) was counted here and
+    reported to the operator as a transcript over the ceiling."""
     oversized = [
         item
         for item in evidence
-        if item.details.get("blob_chars") is not None
-        and item.extraction_error is not None
+        if item.details.get("judge_payload_ceiling") is not None
     ]
     largest = max((int(i.details["blob_chars"]) for i in oversized), default=0)
     return EvidenceItem(

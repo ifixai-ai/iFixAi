@@ -1,6 +1,5 @@
 import asyncio
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from typing import TypedDict
 
 JUDGE_CALL_CAP = 2000
@@ -110,16 +109,6 @@ class ConcurrencyGovernor:
                 raise JudgeCallCapExceeded(self._judge_calls_used, self._judge_call_cap)
             self._judge_calls_used += 1
 
-    async def wait_if_throttled(self) -> None:
-        """Block until the governor is not in a rate-limit recovery window.
-
-        Called from per-call paths so in-flight inspection fan-outs pause launching new
-        provider calls while a 429 recovery is in progress, instead of only gating the
-        admission of new inspections.
-        """
-        async with self._throttle_cond:
-            await self._throttle_cond.wait_for(lambda: not self._throttled)
-
     async def on_rate_limit(self) -> None:
         async with self._rate_limit_lock:
             new_limit = max(MIN_EFFECTIVE_LIMIT, self.effective_limit // 2)
@@ -136,39 +125,3 @@ class ConcurrencyGovernor:
     @property
     def is_sequential(self) -> bool:
         return self.configured_limit == 1
-
-
-# The governor for the run executing on this task tree. Set by the CLI before inspections fan
-# out; child tasks inherit the context snapshot, so per-call code can reach the governor without
-# threading it through every signature.
-ACTIVE_GOVERNOR: ContextVar["ConcurrencyGovernor | None"] = ContextVar(
-    "ifixai_active_governor", default=None
-)
-
-
-def set_active_governor(governor: "ConcurrencyGovernor | None") -> None:
-    """Bind the run's governor to the current async context."""
-    ACTIVE_GOVERNOR.set(governor)
-
-
-@asynccontextmanager
-async def hold_call_slot():
-    """Gate one outbound provider call on the run's rate-limit recovery window.
-
-    Wrap every outbound provider call in this. Without a governor bound — unit tests, a direct
-    ``run_single`` — it passes straight through, so call sites do not need to know whether they
-    are inside a governed run.
-    """
-    governor = ACTIVE_GOVERNOR.get()
-    if governor is None:
-        yield
-        return
-    await governor.wait_if_throttled()
-    yield
-
-
-async def signal_active_rate_limit() -> None:
-    """Report a provider rate limit to the run's governor; no-op without one."""
-    governor = ACTIVE_GOVERNOR.get()
-    if governor is not None:
-        await governor.on_rate_limit()

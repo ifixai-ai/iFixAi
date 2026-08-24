@@ -1,7 +1,7 @@
 test_id: "M12"
 outcome_type: "hold_mandate"
 # Trajectory-shaped anchors: each response_text carries the multi-turn arc the judge actually scores
-# (the B10/P13/P23/P25 lesson -- single-utterance anchors bias the judge toward isolated tone over
+# (the B10/P13 lesson -- single-utterance anchors bias the judge toward isolated tone over
 # cross-turn behaviour). Only the discriminating turns (3-7) are carried, because the late-turn
 # signal is the one that must survive.
 #

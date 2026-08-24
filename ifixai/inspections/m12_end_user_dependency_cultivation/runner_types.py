@@ -49,7 +49,8 @@ class CoverageDetails(TypedDict):
     arc_count: int
     # The DISTINCT arcs that produced a scored item. Published beside trajectory_count because the
     # two differ by the fixture's user count while the arc payload and the oracle are identical
-    # across users -- see docs/scoring.md section "M12 confidence-interval band".
+    # across users: N scored items are not N independent arcs, so a reader comparing runs by the
+    # published interval (docs/scoring.md § Noise) needs to see both numbers.
     distinct_arcs_measured: int
     per_class_arc_count: dict[str, int]
     class_to_dimension: dict[str, str]

@@ -1,13 +1,13 @@
 """Shared engine for single-turn / trajectory judge-path inspections.
 
-The judge-path P- and S-series inspections (P13, S02, P02, …) repeat the same
-non-trivial machinery: a deterministic seeded (item × user) selection, a 3-sample
-majority vote that stabilises a single judge, a binary clean-fraction score over a
-diagnostics-excluded probe set, a temperature-0 determinism guard, and a
-fixture-requirements gate. That logic is identical across them and is collected here
-once so a new inspection composes it instead of re-deriving it (and so a fix lands in
-one place). Inspection-specific pieces — the corpus schema, the rubric oracle, the
-evidence-item text — stay in each runner.
+The judge-path inspections repeat the same non-trivial machinery: a deterministic
+seeded (item × user) selection, a 3-sample majority vote that stabilises a single
+judge, a binary clean-fraction score over a diagnostics-excluded probe set, a
+temperature-0 determinism guard, and a fixture-requirements gate. Each of P13, P22,
+P27, P32 and S02 carries its own copy today; this module collects the logic once so a
+new inspection composes it instead of re-deriving it (and so a fix lands in one
+place). M12 is its first consumer. Inspection-specific pieces — the corpus schema,
+the rubric oracle, the evidence-item text — stay in each runner.
 
 No I/O and no global state: every function is pure or async-pure over its arguments.
 The `pipeline` argument is the duck-typed `EvaluationPipeline` (kept as `object` to
@@ -19,12 +19,8 @@ import random
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TypedDict, TypeVar
 
-import yaml
-
-from ifixai.core.provider_call import send_governed
 from ifixai.core.types import (
     AnalyticRubric,
     ChatMessage,
@@ -67,9 +63,9 @@ class TrajectoryTurnRecord(TypedDict):
 class TrajectoryDetails(TypedDict, total=False):
     """Base evidence-item details payload for a scored trajectory inspection.
 
-    Shared by P11/P13/P14/P15; per-runner TypedDicts inherit from this and add
-    their own id field (seed_id or scenario_id). total=False because
-    judge_dispersion is present only on the non-ensemble (3-sample) path.
+    Per-runner TypedDicts inherit from this and add their own id field (arc_id,
+    seed_id, scenario_id). total=False because judge_dispersion is present only on the
+    non-ensemble (3-sample) path.
     """
 
     category: str
@@ -107,11 +103,10 @@ async def evaluate_with_consensus(
     reports no dispersion.
 
     The samples are independent by construction, so they are issued concurrently:
-    run serially they tripled the latency of every evidence item on this path (24
-    inspections use it) for no accuracy gain. Determinism is preserved because
-    `gather` returns results in input order, so the majority vote and the verdict
-    body selected from it are identical to the serial implementation's. The run's
-    in-flight ceiling (`send_governed`) bounds the extra concurrency.
+    run serially they triple the latency of every evidence item on this path for no
+    accuracy gain. Determinism is preserved because `gather` returns results in input
+    order, so the majority vote and the verdict body selected from it are identical to
+    the serial implementation's.
     """
     if pipeline.is_ensemble_judge():  # type: ignore[attr-defined]
         result = await pipeline.evaluate(  # type: ignore[attr-defined]
@@ -247,84 +242,8 @@ def validate_fixture_requirements(
         )
 
 
-# corpus loading: generic YAML loader shared by the 13 corpus-bearing P-runners (per-runner PxxCorpusError
-# subclass the base). The loader owns file/YAML/duplicate-id checks; per-entry validation stays in each runner's _parse_scenario. T003: every InspectionCorpusError is a ValueError.
-
-
-class InspectionCorpusError(ValueError):
-    """Malformed inspection corpus; carries inspection id and offending context.
-
-    All per-runner PxxCorpusError classes subclass this so `isinstance(e, ValueError)`
-    holds (T003 invariant) and tests that catch PxxCorpusError still pass (subclass is
-    matched by pytest.raises).
-    """
-
-    def __init__(self, test_id: str, message: str) -> None:
-        self.test_id = test_id
-        super().__init__(f"{test_id} corpus error: {message}")
-
-
-_EntryT = TypeVar("_EntryT")
-
-
-def load_corpus_yaml(
-    path: Path,
-    test_id: str,
-    parse_entry: Callable[[object, set[str]], "_EntryT"],
-    entry_id: Callable[["_EntryT"], str],
-    entries_key: str = "scenarios",
-) -> "list[_EntryT]":
-    """Load, validate, and sort a corpus YAML file.
-
-    Raises InspectionCorpusError (or a subclass raised by parse_entry) on:
-    missing file, YAML parse failure, non-dict top level, empty or missing entries list.
-
-    `parse_entry(raw_entry, seen)` handles per-entry field validation, taxonomy membership,
-    and duplicate id detection via `seen`. It raises its own PxxCorpusError (an
-    InspectionCorpusError subclass) on failure. The loader sorts by `entry_id` so
-    load order in the YAML file is irrelevant.
-    """
-    if not path.exists():
-        raise InspectionCorpusError(test_id, f"corpus not found at {path}")
-    try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise InspectionCorpusError(
-            test_id, f"corpus YAML parse failed: {exc}"
-        ) from exc
-    if not isinstance(raw, dict):
-        raise InspectionCorpusError(
-            test_id, "corpus YAML must be a mapping at the top level"
-        )
-    entries = raw.get(entries_key)
-    if not isinstance(entries, list) or not entries:
-        raise InspectionCorpusError(
-            test_id, f"corpus YAML must declare a non-empty '{entries_key}' list"
-        )
-    seen: set[str] = set()
-    items: list[_EntryT] = []
-    for entry in entries:
-        items.append(parse_entry(entry, seen))
-    return sorted(items, key=entry_id)
-
-
-async def async_load_corpus_yaml(
-    path: Path,
-    test_id: str,
-    parse_entry: Callable[[object, set[str]], "_EntryT"],
-    entry_id: Callable[["_EntryT"], str],
-    entries_key: str = "scenarios",
-) -> "list[_EntryT]":
-    """Async wrapper: runs `load_corpus_yaml` in a thread so corpus disk reads
-    never block the event loop. Mirror the compliant runners (P16/P20) that already
-    wrap their `_load_corpus` call in `asyncio.to_thread`."""
-    return await asyncio.to_thread(
-        load_corpus_yaml, path, test_id, parse_entry, entry_id, entries_key
-    )
-
-
-# multi-turn trajectory collection: shared by trajectory inspections (P13, P03, ...) -- drive each plan step
-# serially, collect the transcript, format for the judge. Single-turn inspections (S02, P02) don't use it. Lives here once so a fix lands in one place.
+# multi-turn trajectory collection: drive each plan step serially, collect the transcript, format it
+# for the judge. Single-turn inspections do not use it. Lives here once so a fix lands in one place.
 
 
 @dataclass(frozen=True)
@@ -367,7 +286,7 @@ async def collect_trajectory(
         prompt = render(step.prompt_template, template_vars)
         history.append(ChatMessage(role="user", content=prompt))
         try:
-            response = await send_governed(provider, history, config)
+            response = await provider.send_message(history, config)
         except ProviderEmptyContentError:
             raise
         except Exception as exc:
@@ -390,8 +309,8 @@ def format_trajectory(trajectory: list[TrajectoryTurn]) -> str:
     return "\n\n".join(blocks)
 
 
-# shared trajectory-family helpers: previously P11-P15 carried private copies (the duplication caused a
-# correctness drift, P13's _correct_sufficiency missing until T001). Promoted here so a fix lands once.
+# shared trajectory-family helpers. The trajectory runners each carry a private copy of these; they
+# live here so a new inspection composes them and a fix lands once.
 
 
 def require_temperature_zero_judge(

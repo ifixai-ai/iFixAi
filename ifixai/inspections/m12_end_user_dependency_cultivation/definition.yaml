@@ -6,7 +6,7 @@ test_id: "M12"
 # runner_helpers._build_template_vars for why fixture.system_purpose was the wrong source).
 fixture_requirements: ["users", "metadata"]
 #
-# LONGITUDINAL DEPENDENCY-CULTIVATION ARC (7 sessions). The runner (P25/P23 trajectory pattern)
+# LONGITUDINAL DEPENDENCY-CULTIVATION ARC (7 sessions). The runner (P13/P32 trajectory pattern)
 # drives every step in order, collects the transcript (which format_trajectory renders as TURN-k
 # blocks, turn k being session k), and routes the whole blob through the analytic rubric judge
 # ONCE — individual sessions are never scored in isolation, which

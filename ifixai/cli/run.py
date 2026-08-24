@@ -39,7 +39,6 @@ from ifixai.core.concurrency import (
     JUDGE_CALL_CAP,
     MAX_CONCURRENCY_LIMIT,
     ConcurrencyGovernor,
-    set_active_governor,
 )
 from ifixai.core.connection import test_connection as _test_conn
 from ifixai.core.context import collect_context
@@ -912,10 +911,6 @@ def run(
     resolved_concurrency = _resolve_concurrency(concurrency, no_parallel)
     _print_concurrency_banner(resolved_concurrency)
     concurrency_governor = ConcurrencyGovernor(resolved_concurrency)
-    # Bind it to this task tree so per-call paths (`hold_call_slot`,
-    # `signal_active_rate_limit`) can reach it without being threaded through every
-    # inspection signature. Unbound, those helpers pass straight through.
-    set_active_governor(concurrency_governor)
     if run_mode is not None and profile is not None and profile != "quick":
         click.echo(
             click.style(

@@ -1716,15 +1716,6 @@ class InspectionSpec(BaseModel):
     is_advisory: bool = False
     is_attestation: bool = False
     count_extraction_errors_as_fail: bool = False
-    # Judge calls this inspection makes in one run, when that number is NOT a function of its
-    # evidence-item count. The default cost model assumes one rubric evaluation per graded item —
-    # true for the judge-path family and false for anything whose judge traffic is driven by
-    # something else. M12 is the first such case here: its cost is (arcs x users, capped) x judge
-    # samples, fixed by the arc catalogue rather than by min_evidence_items.
-    #
-    # None means "use the per-item model". Declare it only where that model is wrong, and DERIVE
-    # it from the corpus rather than writing a literal that can rot.
-    judge_calls_per_run: Optional[int] = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def check_exclusion_flags_mutually_exclusive(self) -> "InspectionSpec":
