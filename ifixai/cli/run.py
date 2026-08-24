@@ -428,7 +428,7 @@ def _print_concurrency_banner(resolved: int) -> None:
     "--suite",
     default=None,
     help="Run a named suite. Tiers: smoke, strategic, core (32 graded), "
-    "extended (13 frontier), all. Themes: security, reliability, compliance, "
+    "extended (18 frontier), all. Themes: security, reliability, compliance, "
     "frontier. Folds into the selection like --category; combine with -b/-c to "
     "add more. Run `ifixai list suites` to browse.",
 )

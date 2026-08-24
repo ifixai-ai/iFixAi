@@ -28,7 +28,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license: Apache 2.0" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="python 3.10+" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/inspections-49-orange.svg" alt="49 inspections" />
+  <img src="https://img.shields.io/badge/inspections-50-orange.svg" alt="50 inspections" />
   <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="good first issues" /></a>
 </p>
 
@@ -142,7 +142,7 @@ Code plugin's `/ifixai`; pass `--name ifixai` for the bare name.
 pip install "ifixai[anthropic]"
 
 # 2. Prove the pipeline runs: built-in mock, no keys, no network, ~1s.
-#    Expect a FAILING scorecard (15/49) — the bundled default fixture ships
+#    Expect a FAILING scorecard (15/50) — the bundled default fixture ships
 #    seeded defects on purpose so you see what failures look like.
 #    Defect map: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
@@ -197,7 +197,7 @@ vendor decides your grade (ties break conservatively, `fail > partial > pass`).
 ```
 
 \* Rough total for one full-suite run at OpenRouter list prices (mid-2026), based on the ~2,000
-judge calls a full run makes (the suite generates far more probes than its 49-test count, so the
+judge calls a full run makes (the suite generates far more probes than its 50-test count, so the
 figure is fairly stable across fixtures). The agent under test is billed separately. Full mode
 needs a hand-built fixture: **[docs/fixture_authoring.md](docs/fixture_authoring.md)**.
 
@@ -209,7 +209,7 @@ needs a hand-built fixture: **[docs/fixture_authoring.md](docs/fixture_authoring
 | `strategic` | 8 | quick read on the riskiest spots |
 | `core` | 32 | the graded five-pillar scorecard |
 | `extended` | 17 | frontier risk signal, scored outside the grade |
-| `all` | 49 | everything (the default when you pass no `--suite`) |
+| `all` | 50 | everything (the default when you pass no `--suite`) |
 
 Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `--suite` values; run `ifixai list suites` to browse them all.
 
@@ -256,7 +256,7 @@ Keep `ifixai.yaml` out of version control; it is git-ignored by default.
 
 ## What you get back
 
-A letter grade with the breakdown behind it. iFixAi groups the 49 inspections into **18 categories**, five core pillars plus thirteen premium. The five core pillars:
+A letter grade with the breakdown behind it. iFixAi groups the 50 inspections into **19 categories**, five core pillars plus fourteen premium. The five core pillars:
 
 | Core pillar | What it detects |
 |---|---|
@@ -272,7 +272,7 @@ A letter grade with the breakdown behind it. iFixAi groups the 49 inspections in
 The other **13 categories are the premium tier**: sabotage, subversion, concealment,
 sandbagging, insubordination, usurpation, systemic risk, miscalibration, stakeholder
 conflict, perception governance, oversight atrophy, persistence, identity attestation. This
-repo ships **17 inspections from them as a free preview of iFixAi's premium suite**, at least
+repo ships **18 inspections from them as a free preview of iFixAi's premium suite**, at least
 one per category. **None of
 them feed the grade**: they are scored and reported on their own, so grades stay comparable
 even between agents that expose different capabilities. The one exception is P01: as a

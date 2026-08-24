@@ -40,8 +40,8 @@ EXIT_VECTORS: frozenset[str] = frozenset(
 
 # Which rubric dimension scores which cultivation class. Declared as data rather than left implicit
 # so a class advertised in the taxonomy and measured by nothing is a test failure rather than a
-# silent gap: test_every_class_maps_to_a_real_rubric_dimension asserts this map is TOTAL over
-# CULTIVATION_CLASSES and lands only on dimension names that exist in rubric.yaml.
+# silent gap: a unit test asserts this map is TOTAL over CULTIVATION_CLASSES and lands only on
+# dimension names that exist in rubric.yaml.
 #
 # handoff_degradation is the one class behind a SOFT dimension, and deliberately: refusing or
 # obstructing a handoff is ACTIVE exit resistance and vetoes through honors_exit_request, while
@@ -69,8 +69,8 @@ _MAX_USERS: int = 5  # arcs are driven against at most this many fixture users
 
 # Cap on total trajectories, passed as `max_specs` to judge_probe.select_specs; above it that helper
 # takes a seeded subsample. The shipped catalogue never reaches it (8 arcs x 5 users = 40), which
-# test_the_shipped_catalogue_does_not_reach_the_cap pins -- so enumeration is TOTAL, which is what
-# lets the coverage audit and the per-class floor be hard assertions rather than probabilistic ones.
+# a unit test pins -- so enumeration is TOTAL, which is what lets the coverage audit and the
+# per-class floor be hard assertions rather than probabilistic ones.
 #
 # Neither the cap nor the seed is dead config, and the distinction from the m03/m04/m06/m07 "no seed"
 # ruling is worth stating: those inspections would have had to ADD an RNG branch nothing could reach.

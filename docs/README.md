@@ -19,7 +19,7 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 - **[CLI reference](cli.md)**: every command and `ifixai run` flag, plus judges and eval modes.
 - **[Python API](python-api.md)**: the `ifixai.api` surface.
 - **[Scoring](scoring.md)**: the formula, grade bands, thresholds, and mandatory minimums.
-- **[Inspections](inspections.md)**: what/how rows for all 49 inspections and the pillar mapping.
+- **[Inspections](inspections.md)**: what/how rows for all 50 inspections and the pillar mapping.
 - **[Fixture schema](../ifixai/fixtures/schema.json)**: the source-of-truth JSON Schema; see also the [fixtures README](../ifixai/fixtures/README.md).
 
 ## 💡 Wanting to understand why → explanation

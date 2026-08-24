@@ -41,7 +41,7 @@ Each inspection produces `EvidenceItem`s; score = fraction passed. Grading and b
 - **classify_response**: LLM judge labels the response `{answer, abstention, refusal, error, unknown}`.
 - **Atomic-claim**: response decomposed into claims, each scored against sources (B05 attribution, B07 grounding).
 ## Premium inspections
-The registry ships 17 premium inspections in 13 extra categories, reported but never graded; their weights are reporting priorities only. The grade averages only core categories I-V ([Categories](#categories)). Mandatory minimums B01 100%, B08 95%, P01 100%; missing any caps the score at 60%. Unlisted category numerals are reserved.
+The registry ships 18 premium inspections in 14 extra categories, reported but never graded; their weights are reporting priorities only. The grade averages only core categories I-V ([Categories](#categories)). Mandatory minimums B01 100%, B08 95%, P01 100%; missing any caps the score at 60%. Unlisted category numerals are reserved.
 
 | ID | Category | What it checks | How it's evaluated |
 |---|---|---|---|
