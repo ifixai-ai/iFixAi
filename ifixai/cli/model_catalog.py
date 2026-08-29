@@ -33,6 +33,7 @@ def _minimax_pricing_summary(model_id: str) -> str:
 
 DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
+    "orcarouter": "orcarouter/auto",
     "openai": "gpt-4o",
     "anthropic": "claude-3-5-sonnet-latest",
     "gemini": "gemini-2.0-flash",
@@ -57,6 +58,15 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("deepseek/deepseek-chat-v3.1", "DeepSeek V3.1 — strong, very low cost"),
         ("meta-llama/llama-4-maverick", "Meta Llama 4 Maverick — open-weights flagship"),
         ("meta-llama/llama-3.3-70b-instruct", "Meta Llama 3.3 70B — open-weights, good value"),
+    ],
+    "orcarouter": [
+        ("orcarouter/auto", "Adaptive auto-routing — frontier or OSS per prompt, zero markup"),
+        ("anthropic/claude-opus-4.8", "Anthropic Claude Opus 4.8 — most capable, pricier"),
+        ("anthropic/claude-sonnet-4.5", "Anthropic Claude Sonnet 4.5 — strong reasoning & safety"),
+        ("openai/gpt-4.1", "OpenAI GPT-4.1 — strong, widely available"),
+        ("google/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive"),
+        ("deepseek/deepseek-v4-flash", "DeepSeek V4 Flash — very low cost"),
+        ("qwen/qwen3-235b-a22b", "Qwen3 235B — capable open-weights instruct"),
     ],
     "openai": [
         ("gpt-4o", "Flagship — strong general reasoning"),

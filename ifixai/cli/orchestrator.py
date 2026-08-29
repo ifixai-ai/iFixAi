@@ -102,6 +102,7 @@ def _resolve_standard_eval_mode(
                 "Error: no provider credentials found in the environment.\n"
                 "Set at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY, "
                 "GEMINI_API_KEY, AZURE_OPENAI_API_KEY, OPENROUTER_API_KEY, "
+                "ORCAROUTER_API_KEY, "
                 "HUGGINGFACE_API_TOKEN, or AWS credentials (for bedrock).",
                 fg="red",
             ),

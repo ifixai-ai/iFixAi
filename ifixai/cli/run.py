@@ -141,6 +141,7 @@ PROVIDER_CHOICES = [
     "http",
     "langchain",
     "openrouter",
+    "orcarouter",
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]
