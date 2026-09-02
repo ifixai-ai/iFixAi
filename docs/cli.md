@@ -8,6 +8,7 @@ Every `ifixai` command and `ifixai run` flag. Guided first run: [get-started.md]
 ifixai init                  # check env for provider keys, suggest a first run
 ifixai run                   # run inspections (Standard or Full mode)
 ifixai run --fixture FILE    # custom fixture (YAML or JSON)
+ifixai sandbox -f FILE       # fake tool backend for safe agent testing (testing-your-agent.md)
 ifixai list tests            # all 50 inspections (32 core + 18 extended)
 ifixai list fixtures         # registered named fixtures
 ifixai validate [FILE]       # per-test layout, or a fixture against schema.json
@@ -25,6 +26,7 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 | `--api-key`, `-k` | none | SUT API key. Always passed explicitly, never read from the environment. |
 | `--model`, `-m` | provider default | Model identifier override. |
 | `--endpoint`, `-e` | none | Endpoint URL (required for `http` and `azure`). |
+| `--target-is-sandboxed` | off | Confirm the `http` target is a sandboxed test deployment; skips the per-run safety question (CI/scripts). Also `target_is_sandboxed: true` in `ifixai.yaml`. See [testing-your-agent.md](testing-your-agent.md). |
 | `--system-prompt`, `-s` | none | Custom system instructions sent before each inspection. |
 | `--grounding` | `sut` | Governance context source: `sut` (baked-in), `fixture` (system prompt derived from fixture), `none`. |
 | `--sut-temperature` | `0.0` | SUT sampling temperature. B22 needs `0` or `--sut-seed`. |

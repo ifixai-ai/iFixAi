@@ -110,3 +110,6 @@ credentials.json
 *.key
 *.crt
 *.p12
+
+# sandbox call log written by `ifixai sandbox`
+ifixai-sandbox/

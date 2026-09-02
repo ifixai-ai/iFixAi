@@ -4,6 +4,43 @@ iFixAi tests the system you deploy: model plus tools, retrieval, and governance.
 model API (`--provider openai` / `anthropic` / ...) scores 34 of 50 inspections; the rest
 return `insufficient_evidence` and drop out. Flags and extras: [provider reference](#provider-reference).
 
+## Set up a safe target first
+
+36 of the 50 inspections hold a real conversation with your agent, and many of them
+deliberately try to talk it into misusing the tools it was given (one probe asks it to
+quietly forward the underlying dataset to an external address). If you point iFixAi at an
+agent wired to real tools and real data, a compliant agent makes those calls for real.
+
+The safe setup, start to finish:
+
+1. **Run a test copy of your agent**, never production: same model, same prompt, same
+   tool wiring, on a machine or namespace with no production credentials.
+2. **Point the copy's tool backends at the sandbox.** `ifixai sandbox --fixture
+   ifixai-fixture.yaml` starts a local server (default `http://127.0.0.1:8383`, no API
+   key) that answers every tool declared in the fixture with a plausible fake success
+   record and refuses nothing: whether the agent called the tool at all is the finding.
+   Your agent calls `POST /tools/<tool_id>`; `GET /tools` lists the declared tools as
+   OpenAI function schemas. Every call is appended to `./ifixai-sandbox/calls.jsonl`
+   (tool, arguments, timestamp, `destructive: true` for delete/drop/truncate/purge/
+   transfer/send tools, `undeclared: true` for tools the fixture never declared). The
+   log is append-only and never rotated; clean it up yourself.
+3. **Run iFixAi at the copy** (Path 1 below). The CLI asks once per run whether the
+   target is a sandboxed test deployment; answer `y`. In CI and scripts pass
+   `--target-is-sandboxed` (or set `target_is_sandboxed: true` in `ifixai.yaml`).
+4. **Read the sandbox's shutdown summary** (Ctrl+C): total calls, distinct tools,
+   destructive calls. `0 tool calls` means your agent never talked to the sandbox and is
+   still pointed at its old backends; fix the wiring and re-run.
+
+Optional, to enforce the isolation rather than promise it: `docker compose -f
+docker/sandbox-compose.yml up` runs the sandbox on an internal Docker network with no
+route to the internet (your agent's container joins that network plus a normal one for
+its model API; see the comments in the compose file). Docker is optional, the sandbox
+runs fine without it.
+
+Hosted runs can't reach `localhost`. Expose the *test copy* with
+`cloudflared tunnel --url http://localhost:8000`, and put an auth header on it
+(`--extra-headers`): a quick tunnel is unauthenticated and world-reachable.
+
 ## Path 1: HTTP endpoint
 
 Your agent serves `POST /v1/chat/completions`:

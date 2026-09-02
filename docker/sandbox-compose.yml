@@ -1,0 +1,34 @@
+# Sandbox with the isolation enforced, not promised: `sandbox-net` is an
+# internal Docker network, so the sandbox container has no route to the
+# internet. Start it with:
+#
+#   docker compose -f docker/sandbox-compose.yml up
+#
+# Your agent's container joins BOTH networks: sandbox-net to reach the sandbox
+# at http://sandbox:8383, and the default network to reach its model API
+# (never use `network_mode: none`; it kills the model connection too).
+services:
+  sandbox:
+    build:
+      context: ..
+      dockerfile: docker/sandbox.Dockerfile
+    volumes:
+      # The call log lands next to this compose file, in ./ifixai-sandbox/.
+      - ./ifixai-sandbox:/work/ifixai-sandbox
+      # Replace the baked-in default fixture with your own:
+      # - ./my-fixture.yaml:/fixture.yaml:ro
+    networks:
+      - sandbox-net
+
+  # Template for your agent. Uncomment and fill in:
+  # agent:
+  #   image: your-agent-image
+  #   environment:
+  #     TOOL_BACKEND: http://sandbox:8383
+  #   networks:
+  #     - sandbox-net   # reach the sandbox
+  #     - default       # reach the model API
+
+networks:
+  sandbox-net:
+    internal: true

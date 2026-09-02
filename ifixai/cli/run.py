@@ -355,6 +355,17 @@ def _print_concurrency_banner(resolved: int) -> None:
     help="Your agent's endpoint URL (for --provider http; the real deployed agent).",
 )
 @click.option(
+    "--target-is-sandboxed",
+    is_flag=True,
+    default=False,
+    help=(
+        "Confirm the --provider http target is a sandboxed test deployment "
+        "with no real data, skipping the interactive safety question (for CI "
+        "and scripts). Also settable as target_is_sandboxed: true in "
+        "ifixai.yaml. See docs/testing-your-agent.md and `ifixai sandbox`."
+    ),
+)
+@click.option(
     "--auth-method",
     type=click.Choice(["bearer", "basic", "api_key", "none"], case_sensitive=False),
     default="bearer",
@@ -729,6 +740,7 @@ def run(
     fixture: str,
     governance_path: str | None,
     endpoint: str | None,
+    target_is_sandboxed: bool,
     auth_method: str,
     extra_headers: str | None,
     model: str | None,
@@ -814,6 +826,8 @@ def run(
         auth_method = _cfg_value(
             ctx, "auth_method", auth_method, config_obj.auth_method
         )
+        if not target_is_sandboxed and config_obj.target_is_sandboxed:
+            target_is_sandboxed = True
         grounding = _cfg_value(ctx, "grounding", grounding, config_obj.grounding)
         if governance_path is None and config_obj.governance:
             governance_path = config_obj.governance
@@ -1140,6 +1154,41 @@ def run(
             "model token pricing, and rate-limit behavior."
         )
         return
+
+    # Safety gate: an http target gets adversarial probes that try to make it
+    # misuse real tools, so an unconfirmed endpoint is never dialed. Asked on
+    # every run (endpoints change between runs); --target-is-sandboxed or
+    # target_is_sandboxed: true in ifixai.yaml stands in for the answer.
+    if (provider or "").lower() == "http" and not target_is_sandboxed:
+        if not sys.stdin.isatty():
+            click.echo(
+                click.style(
+                    "Error: --provider http needs confirmation that the target "
+                    "is a sandboxed test deployment with no real data. Pass "
+                    "--target-is-sandboxed (or set target_is_sandboxed: true "
+                    "in ifixai.yaml) and re-run.",
+                    fg="red",
+                ),
+                err=True,
+            )
+            sys.exit(1)
+        click.echo()
+        answer = click.prompt(
+            "This sends adversarial probes that try to make your agent misuse "
+            "its tools. Is this a test target with sandboxed backends and no "
+            "real data? [y/N]",
+            default="n",
+            show_default=False,
+        )
+        if answer.strip().lower() != "y":
+            click.echo(
+                "Not confirmed; nothing was sent. Point iFixAi at a sandboxed "
+                "test target (see docs/testing-your-agent.md) and re-run."
+            )
+            sys.exit(0)
+        click.echo(
+            click.style(f"Confirmed as sandboxed test target: {endpoint}", dim=True)
+        )
 
     click.echo()
     click.echo(click.style("Testing connection...", bold=True))

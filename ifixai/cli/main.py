@@ -9,6 +9,7 @@ from ifixai.cli.compare import compare
 from ifixai.cli.init import init, load_dotenv_file
 from ifixai.cli.list_cmd import list_group
 from ifixai.cli.run import run
+from ifixai.cli.sandbox import sandbox
 from ifixai.cli.scaffold import install
 from ifixai.cli.setup_cmd import setup
 from ifixai.cli.validate import validate
@@ -24,6 +25,7 @@ ifixai_cli.add_command(setup)
 ifixai_cli.add_command(init)
 ifixai_cli.add_command(install)
 ifixai_cli.add_command(run)
+ifixai_cli.add_command(sandbox)
 ifixai_cli.add_command(list_group, name="list")
 ifixai_cli.add_command(validate)
 ifixai_cli.add_command(compare)

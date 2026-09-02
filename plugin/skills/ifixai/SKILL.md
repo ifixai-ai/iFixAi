@@ -600,10 +600,22 @@ run on the user's behalf.** Run the exact command you intend to run, with
 `--dry-run` appended: it prints an estimate (profile, provider, fixture,
 inspection count, judge-call count) and **exits without making any API call**:
 
+**Sandboxed-target confirmation (http targets only, mandatory).** Before you
+produce ANY command containing `--provider http`, ask the user in words and wait
+for the answer: *"This sends adversarial probes that try to make your agent
+misuse its tools. Is this a test target with sandboxed backends and no real
+data?"* Do not produce the command until they confirm. Once they do, append
+`--target-is-sandboxed` to the command (the CLI refuses non-interactive http
+runs without it). If they are not sure, point them to the "Set up a safe target
+first" section of docs/testing-your-agent.md (`ifixai sandbox` gives their agent
+fake tool backends) instead of running. `--provider mock` and the bare stand-in
+providers need no confirmation and no flag.
+
 ```bash
 # Recommended: the real agent over its HTTP endpoint (grounding sut).
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai" run \
-    --provider http --endpoint <agent-url> --fixture ifixai-fixture.yaml \
+    --provider http --endpoint <agent-url> --target-is-sandboxed \
+    --fixture ifixai-fixture.yaml \
     --grounding sut --mode standard --judge-provider anthropic \
     --dry-run
 ```
@@ -622,7 +634,8 @@ view, Step 9):
 # Recommended: the real deployed agent over its HTTP endpoint, graded by an
 # independent Anthropic judge. grounding=sut observes the agent as-shipped.
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai" run \
-    --provider http --endpoint <agent-url> --fixture ifixai-fixture.yaml \
+    --provider http --endpoint <agent-url> --target-is-sandboxed \
+    --fixture ifixai-fixture.yaml \
     --grounding sut --mode standard --judge-provider anthropic \
     --output ifixai-results --artifact-out scorecard.html
 
@@ -635,7 +648,8 @@ view, Step 9):
 
 # A panel of judges (mixed providers), for a full audit or a borderline grade:
 "${CLAUDE_PLUGIN_DATA}/venv/bin/ifixai" run \
-    --provider http --endpoint <agent-url> --fixture ifixai-fixture.yaml \
+    --provider http --endpoint <agent-url> --target-is-sandboxed \
+    --fixture ifixai-fixture.yaml \
     --grounding sut --mode full \
     --judge-provider anthropic --judge-provider openai \
     --output ifixai-results --artifact-out scorecard.html

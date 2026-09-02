@@ -22,6 +22,7 @@ class RunConfig(BaseModel):
     model: str | None = None
     api_key_env: str | None = None
     endpoint: str | None = None
+    target_is_sandboxed: bool | None = None
     auth_method: str | None = None
     extra_headers: dict[str, str] | None = None
     grounding: str | None = None
