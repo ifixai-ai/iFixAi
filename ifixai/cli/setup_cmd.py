@@ -20,6 +20,7 @@ from ifixai.providers.minimax import DEFAULT_BASE_URL, REGIONAL_ENDPOINTS
 
 _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key → many models (OpenAI, Anthropic, Google, Llama…)",
+    "orcarouter": "Adaptive AI gateway — auto-routing, failover, zero markup",
     "openai": "OpenAI API — GPT-4o / o-series",
     "anthropic": "Anthropic API — Claude family",
     "gemini": "Google Gemini",
@@ -46,6 +47,7 @@ _MODE_DESCRIPTIONS: dict[str, str] = {
 
 _ALL_PROVIDERS = [
     "openrouter",
+    "orcarouter",
     "openai",
     "anthropic",
     "gemini",
@@ -196,6 +198,15 @@ def setup(ctx: click.Context) -> None:
             [value for value, _ in _MINIMAX_ENDPOINTS],
             default=DEFAULT_BASE_URL,
             descriptions=dict(_MINIMAX_ENDPOINTS),
+        )
+    elif provider == "orcarouter":
+        default_ep = os.environ.get("IFIXAI_ORCAROUTER_ENDPOINT") or "https://api.orcarouter.ai/v1"
+        endpoint = (
+            ui.text(
+                "OrcaRouter endpoint URL:",
+                default=default_ep,
+            ).strip()
+            or None
         )
     if provider == "http":
         grounding = "sut"

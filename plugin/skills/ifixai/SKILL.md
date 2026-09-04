@@ -105,7 +105,7 @@ Then check the engine is present:
   the Anthropic SDK only. To fall back to (or judge with) another provider, install
   its extra on demand into the same venv:
   `"${CLAUDE_PLUGIN_DATA}/venv/bin/pip" install "ifixai[openai]"` (or `gemini`,
-  `azure`, `bedrock`, `openrouter`, `huggingface`). On Windows that pip is
+  `azure`, `bedrock`, `openrouter`, `orcarouter`, `huggingface`). On Windows that pip is
   `"${CLAUDE_PLUGIN_DATA}\venv\Scripts\pip.exe"`. A missing SDK fails fast naming
   the provider, so install then re-run.
 - **Keys live in the environment, never on a command line.** Each provider (and the
@@ -520,7 +520,7 @@ Present these two choices in this order and recommend the first:
      path; a "no" moves to option 2. Never guess an endpoint or silently fall back.
 2. **Replicate the model as a bare stand-in (fallback, no endpoint).** Name the
    **provider** that runs the model beneath the agent (`--provider`): `anthropic`,
-   `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `huggingface`. The engine
+   `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, `huggingface`. The engine
    resolves each provider's default model; add `--model` to pin the user's actual
    production model. `azure`/`bedrock` have no default and require an explicit
    model/deployment id (and `azure` also needs `--endpoint`). This tests the model's
@@ -542,6 +542,7 @@ Present these two choices in this order and recommend the first:
 | azure | `AZURE_OPENAI_API_KEY` (+ `--endpoint`) |
 | bedrock | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` |
 | openrouter | `OPENROUTER_API_KEY` |
+| orcarouter | `ORCAROUTER_API_KEY` |
 | huggingface | `HUGGINGFACE_API_TOKEN` or `HF_TOKEN` |
 
 **Decision 2: how much to run (suite, then depth):**

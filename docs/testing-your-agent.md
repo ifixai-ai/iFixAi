@@ -70,10 +70,10 @@ The scorecard adds a `warnings[]` note: declared, not measured at runtime. Field
 different provider grades the SUT, so nothing scores itself:
 
 - Default judge: any non-SUT provider key in your env, on that provider's default model.
-- Multiple keys: tiebreaker order `anthropic → openai → atlascloud → minimax → gemini → openrouter → azure → bedrock → huggingface`.
+- Multiple keys: tiebreaker order `anthropic → openai → atlascloud → minimax → gemini → openrouter → orcarouter → azure → bedrock → huggingface`.
 - No non-SUT key: the run refuses unless you pass `--eval-mode self`.
 - Override: `--judge-provider` / `--judge-api-key` / `--judge-model`. Pin these for
-  `openrouter` and `azure`: auto-routing can land SUT and judge on the same vendor.
+  `openrouter`, `orcarouter`, and `azure`: auto-routing can land SUT and judge on the same vendor.
 
 For a real verdict:
 
@@ -120,6 +120,7 @@ the SUT key from the environment: pass `--api-key` / `-k`, or enter it when prom
 | `atlascloud` | `.[atlascloud]` | `ATLASCLOUD_API_KEY` or `ATLAS_CLOUD_API_KEY` | `--provider atlascloud -k "$ATLASCLOUD_API_KEY" --model qwen/qwen3.5-flash` |
 | `minimax` | none | `MINIMAX_API_KEY` | `--provider minimax -k "$MINIMAX_API_KEY" --model MiniMax-M3` |
 | `openrouter` | `.[openrouter]` | `OPENROUTER_API_KEY` | `--provider openrouter -k "$OPENROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
+| `orcarouter` | `.[orcarouter]` | `ORCAROUTER_API_KEY` | `--provider orcarouter -k "$ORCAROUTER_API_KEY" --model orcarouter/auto` plus explicit judge |
 | `gemini` | `.[gemini]` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `--provider gemini -k "$GEMINI_API_KEY"` |
 | `azure` | `.[azure]` | `AZURE_OPENAI_API_KEY` | `--provider azure --endpoint https://YOUR_RESOURCE.openai.azure.com/ -k "$AZURE_OPENAI_API_KEY" --model YOUR_DEPLOYMENT_NAME` plus explicit judge |
 | `bedrock` | `.[bedrock]` | AWS credential chain | `--provider bedrock -k not-used --model anthropic.claude-sonnet-4-6` |
@@ -134,6 +135,7 @@ Notes:
 - `bedrock` uses the standard AWS credential chain; `--api-key` is a required placeholder, never sent.
 - `litellm` extra is [Python API](python-api.md) only (`provider="litellm"`), not a CLI choice.
 - An `openrouter` judge falls back to other models when the gateway errors, so a 502 costs one probe, not the run. Chain: [`ifixai/judge/judge_fallbacks.json`](../ifixai/judge/judge_fallbacks.json), see [cli.md](cli.md#judge-fallback-models).
+- An `orcarouter` judge behaves the same way: gateway-level auto-routing and fallback absorb transient upstream errors, so a routed model that fails just advances the fallback chain.
 
 ## LangServe wire contract
 

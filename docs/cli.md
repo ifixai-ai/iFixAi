@@ -21,7 +21,7 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 
 | Flag | Default | Does |
 |---|---|---|
-| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
+| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `orcarouter`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
 | `--api-key`, `-k` | none | SUT API key. Always passed explicitly, never read from the environment. |
 | `--model`, `-m` | provider default | Model identifier override. |
 | `--endpoint`, `-e` | none | Endpoint URL (required for `http` and `azure`). |
@@ -125,6 +125,10 @@ The chain is plain JSON. Defaults ship at [`ifixai/judge/judge_fallbacks.json`](
     "openrouter": {
       "attempts_per_model": 2,
       "models": [{ "model": "z-ai/glm-5.2" }, { "model": "openai/gpt-4o-mini" }]
+    },
+    "orcarouter": {
+      "attempts_per_model": 2,
+      "models": [{ "model": "openai/gpt-4o-mini" }, { "model": "anthropic/claude-haiku-4.5" }]
     }
   }
 }

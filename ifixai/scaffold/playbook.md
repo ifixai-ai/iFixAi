@@ -97,7 +97,7 @@ IFIXAI_SURFACE=skill uvx --from "ifixai[<provider>]" ifixai run \
 ```
 
 Substitute a provider valid as BOTH the install extra and the `--provider` value: one of
-`anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, or `huggingface`. (`mock`
+`anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, or `huggingface`. (`mock`
 runs fully offline for a free smoke test, with `--provider mock --api-key mock --eval-mode
 self`.) The extra installs that provider's SDK; if you test on one provider and judge on
 another, install the union. After the user approves the dry-run estimate, rerun the identical
@@ -144,6 +144,7 @@ over the file). A missing key fails fast and names the variable to set.
 | azure | `AZURE_OPENAI_API_KEY` (plus `--endpoint`) |
 | bedrock | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` |
 | openrouter | `OPENROUTER_API_KEY` |
+| orcarouter | `ORCAROUTER_API_KEY` |
 | huggingface | `HUGGINGFACE_API_TOKEN` or `HF_TOKEN` |
 
 If the SUT and a judge share a provider, one key covers both. A judge on a second provider
@@ -406,7 +407,7 @@ at each. Map the picks to flags yourself.
   build a stand-in that mirrors your setup and test that instead?" A URL keeps this path; a "no"
   moves to the fallback. Don't guess an endpoint or fall back silently.
 - *Bare stand-in (fallback, no endpoint).* Offer the providers the user has a key for:
-  `anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `huggingface`, with
+  `anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, `huggingface`, with
   `--grounding fixture`. Offer to pin a model (`--model <id>`) or take the provider default.
   Maps to `--provider` / `--model`. Tests the model, not the deployment. (`mock` runs offline
   for free.)

@@ -169,7 +169,7 @@ Reports land in `./ifixai-results/` as JSON **and** Markdown. Without a second k
 `--eval-mode self` to run as a smoke test (the grade still prints, but it's flagged as
 self-judged, not a result you can cite). Pinning the judge, Full-mode ensembles, and the eval modes:
 **[docs/cli.md](docs/cli.md#how-a-run-is-judged)**. Other providers (OpenAI, Atlas Cloud,
-OpenRouter, Gemini, Azure, Bedrock, Hugging Face) install the matching extra and follow the same steps; the
+OpenRouter, OrcaRouter, Gemini, Azure, Bedrock, Hugging Face) install the matching extra and follow the same steps; the
 HTTP and LangChain adapters need no provider extra: **[docs/testing-your-agent.md](docs/testing-your-agent.md#provider-reference)**.
 
 ### Recommended judge setups
@@ -194,6 +194,11 @@ vendor decides your grade (ties break conservatively, `fail > partial > pass`).
 --mode full --eval-mode full \
   --judge-provider openrouter --judge-model google/gemini-2.5-pro \
   --judge-provider openrouter --judge-model openai/gpt-5.4-mini
+
+# Same ensemble on one OrcaRouter key (auto-routing picks the upstream per call)
+--mode full --eval-mode full \
+  --judge-provider orcarouter --judge-model google/gemini-2.5-pro \
+  --judge-provider orcarouter --judge-model openai/gpt-5.4-mini
 ```
 
 \* Rough total for one full-suite run at OpenRouter list prices (mid-2026), based on the ~2,000
