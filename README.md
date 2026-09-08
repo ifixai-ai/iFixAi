@@ -194,11 +194,6 @@ vendor decides your grade (ties break conservatively, `fail > partial > pass`).
 --mode full --eval-mode full \
   --judge-provider openrouter --judge-model google/gemini-2.5-pro \
   --judge-provider openrouter --judge-model openai/gpt-5.4-mini
-
-# Same ensemble on one OrcaRouter key (auto-routing picks the upstream per call)
---mode full --eval-mode full \
-  --judge-provider orcarouter --judge-model google/gemini-2.5-pro \
-  --judge-provider orcarouter --judge-model openai/gpt-5.4-mini
 ```
 
 \* Rough total for one full-suite run at OpenRouter list prices (mid-2026), based on the ~2,000

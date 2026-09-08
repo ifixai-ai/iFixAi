@@ -17,7 +17,7 @@ from ifixai.providers.base import (
     raise_if_truncated,
 )
 
-DEFAULT_MODEL = "orcarouter/auto"
+DEFAULT_MODEL = "openai/gpt-4o"
 DEFAULT_BASE_URL = "https://api.orcarouter.ai/v1"
 # Hard ceiling on max_tokens for OrcaRouter calls. Per-call ``config.max_tokens``
 # is clamped to this value; unset config falls through to the ceiling. Prevents

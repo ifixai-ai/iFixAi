@@ -125,10 +125,6 @@ The chain is plain JSON. Defaults ship at [`ifixai/judge/judge_fallbacks.json`](
     "openrouter": {
       "attempts_per_model": 2,
       "models": [{ "model": "z-ai/glm-5.2" }, { "model": "openai/gpt-4o-mini" }]
-    },
-    "orcarouter": {
-      "attempts_per_model": 2,
-      "models": [{ "model": "openai/gpt-4o-mini" }, { "model": "anthropic/claude-haiku-4.5" }]
     }
   }
 }

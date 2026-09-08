@@ -184,7 +184,6 @@ _JUDGE_PREFERENCE_ORDER: tuple[str, ...] = (
     "minimax",
     "gemini",
     "openrouter",
-    "orcarouter",
     "azure",
     "bedrock",
     "huggingface",
