@@ -171,7 +171,7 @@ ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fi
 `--eval-mode self`를 추가해 스모크 테스트로 실행하세요(등급은 출력되지만 자기 채점으로
 표시되며, 인용할 수 있는 결과는 아닙니다). 심사 모델 고정, Full 모드 앙상블, 평가 모드에
 대해서는 **[docs/cli.md](docs/cli.md#how-a-run-is-judged)** 를 참고하세요. 다른
-프로바이더(OpenAI, Atlas Cloud, OpenRouter, Gemini, Azure, Bedrock, Hugging Face)는 해당
+프로바이더(OpenAI, Atlas Cloud, OpenRouter, Requesty, Gemini, Azure, Bedrock, Hugging Face)는 해당
 extra를 설치하고 같은 절차를 따르며, HTTP와 LangChain 어댑터는 프로바이더 extra가
 필요 없습니다: **[docs/testing-your-agent.md](docs/testing-your-agent.md#provider-reference)**.
 

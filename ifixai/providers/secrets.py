@@ -19,6 +19,7 @@ _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (
     re.compile(r"^sk-cp-[A-Za-z0-9_-]+$"),
     re.compile(r"^sk-or-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-orca-[A-Za-z0-9_-]{20,}$"),
+    re.compile(r"^rqsty-[A-Za-z0-9+/=_-]{20,}$"),
     re.compile(r"^ak-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-ant-[A-Za-z0-9_-]{20,}$"),
     re.compile(r"^sk-[A-Za-z0-9_-]{20,}$"),
@@ -48,6 +49,8 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
     (
         re.compile(r"sk-orca-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_ORCAROUTER_KEY***",
+        re.compile(r"rqsty-[A-Za-z0-9+/=_-]{20,}"),
+        "***REDACTED_REQUESTY_KEY***",
     ),
     (
         re.compile(r"(?<![A-Za-z0-9_-])ak-[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])"),

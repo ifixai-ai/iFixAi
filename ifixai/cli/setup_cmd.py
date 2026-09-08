@@ -21,6 +21,7 @@ from ifixai.providers.minimax import DEFAULT_BASE_URL, REGIONAL_ENDPOINTS
 _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key → many models (OpenAI, Anthropic, Google, Llama…)",
     "orcarouter": "OpenAI-compatible gateway — many models, one key",
+    "requesty": "Requesty gateway — one key → 400+ models (OpenAI, Anthropic, Google…)",
     "openai": "OpenAI API — GPT-4o / o-series",
     "anthropic": "Anthropic API — Claude family",
     "gemini": "Google Gemini",
@@ -48,6 +49,7 @@ _MODE_DESCRIPTIONS: dict[str, str] = {
 _ALL_PROVIDERS = [
     "openrouter",
     "orcarouter",
+    "requesty",
     "openai",
     "anthropic",
     "gemini",

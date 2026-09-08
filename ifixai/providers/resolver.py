@@ -54,6 +54,9 @@ try:
     from ifixai.providers.orcarouter import OrcaRouterProvider
 except ImportError:
     OrcaRouterProvider = None
+    from ifixai.providers.requesty import RequestyProvider
+except ImportError:
+    RequestyProvider = None
 
 try:
     from ifixai.providers.litellm import LiteLLMProvider
@@ -69,6 +72,7 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "minimax",
     "openrouter",
     "orcarouter",
+    "requesty",
     "anthropic",
     "gemini",
     "azure",
@@ -90,6 +94,7 @@ _PROVIDER_MAP: dict[str, type] = {
         "minimax": MiniMaxProvider,
         "openrouter": OpenRouterProvider,
         "orcarouter": OrcaRouterProvider,
+        "requesty": RequestyProvider,
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
         "azure": AzureOpenAIProvider,
@@ -169,6 +174,7 @@ _PROVIDER_CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "huggingface": ("HUGGINGFACE_API_TOKEN", "HF_TOKEN"),
     "openrouter": ("OPENROUTER_API_KEY",),
     "orcarouter": ("ORCAROUTER_API_KEY",),
+    "requesty": ("REQUESTY_API_KEY",),
     "litellm": ("LITELLM_API_KEY",),
 }
 

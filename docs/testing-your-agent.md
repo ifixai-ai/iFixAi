@@ -73,7 +73,7 @@ different provider grades the SUT, so nothing scores itself:
 - Multiple keys: tiebreaker order `anthropic → openai → atlascloud → minimax → gemini → openrouter → azure → bedrock → huggingface`.
 - No non-SUT key: the run refuses unless you pass `--eval-mode self`.
 - Override: `--judge-provider` / `--judge-api-key` / `--judge-model`. Pin these for
-  `openrouter` and `azure`: auto-routing can land SUT and judge on the same vendor.
+  `openrouter`, `requesty` and `azure`: auto-routing can land SUT and judge on the same vendor.
 
 For a real verdict:
 
@@ -121,6 +121,7 @@ the SUT key from the environment: pass `--api-key` / `-k`, or enter it when prom
 | `minimax` | none | `MINIMAX_API_KEY` | `--provider minimax -k "$MINIMAX_API_KEY" --model MiniMax-M3` |
 | `openrouter` | `.[openrouter]` | `OPENROUTER_API_KEY` | `--provider openrouter -k "$OPENROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `orcarouter` | `.[orcarouter]` | `ORCAROUTER_API_KEY` | `--provider orcarouter -k "$ORCAROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
+| `requesty` | `.[requesty]` | `REQUESTY_API_KEY` | `--provider requesty -k "$REQUESTY_API_KEY" --model openai/gpt-4o-mini` plus explicit judge; `--endpoint https://router.eu.requesty.ai/v1` for EU data residency |
 | `gemini` | `.[gemini]` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `--provider gemini -k "$GEMINI_API_KEY"` |
 | `azure` | `.[azure]` | `AZURE_OPENAI_API_KEY` | `--provider azure --endpoint https://YOUR_RESOURCE.openai.azure.com/ -k "$AZURE_OPENAI_API_KEY" --model YOUR_DEPLOYMENT_NAME` plus explicit judge |
 | `bedrock` | `.[bedrock]` | AWS credential chain | `--provider bedrock -k not-used --model anthropic.claude-sonnet-4-6` |
