@@ -25,13 +25,6 @@ DEFAULT_BASE_URL = "https://api.orcarouter.ai/v1"
 # the OpenRouter provider ceiling so judge/SUT replies aren't truncated mid-verdict.
 MAX_TOKENS_CEILING: int = 8192
 
-REASONING_DISABLED: dict[str, object] = {
-    "exclude": True,
-    "enabled": False,
-    "effort": "none",
-    "max_tokens": 0,
-}
-
 ClientCacheKey = tuple[str, str | None, float, int]
 
 
@@ -104,18 +97,12 @@ class OrcaRouterProvider(ChatProvider):
                 # a parseable verdict instead of breaking the contract. Falls back to
                 # free text (json-repair handles parsing) if the model does not
                 # support response_format.
-                create_kwargs["response_format"] = {"type": "json_object"}
-                # Judge-only. A hybrid-reasoning model asked for a verdict will
-                # otherwise spend the whole budget thinking out loud — observed at
-                # 220k characters, cut off at the token ceiling, billed in full and
-                # worthless as a verdict. A rubric verdict needs no chain of thought.
                 #
-                # Must travel inside extra_body: `reasoning` is a gateway extension
-                # and the OpenAI SDK's create() has a closed signature with no
-                # **kwargs, so passing it directly raises TypeError. Mirrors the
-                # OpenRouter provider; if the gateway rejects the field the
-                # json-fallback drops it and retries.
-                create_kwargs["extra_body"] = {"reasoning": REASONING_DISABLED}
+                # No `reasoning` suppression here, unlike OpenRouter. `reasoning` is
+                # OpenRouter's own gateway extension, not an OpenAI-SDK parameter,
+                # and OrcaRouter documents no equivalent. Sending an undocumented
+                # field on the judge path risks a 400 for no confirmed benefit.
+                create_kwargs["response_format"] = {"type": "json_object"}
             response = await create_chat_completion_json_fallback(
                 client, **create_kwargs
             )
