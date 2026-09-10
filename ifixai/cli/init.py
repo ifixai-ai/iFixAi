@@ -13,6 +13,7 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
     "minimax": "MINIMAX_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    "orcarouter": "ORCAROUTER_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "azure": "AZURE_OPENAI_API_KEY",
     "bedrock": "AWS_ACCESS_KEY_ID",

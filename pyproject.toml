@@ -42,6 +42,7 @@ dependencies = [
 openai = ["openai>=1.0"]
 atlascloud = ["openai>=1.0"]
 openrouter = ["openai>=1.0"]
+orcarouter = ["openai>=1.0"]
 gemini = ["google-generativeai>=0.3"]
 anthropic = ["anthropic>=0.18"]
 azure = ["openai>=1.0"]
