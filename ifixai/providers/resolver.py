@@ -54,6 +54,8 @@ try:
     from ifixai.providers.orcarouter import OrcaRouterProvider
 except ImportError:
     OrcaRouterProvider = None
+
+try:
     from ifixai.providers.requesty import RequestyProvider
 except ImportError:
     RequestyProvider = None

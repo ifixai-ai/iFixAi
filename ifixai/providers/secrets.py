@@ -49,6 +49,8 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
     (
         re.compile(r"sk-orca-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_ORCAROUTER_KEY***",
+    ),
+    (
         re.compile(r"rqsty-[A-Za-z0-9+/=_-]{20,}"),
         "***REDACTED_REQUESTY_KEY***",
     ),
