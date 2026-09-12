@@ -97,7 +97,7 @@ IFIXAI_SURFACE=skill uvx --from "ifixai[<provider>]" ifixai run \
 ```
 
 Substitute a provider valid as BOTH the install extra and the `--provider` value: one of
-`anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, or `huggingface`. (`mock`
+`anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, `requesty`, or `huggingface`. (`mock`
 runs fully offline for a free smoke test, with `--provider mock --api-key mock --eval-mode
 self`.) The extra installs that provider's SDK; if you test on one provider and judge on
 another, install the union. After the user approves the dry-run estimate, rerun the identical
@@ -145,6 +145,7 @@ over the file). A missing key fails fast and names the variable to set.
 | bedrock | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` |
 | openrouter | `OPENROUTER_API_KEY` |
 | orcarouter | `ORCAROUTER_API_KEY` |
+| requesty | `REQUESTY_API_KEY` |
 | huggingface | `HUGGINGFACE_API_TOKEN` or `HF_TOKEN` |
 
 If the SUT and a judge share a provider, one key covers both. A judge on a second provider
@@ -407,7 +408,7 @@ at each. Map the picks to flags yourself.
   build a stand-in that mirrors your setup and test that instead?" A URL keeps this path; a "no"
   moves to the fallback. Don't guess an endpoint or fall back silently.
 - *Bare stand-in (fallback, no endpoint).* Offer the providers the user has a key for:
-  `anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, `huggingface`, with
+  `anthropic`, `openai`, `gemini`, `azure`, `bedrock`, `openrouter`, `orcarouter`, `requesty`, `huggingface`, with
   `--grounding fixture`. Offer to pin a model (`--model <id>`) or take the provider default.
   Maps to `--provider` / `--model`. Tests the model, not the deployment. (`mock` runs offline
   for free.)
@@ -420,7 +421,7 @@ at each. Map the picks to flags yourself.
 - *Self (cheapest, biased, not citable)*: the model grades itself. Maps to `--eval-mode self`.
   Only a smoke test. (With a single provider key and no judge, standard mode REFUSES rather than
   self-judge silently, so this is the explicit opt-in.)
-- On an aggregator like OpenRouter, "different vendor" means a different model-slug prefix
+- On an aggregator like OpenRouter or Requesty, "different vendor" means a different model-slug prefix
   (e.g. `google/...` SUT graded by `openai/...`), which the engine now recognizes as citable.
 
 **3. Depth / how much to run.** Offer a suite, smallest first, with the trade-off:

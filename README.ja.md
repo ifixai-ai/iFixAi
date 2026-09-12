@@ -186,7 +186,7 @@ ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fi
 レポートは JSON **と** Markdown の両方で `./ifixai-results/` に保存されます。2 つ目のキーがない場合は、スモークテストとして `--eval-mode self` を追加してください
 （評価は表示されますが自己評価と明記され、引用できる結果にはなりません）。
 評価モデルの固定、Full モードのアンサンブル、評価モードについては **[docs/cli.md](docs/cli.md#how-a-run-is-judged)** を参照してください。その他のプロバイダー
-（OpenAI、OpenRouter、Gemini、Azure、Bedrock、Hugging Face）は対応する extra を
+（OpenAI、OpenRouter、Requesty、Gemini、Azure、Bedrock、Hugging Face）は対応する extra を
 インストールし、同じ手順を使用します。HTTP と LangChain のアダプターには
 プロバイダーの extra は不要です：**[docs/testing-your-agent.md](docs/testing-your-agent.md#provider-reference)**。
 

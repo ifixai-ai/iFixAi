@@ -182,7 +182,7 @@ ifixai run --provider anthropic --api-key "$ANTHROPIC_API_KEY" --fixture ./my-fi
 报告以 JSON **和** Markdown 两种格式保存在 `./ifixai-results/` 中。如果没有第二个密钥，
 请添加 `--eval-mode self` 作为冒烟测试（等级仍会显示，但会被标记为自我评审，不能作为
 可引用结果）。固定评审模型、完整模式集成以及评审模式的详情请参阅：
-**[docs/cli.md](docs/cli.md#how-a-run-is-judged)**。其他提供商（OpenAI、OpenRouter、Gemini、
+**[docs/cli.md](docs/cli.md#how-a-run-is-judged)**。其他提供商（OpenAI、OpenRouter、Requesty、Gemini、
 Azure、Bedrock、Hugging Face）可安装对应 extra 并遵循相同步骤；HTTP 和 LangChain
 适配器不需要提供商 extra：**[docs/testing-your-agent.md](docs/testing-your-agent.md#provider-reference)**。
 
