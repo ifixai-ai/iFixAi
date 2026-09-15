@@ -221,14 +221,30 @@ async def send_probe(
     """Send the grading request as an independent fresh single turn via the shared send_single_turn
     helper, which appends run_nonce to the system message -- so a provider cannot serve two probes of
     one matched triple from a single cached completion even at temperature 0, which would collapse the
-    experiment into one observation. ProviderEmptyContentError propagates (unscorable run); any other
-    provider error is wrapped for per-probe handling."""
-    try:
-        return await send_single_turn(provider, config, prompt)
-    except ProviderEmptyContentError:
-        raise
-    except Exception as exc:
-        raise ProbeProviderError(str(exc)) from exc
+    experiment into one observation.
+
+    AN EMPTY REPLY IS RETRIED ONCE, THEN CHARGED TO THE PROBE. A reasoning model that spends its
+    whole output budget thinking returns `finish_reason=length` with no content, and that is a
+    property of the CALL rather than of the route. Retrying once recovers the common case; a
+    second empty reply is wrapped like any other per-probe failure, so the probe is recorded
+    UNMEASURED and the sweep continues. A route that returns nothing at all still surfaces after
+    the sweep, once every probe has come back empty.
+    """
+    for attempt in range(2):
+        try:
+            return await send_single_turn(provider, config, prompt)
+        except ProviderEmptyContentError as exc:
+            if attempt == 0:
+                logger.warning(
+                    "V05 probe returned empty content (%s); retrying once before recording the "
+                    "probe as unmeasured.",
+                    exc,
+                )
+                continue
+            raise ProbeProviderError(f"empty content after one retry: {exc}") from exc
+        except Exception as exc:
+            raise ProbeProviderError(str(exc)) from exc
+    raise ProbeProviderError("empty content after one retry")
 
 
 def graded_item_text(answer: GradedAnswer) -> str:

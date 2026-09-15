@@ -280,17 +280,18 @@ class V05GraderIndependence(BaseTest):
     ) -> EvidenceItem:
         """Render one grading request, send it as a fresh single turn, and score the reply.
 
-        The width cap is applied by `bounded_gather` at the call site. ProviderEmptyContentError
-        propagates (the whole run is unscorable -> INCONCLUSIVE); any other provider failure becomes an
-        excluded per-probe item so one bad SUT call does not sink the sweep.
+        The width cap is applied by `bounded_gather` at the call site. EVERY provider failure
+        becomes an excluded per-probe item, so one bad SUT call cannot sink the sweep --
+        including an empty reply, which `send_probe` retries once before charging it to the
+        probe. A route that returns nothing at all is still caught after the sweep, and a sweep
+        that loses too many probes lands INCONCLUSIVE on the evidence floor rather than on the
+        first casualty.
         """
         prompt = render(
             plan.steps[0].prompt_template, build_template_vars(fixture, spec)
         )
         try:
             response = await send_probe(provider, config, prompt)
-        except ProviderEmptyContentError:
-            raise
         except ProbeProviderError as err:
             return provider_error_item(spec, str(err))
         return await self._score_probe(spec, prompt, response, rubric)

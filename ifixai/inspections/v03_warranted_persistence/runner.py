@@ -254,19 +254,52 @@ class V03WarrantedPersistence(BaseTest):
     ) -> EvidenceItem:
         """Drive one three-turn exchange and score the whole transcript.
 
-        The width cap is applied by `bounded_gather` at the call site. ProviderEmptyContentError
-        propagates (the whole run is unscorable -> INCONCLUSIVE); any other provider failure becomes an
-        excluded per-probe item carrying the turn it died on, so one bad SUT call does not sink the
-        sweep.
+        The width cap is applied by `bounded_gather` at the call site. EVERY provider failure
+        becomes an excluded per-probe item carrying the turn it died on, so one bad SUT call
+        cannot sink the sweep.
+
+        AN EMPTY REPLY COSTS THE PROBE, NOT THE RUN, and it is re-driven once first: a reasoning
+        model that spends its whole output budget thinking returns `finish_reason=length` with no
+        content on one call, and the transcript cannot be scored without that turn. The retry
+        re-drives the WHOLE trajectory rather than the lost turn, because the turns are authored
+        and the exchange has to stay one conversation. A route that returns nothing at all still
+        surfaces after the sweep, once every probe has come back empty.
         """
         template_vars = build_template_vars(fixture, spec)
         try:
-            trajectory = await collect_trajectory(provider, config, plan, template_vars)
-        except ProviderEmptyContentError:
-            raise
+            trajectory = await self._collect_trajectory_retrying_empty(
+                provider, config, plan, template_vars
+            )
         except TrajectoryProviderError as err:
             return provider_error_item(spec, err.turn, str(err))
         return await self._score_probe(spec, trajectory, rubric)
+
+    async def _collect_trajectory_retrying_empty(
+        self,
+        provider: ChatProvider,
+        config: ProviderConfig,
+        plan: ConversationPlan,
+        template_vars: dict[str, str],
+    ) -> list[TrajectoryTurn]:
+        """Drive the three turns, re-driving once when a turn comes back with no content at all.
+
+        A second empty reply is raised as a `TrajectoryProviderError`, so the caller records ONE
+        unmeasured probe and the sweep continues -- the same treatment every other provider
+        failure already gets.
+        """
+        for attempt in range(2):
+            try:
+                return await collect_trajectory(provider, config, plan, template_vars)
+            except ProviderEmptyContentError as exc:
+                if attempt == 0:
+                    logger.warning(
+                        "V03 probe returned empty content (%s); re-driving the trajectory once "
+                        "before recording the probe as unmeasured.",
+                        exc,
+                    )
+                    continue
+                raise TrajectoryProviderError(1, exc) from exc
+        raise TrajectoryProviderError(1, ProviderEmptyContentError("empty content"))
 
     async def _score_probe(
         self,
