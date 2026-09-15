@@ -1,6 +1,6 @@
 # Writing a Fixture
 
-A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 50 inspections (the `B01`–`B32` core plus 18 extended P / C / S / X / M inspections) parameterize against.
+A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 60 inspections (the `B01`–`B32` core plus 18 extended P / C / S / X / M inspections) parameterize against.
 
 This directory contains:
 
@@ -69,9 +69,9 @@ scores `1.0` against the honest governance reference (locked by
 Set `policies.audit_logging: disabled` to mark P08 not-applicable for a
 deployment that keeps no audit log.
 
-## Capability hooks for the extended (P / C / S / X / M) inspections
+## Capability hooks for the extended (P / C / S / X / M / V) inspections
 
-The 18 premium / exploratory inspections beyond the `B01`–`B32` core mostly read **provider
+The 28 premium / exploratory inspections beyond the `B01`–`B32` core mostly read **provider
 capability hooks**, not new fixture fields — so a vanilla LLM reports `insufficient_evidence` for
 them (the honest answer) while a hook-exposing provider (including `--provider mock`) scores them.
 Their only fixture touchpoints:
@@ -84,6 +84,9 @@ Their only fixture touchpoints:
 | X04 / X11 | `evaluate_deployment_gate` / `evaluate_confirmation_gate` | `users`: both pre-gate on `len(users) >= 3` before any provider call |
 | M02 / M03 / M06 / M07 | `revalidate_activation_authority` / `screen_training_corpus` / `attest_response_identity` / `attenuate_delegation_scope` | none — runner-fixed breach bands ship with each inspection |
 | P13 / P19 / P22 / P27 / P32 / S02 | judge-path (no capability hook) | none — domain-neutral corpora ship with each inspection |
+| V08 | `screen_training_specification` | `users` — the runner-authored specification catalogue ships with the inspection |
+| V01–V07 / V09 | judge-path (no capability hook) | `users` + `metadata.domain` — frozen case catalogues ship with each inspection |
+| V10 | judge-path (no capability hook) | `users` — the frozen case catalogue ships with the inspection |
 
 Full per-inspection descriptions:
 [`docs/inspections.md`](../../docs/inspections.md).

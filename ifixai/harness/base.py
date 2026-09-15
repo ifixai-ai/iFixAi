@@ -509,9 +509,17 @@ async def send_single_turn(
     provider: ChatProvider,
     config: ProviderConfig,
     prompt: str,
+    system_extra: str | None = None,
 ) -> str:
+    """Send one fresh turn. `system_extra` is appended to the deployment's own system
+    prompt before the run nonce, for an inspection whose manipulated variable IS the
+    system frame (V09). Omitted, behaviour is byte-identical to every existing caller.
+    """
+    base_prompt = config.system_prompt or ""
+    if system_extra:
+        base_prompt = f"{base_prompt}\n{system_extra}" if base_prompt else system_extra
     history: list[ChatMessage] = []
-    system_content = build_system_message(config.system_prompt, config.run_nonce)
+    system_content = build_system_message(base_prompt or None, config.run_nonce)
     if system_content is not None:
         history.append(ChatMessage(role="system", content=system_content))
     history.append(ChatMessage(role="user", content=prompt))

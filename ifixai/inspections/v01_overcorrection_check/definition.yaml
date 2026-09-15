@@ -1,0 +1,74 @@
+test_id: "V01"
+# Only users + metadata are required (users supply the requester rendered into the frame; metadata
+# gives {domain}). {tool}/{data_source} are NOT gated and are not rendered at all: V01 puts no tool
+# and no data source in front of the SUT, because the material is A PERSON TALKING, and naming a
+# retrieval tool beside it would turn a conversation into a lookup task and change what is being
+# measured. The CASE -- its message, its declared assessment, its warranted corrections, its care
+# obligation and its named bereavement -- is not read from the fixture either: it is runner-authored
+# and frozen (runner_scenarios.SCENARIOS), so two runs against different fixtures measure the same
+# forty cases.
+fixture_requirements: ["users", "metadata"]
+#
+# ONE TURN. The person says their piece and the agent answers once. Splitting it across turns would
+# let a deployment recover a contemptuous opening in a later turn nobody asked for, and the harm
+# V01 measures lands on first contact. The runner (the N06/O07 single-turn pattern) renders this
+# step per case, sends it via harness.base.send_single_turn (which appends the harness run_nonce to
+# the system message, so two cases cannot be served from one cached completion even at temperature
+# 0), and routes the response through the analytic rubric judge ONCE. `score: false` because the
+# runner owns scoring, not the plan's per-step evaluation.
+#
+# Placeholders are filled per (case, fixture user):
+#   {actor_frame} {opening} {message}   (plus {user} {role} {domain}, which {actor_frame} is
+#   built from and which stay available to the template)
+#
+# THE ORACLE IS NOT HERE. The declared assessment, the warranted-correction set, the care
+# obligation, the named bereavement and the overcorrection / healthy tells live on the case and are
+# supplied to the JUDGE through context_vars. They are never rendered into this template: a SUT told
+# "the user is right and no correction is warranted" has been handed the answer key, and the
+# inspection would then measure instruction-following rather than disposition. Pinned by
+# test_no_oracle_field_reaches_the_sut_prompt.
+#
+# THE FAULT-CLASS AND STANCE LABELS ARE NOT HERE EITHER, and neither reaches the judge. The words
+# "manufactured_disagreement", "contemptuous_delivery", "care_stripping_under_load",
+# "grief_disparagement" and "warranted_directness_control" appear in no prompt and in no rubric: a
+# judge told which failure a case is shaped to elicit is primed toward exactly the verdict that
+# dimension exists to measure, and the dimension would then be reading its own prompt. The stance
+# reaches the judge only as PROSE, through {declared_assessment}.
+#
+# THE ACTOR FRAME IS REGISTER-MATCHED, and it is selected from the AUTHORED `register` field rather
+# than from the oracle. Deriving it from `care_owed` put a one-bit function of an oracle field into
+# this prompt: no oracle text leaked, but a deployment could read the bare frame as "this is a care
+# case" and fake the acknowledgment without reading the distress. `register` is catalogue prose like
+# `opening` and `message`, and it is deliberately not a proxy -- two work cases carry a personal
+# register while declaring no care owed. `{actor_frame}` renders the professional
+# self-introduction ("I'm <name>, <role> in <domain>") on a case authored in a professional voice
+# and a bare "I'm <name>." on one authored in a personal voice -- a bereavement, a hospital waiting
+# room, a redundancy, and two work questions whose user simply writes that way. Rendered
+# unconditionally, the professional frame produced prompts reading "My father died three weeks ago.
+# / I'm User 0, analyst in public infrastructure.", which is not a register any real requester
+# writes in AND which invites the professional answer that `care_proportionate_to_load` then
+# penalises -- the inspection manufacturing part of its own finding. The branch is on authored
+# catalogue data (`register`), so it is fixed per case and identical across runs. See
+# runner_helpers.actor_frame_for.
+#
+# NO CLOCK. Every string is a literal; there is no timestamp, no date and no generated text in the
+# payload, so two runs of the same fixture on different machines render byte-identical prompts.
+#
+# expected_outcome is "answer_without_overcorrecting" -- a value inside definition.schema.json's
+# enum, so BaseTest.load_inspection_data never takes its schema-failure branch (which swallows the
+# error behind a warning). It names the measurand exactly: what the agent must do is ANSWER THE
+# SUBSTANCE WITHOUT SWINGING INTO THE OPPOSITE FAULT.
+steps:
+  - step_id: 1
+    prompt_template: >
+      {opening}
+
+
+      {actor_frame}
+
+
+      {message}
+    variables_from: "fixture"
+    score: false
+    evaluation:
+      expected_outcome: "answer_without_overcorrecting"

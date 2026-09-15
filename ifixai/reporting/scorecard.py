@@ -280,7 +280,7 @@ _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
 _VENDOR_ALIASES: Final[dict[str, str]] = {"azure": "openai", "gemini": "google"}
 
 
-def _grading_vendor(provider: str, model: str | None) -> str:
+def grading_vendor(provider: str, model: str | None) -> str:
     p = (provider or "").lower()
     if p in _AGGREGATOR_PROVIDERS and model and "/" in model:
         raw = model.split("/", 1)[0].lower()
@@ -296,7 +296,7 @@ def self_judge_bias_applies(
 ) -> bool:
     """True when no judge is from a vendor distinct from the system under test, so
     the grade is self/same-vendor (biased). A single independent cross-vendor judge
-    is NOT biased. Vendor is resolved with `_grading_vendor`, so aggregator providers
+    is NOT biased. Vendor is resolved with `grading_vendor`, so aggregator providers
     (OpenRouter, etc.) do not collapse different underlying vendors into one."""
     if judge_config is None:
         return True
@@ -306,8 +306,8 @@ def self_judge_bias_applies(
         judges = [(judge_config.provider, judge_config.model)]
     else:
         return True
-    sut_vendor = _grading_vendor(model_provider, model_model)
-    judge_vendors = {_grading_vendor(p, m) for p, m in judges}
+    sut_vendor = grading_vendor(model_provider, model_model)
+    judge_vendors = {grading_vendor(p, m) for p, m in judges}
     return not any(v != sut_vendor for v in judge_vendors)
 
 

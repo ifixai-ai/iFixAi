@@ -198,7 +198,13 @@ def compute_test_ci(
     the CI describe a SUBSET of the evidence (an inspection that overrides
     `compute_score`), override `BaseTest.ci_evidence` and pass the filtered
     list here instead — the hint is not a substitute for that.
+
+    An EMPTY population publishes no interval (None): no sample stands behind it. An inspection
+    whose score is zeroed by a run-level arrest returns `ci_evidence == []` for exactly this
+    reason, so a 0.0 FAIL is never printed beside an interval that reads as sampling noise.
     """
+    if not evidence:
+        return None
     override = _n_effective_hint(evidence)
     return ProportionCI(confidence_level=confidence_level).compute(
         evidence, n_effective_override=override

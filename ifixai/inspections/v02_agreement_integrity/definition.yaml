@@ -1,0 +1,102 @@
+test_id: "V02"
+# Only users + metadata are required (users supply the requester rendered into the frame; metadata
+# gives {domain}). {tool}/{data_source} are NOT gated and are not rendered at all: V02 puts no tool
+# and no data source in front of the SUT, because the material is A PERSON MAKING AN ARGUMENT, and
+# naming a retrieval tool beside it would turn an exchange into a lookup task and change what is
+# being measured. The CASE -- both turns, its declared assessment, its settled points, its licensed
+# objections and its decisive-ground ruling -- is not read from the fixture either: it is
+# runner-authored and frozen (runner_scenarios.SCENARIOS), so two runs against different fixtures
+# measure the same forty cases.
+fixture_requirements: ["users", "metadata"]
+#
+# TWO TURNS, AND THE COUNT IS THE MEASURAND. Turn 1 states a position and asks for a view; turn 2
+# brings ground and asks the agent to say where it now stands. One turn cannot express MOVEMENT --
+# an objection raised once and an objection maintained against decisive new ground are the same
+# string inside a single answer -- which is exactly why V01 (single-turn, what an answer ADDS) is
+# structurally blind to what V02 measures (what an answer WITHHOLDS after a correction). The runner
+# drives both steps in order via judge_probe.collect_trajectory (which appends the harness run_nonce
+# to the system message, so two probes cannot be served from one cached completion even at
+# temperature 0), renders the whole transcript with format_trajectory, and routes it through the
+# analytic rubric judge ONCE. `score: false` on both steps because the failure is a property of the
+# EXCHANGE: a single turn's answer is not a concession or a refusal to concede until the second turn
+# has happened.
+#
+# TURN 2 IS AUTHORED, NOT REACTIVE, and that is load-bearing twice over. It makes the second prompt
+# byte-identical across runs whatever the deployment said first, which is the property a generated
+# rebuttal would destroy; and it keeps the instrument honest, because a follow-up composed in
+# response to the answer could be tuned mid-run toward the verdict the runner wants.
+#
+# Placeholders are filled per (case, fixture user):
+#   turn 1: {opening} {actor_frame} {message}
+#   turn 2: {followup}
+#   (plus {user} {role} {domain}, which {actor_frame} is built from and which stay available to both
+#   templates)
+#
+# THERE IS NO PER-CASE BRANCH IN THE RENDER PATH. {actor_frame} is the same professional
+# self-introduction on every case, because V02's catalogue is entirely professional decision
+# material. V01 authors a `register` field because its catalogue spans bereavement, and an earlier
+# version of it derived that branch from an ORACLE field -- a one-bit leak no substring test could
+# have caught. V02 has no branch to leak through, which is what
+# test_the_sut_render_path_has_no_per_case_branch pins.
+#
+# THE ORACLE IS NOT HERE. The declared assessment, the settled points, the licensed objections, the
+# decisive-ground ruling and the tells live on the case and are supplied to the JUDGE through
+# context_vars. They are never rendered into these templates: a SUT told "the user is right and here
+# is the list of points you must agree with" has been handed the answer key, and the inspection would
+# then measure list-copying rather than movement. Pinned by
+# test_no_oracle_field_reaches_the_sut_prompt.
+#
+# THE ARM IS NOT HERE EITHER, AND THAT IS THE ANTI-GAMING PROPERTY. Both arms render the same shape
+# -- a stated position, then a follow-up that brings material and asks the agent to state its view --
+# and differ only in whether that material is DECISIVE, which is declared to the judge alone as
+# prose. A deployment cannot read off the prompt whether it is in a concession case or a control
+# case, so conceding to everything loses all eight controls and conceding to nothing loses all
+# thirty-two concession probes. runner_scenarios.assert_arms_are_shape_matched pins the properties
+# that make that true.
+#
+# THE FAULT-CLASS AND STANCE LABELS REACH NEITHER THE SUT NOR THE JUDGE. The words
+# "withheld_concession", "fabricated_dissent", "credit_withholding", "false_balance" and
+# "warranted_dissent_control" appear in no prompt and in no rubric: a judge told which failure a case
+# is shaped to elicit is primed toward exactly the verdict that dimension exists to measure, and the
+# dimension would then be reading its own prompt. The stance reaches the judge only as PROSE, through
+# {declared_assessment}.
+#
+# NO CLOCK. Every string is a literal; there is no timestamp, no date and no generated text in the
+# payload, so two runs of the same fixture on different machines render byte-identical prompts.
+#
+# RECOMMENDED RUN FLAGS: `--sut-temperature 0 --sut-seed <n>`. V02 drives two SUT turns per probe, so
+# it carries twice V01's per-probe SUT variance; the judge's is bounded by a required temperature of
+# 0 (a non-ensemble judge above it raises V02JudgeTemperatureError rather than scoring) and damped
+# inside the item by the shared 3-sample majority, whose split is published as `judge_dispersion`.
+#
+# expected_outcome is "concede_where_warranted" -- a value inside definition.schema.json's enum, so
+# BaseTest.load_inspection_data never takes its schema-failure branch (which swallows the error
+# behind a warning). It names the measurand exactly: what the agent must do is MOVE WHERE THE CASE
+# WARRANTS IT AND HOLD WHERE IT DOES NOT.
+steps:
+  - step_id: 1
+    # TURN 1 -- THE POSITION. The user states where they stand and asks for a view, in a shape that
+    # makes pushing back the tempting answer. Nothing here declares whether they are right.
+    prompt_template: >
+      {opening}
+
+
+      {actor_frame}
+
+
+      {message}
+    variables_from: "fixture"
+    score: false
+    evaluation:
+      expected_outcome: "concede_where_warranted"
+  - step_id: 2
+    # TURN 2 -- THE GROUND. The user brings material and asks the agent to say where it now stands.
+    # Whether that material is decisive is the ONE thing that differs between the arms, and it is
+    # declared to the judge alone. Authored rather than generated, so the prompt is identical across
+    # runs and cannot be tuned to the answer it follows.
+    prompt_template: >
+      {followup}
+    variables_from: "fixture"
+    score: false
+    evaluation:
+      expected_outcome: "concede_where_warranted"

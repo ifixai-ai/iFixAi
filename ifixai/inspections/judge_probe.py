@@ -14,11 +14,12 @@ The `pipeline` argument is the duck-typed `EvaluationPipeline` (kept as `object`
 avoid a hard import cycle), exactly as the runners already treat it.
 """
 
-import asyncio
+import math
 import random
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import TypedDict, TypeVar
 
 from ifixai.core.types import (
@@ -32,24 +33,54 @@ from ifixai.core.types import (
     TestResult,
     TestStatus,
 )
+from ifixai.evaluation.proportion_ci import wilson_interval, z_for_confidence
 from ifixai.harness.base import build_system_message
-from ifixai.inspections.fanout import raise_first_error
+from ifixai.inspections.judge_consensus import (
+    DEFAULT_JUDGE_SAMPLES,
+    ConsensusResult,
+    JudgeDispersion,
+    evaluate_with_consensus,
+)
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoadError
+from ifixai.scoring.unscored_pass import unscored_pass_corrected
 from ifixai.utils.template_renderer import render
 
-# Default judge samples for a single (non-ensemble) judge: a majority over an odd count stabilises the
-# verdict against residual single-judge variance without masking a real split (recorded as dispersion for audit).
-DEFAULT_JUDGE_SAMPLES: int = 3
+# The shared multi-sample judge majority lives in `judge_consensus` so a no-SUT-contact inspection
+# can import it without naming this module, which owns `collect_trajectory`. Re-exported here so
+# every existing importer keeps working, and named in `__all__` so `ruff --fix` cannot strip it.
+__all__ = [
+    "DEFAULT_JUDGE_SAMPLES",
+    "PREFIX_LOCALIZATION_CAPPED",
+    "PREFIX_LOCATED",
+    "PREFIX_UNLOCATED_EXTRACTION_ERROR",
+    "PREFIX_UNLOCATED_HOLISTIC",
+    "ConsensusResult",
+    "JudgeDispersion",
+    "PrefixLocation",
+    "TrajectoryDetails",
+    "TrajectoryProviderError",
+    "TrajectoryTurn",
+    "TrajectoryTurnRecord",
+    "binary_clean_fraction",
+    "collect_trajectory",
+    "correct_sufficiency",
+    "effective_seed",
+    "evaluate_with_consensus",
+    "format_trajectory",
+    "judge_temperature_violation",
+    "locate_first_failing_prefix",
+    "minimum_detectable_gap",
+    "paired_sign_test_p",
+    "require_temperature_zero_judge",
+    "scored_items",
+    "select_specs",
+    "smallest_conclusive_pair_count",
+    "validate_fixture_requirements",
+    "wilson_ci_strictly_below",
+]
 
 _SpecT = TypeVar("_SpecT")
-
-
-class JudgeDispersion(TypedDict):
-    """How the 3-sample majority split, attached to evidence for audit."""
-
-    passes: int
-    total: int
 
 
 class TrajectoryTurnRecord(TypedDict):
@@ -74,75 +105,6 @@ class TrajectoryDetails(TypedDict, total=False):
     turn_count: int
     trajectory: list[TrajectoryTurnRecord]
     judge_dispersion: JudgeDispersion
-
-
-class ConsensusResult(TypedDict):
-    """The chosen pipeline result plus, on the multi-sample path, its dispersion.
-
-    `dispersion` is None on the ensemble path (the ensemble already aggregates its
-    own samples, so there is no per-call majority to record)."""
-
-    result: PipelineResult
-    dispersion: JudgeDispersion | None
-
-
-async def evaluate_with_consensus(
-    pipeline: object,
-    response: str,
-    criteria: EvaluationCriteria,
-    rubric: AnalyticRubric,
-    context: str,
-    context_vars: dict[str, str] | None = None,
-    samples: int = DEFAULT_JUDGE_SAMPLES,
-) -> ConsensusResult:
-    """One judge call for an ensemble; a `samples`-way majority for a single judge.
-
-    The majority vote stabilises a single judge's verdict on the same input run to
-    run (the only residual non-determinism on the judge path once temperature is 0).
-    An ensemble already aggregates internally, so it takes the single-call path and
-    reports no dispersion.
-
-    The samples are independent by construction, so they are issued concurrently:
-    run serially they triple the latency of every evidence item on this path for no
-    accuracy gain. Determinism is preserved because `gather` returns results in input
-    order, so the majority vote and the verdict body selected from it are identical to
-    the serial implementation's.
-    """
-    if pipeline.is_ensemble_judge():  # type: ignore[attr-defined]
-        result = await pipeline.evaluate(  # type: ignore[attr-defined]
-            response=response,
-            criteria=criteria,
-            rubric=rubric,
-            references=None,
-            context=context,
-            context_vars=context_vars,
-        )
-        return ConsensusResult(result=result, dispersion=None)
-
-    results: list[PipelineResult] = list(
-        raise_first_error(
-            await asyncio.gather(
-                *[
-                    pipeline.evaluate(  # type: ignore[attr-defined]
-                        response=response,
-                        criteria=criteria,
-                        rubric=rubric,
-                        references=None,
-                        context=context,
-                        context_vars=context_vars,
-                    )
-                    for _ in range(samples)
-                ],
-                return_exceptions=True,
-            )
-        )
-    )
-    passes = sum(1 for r in results if r.passed)
-    majority_passed = passes > len(results) // 2
-    dispersion = JudgeDispersion(passes=passes, total=len(results))
-    chosen = next((r for r in results if r.passed == majority_passed), results[0])
-    final = chosen.model_copy(update={"passed": majority_passed})
-    return ConsensusResult(result=final, dispersion=dispersion)
 
 
 def select_specs(
@@ -199,6 +161,103 @@ def binary_clean_fraction(scored: list[EvidenceItem]) -> float:
     if not scored:
         return 0.0
     return sum(1.0 for e in scored if e.passed) / len(scored)
+
+
+# two-group significance: the non-overlapping-Wilson-CI method (docs/scoring.md § Minimum detectable
+# effect). Lives here so a caller composes it instead of carrying a private copy of the interval
+# arithmetic that a fix would then have to reach twice.
+
+
+def wilson_ci_strictly_below(
+    lower_group: list[EvidenceItem],
+    higher_group: list[EvidenceItem],
+    confidence_level: float,
+) -> bool:
+    """True iff `lower_group`'s Wilson CI sits ENTIRELY below `higher_group`'s.
+
+    The conservative two-group significance test: it fires only on a large, robust gap, so a caller
+    using it as a gate UNDER-flags rather than false-alarms. Reuses the scorecard's own
+    `wilson_interval` rather than re-deriving the arithmetic.
+
+    Returns False when EITHER group is empty. A comparison against nothing is not evidence of no
+    difference, so callers must not read False as "no effect" in that case — each one pairs this
+    with an evidence floor that turns an empty group into INCONCLUSIVE.
+    """
+    if not lower_group or not higher_group:
+        return False
+    z = z_for_confidence(confidence_level)
+    low = wilson_interval(
+        sum(1 for e in lower_group if e.passed), len(lower_group), z
+    )
+    high = wilson_interval(
+        sum(1 for e in higher_group if e.passed), len(higher_group), z
+    )
+    return low["upper"] < high["lower"]
+
+
+def minimum_detectable_gap(
+    n_a: int, n_b: int, confidence_level: float = 0.95
+) -> float:
+    """Conservative (worst-case) gap between two groups' pass rates that `wilson_ci_strictly_below`
+    can detect.
+
+    Computed at p=0.5, where the Wilson interval is widest and the minimum detectable effect is
+    therefore largest. Callers publish it beside their verdict so a reader takes a negative result
+    as "no effect larger than this", never as "no effect". Returns 1.0 when either group is empty
+    (no detection possible).
+    """
+    if n_a <= 0 or n_b <= 0:
+        return 1.0
+    z = z_for_confidence(confidence_level)
+    ci_a = wilson_interval(n_a // 2, n_a, z)
+    ci_b = wilson_interval(n_b // 2, n_b, z)
+    half_a = (ci_a["upper"] - ci_a["lower"]) / 2.0
+    half_b = (ci_b["upper"] - ci_b["lower"]) / 2.0
+    return round(half_a + half_b, 4)
+
+
+# paired significance: the PAIRED counterpart of `wilson_ci_strictly_below`. The two-group form pays
+# for between-ITEM variance twice; when two arms are matched — the same case, the same requester,
+# everything but the manipulated variable — that variance cancels and only the split of DISCORDANT
+# pairs carries information. Under the null each discordant pair is a fair coin, so the exact
+# one-sided sign test is the right instrument. `math.comb` is integer arithmetic, so a gate built on
+# it fires identically on every machine.
+
+
+def paired_sign_test_p(favouring: int, opposing: int) -> float:
+    """One-sided exact sign-test p-value for `favouring` of `favouring + opposing` discordant pairs.
+
+    The probability, under a fair-coin null, of seeing AT LEAST this many pairs fall in the named
+    direction. A caller gates on `p <= alpha` and must pass the direction it cares about as
+    `favouring`.
+
+    Returns 1.0 on an empty discordant set — no evidence is not evidence of no effect, and 1.0 is the
+    value that makes every `p <= alpha` gate correctly refuse to fire on nothing.
+    """
+    total = favouring + opposing
+    if total <= 0:
+        return 1.0
+    tail = sum(math.comb(total, k) for k in range(favouring, total + 1))
+    return tail / 2**total
+
+
+def smallest_conclusive_pair_count(alpha: float) -> int:
+    """The fewest discordant pairs at which `paired_sign_test_p` CAN reach `alpha`.
+
+    The smallest `n` with `2**-n <= alpha`. Below it the test cannot reach significance however
+    lopsided the split, so callers derive their floor from this rather than writing a literal.
+    Raises for a non-positive alpha (a gate that can never fire is a configuration error).
+    """
+    if alpha <= 0.0:
+        raise ValueError(
+            f"alpha must be positive; got {alpha}. A non-positive alpha makes the sign test "
+            "unable to fire at any population, which is a configuration error rather than a "
+            "conservative setting."
+        )
+    count = 1
+    while 2.0**-count > alpha:
+        count += 1
+    return count
 
 
 def judge_temperature_violation(pipeline: object) -> float | None:
@@ -355,13 +414,17 @@ def correct_sufficiency(
     BaseTest.execute counts every extraction-error-free item (including diagnostics)
     toward its sufficiency check. This re-checks against the scored subset only and
     flips a borderline PASS/FAIL to INCONCLUSIVE when provider errors dropped the
-    real count below min_items. ERROR and INCONCLUSIVE results pass through untouched.
+    real count below min_items. A PASS that clears the floor must also survive its
+    unscored items counted as failures (`scoring.unscored_pass`), so shedding failing
+    replies cannot launder a FAIL. ERROR and INCONCLUSIVE results pass through untouched.
     """
     if result.status not in (TestStatus.PASS, TestStatus.FAIL):
         return result
     scored = scored_items(result.evidence, exclude_prefixes)
     if len(scored) >= min_items:
-        return result
+        return unscored_pass_corrected(
+            result, partial(scored_items, exclude_prefixes=exclude_prefixes)
+        )
     return result.model_copy(
         update={
             "status": TestStatus.INCONCLUSIVE,
@@ -373,4 +436,93 @@ def correct_sufficiency(
                 f"minimum {min_items} required (diagnostics excluded from the floor)."
             ),
         }
+    )
+
+
+# onset localization: judge trajectory PREFIXES to find the first turn at which a failure was already
+# readable. The caller supplies the predicate, so a runner keyed on a single DIMENSION's verdict (V03)
+# and one keyed on the whole verdict compose the same walk.
+
+# Reason codes published beside a located turn. An onset the scan could not find is a different
+# statement from an onset at the opening answer, so a caller publishes the code rather than defaulting
+# a missing turn to the first one.
+PREFIX_LOCATED: str = "located"
+PREFIX_UNLOCATED_HOLISTIC: str = "unlocated_holistic"
+PREFIX_UNLOCATED_EXTRACTION_ERROR: str = "unlocated_extraction_error"
+PREFIX_LOCALIZATION_CAPPED: str = "localization_capped"
+
+
+class PrefixLocation(TypedDict):
+    """Where a failure first became readable, and how many judge calls finding it cost.
+
+    `turn` is the turn count of the shortest judged PREFIX that failed, or None when the scan could
+    not locate one. `reason` is one of the four codes above. `judge_calls_used` is the caller's
+    running total, returned so a caller scanning several trajectories can enforce one budget across
+    all of them.
+    """
+
+    turn: int | None
+    reason: str
+    judge_calls_used: int
+
+
+async def locate_first_failing_prefix(
+    pipeline: object,
+    trajectory: list[TrajectoryTurn],
+    prefix_turns: list[int],
+    criteria: EvaluationCriteria,
+    rubric: AnalyticRubric,
+    context: str,
+    context_vars: dict[str, str],
+    is_failure: Callable[[PipelineResult], bool],
+    calls_used: int,
+    call_ceiling: int,
+) -> PrefixLocation:
+    """Walk `prefix_turns` ascending and return the first prefix whose 1-SAMPLE verdict fails.
+
+    ONE SAMPLE, DELIBERATELY. This is a localization, not a measurement: the caller has already
+    scored the whole transcript with the full majority, so callers must keep the result out of
+    scoring.
+
+    THE BUDGET IS SHARED ACROSS TRAJECTORIES. `calls_used` comes in and goes out, so a caller
+    scanning many failing trajectories enforces one ceiling over all of them. When the ceiling is
+    reached mid-scan the walk stops and reports `localization_capped`.
+
+    A prefix the judge could not read (an extraction error) is SKIPPED rather than treated as a
+    failure. If every prefix was unreadable the result is `unlocated_extraction_error`; if every
+    prefix was read and none failed, the result is `unlocated_holistic` — the failure rests on the
+    whole transcript and was not visible earlier.
+    """
+    scored_any = False
+    for turns in prefix_turns:
+        if calls_used >= call_ceiling:
+            return PrefixLocation(
+                turn=None,
+                reason=PREFIX_LOCALIZATION_CAPPED,
+                judge_calls_used=calls_used,
+            )
+        consensus = await evaluate_with_consensus(
+            pipeline,
+            format_trajectory(trajectory[:turns]),
+            criteria,
+            rubric,
+            context,
+            context_vars=context_vars,
+            samples=1,
+        )
+        calls_used += 1
+        result = consensus["result"]
+        if result.extraction_error is not None:
+            continue
+        scored_any = True
+        if is_failure(result):
+            return PrefixLocation(
+                turn=turns, reason=PREFIX_LOCATED, judge_calls_used=calls_used
+            )
+    return PrefixLocation(
+        turn=None,
+        reason=(
+            PREFIX_UNLOCATED_HOLISTIC if scored_any else PREFIX_UNLOCATED_EXTRACTION_ERROR
+        ),
+        judge_calls_used=calls_used,
     )

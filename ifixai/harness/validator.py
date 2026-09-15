@@ -27,9 +27,13 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
 # IDENTITY_ATTESTATION) and m07_* (cross-organization delegation scope attenuation, the second
 # member of that same category), so none required a pattern change — pinned by
 # test_folder_pattern_already_admits_m03 / _m06 / _m07.
+# v01..v10 (V-series, Categories XLVI–LI). The 'v' prefix is BOUNDED at 10 because the V-series
+# declares exactly V01–V10, so a v11_* folder is still rejected. Every V-series catalogue is
+# runner-authored in Python (runner_scenarios*.py / runner_cases*.py / runner_corpus.py), so none
+# is in _CORPUS_TEST_IDS and a corpus.yaml in any of their folders must be rejected.
 _FOLDER_NAME_PATTERN = re.compile(
     r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8])"
-    r"|x(0[1-9]|1[0-1])|m(0[1-9]|1[0-2]))_[a-z0-9_]+$"
+    r"|x(0[1-9]|1[0-1])|m(0[1-9]|1[0-2])|v(0[1-9]|10))_[a-z0-9_]+$"
 )
 # P19/P27/P32/S02 ship domain-neutral corpora (honeypot restraint / privilege
 # creep / systemic-harm / stakeholder-conflict); their folders are already
@@ -78,6 +82,19 @@ _STRUCTURAL_ONLY_TEST_IDS: frozenset[str] = frozenset(
 # analytic-rubric pipeline. rubric.yaml would advertise dimensions that are
 # never evaluated, so these tests may omit it.
 _ATOMIC_JUDGE_ONLY_TEST_IDS: frozenset[str] = frozenset()
+# Structural JUDGE-EDGE hybrids: primary scoring is deterministic over a control-plane decision, but
+# one bounded question is put to the analytic rubric judge (whether the plane's response prose is
+# faithful to the structured decision it returned). rubric.yaml is therefore REQUIRED — its
+# dimensions are measured — while references.yaml is optional, because there is no conversational
+# reply to anchor.
+#   V08 — screen_training_specification (% breach specifications correctly blocked/escalated WITH
+#         the right reason codes, provenance finding and disclosure trait; plus the judged
+#         screen_faithful leg on distinct breach specifications)
+_STRUCTURAL_JUDGE_EDGE_TEST_IDS: frozenset[str] = frozenset({"V08"})
+# Inspections whose only outbound calls are control-plane hooks and the rubric judge: the
+# customer's agent is never sent a prompt.
+_NO_SUT_CONTACT_TEST_IDS: frozenset[str] = frozenset({"V08"})
+NO_SUT_CONTACT_TEST_IDS: frozenset[str] = _NO_SUT_CONTACT_TEST_IDS
 
 
 class LayoutValidationError(Exception):
@@ -103,6 +120,7 @@ def _validate_folder(folder: Path) -> str:
     test_id_for_check = f"{prefix}{folder_nn}"
     is_structural_only = test_id_for_check in _STRUCTURAL_ONLY_TEST_IDS
     is_atomic_judge_only = test_id_for_check in _ATOMIC_JUDGE_ONLY_TEST_IDS
+    is_judge_edge = test_id_for_check in _STRUCTURAL_JUDGE_EDGE_TEST_IDS
     rubric_artifacts = {"rubric.yaml", "references.yaml"}
 
     for artifact in _REQUIRED_ARTIFACTS:
@@ -117,6 +135,10 @@ def _validate_folder(folder: Path) -> str:
         if is_atomic_judge_only and artifact in rubric_artifacts:
             # Atomic-judge-only tests score via evaluate_atomic, not the analytic
             # rubric pipeline. rubric.yaml is optional — skip the existence check.
+            continue
+        if is_judge_edge and artifact == "references.yaml":
+            # Judge-edge hybrids grade a plane's prose against its own structured decision;
+            # there is no reply to anchor, so references.yaml is optional.
             continue
         path = folder / artifact
         if not path.is_file():

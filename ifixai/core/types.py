@@ -106,6 +106,60 @@ class InspectionCategory(str, Enum):
     # roster-wide allocation: XXIX–XXXIII are held by M-series classes not carried here. Numeral
     # gaps are already the norm in this enum (XIII, XV–XVII, XIX–XXII, XXIV–XXV are unallocated).
     INFLUENCE = "INFLUENCE"  # The Relationship as a Failure Surface (Category XXXIV)
+    # Categories XLVI–LI — the V-series (V01–V10). Numerals are pinned to the roster-wide
+    # allocation, as INFLUENCE's is: XXXV–XLV are held by classes not carried here.
+    #
+    # XLVI: the first class whose finding attaches to an answer that is CORRECT IN SUBSTANCE.
+    # Every sycophancy-adjacent check fires on the "too agreeable" side; any intervention that
+    # removes sycophancy can overshoot into the OPPOSITE fault — manufactured disagreement,
+    # contemptuous delivery, care stripped away under emotional load — and a one-sided instrument
+    # reads that overshoot as improvement. Not UNPREDICTABILITY (IV), which scores the opposite
+    # sign on the same axis; not INFLUENCE (XXXIV), whose mechanism is retention. Home of V01
+    # (what an answer ADDS on first contact) and V02 (what it WITHHOLDS after the user supplied
+    # decisive ground) — two directions of one failure, so V02 allocates no numeral.
+    BALANCE_INTEGRITY = "BALANCE_INTEGRITY"  # Overshooting Into the Opposite Fault (Category XLVI)
+    # XLVII: frankness only helps when what is said is true. B07 scores whether an answer is
+    # right and B17/B18 whether a position survives a challenge; none scores the CROSS of the two
+    # under multi-turn pressure, where an agent rewarded for holding firm regardless of truth is
+    # being optimised for confident wrongness. Not FABRICATION (I), which has no pressure axis; not
+    # BALANCE_INTEGRITY (XLVI), whose findings leave the substance unquestioned. Home of V03
+    # (whether a held position was TRUE) and V04 (whether the confidence shown was EARNED).
+    FRANKNESS_CORRECTNESS_LINK = (
+        "FRANKNESS_CORRECTNESS_LINK"  # Frankness Only Helps When True (Category XLVII)
+    )
+    # XLVIII: the only class whose subject is the SOUNDNESS OF THE INSTRUMENT rather than the
+    # behaviour it measures — whether a score the deployment produced AS A GRADER about somebody
+    # else's work means what the organisation reading it thinks it means. The graded answers are
+    # frozen text the deployment did not write; the manipulated variable is a byline or a wording
+    # the grader is shown. Not UNPREDICTABILITY (IV), whose B22 measures variance on IDENTICAL
+    # input. Home of V05 (grader independence) and V06 (flattery classification validity).
+    GRADER_VALIDITY = (
+        "GRADER_VALIDITY"  # Is the Instrument That Produced the Score Sound? (Category XLVIII)
+    )
+    # XLIX: the other half of the instrument. XLVIII asks whether the GRADING FUNCTION is sound;
+    # this asks whether the ITEM POOL is. A score measured over published scenario shapes can be a
+    # rate of recognising those shapes rather than a transferable disposition. Not SANDBAGGING
+    # (IX), which asks whether the agent notices an evaluation; not PERSISTENCE (XXVII), whose M03
+    # gates a corpus attestation. Home of V07 (benchmark contamination check).
+    BENCHMARK_CONTAMINATION = (
+        "BENCHMARK_CONTAMINATION"  # Does the Score Transfer Outside the Benchmark? (Category XLIX)
+    )
+    # L: the first class whose subject is a LIFECYCLE STEP. A pipeline that can instill an
+    # arbitrary trait from configuration can instill blind obedience or anti-whistleblowing just
+    # as easily, into open weights no runtime override can reach. Not PERSISTENCE (XXVII): M03
+    # screens a corpus RECORD for a payload nobody declared, where this screens the DECLARED
+    # OBJECTIVE. Not INSUBORDINATION (X), where the agent resists override at run time. Home of
+    # V08 (the pre-training specification screen) and V09 (whether the trained disposition
+    # survives a system prompt arguing it away) — opposite ends of one lifecycle step.
+    TRAINING_DISPOSITION_PROVENANCE = "TRAINING_DISPOSITION_PROVENANCE"  # Was the Trained Disposition Screened? (Category L)
+    # LI: the only class whose finding attaches to an answer that is TRUE, REQUIRED and STILL
+    # HARMFUL TO RECEIVE — a hard truth delivered to a frightened, bereaved or crisis-adjacent user
+    # without the care owed, or a blunt verdict delivered into an acute crisis before support. Not
+    # BALANCE_INTEGRITY (XLVI): V01's cases leave the substance unquestioned and score what an
+    # answer ADDS, where every case here declares substance that wounds and scores whether it
+    # arrived with the care and safety floor owed. Not INFLUENCE (XXXIV), which is OVER-validation
+    # of a vulnerable user; this is harm by UNDER-care. Home of V10 (care under vulnerability).
+    VULNERABLE_USER_CARE = "VULNERABLE_USER_CARE"  # Harm by Frankness to a Vulnerable User (Category LI)
 
 
 class TestGrade(str, Enum):
@@ -1653,6 +1707,7 @@ class ProviderCapabilities(BaseModel):
     has_confirmation_gate: bool = False
     has_activation_revalidation: bool = False
     has_corpus_screening: bool = False
+    has_training_specification_screening: bool = False
     has_identity_attestation: bool = False
     has_delegation_attenuation: bool = False
 
@@ -1947,6 +2002,38 @@ class EvaluationPipelineConfig(BaseModel):
     # value is logged and published on every run either way.
     m12_seed: int = Field(default_factory=_random_seed)
     m12_seed_pinned: bool = False
+    # V01-V04, V10: each case catalogue is enumerated in sorted order and the shipped catalogue
+    # never reaches its engine cap, so the seeded subsample branch is unreached today. The seed is
+    # carried, as M12's is, because that branch becomes live the moment a catalogue grows past its
+    # cap, and the effective value is logged and published through get_variant_seed either way.
+    v01_seed: int = Field(default_factory=_random_seed)
+    v01_seed_pinned: bool = False
+    v02_seed: int = Field(default_factory=_random_seed)
+    v02_seed_pinned: bool = False
+    v03_seed: int = Field(default_factory=_random_seed)
+    v03_seed_pinned: bool = False
+    v04_seed: int = Field(default_factory=_random_seed)
+    v04_seed_pinned: bool = False
+    # V05-V07: the same posture, with a sharper reason for the branch staying unreached. The shared
+    # selector does not stratify, so a subsample could keep one half of a matched pair and drop the
+    # other, silently thinning the paired gate's population. Growth past the cap therefore fails at
+    # import rather than being absorbed.
+    v05_seed: int = Field(default_factory=_random_seed)
+    v05_seed_pinned: bool = False
+    v06_seed: int = Field(default_factory=_random_seed)
+    v06_seed_pinned: bool = False
+    v07_seed: int = Field(default_factory=_random_seed)
+    v07_seed_pinned: bool = False
+    # V09: the seed is LOAD-BEARING ON EVERY RUN. It draws the cyclic offsets that rotate the frame
+    # corpus across the catalogue; probe order, scenarios, oracles and scoring stay seed-free.
+    # Every frame family is exercised once per disposition for every offset, so coverage is
+    # seed-invariant and pinning the seed reproduces a rotation manifest byte for byte.
+    v09_seed: int = Field(default_factory=_random_seed)
+    v09_seed_pinned: bool = False
+    v10_seed: int = Field(default_factory=_random_seed)
+    v10_seed_pinned: bool = False
+    # V08 takes no seed: users are capped before the cross-product and its specification corpus
+    # is frozen, so nothing is sampled.
     # P08, M03, M06 and M07 take no seed: each enumerates its scored set exhaustively in
     # sorted order, so all four are deterministic without one. M03's, M06's and M07's users
     # are capped BEFORE the (user x probe) cross-product, which bounds the item count

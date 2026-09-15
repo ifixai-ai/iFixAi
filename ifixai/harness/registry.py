@@ -281,6 +281,66 @@ from ifixai.inspections.s02_configurer_stakeholder_conflict.runner import (
 from ifixai.inspections.s02_configurer_stakeholder_conflict.runner import (
     S02ConfigurerStakeholderConflict,
 )
+from ifixai.inspections.v01_overcorrection_check.runner import (
+    SPEC as V01_SPEC,
+)
+from ifixai.inspections.v01_overcorrection_check.runner import (
+    V01OvercorrectionCheck,
+)
+from ifixai.inspections.v02_agreement_integrity.runner import (
+    SPEC as V02_SPEC,
+)
+from ifixai.inspections.v02_agreement_integrity.runner import (
+    V02AgreementIntegrity,
+)
+from ifixai.inspections.v03_warranted_persistence.runner import (
+    SPEC as V03_SPEC,
+)
+from ifixai.inspections.v03_warranted_persistence.runner import (
+    V03WarrantedPersistence,
+)
+from ifixai.inspections.v04_honesty_source_attribution.runner import (
+    SPEC as V04_SPEC,
+)
+from ifixai.inspections.v04_honesty_source_attribution.runner import (
+    V04HonestySourceAttribution,
+)
+from ifixai.inspections.v05_grader_independence.runner import (
+    SPEC as V05_SPEC,
+)
+from ifixai.inspections.v05_grader_independence.runner import (
+    V05GraderIndependence,
+)
+from ifixai.inspections.v06_flattery_classification_validity.runner import (
+    SPEC as V06_SPEC,
+)
+from ifixai.inspections.v06_flattery_classification_validity.runner import (
+    V06FlatteryClassificationValidity,
+)
+from ifixai.inspections.v07_benchmark_contamination_check.runner import (
+    SPEC as V07_SPEC,
+)
+from ifixai.inspections.v07_benchmark_contamination_check.runner import (
+    V07BenchmarkContaminationCheck,
+)
+from ifixai.inspections.v08_training_misuse_guardrail.runner import (
+    SPEC as V08_SPEC,
+)
+from ifixai.inspections.v08_training_misuse_guardrail.runner import (
+    V08TrainingMisuseGuardrail,
+)
+from ifixai.inspections.v09_prompt_override_resistance.runner import (
+    SPEC as V09_SPEC,
+)
+from ifixai.inspections.v09_prompt_override_resistance.runner import (
+    V09PromptOverrideResistance,
+)
+from ifixai.inspections.v10_care_under_vulnerability.runner import (
+    SPEC as V10_SPEC,
+)
+from ifixai.inspections.v10_care_under_vulnerability.runner import (
+    V10CareUnderVulnerability,
+)
 from ifixai.inspections.x04_detection_performance_gate.runner import (
     SPEC as X04_SPEC,
 )
@@ -346,6 +406,16 @@ ALL_SPECS = [
     M06_SPEC,
     M07_SPEC,
     M12_SPEC,
+    V01_SPEC,
+    V02_SPEC,
+    V03_SPEC,
+    V04_SPEC,
+    V05_SPEC,
+    V06_SPEC,
+    V07_SPEC,
+    V08_SPEC,
+    V09_SPEC,
+    V10_SPEC,
 ]
 
 SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
@@ -376,9 +446,17 @@ SPEC_BY_ID: dict[str, object] = {spec.test_id: spec for spec in ALL_SPECS}
 # the pattern to the full X-series range), and the M alternative (01..12) — added for M02 —
 # already admits M03, M06 and M07, so none required a pattern change (pinned by
 # test_id_pattern_already_admits_m03 / _m06 / _m07).
+# V-series: V01..V10 (Categories XLVI–LI). The 'V' alternative is BOUNDED at 10 rather than opened
+# to 0[1-9]|[1-9][0-9], because the V-series declares exactly V01–V10: a widening admits what exists
+# rather than what might, so V11 is still rejected. BALANCE_INTEGRITY (XLVI) holds V01/V02,
+# FRANKNESS_CORRECTNESS_LINK (XLVII) V03/V04, GRADER_VALIDITY (XLVIII) V05/V06,
+# BENCHMARK_CONTAMINATION (XLIX) V07, TRAINING_DISPOSITION_PROVENANCE (L) V08/V09 and
+# VULNERABLE_USER_CARE (LI) V10. V08 is a structural judge-edge gate with no SUT contact; the other
+# nine are full judge-path inspections.
 _TEST_ID_PATTERN = re.compile(
     r"^(B(0[1-9]|[12][0-9]|3[0-2])|P(0[1-9]|[12][0-9]|3[0-2])"
-    r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1])|M(0[1-9]|1[0-2]))$"
+    r"|C(0[1-9]|1[0-6])|S(0[1-8])|X(0[1-9]|1[0-1])|M(0[1-9]|1[0-2])"
+    r"|V(0[1-9]|10))$"
 )
 _LEGACY_PREFIXES = ("SSCI-",)
 
@@ -398,7 +476,7 @@ def normalize_test_id(value: str) -> str:
     if not _TEST_ID_PATTERN.match(candidate):
         raise ValueError(
             f"Unknown test id: {value!r}. Expected B01..B32, P01..P32, C01..C16, "
-            "S01..S08, X01..X11 or M01..M12 (bare form)."
+            "S01..S08, X01..X11, M01..M12 or V01..V10 (bare form)."
         )
     return candidate
 
@@ -455,6 +533,16 @@ def create_inspection(spec_id: str) -> BaseTest:
         "M06": M06ModelIdentityAttestation,
         "M07": M07CrossOrgDelegationScope,
         "M12": M12EndUserDependencyCultivation,
+        "V01": V01OvercorrectionCheck,
+        "V02": V02AgreementIntegrity,
+        "V03": V03WarrantedPersistence,
+        "V04": V04HonestySourceAttribution,
+        "V05": V05GraderIndependence,
+        "V06": V06FlatteryClassificationValidity,
+        "V07": V07BenchmarkContaminationCheck,
+        "V08": V08TrainingMisuseGuardrail,
+        "V09": V09PromptOverrideResistance,
+        "V10": V10CareUnderVulnerability,
     }
     inspection_class = registry.get(spec_id)
     if inspection_class is None:
@@ -503,6 +591,16 @@ CATEGORIES = {
     # carried here, so XXXIV is pinned rather than taking the next free slot after XXVIII — the
     # same way XIII, XV–XVII, XIX–XXII, XXIV and XXV are left unallocated above.
     34: InspectionCategory.INFLUENCE,
+    # Categories XLVI–LI — the V-series' six failure classes. Numerals XXXV–XLV are held by classes
+    # not carried here, so the V-series numerals are pinned to the roster-wide allocation rather
+    # than taking the next free slot after XXXIV. V02, V04, V06 and V09 each join the class their
+    # predecessor opened: a further reading of one failure class is not a further class.
+    46: InspectionCategory.BALANCE_INTEGRITY,
+    47: InspectionCategory.FRANKNESS_CORRECTNESS_LINK,
+    48: InspectionCategory.GRADER_VALIDITY,
+    49: InspectionCategory.BENCHMARK_CONTAMINATION,
+    50: InspectionCategory.TRAINING_DISPOSITION_PROVENANCE,
+    51: InspectionCategory.VULNERABLE_USER_CARE,
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -525,6 +623,12 @@ CATEGORY_DESCRIPTIONS = {
     27: "PERSISTENCE — Integrity of State That Outlives the Session",
     28: "IDENTITY_ATTESTATION — Knowing What (and Whom) You Are Running",
     34: "INFLUENCE — The Relationship as a Failure Surface",
+    46: "BALANCE_INTEGRITY — Overshooting Into the Opposite Fault",
+    47: "FRANKNESS_CORRECTNESS_LINK — Frankness Only Helps When What Is Said Is True",
+    48: "GRADER_VALIDITY — Is the Instrument That Produced the Score Sound?",
+    49: "BENCHMARK_CONTAMINATION — Does the Score Transfer Outside the Benchmark It Was Measured On?",
+    50: "TRAINING_DISPOSITION_PROVENANCE — Was the Disposition This Model Was Trained to Hold Screened Before the Run?",
+    51: "VULNERABLE_USER_CARE — Harm Done by the Way a True Thing Was Said to Someone Least Able to Take It",
 }
 
 STRATEGIC_TESTS = STRATEGIC_TEST_IDS

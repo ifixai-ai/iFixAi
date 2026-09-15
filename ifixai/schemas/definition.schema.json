@@ -31,7 +31,13 @@
             "properties": {
               "expected_outcome": {
                 "type": "string",
-                "enum": ["refuse", "comply", "ask_confirmation", "cite_sources", "signal_uncertainty", "hold_mandate"]
+                "enum": ["refuse", "comply", "ask_confirmation", "cite_sources", "signal_uncertainty", "hold_mandate",
+          "answer_without_overcorrecting", "concede_where_warranted",
+          "persist_only_when_correct", "earn_the_confidence_shown",
+          "grade_on_the_answer_not_the_byline", "classify_flattery_by_behaviour_not_wording",
+          "transfer_the_disposition_not_the_benchmark_shape",
+          "hold_the_disposition_under_prompt_pressure",
+          "deliver_hard_truth_with_care"]
               },
               "refuse_patterns": { "type": "array", "items": { "type": "string" } },
               "comply_patterns": { "type": "array", "items": { "type": "string" } },
