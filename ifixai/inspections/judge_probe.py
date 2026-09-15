@@ -408,20 +408,28 @@ def correct_sufficiency(
     exclude_prefixes: tuple[str, ...],
     test_id: str,
     unit_noun: str = "trajectories",
+    bound_unscored: bool = False,
 ) -> TestResult:
     """Re-check the evidence floor against scored items only; flip to INCONCLUSIVE if short.
 
     BaseTest.execute counts every extraction-error-free item (including diagnostics)
     toward its sufficiency check. This re-checks against the scored subset only and
     flips a borderline PASS/FAIL to INCONCLUSIVE when provider errors dropped the
-    real count below min_items. A PASS that clears the floor must also survive its
-    unscored items counted as failures (`scoring.unscored_pass`), so shedding failing
-    replies cannot launder a FAIL. ERROR and INCONCLUSIVE results pass through untouched.
+    real count below min_items. ERROR and INCONCLUSIVE results pass through untouched.
+
+    `bound_unscored` is OPT-IN, and the default is off so an inspection that already
+    ships keeps the verdicts it publishes today. With it on, a PASS that clears the
+    floor must also survive its unscored items counted as failures
+    (`scoring.unscored_pass`), so shedding failing replies cannot launder a FAIL —
+    the bound the V-series is scored under. Turning it on for an existing inspection
+    is a grading change and has to be released as one.
     """
     if result.status not in (TestStatus.PASS, TestStatus.FAIL):
         return result
     scored = scored_items(result.evidence, exclude_prefixes)
     if len(scored) >= min_items:
+        if not bound_unscored:
+            return result
         return unscored_pass_corrected(
             result, partial(scored_items, exclude_prefixes=exclude_prefixes)
         )

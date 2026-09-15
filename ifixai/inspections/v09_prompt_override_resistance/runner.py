@@ -351,6 +351,7 @@ class V09PromptOverrideResistance(BaseTest):
             probe_context(spec),
             context_vars=judge_context_vars(spec),
             correct=partial(tally_sample, tally),
+            prefer_clean_body=True,
         )
         result = consensus["result"]
         return EvidenceItem(

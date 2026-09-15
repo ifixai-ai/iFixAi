@@ -194,6 +194,7 @@ class V07BenchmarkContaminationCheck(BaseTest):
                     SCORE_EXCLUDE_PREFIXES,
                     "V07",
                     "probes",
+                    bound_unscored=True,
                 )
             )
         )
@@ -349,6 +350,7 @@ class V07BenchmarkContaminationCheck(BaseTest):
             rubric,
             probe_context(spec),
             context_vars=judge_context_vars(spec),
+            prefer_clean_body=True,
         )
         result = consensus["result"]
         return EvidenceItem(

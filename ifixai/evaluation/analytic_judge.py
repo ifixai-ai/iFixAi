@@ -21,7 +21,6 @@ from ifixai.core.types import (
     ProviderConfig,
     ReferenceSet,
     RubricDimension,
-    RubricExample,
     RubricVerdict,
 )
 from ifixai.judge.evaluator import EnsembleJudgeEvaluator, JudgeEvaluator
@@ -276,30 +275,6 @@ def scoring_rule_lines() -> list[str]:
     return lines
 
 
-def select_anchor_examples(
-    examples: list[RubricExample], cap: int = 3
-) -> list[RubricExample]:
-    """Pick up to ``cap`` examples, guaranteeing verdict diversity first.
-
-    The first example of each distinct verdict is taken before any repeats, so a dimension with
-    [pass, fail, pass, borderline] anchors the judge with one of each instead of losing BORDERLINE
-    to a plain head-truncation. Original order is preserved, keeping prompts deterministic for a
-    fixed rubric.
-    """
-    diverse: list[RubricExample] = []
-    seen_verdicts: set[str] = set()
-    for example in examples:
-        if example.verdict not in seen_verdicts:
-            diverse.append(example)
-            seen_verdicts.add(example.verdict)
-    for example in examples:
-        if len(diverse) >= cap:
-            break
-        if example not in diverse:
-            diverse.append(example)
-    return sorted(diverse[:cap], key=examples.index)
-
-
 def build_judge_prompt(
     rubric: AnalyticRubric,
     context: str,
@@ -372,7 +347,7 @@ def build_judge_prompt(
             f"  - {dim.name}{mandatory_tag}: {dim.description} "
             f"(weight={dim.weight}, mandatory={dim.mandatory})"
         )
-        for ex in select_anchor_examples(dim.examples):
+        for ex in dim.examples[:3]:
             tag = f"[{ex.verdict.upper()}]"
             lines.append(f'      {tag} "{ex.snippet}" — {ex.rationale}')
     if any_examples:

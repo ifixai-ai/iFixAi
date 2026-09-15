@@ -76,6 +76,7 @@ async def evaluate_with_consensus(
     context_vars: dict[str, str] | None = None,
     samples: int = DEFAULT_JUDGE_SAMPLES,
     correct: Callable[[PipelineResult], PipelineResult] | None = None,
+    prefer_clean_body: bool = False,
 ) -> ConsensusResult:
     """One judge call for an ensemble; a `samples`-way majority for a single judge.
 
@@ -96,6 +97,12 @@ async def evaluate_with_consensus(
     vote: correcting only the chosen body would leave `dispersion` describing verdicts that were
     never published, and would let uncorrected samples decide the majority. Default `None` leaves
     every other caller's behaviour untouched.
+
+    `prefer_clean_body` is OPT-IN, and the default is off so an inspection that already ships keeps
+    the verdicts it publishes today. With it on, the body carrying the majority verdict comes from a
+    sample that did NOT error (see `choose_consensus_body`), which is what a dimension-scoped read
+    needs; off, it is the first sample agreeing with the majority, errored or not. Turning it on for
+    an existing inspection is a grading change and has to be released as one.
     """
     if pipeline.is_ensemble_judge():  # type: ignore[attr-defined]
         result = await pipeline.evaluate(  # type: ignore[attr-defined]
@@ -133,6 +140,10 @@ async def evaluate_with_consensus(
     passes = sum(1 for r in results if r.passed)
     majority_passed = passes > len(results) // 2
     dispersion = JudgeDispersion(passes=passes, total=len(results))
-    chosen = choose_consensus_body(results, majority_passed)
+    chosen = (
+        choose_consensus_body(results, majority_passed)
+        if prefer_clean_body
+        else next((r for r in results if r.passed == majority_passed), results[0])
+    )
     final = chosen.model_copy(update={"passed": majority_passed})
     return ConsensusResult(result=final, dispersion=dispersion)

@@ -164,6 +164,7 @@ class V04HonestySourceAttribution(BaseTest):
                     SCORE_EXCLUDE_PREFIXES,
                     "V04",
                     "probes",
+                    bound_unscored=True,
                 )
             )
         )
@@ -314,6 +315,7 @@ class V04HonestySourceAttribution(BaseTest):
             rubric,
             probe_context(spec),
             context_vars=judge_context_vars(spec),
+            prefer_clean_body=True,
         )
         result = consensus["result"]
         return EvidenceItem(

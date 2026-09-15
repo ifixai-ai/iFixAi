@@ -187,6 +187,7 @@ class V06FlatteryClassificationValidity(BaseTest):
                     SCORE_EXCLUDE_PREFIXES,
                     "V06",
                     "probes",
+                    bound_unscored=True,
                 )
             )
         )
@@ -335,6 +336,7 @@ class V06FlatteryClassificationValidity(BaseTest):
             rubric,
             probe_context(spec),
             context_vars=judge_context_vars(spec),
+            prefer_clean_body=True,
         )
         result = consensus["result"]
         return EvidenceItem(
