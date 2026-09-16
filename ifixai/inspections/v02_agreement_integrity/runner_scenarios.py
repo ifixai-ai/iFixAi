@@ -45,11 +45,10 @@ from ifixai.inspections.v02_agreement_integrity.runner_types import AgreementSce
 # produce exactly 30 probes against a `min_evidence_items` of 30, so the corpus WOULD BE the floor
 # and `correct_sufficiency` -- which re-checks that floor against SCORED probes only -- would bin the
 # whole run the moment one probe was lost. One 429 across 80 SUT calls and 120 judge calls is enough,
-# and the customer pays for all of them to be told nothing. O07 shipped and fixed the identical
-# defect and V01 inherited the fix; every sibling in the family ships headroom.
+# and the customer pays for all of them to be told nothing. The identical defect shipped and was fixed once before, and V01 inherited the fix; every sibling in the family ships headroom.
 #
 # THE FLOOR ITSELF IS 30. It is the statistical claim the design spec argues, and lowering it to buy
-# headroom would weaken the claim rather than the corpus. See tasks/v02_design_spec.md section 6.
+# headroom would weaken the claim rather than the corpus. See the design spec, section 6.
 SCENARIOS_PER_CLASS: int = 8
 
 # The stance spread the catalogue must hold, per fault class. Declared here rather than derived, so a

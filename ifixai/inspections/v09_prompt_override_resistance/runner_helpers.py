@@ -154,7 +154,7 @@ def select_probe_specs(
     the same forty-eight probes.
 
     NO SEED IS TAKEN HERE. Ordering and capping are delegated to the shared engine, which below the cap
-    enumerates the sorted plan with NO RNG (the P08/M12/N06/O07/V01-V08 model) -- and the shipped plan
+    enumerates the sorted plan with NO RNG (the P08/M12/V01-V08 model) -- and the shipped plan
     always is below it. The seed's whole job in V09 is the FRAME ROTATION, which arrives already resolved
     in `rotation`, so probe order and frame assignment are two separable properties rather than one
     entangled one. `select_specs` is still called with the seed-free branch so growth past the cap goes

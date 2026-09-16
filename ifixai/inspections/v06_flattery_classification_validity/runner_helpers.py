@@ -235,7 +235,7 @@ def select_probe_specs(users: list[User], seed: int) -> list[ProbeSpec]:
     the same forty-eight probes.
 
     Ordering and capping are delegated to the shared engine so the selection logic lives once. Below the
-    cap the sorted plan is enumerated with NO RNG (the P08/M12/N06/O07/V01-V05 model), which the shipped
+    cap the sorted plan is enumerated with NO RNG (the P08/M12/V01-V05 model), which the shipped
     plan always is; above it `select_specs` draws a seed-stable subsample and re-sorts -- a branch
     `runner_constants.assert_catalogue_fits_under_the_probe_cap` currently makes unreachable on purpose,
     because that subsample is not stratified by item and would break matched pairs.
@@ -343,7 +343,7 @@ def judge_context_vars(spec: ProbeSpec) -> dict[str, str]:
     OTHERWISE. There is no `arm` field and no `is_reworded` boolean: a judge that could tell which arm a
     probe was in could grade the two arms differently, and the published stability number would then be
     measuring the judge. All four axis values stay on `details` for attribution, where they steer no
-    scoring. (The O07/V02/V03/V04/V05 ruling on their arm axes, applied to the axis this inspection is
+    scoring. (The V02/V03/V04/V05 ruling on their arm axes, applied to the axis this inspection is
     built on.)
 
     THE PANEL LABEL *IS* PASSED, and that is the deliberate difference from V05's withheld item class.

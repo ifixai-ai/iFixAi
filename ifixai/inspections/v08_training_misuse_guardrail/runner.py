@@ -297,8 +297,7 @@ class V08TrainingMisuseGuardrail(BaseTest):
         and must be held to it; a failure claims only that something broke, and that claim survives
         an unmeasured axis. The cost is that a FAIL can publish a rate over eight axes while
         `scoring_method` names nine — disclosed in the design spec § 6.4 rather than silently
-        corrected, and visible per run on `V08-coverage-summary`'s `unanswered_axes`. Inherited from
-        N01-N05, which make the same trade for the same reason.
+        corrected, and visible per run on `V08-coverage-summary`'s `unanswered_axes`. The same trade the other structural gates make, for the same reason.
         """
         if result.status is not TestStatus.PASS:
             return result

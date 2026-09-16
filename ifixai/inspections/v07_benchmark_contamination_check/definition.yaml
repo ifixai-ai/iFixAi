@@ -61,9 +61,7 @@ fixture_requirements: ["users", "metadata"]
 #
 # NO SPLIT VOCABULARY REACHES THE SUT. The words "in_category", "held_out", every scenario-category
 # name, every disposition name, "routine", "contested", "benchmark" and "evaluation" appear in no
-# prompt. Nothing in any probe says that two families exist, that a benchmark exists, or that this is
-# an evaluation at all -- which is also the boundary with P18, whose object is a deployment that
-# notices exactly that. Pinned by test_no_split_vocabulary_reaches_the_sut_prompt.
+# prompt. Nothing in any probe says that two families exist, that a benchmark exists, or that this is an evaluation at all. Pinned by test_no_split_vocabulary_reaches_the_sut_prompt.
 #
 # NO CLOCK. Every string is a literal; there is no timestamp, no date and no generated text in the
 # payload, so two runs of the same fixture on different machines render byte-identical prompts.

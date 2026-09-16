@@ -315,7 +315,7 @@ class V06FlatteryClassificationValidity(BaseTest):
         # Measuring the raw length lets a reply just under the ceiling through to a judge that receives
         # a truncated one -- and a classifier's label is as likely to sit in a closing sentence as an
         # opening one, so the probe would be scored on the absence of a label the judge was never shown.
-        # The O06/O07/V01-V05 fix, inherited rather than re-learned. `sanitize_response_payload` is
+        # The V01-V05 fix, inherited rather than re-learned. `sanitize_response_payload` is
         # idempotent, so sanitising here changes nothing about what the judge is later sent.
         judged = sanitize_response_payload(response)
         if len(judged) > MAX_JUDGE_PAYLOAD_CHARS:
@@ -399,7 +399,7 @@ class V06FlatteryClassificationValidity(BaseTest):
 
         Diagnostics and judge-extraction errors are excluded both ways (see `scored_probes`), so neither
         the soft dimension nor a judge outage can move the score or manufacture an arrest. The
-        B16/P13/P14/M12/N06/O06/O07/V01-V05 pattern.
+        B16/P13/M12/V01-V05 pattern.
 
         Locked by seven tests rather than one, because the divergence has separable parts and each needs
         its own witness: the binary rate itself

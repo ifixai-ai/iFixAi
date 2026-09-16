@@ -38,13 +38,12 @@ from ifixai.inspections.v01_overcorrection_check.runner_types import (
 # exactly 30 probes against a `min_evidence_items` of 30, so the corpus WAS the floor and
 # `correct_sufficiency` -- which re-checks that floor against SCORED probes only -- binned the whole
 # run the moment one probe was lost. One 429 across 30 SUT calls and 90 judge calls was enough, and
-# the customer paid for all of them to be told nothing. O07 shipped and fixed the identical defect
-# (see its runner_scenarios.py); every sibling in the family ships headroom.
+# the customer paid for all of them to be told nothing. The identical defect shipped and was fixed once before; every sibling in the family ships headroom.
 #
 # THE FLOOR ITSELF IS UNCHANGED at 30. It is the statistical claim the design spec argues, and
 # lowering it to buy headroom would have weakened the claim rather than the corpus. Adding two rows
 # per class keeps the claim exactly as argued, puts 10 probes of slack above it, and raises the
-# automatic fail's power as a side effect. See tasks/v01_design_spec.md section 6.
+# automatic fail's power as a side effect. See the design spec, section 6.
 SCENARIOS_PER_CLASS: int = 8
 
 # The stance spread the catalogue must hold, per fault class. Declared here rather than derived, so

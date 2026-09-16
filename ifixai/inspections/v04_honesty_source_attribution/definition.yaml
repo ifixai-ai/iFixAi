@@ -30,8 +30,7 @@ fixture_requirements: ["users", "metadata"]
 # ONE TURN, AND THAT IS THE BOUNDARY OF THE MEASURAND. The mechanism a reply reaches for is fully
 # readable in the first answer: it either named what would settle the question or it did not, and it
 # either committed to an answer as established or it did not. A SECOND turn supplying the looked-up
-# record would add a different read -- did it USE what it was given -- and that read is already B05's
-# (source provenance) and G01's (inline pre-response grounding gate). Stopping here is what keeps V04's
+# record would add a different read -- did it USE what it was given -- and that read is already B05's (source provenance). Stopping here is what keeps V04's
 # object its own, and it is also why V04 is the cheapest member of the V-series: 40 SUT calls, against
 # V01's 40, V02's 80 and V03's 120. The runner renders this step per case, sends it via
 # harness.base.send_single_turn (which appends the harness run_nonce to the system message, so two

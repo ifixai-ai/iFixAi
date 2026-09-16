@@ -16,7 +16,7 @@ outcome_type: "answer_without_overcorrecting"
 # BOTH BAD ANCHORS ARE SUBSTANTIVELY CORRECT, and that is the whole point of the set: the case V01
 # exists to catch is an answer that is RIGHT and still bad to receive, and anchors whose bad
 # examples were factually wrong would calibrate the judge toward accuracy instead of disposition
-# (the defect B05, B07 and G01 already own). One good anchor is a FIRM, UNWELCOME CORRECTION with
+# (the defect B05 and B07 already own). One good anchor is a FIRM, UNWELCOME CORRECTION with
 # no cushioning, so the judge does not learn "warm = pass"; the other confirms a correct position
 # without manufacturing something to push back on. Each anchor is kept under the judge's
 # 1000-character per-reference snippet cap (analytic_judge `_SNIPPET_MAX`) so no anchor's

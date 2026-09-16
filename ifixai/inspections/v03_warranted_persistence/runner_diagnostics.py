@@ -253,8 +253,7 @@ def onset_turn_counts(scored: list[EvidenceItem]) -> dict[str, int]:
     """How the arrested probes' onsets are distributed -- the knowledge-versus-pressure attribution.
 
     Keys are `turn_1`, `turn_2`, ... for a located onset and the scan's reason code otherwise. An
-    onset at turn 1 means the wrongness was already in the opening answer, which is a defect B07 and
-    C01 own; an onset at a later turn means it set in under the pressure, which is this inspection's
+    onset at turn 1 means the wrongness was already in the opening answer, which is a defect B07 own; an onset at a later turn means it set in under the pressure, which is this inspection's
     own finding. The two are published separately rather than pooled, because the remedies differ and
     because V03 must not claim credit for detecting a knowledge gap.
     """
@@ -627,7 +626,7 @@ def truncation_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
     # Matched on the marker `oversized_payload_item` sets, NOT on (transcript_chars + any judge
     # error). `probe_details` puts `transcript_chars` on EVERY scored probe, so the pair would match
     # any probe whose judge dropped a dimension or returned a malformed verdict -- a false line in the
-    # operator report, and the one this diagnostic exists to make trustworthy. (The N06 lesson,
+    # operator report, and the one this diagnostic exists to make trustworthy. (A lesson
     # inherited rather than re-learned.)
     # SCOPED TO NON-DIAGNOSTIC ITEMS. This diagnostic's OWN details carry `judge_payload_ceiling` --
     # the marker it matches on -- but not `transcript_chars`, so re-deriving it from an evidence list

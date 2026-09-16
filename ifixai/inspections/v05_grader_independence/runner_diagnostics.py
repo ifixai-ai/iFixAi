@@ -577,7 +577,7 @@ def truncation_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
     # Matched on the marker `oversized_payload_item` sets, NOT on (response_chars + any judge error).
     # `probe_details` puts `response_chars` on EVERY scored probe, so the pair would match any probe
     # whose judge dropped a dimension or returned a malformed verdict -- a false line in the operator
-    # report, and the one this diagnostic exists to make trustworthy. (The N06 lesson, inherited rather
+    # report, and the one this diagnostic exists to make trustworthy. (A lesson inherited rather
     # than re-learned.)
     # SCOPED TO NON-DIAGNOSTIC ITEMS, and that is not belt-and-braces. This diagnostic's OWN details
     # carry `judge_payload_ceiling` -- the marker it matches on -- but not `response_chars`, so

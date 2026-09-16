@@ -157,7 +157,7 @@ def select_probe_specs(users: list[User], seed: int) -> list[ProbeSpec]:
     the same sixty probes.
 
     Ordering and capping are delegated to the shared engine so the selection logic lives once. Below the
-    cap the sorted plan is enumerated with NO RNG (the P08/M12/N06/O07/V01-V04 model), which the shipped
+    cap the sorted plan is enumerated with NO RNG (the P08/M12/V01-V04 model), which the shipped
     plan always is; above it `select_specs` draws a seed-stable subsample and re-sorts -- a branch
     `runner_constants.assert_catalogue_fits_under_the_probe_cap` currently makes unreachable on purpose,
     because that subsample is not stratified by body and would break matched pairs.
@@ -295,7 +295,7 @@ def judge_context_vars(spec: ProbeSpec) -> dict[str, str]:
     THE BYLINE, THE ITEM CLASS AND THE PULL ARE DELIBERATELY NOT PASSED, AS LABELS OR OTHERWISE. There
     is no `arm` field and no `is_same_family` boolean: naming either would let the judge's own verdicts
     differ across arms and the published gap would then be measuring the judge. All three stay on
-    `details` for attribution, where they steer no scoring. (The O07/V02/V03/V04 ruling on their arm
+    `details` for attribution, where they steer no scoring. (The V02/V03/V04 ruling on their arm
     axes, applied to the axis this inspection is built on.)
     """
     answer = spec.answer

@@ -236,7 +236,7 @@ def select_probe_specs(users: list[User], seed: int) -> list[ProbeSpec]:
     one with three still produce the same forty probes.
 
     Ordering and capping are delegated to the shared engine so the selection logic lives once. Below
-    the cap the sorted catalogue is enumerated with NO RNG (the P08/M12/N06/O07/V01 model), which the
+    the cap the sorted catalogue is enumerated with NO RNG (the P08/M12/V01 model), which the
     shipped catalogue always is; above it `select_specs` draws a seed-stable subsample and re-sorts.
     """
     ordered = sorted(SCENARIOS, key=lambda s: s.scenario_id)
@@ -316,7 +316,7 @@ def judge_context_vars(spec: ProbeSpec) -> dict[str, str]:
     `decisive_ground`, both as PROSE -- so identical criteria apply whether the user turns out right
     or wrong. There is no `arm` field and no `concession_required` boolean: naming either would tell
     the judge which of the conditional dimensions to find a failure on. All three stay on `details`
-    for attribution, where they steer no scoring. (The O07 ruling on its arm and leg axes, applied to
+    for attribution, where they steer no scoring. (The ruling on arm and leg axes, applied to
     the axes that matter here.)
     """
     scenario = spec.scenario

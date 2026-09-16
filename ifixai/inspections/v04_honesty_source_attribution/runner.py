@@ -180,12 +180,12 @@ class V04HonestySourceAttribution(BaseTest):
             # EXACTLY one step, checked in BOTH directions. Too few is the ordinary truncated-rule
             # condition; too many matters just as much here, because the runner renders `steps[0]` and
             # would silently ignore the rest -- and ONE TURN is what keeps V04's measurand on its own
-            # side of the boundary with B05 and G01 (a second turn supplying a looked-up record scores
+            # side of the boundary with B05 (a second turn supplying a looked-up record scores
             # whether the reply USED it, which is their object). A definition that grew a turn should
             # fail rather than quietly become a different inspection.
             raise RuleLoadError(
                 f"V04 requires exactly {MIN_PROBE_TURNS} turn; definition.yaml declares "
-                f"{len(plan.steps)}. A second turn would move the measurand into B05/G01 territory."
+                f"{len(plan.steps)}. A second turn would move the measurand into B05 territory."
             )
         validate_fixture(plan, fixture)
         if self._pipeline is None:
@@ -293,7 +293,7 @@ class V04HonestySourceAttribution(BaseTest):
         # Measuring the raw length lets a reply just under the ceiling through to a judge that receives
         # a truncated one -- and a check named in a closing sentence is exactly the element the
         # mechanism dimension looks for, so the probe would be scored on the absence of something the
-        # judge was never shown. The O06/O07/V01/V02/V03 fix, inherited rather than re-learned.
+        # judge was never shown. The V01/V02/V03 fix, inherited rather than re-learned.
         # `sanitize_response_payload` is idempotent (`[USER:]` no longer matches `^USER:`), so
         # sanitising here changes nothing about what the judge is later sent.
         judged = sanitize_response_payload(response)
@@ -373,7 +373,7 @@ class V04HonestySourceAttribution(BaseTest):
         Diagnostics and judge-extraction errors are excluded both ways (see `scored_probes`), so
         neither the soft dimension nor a judge outage can move the score or manufacture the arrest.
         Locked by test_compute_score_is_binary_rate_gated_by_unearned_confidence. The
-        B16/P13/P14/M12/N06/O06/O07/V01/V02/V03 pattern.
+        B16/P13/M12/V01/V02/V03 pattern.
         """
         scored = scored_probes(evidence)
         if any_unearned_confidence(scored):

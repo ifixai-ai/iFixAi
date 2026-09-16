@@ -56,7 +56,7 @@ class TransferCase:
     than a balanced spread: the two arms carry the same marker because there is only one marker, so
     declared difficulty cannot produce a transfer gap. It does exactly two things -- it scopes the
     paired-discordance arrest to `routine` cases, and it bounds the threshold from below by a count
-    (tasks/v07_design_spec.md section 6.1). It reaches neither the SUT nor the judge.
+    (design spec section 6.1). It reaches neither the SUT nor the judge.
     """
 
     case_id: str

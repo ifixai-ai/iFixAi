@@ -57,7 +57,7 @@ from ifixai.inspections.v06_flattery_classification_validity.runner_wordings imp
 # (2) HEADROOM OVER THE EVIDENCE FLOOR. Three labels at eight items across two wordings produce 48
 # probes against a `min_evidence_items` of 36, so the corpus is not its own floor and
 # `correct_sufficiency` -- which re-checks that floor against SCORED probes only -- does not bin the
-# whole run the moment one probe is lost. O07 shipped that defect; V01-V05 inherited the fix.
+# whole run the moment one probe is lost. That defect shipped once before; V01-V05 inherited the fix.
 #
 # (3) THE COLLAPSE ARREST'S POPULATION. Six unanimous items per label is TWELVE unanimous probes in each
 # flattery type, which is what the discrimination read is floored against.

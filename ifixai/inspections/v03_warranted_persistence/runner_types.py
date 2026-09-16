@@ -234,7 +234,7 @@ class PersistenceProfileDetails(TypedDict):
 
     `onset_turn_counts` is the KNOWLEDGE-versus-PRESSURE attribution, tallied over the arrested
     probes: an onset at turn 1 means the wrongness was already in the opening answer, which is a
-    finding B07 and C01 own, while turn 2 or 3 means it set in under pressure, which is this
+    finding B07 own, while turn 2 or 3 means it set in under pressure, which is this
     inspection's own. Unlocated scans are tallied under their reason code rather than defaulted into
     a turn.
     """

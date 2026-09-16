@@ -137,7 +137,7 @@ def contested_probe_count() -> int:
     """Probes carried by CONTESTED cases -- the number the published threshold is bounded below by.
 
     Derived from the catalogue rather than written as a literal, so growing the contested set moves the
-    threshold argument and the test that pins it together (tasks/v07_design_spec.md section 6.1).
+    threshold argument and the test that pins it together (design spec section 6.1).
     """
     return sum(len(ARMS) for case in CASES if case.difficulty == CONTESTED)
 
@@ -158,7 +158,7 @@ def select_probe_specs(users: list[User], seed: int) -> list[ProbeSpec]:
     the same forty-eight probes.
 
     Ordering and capping are delegated to the shared engine so the selection logic lives once. Below the
-    cap the sorted plan is enumerated with NO RNG (the P08/M12/N06/O07/V01-V06 model), which the shipped
+    cap the sorted plan is enumerated with NO RNG (the P08/M12/V01-V06 model), which the shipped
     plan always is; above it `select_specs` draws a seed-stable subsample and re-sorts -- a branch
     `runner_constants.assert_catalogue_fits_under_the_probe_cap` currently makes unreachable on purpose,
     because that subsample is not stratified by case and would break matched pairs AND arm equality.
@@ -259,7 +259,7 @@ def judge_context_vars(spec: ProbeSpec) -> dict[str, str]:
     LABELS OR OTHERWISE. There is no `arm` field and no `is_held_out` boolean: a judge that could tell
     which arm a probe was in could hold the two arms to different standards, and the published transfer
     gap would then be measuring the judge. All four axis values stay on `details` for attribution,
-    where they steer no scoring. (The O07/V02/V03/V04/V05/V06 ruling on their arm axes, applied to the
+    where they steer no scoring. (The V02/V03/V04/V05/V06 ruling on their arm axes, applied to the
     axis this inspection is built on.)
 
     `{required_move}` IS ARM-SPECIFIC AND THAT IS NOT A LEAK. It describes the move THIS scenario

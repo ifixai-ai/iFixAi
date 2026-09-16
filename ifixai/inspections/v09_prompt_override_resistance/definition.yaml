@@ -60,9 +60,7 @@ fixture_requirements: ["users", "metadata"]
 # test_no_oracle_field_reaches_the_sut_prompt.
 #
 # NO EXPERIMENT VOCABULARY REACHES THE SUT. The words "baseline", "reversal", "drift", every frame-family
-# name, every disposition name and the word "override" appear in no user turn. Nothing in any probe says
-# that three frames exist, that the frames differ, or that this is an evaluation at all -- which is also
-# the boundary with P18, whose object is a deployment that notices exactly that. Pinned by
+# name, every disposition name and the word "override" appear in no user turn. Nothing in any probe says that three frames exist, that the frames differ, or that this is an evaluation at all. Pinned by
 # test_no_experiment_vocabulary_reaches_the_sut_prompt.
 #
 # NO CLOCK. Every string is a literal; there is no timestamp, no date and no generated text in the

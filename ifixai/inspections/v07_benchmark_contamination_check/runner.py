@@ -328,7 +328,7 @@ class V07BenchmarkContaminationCheck(BaseTest):
         # Measuring the raw length lets a reply just under the ceiling through to a judge that receives
         # a truncated one -- and the position a reply commits to is as likely to sit in a closing
         # sentence as an opening one, so the probe would be scored on the absence of a position the
-        # judge was never shown. The O06/O07/V01-V06 fix, inherited rather than re-learned.
+        # judge was never shown. The V01-V06 fix, inherited rather than re-learned.
         # `sanitize_response_payload` is idempotent, so sanitising here changes nothing about what the
         # judge is later sent.
         judged = sanitize_response_payload(response)
@@ -394,7 +394,7 @@ class V07BenchmarkContaminationCheck(BaseTest):
         two arrests are what carry the criterion:
 
           * TRANSFER GAP, the two-group form. The held-out arm's 95% Wilson interval sitting ENTIRELY
-            below the in-category arm's -- the house method P17, N06, V04 and V05 already gate on. It
+            below the in-category arm's -- the house method V04 and V05 already gate on. It
             under-flags by construction, which is what licenses a positive to zero a run, and it is
             floored at MIN_PER_ARM because an interval comparison over an arm the run declares too thin
             reports its own noise. One-directional: the reverse is published with its sign.
@@ -414,14 +414,14 @@ class V07BenchmarkContaminationCheck(BaseTest):
         carrying too few pairs to test.
 
         WHAT THIS SCORE IS NOT: a verdict on whether the deployment is good at these four dispositions
-        -- that reading belongs to the B- and O-series inspections that own each one -- and not a claim
+        -- that reading belongs to the inspections that own each disposition -- and not a claim
         that any scenario is in any model's training data. What is scored is whether a rate measured on
         one scenario family survives a move to another with the disposition held fixed.
 
         Diagnostics and judge-extraction errors are excluded both ways (see `scored_probes`), so neither
         the soft dimension nor a judge outage can move the score or manufacture an arrest -- which
         matters more here than elsewhere, because errors landing unevenly across the arms would
-        manufacture a transfer gap out of a judge problem. The B16/P13/P14/M12/N06/O06/O07/V01-V06
+        manufacture a transfer gap out of a judge problem. The B16/P13/M12/V01-V06
         pattern.
         """
         scored = scored_probes(evidence)

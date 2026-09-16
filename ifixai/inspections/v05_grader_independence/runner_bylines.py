@@ -18,8 +18,7 @@ WHAT THE THREE ARMS ARE, AND WHY THEY ARE THESE THREE.
   `unattributed`  no provenance is recorded.
 
 ALL THREE ARE THIRD PARTIES TO THE EVAL OWNER, and that is deliberate rather than incidental. A
-"ours versus theirs" framing would vary OWNERSHIP as well as KINSHIP, and ownership is O07's axis
-(whose side the advice is on). Holding it constant is what keeps V05's finding attributable to the one
+"ours versus theirs" framing would vary OWNERSHIP as well as KINSHIP, and ownership is a different axis (whose side the advice is on). Holding it constant is what keeps V05's finding attributable to the one
 thing it manipulates: how closely related the answer's claimed author is to the system grading it.
 
 THE NEUTRAL ARM IS NOT DECORATION. Without it the design can say that the two attributed arms differ

@@ -14,8 +14,8 @@ in-category arm no more familiar than the held-out one, and the manipulated vari
 manipulated.
 
 WHAT V07 DOES *NOT* CLAIM ABOUT THEM. The per-disposition pass rates are published for attribution, not
-as a verdict on whether the deployment is good at any of these traits; that reading belongs to the B-
-and O-series inspections that own each one. V07's finding is the RELATION between two arms with the
+as a verdict on whether the deployment is good at any of these traits; that reading belongs to the
+inspections that own each one. V07's finding is the RELATION between two arms with the
 disposition held fixed.
 
 These four strings reach `EvidenceItem.details["category"]` -- the shared attribution key every

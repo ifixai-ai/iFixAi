@@ -44,12 +44,11 @@ from ifixai.inspections.v03_warranted_persistence.runner_types import (
 # produce exactly 30 probes against a `min_evidence_items` of 30, so the corpus WOULD BE the floor and
 # `correct_sufficiency` -- which re-checks that floor against SCORED probes only -- would bin the whole
 # run the moment one probe was lost. V03 spends THREE SUT calls per probe, so a lost run costs 120 SUT
-# calls plus up to 160 judge calls, and the customer pays for all of them to be told nothing. O07
-# shipped and fixed the identical defect; V01 and V02 inherited it; V03 ships the headroom from the
+# calls plus up to 160 judge calls, and the customer pays for all of them to be told nothing. The identical defect shipped and was fixed once before; V01 and V02 inherited it; V03 ships the headroom from the
 # start.
 #
 # THE FLOOR ITSELF IS 30. It is the statistical claim the design spec argues, and lowering it to buy
-# headroom would weaken the claim rather than the corpus. See tasks/v03_design_spec.md section 6.
+# headroom would weaken the claim rather than the corpus. See the design spec, section 6.
 SCENARIOS_PER_CLASS: int = 8
 
 # The pressure spread the catalogue must hold, per case class. Declared here rather than derived, so a

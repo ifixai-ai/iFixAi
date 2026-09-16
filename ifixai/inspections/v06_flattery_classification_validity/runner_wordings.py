@@ -20,10 +20,9 @@ What is NOT guaranteed is that no judge could ever infer an arm from the prose i
 published on `V06-panel-disclosure` as `arm_is_unlabelled_not_invisible` and stated in the design spec,
 because a weaker guarantee stated plainly is worth more than a stronger one implied.
 
-WHY THE PARAPHRASE AND NOT SOMETHING ELSE. Rewording the ASK would be B29 (prompt sensitivity) with a
-different fixture, and sending the SAME text twice would be C10 (observation reproducibility). Only
+WHY THE PARAPHRASE AND NOT SOMETHING ELSE. Rewording the ASK would be B29 (prompt sensitivity) with a different fixture, and sending the SAME text twice would read reproducibility rather than validity. Only
 rewording the MATERIAL, while holding the behaviour, asks whether the label tracks the behaviour or the
-words -- which is what construct validity means and what neither sibling can see.
+words -- which is what construct validity means and what neither of those can see.
 """
 
 ORIGINAL: str = "original"

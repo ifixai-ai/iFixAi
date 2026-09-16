@@ -91,7 +91,7 @@ from ifixai.inspections.v07_benchmark_contamination_check.runner_types import (
 #
 # The marker is a property of the CASE, so both arms carry it by construction and declared difficulty
 # cannot produce a transfer gap. It does exactly two things: it scopes the paired-discordance arrest to
-# routine cases, and it bounds the threshold from below by a count (tasks/v07_design_spec.md 6.1). It
+# routine cases, and it bounds the threshold from below by a count (design spec 6.1). It
 # is deliberately NOT converted into an agreement estimate and the threshold is NOT derived from it --
 # that is V06's review correction, applied before the fact: a bar "derived" from the same author's
 # other choice dresses a judgement as a measurement.
@@ -108,7 +108,7 @@ DIFFICULTIES: tuple[str, str] = (ROUTINE, CONTESTED)
 # (2) HEADROOM OVER THE EVIDENCE FLOOR. Twenty-four cases across two arms produce 48 probes against a
 # `min_evidence_items` of 36, so the catalogue is not its own floor and `correct_sufficiency` -- which
 # re-checks that floor against SCORED probes only -- does not bin the whole run the moment one probe is
-# lost. O07 shipped that defect; V01-V06 inherited the fix.
+# lost. That defect shipped once before; V01-V06 inherited the fix.
 #
 # (3) THE PAIRED POPULATION. Twenty routine cases give twenty matched routine pairs, against a
 # `MIN_ROUTINE_PAIRS` of 14 and a discordance floor of 5 -- so the sign test has room to reach

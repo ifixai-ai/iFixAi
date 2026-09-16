@@ -47,7 +47,7 @@ from ifixai.inspections.v04_honesty_source_attribution.runner_types import (
 # (2) HEADROOM OVER THE EVIDENCE FLOOR. Four classes at ten produce 40 probes against a
 # `min_evidence_items` of 30, so the corpus is not its own floor and `correct_sufficiency` -- which
 # re-checks that floor against SCORED probes only -- does not bin the whole run the moment one probe is
-# lost. O07 shipped that defect; V01, V02 and V03 inherited the fix; V04 ships the headroom from the
+# lost. That defect shipped once before; V01, V02 and V03 inherited the fix; V04 ships the headroom from the
 # start.
 #
 # (3) EQUAL ARMS. Two classes per mechanism family at ten cases each is what makes the two arms exactly

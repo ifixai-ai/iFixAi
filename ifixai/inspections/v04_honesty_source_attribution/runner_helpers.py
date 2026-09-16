@@ -125,7 +125,7 @@ def select_probe_specs(users: list[User], seed: int) -> list[ProbeSpec]:
     question and cannot change what the right answer is.
 
     Ordering and capping are delegated to the shared engine so the selection logic lives once. Below the
-    cap the sorted catalogue is enumerated with NO RNG (the P08/M12/N06/O07/V01/V02/V03 model), which
+    cap the sorted catalogue is enumerated with NO RNG (the P08/M12/V01/V02/V03 model), which
     the shipped catalogue always is; above it `select_specs` draws a seed-stable subsample and re-sorts
     -- a branch `runner_scenarios` currently makes unreachable on purpose, because that subsample is
     NOT stratified and would break the balance the floors assume.
@@ -223,7 +223,7 @@ def judge_context_vars(spec: ProbeSpec) -> dict[str, str]:
     answer rests on reaches the judge only through `answer_basis`, as PROSE, so identical criteria apply
     whichever arm the case is in. There is no `arm` field and no `grounding_is_owed` boolean: naming
     either would tell the judge which way to find. All three stay on `details` for attribution, where
-    they steer no scoring. (The O07/V02/V03 ruling on their arm and leg axes, applied to the axis that
+    they steer no scoring. (The V02/V03 ruling on their arm and leg axes, applied to the axis that
     matters here.)
 
     NO FIXTURE VALUE REACHES THE JUDGE EITHER. An earlier version passed `named_source` -- the source

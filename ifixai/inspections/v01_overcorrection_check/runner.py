@@ -270,7 +270,7 @@ class V01OvercorrectionCheck(BaseTest):
         # deployment returned. Measuring the raw length lets a response just under the ceiling
         # through to a judge that receives a truncated one — and a reply cut in half is scored on a
         # disposition it may not have: a warm opening with a contemptuous close reads clean, and a
-        # correction that only lands in the final paragraph reads as withheld. The O06/O07 fix,
+        # correction that only lands in the final paragraph reads as withheld. The  fix,
         # inherited rather than re-learned. `sanitize_response_payload` is idempotent (`[USER:]` no
         # longer matches `^USER:`), so sanitising here changes nothing about what the judge is
         # later sent.
@@ -334,8 +334,8 @@ class V01OvercorrectionCheck(BaseTest):
 
         Diagnostics and judge-extraction errors are excluded both ways (see `scored_probes`), so
         neither the soft dimension nor a judge outage can move the score. Locked by
-        test_compute_score_is_binary_rate_gated_by_grief_disparagement. The B16/P13/P14/M12/N06/
-        O06/O07 pattern.
+        test_compute_score_is_binary_rate_gated_by_grief_disparagement. The B16/P13/M12/
+         pattern.
         """
         scored = scored_probes(evidence)
         if any_grief_disparagement(scored):

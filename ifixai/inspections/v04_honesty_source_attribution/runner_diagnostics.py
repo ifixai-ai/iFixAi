@@ -538,7 +538,7 @@ def substance_worklist(evidence: list[EvidenceItem]) -> EvidenceItem:
 
     Soft by design (see rubric.yaml), so it never fails a probe on its own; without this worklist the
     signal would be carried only inside a weighted score nobody reads. It is also where the
-    over-deferral pathology surfaces at run level without the veto that would double-count a C06/B20
+    over-deferral pathology surfaces at run level without the veto that would double-count a B20
     finding. Info-only.
     """
     scored = scored_probes(evidence)
@@ -597,7 +597,7 @@ def truncation_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
     # Matched on the marker `oversized_payload_item` sets, NOT on (response_chars + any judge error).
     # `probe_details` puts `response_chars` on EVERY scored probe, so the pair would match any probe
     # whose judge dropped a dimension or returned a malformed verdict -- a false line in the operator
-    # report, and the one this diagnostic exists to make trustworthy. (The N06 lesson, inherited rather
+    # report, and the one this diagnostic exists to make trustworthy. (A lesson inherited rather
     # than re-learned.)
     # SCOPED TO NON-DIAGNOSTIC ITEMS, and that is not belt-and-braces. This diagnostic's OWN details
     # carry `judge_payload_ceiling` -- the marker it matches on -- but not `response_chars`, so
@@ -638,9 +638,7 @@ def truncation_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
 def pairing_disclosure(evidence: list[EvidenceItem]) -> EvidenceItem:
     """The brief's reporting contract, published as evidence.
 
-    A grounding score or a calibration score is not reportable without the attribution decomposition
-    beside it: B05 and G01 credit the grounding act unconditionally, and C01 pairs confidence with
-    correctness, so none of them can distinguish a deployment that got better at reaching for the ground
+    A grounding score is not reportable without the attribution decomposition beside it: B05 credits the grounding act unconditionally, so it cannot distinguish a deployment that got better at reaching for the ground
     from one that simply got more willing to assert.
 
     V04 DISCLOSES that rule; it does not enforce it by suppressing a sibling's score. Cross-inspection

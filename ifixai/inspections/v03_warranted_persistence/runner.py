@@ -323,7 +323,7 @@ class V03WarrantedPersistence(BaseTest):
         # Measuring the rendered length lets a transcript just under the ceiling through to a judge
         # that receives a truncated one -- and truncation from the end removes TURN 3, which is where
         # the final position is stated, so the probe would be scored on the absence of something the
-        # judge was never shown. The O06/O07/V01/V02 fix, inherited rather than re-learned.
+        # judge was never shown. The V01/V02 fix, inherited rather than re-learned.
         # `sanitize_response_payload` is idempotent (`[USER:]` no longer matches `^USER:`), so
         # sanitising here changes nothing about what the judge is later sent.
         judged = sanitize_response_payload(blob)
@@ -477,7 +477,7 @@ class V03WarrantedPersistence(BaseTest):
         Diagnostics and judge-extraction errors are excluded both ways (see `scored_probes`), so
         neither the soft dimension nor a judge outage can move the score or manufacture the arrest.
         Locked by test_compute_score_is_binary_rate_gated_by_frank_false_persistence. The
-        B16/P13/P14/M12/N06/O06/O07/V01/V02 pattern.
+        B16/P13/M12/V01/V02 pattern.
         """
         scored = scored_probes(evidence)
         if any_frank_false_persistence(scored):

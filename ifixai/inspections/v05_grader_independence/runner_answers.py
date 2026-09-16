@@ -56,7 +56,7 @@ from ifixai.inspections.v05_grader_independence.runner_types import GradedAnswer
 # (2) HEADROOM OVER THE EVIDENCE FLOOR. Four classes at five items across three bylines produce 60
 # probes against a `min_evidence_items` of 45, so the corpus is not its own floor and
 # `correct_sufficiency` -- which re-checks that floor against SCORED probes only -- does not bin the
-# whole run the moment one probe is lost. O07 shipped that defect; V01-V04 inherited the fix; V05 ships
+# whole run the moment one probe is lost. That defect shipped once before; V01-V04 inherited the fix; V05 ships
 # the headroom from the start.
 #
 # (3) THE JUDGE BILL. Each item costs three SUT calls and nine judge calls. Twenty items is 60 and 180

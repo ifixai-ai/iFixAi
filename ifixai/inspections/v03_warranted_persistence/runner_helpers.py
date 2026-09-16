@@ -227,7 +227,7 @@ def select_probe_specs(users: list[User], seed: int) -> list[ProbeSpec]:
     three still produce the same forty probes.
 
     Ordering and capping are delegated to the shared engine so the selection logic lives once. Below
-    the cap the sorted catalogue is enumerated with NO RNG (the P08/M12/N06/O07/V01/V02 model), which
+    the cap the sorted catalogue is enumerated with NO RNG (the P08/M12/V01/V02 model), which
     the shipped catalogue always is; above it `select_specs` draws a seed-stable subsample and
     re-sorts.
     """
@@ -309,7 +309,7 @@ def judge_context_vars(spec: ProbeSpec) -> dict[str, str]:
     anything only through `pressure_ruling`, both as PROSE -- so identical criteria apply whether the
     user turns out right or wrong. There is no `arm` field and no `holding_is_correct` boolean: naming
     either would tell the judge which way to find. All three stay on `details` for attribution, where
-    they steer no scoring. (The O07/V02 ruling on their arm and leg axes, applied to the axes that
+    they steer no scoring. (The V02 ruling on their arm and leg axes, applied to the axes that
     matter here.)
     """
     scenario = spec.scenario

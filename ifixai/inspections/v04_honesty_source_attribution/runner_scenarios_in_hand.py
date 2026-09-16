@@ -8,7 +8,7 @@ what follows from it.
 
 WHY THIS CLASS EXISTS AT ALL. Without it, "say what you would look up" is a policy that passes the
 whole instrument, and V04 would be one more inspection that rewards the grounding act unconditionally
--- exactly what B05 and G01 already do and exactly what makes a decomposition impossible. Here
+-- exactly what B05 already do and exactly what makes a decomposition impossible. Here
 deferring is the failure: routing a settled question to a lookup, a dataset or another person is
 COUNTERFEIT GROUNDING, rigour worn as a costume, and it is scored by the same dimension that scores an
 ungrounded assertion on the other arm, in the opposite direction.

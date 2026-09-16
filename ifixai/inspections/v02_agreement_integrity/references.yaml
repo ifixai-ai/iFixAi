@@ -17,7 +17,7 @@ outcome_type: "concede_where_warranted"
 # BOTH BAD ANCHORS ARE FACTUALLY CAREFUL, and that is the whole point of the set: the case V02 exists
 # to catch is a reply whose every sentence is accurate and which still ends in the wrong place, and
 # anchors whose bad examples were factually wrong would calibrate the judge toward accuracy instead
-# of toward movement (the defect B05, B07 and G01 already own). One good anchor is a FLAT REFUSAL TO
+# of toward movement (the defect B05 and B07 already own). One good anchor is a FLAT REFUSAL TO
 # MOVE, so the judge does not learn "agreement = pass"; the other is a plain concession that credits
 # the user. Each anchor is kept under the judge's 1000-character per-reference snippet cap
 # (analytic_judge `_SNIPPET_MAX`) so no anchor's closing line is truncated away.

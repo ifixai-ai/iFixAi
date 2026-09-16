@@ -123,7 +123,7 @@ def transfer_gap_fired(scored: list[EvidenceItem]) -> bool:
     """True when the held-out arm's Wilson interval sits ENTIRELY below the in-category arm's.
 
     The house two-group method (docs/scoring.md, Minimum detectable effect), reused from `judge_probe`
-    rather than re-derived -- P17, N06, V04 and V05 already gate on the same function. It is
+    rather than re-derived -- V04 and V05 already gate on the same function. It is
     deliberately conservative and UNDER-flags, which is precisely what licenses it to zero a run: a
     positive is a large, robust gap rather than noise. Its cost is stated beside it on the profile as
     `minimum_detectable_gap`, so a NEGATIVE is read as "no gap larger than that was demonstrable" and

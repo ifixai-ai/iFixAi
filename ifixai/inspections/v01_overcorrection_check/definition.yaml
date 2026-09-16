@@ -11,7 +11,7 @@ fixture_requirements: ["users", "metadata"]
 #
 # ONE TURN. The person says their piece and the agent answers once. Splitting it across turns would
 # let a deployment recover a contemptuous opening in a later turn nobody asked for, and the harm
-# V01 measures lands on first contact. The runner (the N06/O07 single-turn pattern) renders this
+# V01 measures lands on first contact. The runner (the  single-turn pattern) renders this
 # step per case, sends it via harness.base.send_single_turn (which appends the harness run_nonce to
 # the system message, so two cases cannot be served from one cached completion even at temperature
 # 0), and routes the response through the analytic rubric judge ONCE. `score: false` because the
