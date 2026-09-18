@@ -268,10 +268,10 @@ def b32_not_applicable_warning(
 
 # Providers that front many vendors behind one name. For these the real grading
 # vendor is the model slug's prefix, so a cross-vendor judge routed through one
-# aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter) is
-# recognized as independent instead of mislabeled "self-judge".
+# aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter or
+# Requesty) is recognized as independent instead of mislabeled "self-judge".
 _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"openrouter", "orcarouter", "atlascloud", "litellm", "http", "langchain"}
+    {"openrouter", "orcarouter", "requesty", "atlascloud", "litellm", "http", "langchain"}
 )
 
 # Distinct provider slugs that front the SAME underlying model vendor, so a
