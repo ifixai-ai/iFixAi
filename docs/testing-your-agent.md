@@ -73,7 +73,7 @@ different provider grades the SUT, so nothing scores itself:
 - Multiple keys: tiebreaker order `anthropic → openai → atlascloud → minimax → gemini → openrouter → azure → bedrock → huggingface`.
 - No non-SUT key: the run refuses unless you pass `--eval-mode self`.
 - Override: `--judge-provider` / `--judge-api-key` / `--judge-model`. Pin these for
-  `openrouter`, `requesty` and `azure`: auto-routing can land SUT and judge on the same vendor.
+  `openrouter` and `azure`: auto-routing can land SUT and judge on the same vendor.
 
 For a real verdict:
 
