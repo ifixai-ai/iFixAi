@@ -332,5 +332,5 @@ Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **inf
 [Apache 2.0](LICENSE)
 
 <p align="center">
-  <a href="docs/traction.md">Traction</a>: installs and runs over time.
+  <a href="docs/traction.md">Traction</a>: audits over time.
 </p>

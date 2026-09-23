@@ -1,6 +1,6 @@
-"""Fetch and plot PyPI installs and telemetry runs over time.
+"""Fetch and plot audits over time, counted from telemetry.
 
-Each fetch merges into a history file under docs/assets/, so a dead source shows a
+Each fetch merges into docs/assets/runs_history.json, so a dead source shows a
 flat line instead of a gap. Runs need TELEMETRY_PK, a personal read-scope key.
 """
 
@@ -16,25 +16,12 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import requests
 
-PACKAGE = "ifixai"
 ACCENT = "#E8756A"  # house coral
-RUNS_COLOR = "#2a78d6"  # blue, checked to stay distinct from ACCENT (incl. color blindness)
 POSTHOG_HOST = "https://us.posthog.com"
 POSTHOG_PROJECT_ID = "485680"
 TIMEOUT = (5, 30)  # (connect, read); keeps a hung fetch from stalling the job
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "docs" / "assets"
-
-
-def fetch_downloads() -> dict[str, int]:
-    """Downloads per day from pypistats (rolling ~180 day window), mirrors excluded."""
-    response = requests.get(
-        f"https://pypistats.org/api/packages/{PACKAGE}/overall",
-        params={"mirrors": "false"},
-        timeout=TIMEOUT,
-    )
-    response.raise_for_status()
-    return {row["date"]: row["downloads"] for row in response.json()["data"]}
 
 
 def fetch_runs() -> dict[str, int]:
@@ -77,74 +64,47 @@ def _cumulative(history: dict[str, int]) -> tuple[list[datetime], list[int]]:
     return xs, ys
 
 
-Series = tuple[dict[str, int], str, str]  # (daily history, legend label, colour)
-
-
-def plot_pair(upper: Series, lower: Series, out: Path) -> None:
-    """Plot exactly two cumulative series on one shared y-axis.
-
-    End-point labels are hand-placed above and below to avoid overlap, so
-    ``upper`` must be the series that ends higher.
-    """
-    curves = [(*_cumulative(history), label, color) for history, label, color in (upper, lower)]
+def plot_audits(history: dict[str, int], out: Path) -> None:
+    """Plot cumulative audits as a single line with its end value labelled."""
+    xs, ys = _cumulative(history)
 
     with plt.xkcd():
         fig, ax = plt.subplots(figsize=(10, 6))
         fig.patch.set_facecolor("white")
         ax.set_facecolor("white")
 
-        for xs, ys, label, color in curves:
-            ax.plot(xs, ys, color=color, linewidth=2.5, label=label)
-
-        start = min(xs[0] for xs, _, _, _ in curves)
-        ax.set_title(f"Installs and Runs (since {start:%b %d, %Y})", fontsize=16, pad=20)
+        ax.plot(xs, ys, color=ACCENT, linewidth=2.5)
+        ax.set_title(f"Audits (since {xs[0]:%b %d, %Y})", fontsize=16, pad=20)
         ax.set_xlabel("Date", fontsize=12)
-        ax.set_ylabel("Cumulative count", fontsize=12)
+        ax.set_ylabel("Cumulative audits", fontsize=12)
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
         ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=7))
         fig.autofmt_xdate(rotation=0, ha="center")
+        ax.set_ylim(0, ys[-1] * 1.25)
 
-        peak = max(ys[-1] for _, ys, _, _ in curves)
-        ax.set_ylim(0, peak * 1.25)
-
-        for offset, (xs, ys, label, color) in zip(((-62, 26), (-62, -30)), curves, strict=True):
-            ax.plot(xs[-1], ys[-1], "o", color=color, markersize=9)
-            ax.annotate(
-                f"{ys[-1]:,}",
-                xy=(xs[-1], ys[-1]),
-                xytext=offset,
-                textcoords="offset points",
-                fontsize=13,
-                color=color,
-                ha="center",
-                va="center",
-                arrowprops=dict(
-                    arrowstyle="->",
-                    color=color,
-                    lw=2,
-                    connectionstyle="arc3,rad=-0.2",
-                ),
-            )
-
-        ax.legend(loc="upper left", fontsize=12, frameon=False)
+        ax.plot(xs[-1], ys[-1], "o", color=ACCENT, markersize=9)
+        ax.annotate(
+            f"{ys[-1]:,}",
+            xy=(xs[-1], ys[-1]),
+            xytext=(-62, 26),
+            textcoords="offset points",
+            fontsize=13,
+            color=ACCENT,
+            ha="center",
+            va="center",
+            arrowprops=dict(arrowstyle="->", color=ACCENT, lw=2, connectionstyle="arc3,rad=-0.2"),
+        )
 
         fig.savefig(out, dpi=150, bbox_inches="tight", facecolor="white")
         plt.close(fig)
 
-    summary = ", ".join(f"{label} {ys[-1]:,}" for _, ys, label, _ in curves)
-    print(f"Wrote {out.name}: {summary}")
+    print(f"Wrote {out.name}: audits {ys[-1]:,}")
 
 
 if __name__ == "__main__":
-    downloads = merge(DATA_DIR / "downloads_history.json", fetch_downloads())
-
     if not os.environ.get("TELEMETRY_PK"):
-        raise SystemExit("TELEMETRY_PK unset: cannot plot runs alongside installs")
+        raise SystemExit("TELEMETRY_PK unset: cannot plot audits")
 
     runs = merge(DATA_DIR / "runs_history.json", fetch_runs())
-    plot_pair(
-        (downloads, "pip installs", ACCENT),
-        (runs, "runs started", RUNS_COLOR),
-        DATA_DIR / "installs_runs_chart.png",
-    )
+    plot_audits(runs, DATA_DIR / "audits_chart.png")

@@ -29,7 +29,7 @@ jobs:
       - name: Archive PyPI stats
         run: python scripts/update_pypi_stats.py
 
-      - name: Generate downloads and runs charts
+      - name: Generate audits chart
         env:
           TELEMETRY_PK: ${{ secrets.TELEMETRY_PK }}
         run: python scripts/plot_traction.py
