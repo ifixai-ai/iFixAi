@@ -74,7 +74,7 @@ def plot_audits(history: dict[str, int], out: Path) -> None:
         ax.set_facecolor("white")
 
         ax.plot(xs, ys, color=ACCENT, linewidth=2.5)
-        ax.set_title(f"Audits (since {xs[0]:%b %d, %Y})", fontsize=16, pad=20)
+        ax.set_title(f"No. of Audits (since {xs[0]:%b %d, %Y})", fontsize=16, pad=20)
         ax.set_xlabel("Date", fontsize=12)
         ax.set_ylabel("Cumulative audits", fontsize=12)
 
