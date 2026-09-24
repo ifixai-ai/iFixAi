@@ -1,9 +1,9 @@
 # Traction
 
-## Installs and runs
+## Audits
 
 <p align="center">
-  <img src="assets/installs_runs_chart.png" alt="Cumulative pip installs and runs over time" width="750" />
+  <img src="assets/audits_chart.png" alt="Cumulative audits over time" width="750" />
 </p>
 
 ## Recognition
