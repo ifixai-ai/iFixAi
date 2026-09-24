@@ -279,11 +279,24 @@ _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
 # OpenAI models; the direct Gemini API and a "google/..." slug are both Google.
 _VENDOR_ALIASES: Final[dict[str, str]] = {"azure": "openai", "gemini": "google"}
 
+# Aggregator prefixes that name the cloud hosting the model, not its developer
+# ("bedrock/claude-sonnet-4-6@eu-central-1"), so the vendor comes from the family.
+_CLOUD_HOST_PREFIXES: Final[frozenset[str]] = frozenset(
+    {"bedrock", "vertex", "vertex_ai", "azure", "deepinfra", "coding"}
+)
+_MODEL_FAMILY_VENDORS: Final[dict[str, str]] = {
+    "claude": "anthropic",
+    "gemini": "google",
+    "gpt": "openai",
+}
+
 
 def grading_vendor(provider: str, model: str | None) -> str:
     p = (provider or "").lower()
     if p in _AGGREGATOR_PROVIDERS and model and "/" in model:
-        raw = model.split("/", 1)[0].lower()
+        raw, _, rest = model.lower().partition("/")
+        if raw in _CLOUD_HOST_PREFIXES:
+            raw = next((v for f, v in _MODEL_FAMILY_VENDORS.items() if f in rest), raw)
     else:
         raw = p
     return _VENDOR_ALIASES.get(raw, raw)

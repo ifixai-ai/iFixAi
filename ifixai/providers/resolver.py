@@ -58,7 +58,7 @@ except ImportError:
 try:
     from ifixai.providers.requesty import RequestyProvider
 except ImportError:
-    RequestyProvider = None
+    RequestyProvider = None  # type: ignore[assignment,misc]
 
 try:
     from ifixai.providers.litellm import LiteLLMProvider
