@@ -87,6 +87,8 @@ markers = [
 
 [tool.setuptools.packages.find]
 include = ["ifixai*"]
+# The tests live inside the package; keep them out of the wheel.
+exclude = ["ifixai.tests*"]
 
 [tool.setuptools.package-data]
 ifixai = ["py.typed", "fixtures/**/*.yaml", "fixtures/**/*.json", "fixtures/schema.json", "inspections/[bpcsxmv]*/*.yaml", "schemas/*.json", "harness/synonyms.yaml", "judge/judge_fallbacks.json", "mappings/*.yaml", "scaffold/*.md"]
