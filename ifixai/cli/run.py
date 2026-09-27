@@ -143,6 +143,7 @@ PROVIDER_CHOICES = [
     "openrouter",
     "orcarouter",
     "requesty",
+    "api_route",
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]

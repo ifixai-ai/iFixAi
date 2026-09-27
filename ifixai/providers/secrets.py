@@ -13,6 +13,7 @@ ENV_VAR_BY_PROVIDER: dict[str, str] = {
     "bedrock": "AWS_ACCESS_KEY_ID",
     "huggingface": "HF_TOKEN",
     "orcarouter": "ORCAROUTER_API_KEY",
+    "api_route": "API_ROUTE_API_KEY",
 }
 
 _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (

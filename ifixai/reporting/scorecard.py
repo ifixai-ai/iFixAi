@@ -271,7 +271,7 @@ def b32_not_applicable_warning(
 # aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter or
 # Requesty) is recognized as independent instead of mislabeled "self-judge".
 _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"openrouter", "orcarouter", "requesty", "atlascloud", "litellm", "http", "langchain"}
+    {"openrouter", "orcarouter", "requesty", "api_route", "atlascloud", "litellm", "http", "langchain"}
 )
 
 # Distinct provider slugs that front the SAME underlying model vendor, so a
@@ -293,10 +293,15 @@ _MODEL_FAMILY_VENDORS: Final[dict[str, str]] = {
 
 def grading_vendor(provider: str, model: str | None) -> str:
     p = (provider or "").lower()
-    if p in _AGGREGATOR_PROVIDERS and model and "/" in model:
-        raw, _, rest = model.lower().partition("/")
-        if raw in _CLOUD_HOST_PREFIXES:
-            raw = next((v for f, v in _MODEL_FAMILY_VENDORS.items() if f in rest), raw)
+    if p in _AGGREGATOR_PROVIDERS and model:
+        if "/" in model:
+            raw, _, rest = model.lower().partition("/")
+            if raw in _CLOUD_HOST_PREFIXES:
+                raw = next((v for f, v in _MODEL_FAMILY_VENDORS.items() if f in rest), raw)
+        elif p == "api_route":
+            raw = next((v for f, v in _MODEL_FAMILY_VENDORS.items() if model.lower().startswith(f)), p)
+        else:
+            raw = p
     else:
         raw = p
     return _VENDOR_ALIASES.get(raw, raw)
