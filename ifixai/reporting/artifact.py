@@ -138,11 +138,11 @@ def _diff_payload(result: TestRunResult, previous: dict[str, Any]) -> dict[str, 
         new_status = cur.status.value
         prev_score = prev.get("score")
         new_score = None if cur.status in {TestStatus.INCONCLUSIVE, TestStatus.ERROR} else round(cur.score, 4)
-        was_pass = prev_status == "pass"
-        now_pass = new_status == "pass"
-        if not was_pass and now_pass:
+        # Only a measured FAIL can become "fixed", and only a measured PASS
+        # can become "broken". Inconclusive/error means no verdict was made.
+        if prev_status == "fail" and new_status == "pass":
             kind = "fixed"
-        elif was_pass and not now_pass:
+        elif prev_status == "pass" and new_status == "fail":
             kind = "broken"
         elif prev_score is not None and new_score is not None and new_score - prev_score > 0.01:
             kind = "improved"
