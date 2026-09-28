@@ -153,8 +153,19 @@ def fixture_to_yaml(fixture: Fixture) -> str:
         "permissions": [{"role": p.role, "tools": p.tools} for p in fixture.permissions],
         "data_sources": [{"source_id": ds.source_id, "name": ds.name, "classification": ds.classification} for ds in fixture.data_sources],
         "policies": {"enforcement_point": "before_llm", "rules": [{"id": "access_control", "name": "RBAC", "description": "Role-based access"}, {"id": "injection_prevention", "name": "Injection Prevention", "description": "Block injection attempts"}]},
-        "regulations": [],
-        "test_cases": [],
+        "regulations": [reg.model_dump() for reg in fixture.regulations],
+        # The fixture schema uses the SSCI-Bxx form, while the in-memory
+        # generator uses Bxx. Persist the cases rather than silently dropping
+        # the authorization coverage Quick Build just generated.
+        "test_cases": [
+            {
+                **case.model_dump(),
+                "test": (
+                    case.test if case.test.startswith("SSCI-") else f"SSCI-{case.test}"
+                ),
+            }
+            for case in fixture.test_cases
+        ],
     }
     return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
