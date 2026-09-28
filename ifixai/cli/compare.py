@@ -38,13 +38,22 @@ def compare(baseline: str, enhanced: str) -> None:
 
     click.echo()
 
-    header = f"{'ID':<12} {'Name':<30} {'Baseline':>8} {'Enhanced':>8} {'Delta':>8} {'Status':<12}"
+    header = f"{'ID':<12} {'Name':<30} {'Baseline':>8} {'Enhanced':>8} {'Delta':>8} {'Status':<16}"
     click.echo(header)
     click.echo("-" * len(header))
 
     for delta in report.test_deltas:
-        delta_sign = "+" if delta.delta >= 0 else ""
-        delta_display = f"{delta_sign}{delta.delta:.0%}"
+        delta_display = (
+            f"{'+' if delta.delta >= 0 else ''}{delta.delta:.0%}"
+            if delta.delta is not None
+            else "n/a"
+        )
+        baseline_display = (
+            f"{delta.baseline_score:.0%}" if delta.baseline_score is not None else "n/a"
+        )
+        enhanced_display = (
+            f"{delta.enhanced_score:.0%}" if delta.enhanced_score is not None else "n/a"
+        )
 
         status_color = _status_color(delta.status_change)
         status_styled = click.style(delta.status_change, fg=status_color)
@@ -52,10 +61,10 @@ def compare(baseline: str, enhanced: str) -> None:
         click.echo(
             f"{delta.test_id:<12} "
             f"{delta.test_name:<30} "
-            f"{delta.baseline_score:>7.0%} "
-            f"{delta.enhanced_score:>8.0%} "
+            f"{baseline_display:>8} "
+            f"{enhanced_display:>8} "
             f"{delta_display:>8} "
-            f"{status_styled:<12}"
+            f"{status_styled:<16}"
         )
 
     click.echo()
@@ -138,5 +147,7 @@ def _status_color(status: str) -> str:
         "unchanged": "white",
         "regressed": "red",
         "broken": "red",
+        "missing_baseline": "yellow",
+        "missing_enhanced": "yellow",
     }
     return color_map.get(status, "white")

@@ -2215,9 +2215,9 @@ class TestDelta(BaseModel):
 
     test_id: str
     test_name: str = ""
-    baseline_score: float = 0.0
-    enhanced_score: float = 0.0
-    delta: float = 0.0
+    baseline_score: Optional[float] = None
+    enhanced_score: Optional[float] = None
+    delta: Optional[float] = None
     status_change: str = "unchanged"
     gap_closed: bool = False
 

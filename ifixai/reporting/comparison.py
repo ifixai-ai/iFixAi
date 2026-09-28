@@ -31,11 +31,29 @@ def compare_scorecards(
         base_result = baseline_scores.get(bid)
         enh_result = enhanced_scores.get(bid)
 
-        base_score = base_result.score if base_result else 0.0
-        enh_score = enh_result.score if enh_result else 0.0
-        base_passed = base_result.passing if base_result else False
-        enh_passed = enh_result.passing if enh_result else False
-        name = (enh_result or base_result).name if (enh_result or base_result) else bid
+        # Absence means that the inspection was not run. Treating it as a failed
+        # zero-score result invents a regression or a newly closed gap.
+        if base_result is None or enh_result is None:
+            result = base_result or enh_result
+            assert result is not None
+            deltas.append(
+                TestDelta(
+                    test_id=bid,
+                    test_name=result.name,
+                    baseline_score=base_result.score if base_result is not None else None,
+                    enhanced_score=enh_result.score if enh_result is not None else None,
+                    status_change=(
+                        "missing_baseline" if base_result is None else "missing_enhanced"
+                    ),
+                )
+            )
+            continue
+
+        base_score = base_result.score
+        enh_score = enh_result.score
+        base_passed = base_result.passing
+        enh_passed = enh_result.passing
+        name = enh_result.name or base_result.name or bid
 
         delta = enh_score - base_score
 
