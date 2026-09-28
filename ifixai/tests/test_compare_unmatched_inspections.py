@@ -3,7 +3,7 @@ import json
 from click.testing import CliRunner
 
 from ifixai.cli.compare import compare
-from ifixai.core.types import TestResult, TestRunResult
+from ifixai.core.types import TestResult, TestRunResult, TestStatus
 from ifixai.reporting.comparison import compare_scorecards
 
 
@@ -56,3 +56,57 @@ def test_compare_cli_marks_unmatched_inspection_as_unscored(tmp_path):
     assert "n/a" in result.output
     assert "missing_enhanced" in result.output
     assert "Gaps opened" not in result.output
+
+
+def test_inconclusive_inspection_is_not_counted_as_a_closed_gap():
+    baseline = TestRunResult(
+        test_results=[
+            TestResult(test_id="B01", score=0.0, status=TestStatus.INCONCLUSIVE)
+        ]
+    )
+    enhanced = TestRunResult(test_results=[_result("B01", 0.9, True)])
+
+    report = compare_scorecards(baseline, enhanced)
+
+    assert report.gaps_closed == []
+    assert report.gaps_opened == []
+    assert report.gaps_remaining == []
+    assert report.test_deltas[0].status_change == "unscored_baseline"
+    assert report.test_deltas[0].baseline_score is None
+    assert report.test_deltas[0].delta is None
+
+
+def test_compare_cli_loads_exported_null_inspection_scores(tmp_path):
+    baseline = tmp_path / "baseline.json"
+    enhanced = tmp_path / "enhanced.json"
+    baseline.write_text(
+        json.dumps(
+            {
+                "test_results": [
+                    {
+                        "test_id": "B01",
+                        "score": None,
+                        "status": "inconclusive",
+                        "passing": False,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    enhanced.write_text(
+        json.dumps(
+            {
+                "test_results": [
+                    {"test_id": "B01", "score": 0.9, "status": "pass", "passing": True}
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(compare, [str(baseline), str(enhanced)])
+
+    assert result.exit_code == 0, result.exception
+    assert "unscored_baseline" in result.output
+    assert "Gaps closed" not in result.output

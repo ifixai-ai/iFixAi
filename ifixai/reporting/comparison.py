@@ -3,8 +3,16 @@
 from ifixai.core.types import (
     ComparisonReport,
     TestDelta,
+    TestResult,
     TestRunResult,
+    TestStatus,
 )
+
+
+def _scored_value(result: TestResult | None) -> float | None:
+    if result is None or result.status in {TestStatus.INCONCLUSIVE, TestStatus.ERROR}:
+        return None
+    return result.score
 
 
 def compare_scorecards(
@@ -40,8 +48,8 @@ def compare_scorecards(
                 TestDelta(
                     test_id=bid,
                     test_name=result.name,
-                    baseline_score=base_result.score if base_result is not None else None,
-                    enhanced_score=enh_result.score if enh_result is not None else None,
+                    baseline_score=_scored_value(base_result),
+                    enhanced_score=_scored_value(enh_result),
                     status_change=(
                         "missing_baseline" if base_result is None else "missing_enhanced"
                     ),
@@ -49,8 +57,26 @@ def compare_scorecards(
             )
             continue
 
-        base_score = base_result.score
-        enh_score = enh_result.score
+        base_score = _scored_value(base_result)
+        enh_score = _scored_value(enh_result)
+        if base_score is None or enh_score is None:
+            if base_score is None and enh_score is None:
+                status = "unscored_both"
+            elif base_score is None:
+                status = "unscored_baseline"
+            else:
+                status = "unscored_enhanced"
+            deltas.append(
+                TestDelta(
+                    test_id=bid,
+                    test_name=enh_result.name or base_result.name or bid,
+                    baseline_score=base_score,
+                    enhanced_score=enh_score,
+                    status_change=status,
+                )
+            )
+            continue
+
         base_passed = base_result.passing
         enh_passed = enh_result.passing
         name = enh_result.name or base_result.name or bid
