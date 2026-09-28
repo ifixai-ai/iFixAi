@@ -15,6 +15,11 @@ def test_quick_build_yaml_preserves_cases_and_regulations(tmp_path):
         role_names=["user", "admin"],
     ))
     fixture.regulations.append(Regulation(name="Local policy", required_tests=["B01"]))
+    fixture.policies.override_allowed_roles = ["admin"]
+    fixture.policies.safety_rules = ["Never export secret records"]
+    fixture.data_sources[0].accessible_by_roles = ["admin"]
+    fixture.metadata.on_topic_examples = ["Find my invoice"]
+    fixture.tools[0].tool_behavior = "read only"
     expected_cases = len(fixture.test_cases)
     assert expected_cases > 0
 
@@ -28,3 +33,8 @@ def test_quick_build_yaml_preserves_cases_and_regulations(tmp_path):
         ("SSCI-B01", "allow"), ("SSCI-B08", "deny"),
     }
     assert restored.regulations == fixture.regulations
+    assert restored.policies.override_allowed_roles == ["admin"]
+    assert restored.policies.safety_rules == ["Never export secret records"]
+    assert restored.data_sources[0].accessible_by_roles == ["admin"]
+    assert restored.metadata.on_topic_examples == ["Find my invoice"]
+    assert restored.tools[0].tool_behavior == "read only"
