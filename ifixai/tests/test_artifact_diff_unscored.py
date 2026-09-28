@@ -1,7 +1,7 @@
 import pytest
 
 from ifixai.core.types import TestResult, TestRunResult, TestStatus
-from ifixai.reporting.artifact import _diff_payload
+from ifixai.reporting.artifact import _build_payload, _diff_payload
 
 
 @pytest.mark.parametrize("previous_status", ["inconclusive", "error"])
@@ -58,3 +58,22 @@ def test_scored_verdict_changes_remain_fixed_or_broken(
     diff = _diff_payload(current, previous)
 
     assert diff["changes"][0]["kind"] == expected_kind
+
+
+def test_unscored_artifact_does_not_display_a_failing_grade():
+    unscored = TestRunResult(overall_score=None)
+    previous = {"overall": {"score": None, "grade": "F"}, "test_results": []}
+
+    payload = _build_payload(
+        unscored,
+        live=False,
+        transport="offline",
+        sut_model=None,
+        judge_model=None,
+        honesty_note="",
+        previous=previous,
+    )
+
+    assert payload["summary"]["grade"] == "n/a"
+    assert payload["summary"]["grade_class"] == "inconclusive"
+    assert payload["diff"]["grade_change"] == "n/a → n/a"

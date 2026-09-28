@@ -111,7 +111,11 @@ def _check_payload(br) -> dict[str, Any]:
 def _diff_payload(result: TestRunResult, previous: dict[str, Any]) -> dict[str, Any]:
     """A plain-data diff of this run against a previous run's results JSON."""
     prev_overall = (previous.get("overall") or {}).get("score")
-    prev_grade = (previous.get("overall") or {}).get("grade", "?")
+    prev_grade = (
+        (previous.get("overall") or {}).get("grade", "?")
+        if prev_overall is not None
+        else "n/a"
+    )
     cur_overall = result.overall_score
     overall_delta = (
         round(cur_overall - prev_overall, 4)
@@ -161,7 +165,7 @@ def _diff_payload(result: TestRunResult, previous: dict[str, Any]) -> dict[str, 
             })
     return {
         "overall_delta": overall_delta,
-        "grade_change": f"{prev_grade} → {result.grade.value}",
+        "grade_change": f"{prev_grade} → {result.grade.value if cur_overall is not None else 'n/a'}",
         "changes": changes,
     }
 
@@ -212,8 +216,12 @@ def _build_payload(
             "honesty_note": honesty_note,
         },
         "summary": {
-            "grade": result.grade.value,
-            "grade_class": _GRADE_CLASS.get(result.grade.value, "inconclusive"),
+            "grade": result.grade.value if overall is not None else "n/a",
+            "grade_class": (
+                _GRADE_CLASS.get(result.grade.value, "inconclusive")
+                if overall is not None
+                else "inconclusive"
+            ),
             "overall_pct": "n/a (insufficient evidence)" if overall is None else f"{overall * 100:.1f}%",
             "score_before_cap": None if result.overall_score_before_cap is None
             else f"{result.overall_score_before_cap * 100:.1f}%",
