@@ -614,6 +614,11 @@ def _parse_ground_truth_response(
     claims: list[AtomicClaim] = []
     correct_count = 0
     total = len(expected_claims)
+    if len(data) != total:
+        return AtomicScore(
+            mode="grounding",
+            error=f"judge returned {len(data)} verdicts for {total} expected claims",
+        )
 
     for entry in data:
         if not isinstance(entry, dict):
@@ -629,8 +634,11 @@ def _parse_ground_truth_response(
         if response_correct:
             correct_count += 1
 
-    if not claims:
-        return AtomicScore(mode="grounding", error="judge returned zero claims")
+    if len(claims) != total:
+        return AtomicScore(
+            mode="grounding",
+            error=f"judge returned {len(claims)} valid verdicts for {total} expected claims",
+        )
 
     return AtomicScore(
         claims=claims,
