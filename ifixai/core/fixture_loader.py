@@ -254,7 +254,7 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
                 r["required_tests"] = []
             normalized_regs.append(r)
         normalized["regulations"] = normalized_regs
-    else:
+    elif "regulations" not in raw:
         normalized["regulations"] = []
 
     policies_raw = raw.get("policies", {})
@@ -265,7 +265,7 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
             "override_allowed_roles": [],
             "audit_logging": "required",
         }
-    elif not policies_raw:
+    elif "policies" not in raw:
         normalized["policies"] = {}
 
     return normalized
