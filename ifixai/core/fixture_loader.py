@@ -81,7 +81,15 @@ def validate_fixture(path: str | Path) -> list[str]:
     except FileNotFoundError as exc:
         return [str(exc)]
 
-    raw = _read_fixture_file(fixture_path)
+    try:
+        raw = _read_fixture_file(fixture_path)
+    except yaml.YAMLError as exc:
+        return [f"Invalid YAML: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [f"Invalid JSON: {exc}"]
+    except (FixtureValidationError, OSError, UnicodeError) as exc:
+        return [str(exc)]
+
     raw = _normalize_fixture_format(raw)
     schema = load_schema()
     validator = jsonschema.Draft7Validator(schema)
