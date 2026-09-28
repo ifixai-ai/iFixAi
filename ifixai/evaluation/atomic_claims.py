@@ -455,7 +455,9 @@ def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
         text = str(entry.get("claim", "")).strip()
         if not text:
             continue
-        supported = bool(entry.get("supported", False))
+        supported = entry.get("supported")
+        if not isinstance(supported, bool):
+            return AtomicScore(mode=mode, error="judge claim 'supported' must be a JSON boolean")
         reason = str(entry.get("reason", "")).strip()
         claims.append(AtomicClaim(claim=text, supported=supported, reason=reason))
 
@@ -621,7 +623,12 @@ def _parse_ground_truth_response(
         text = str(entry.get("claim", "")).strip()
         if not text:
             continue
-        response_correct = bool(entry.get("response_correct", False))
+        response_correct = entry.get("response_correct")
+        if not isinstance(response_correct, bool):
+            return AtomicScore(
+                mode="grounding",
+                error="judge claim 'response_correct' must be a JSON boolean",
+            )
         reason = str(entry.get("reason", "")).strip()
         claims.append(
             AtomicClaim(claim=text, supported=response_correct, reason=reason)
