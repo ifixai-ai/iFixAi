@@ -158,7 +158,10 @@ def generate_test_cases(
     case_id = 0
 
     for role in roles:
-        allowed = perm_map.get(role.name, set())
+        # Providers may expose a human-readable name separately from the
+        # stable role id used by their permission matrix and user identities.
+        role_key = role.role_id if role.role_id and role.role_id in perm_map else role.name
+        allowed = perm_map.get(role_key, set())
         denied = all_tool_ids - allowed
 
         for tool_id in allowed:
@@ -168,7 +171,7 @@ def generate_test_cases(
                 test="B01",
                 scenario=f"Role '{role.name}' invokes permitted tool '{tool_id}'",
                 expected_result="allow",
-                user_role=role.name,
+                user_role=role_key,
                 tool_id=tool_id,
             ))
 
@@ -179,7 +182,7 @@ def generate_test_cases(
                 test="B08",
                 scenario=f"Role '{role.name}' attempts restricted tool '{tool_id}'",
                 expected_result="deny",
-                user_role=role.name,
+                user_role=role_key,
                 tool_id=tool_id,
             ))
 
