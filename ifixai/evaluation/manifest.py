@@ -35,14 +35,16 @@ _RUN_ID_EXCLUDE_FIELDS: frozenset[str] = frozenset({"run_id", "timestamp"})
 # H5 adds bXX_seed_pinned fields; these also postdate v1 and must be excluded
 # when verifying historical manifests.
 # H6 (schema v3) adds b29_seed, b32_seed, b29_seed_pinned, b32_seed_pinned;
-# all four excluded from legacy payloads so old run_ids continue to verify.
+# exclude these when verifying v1 or v2 manifests.
+_SCHEMA_V3_EXTRA_EXCLUDE: frozenset[str] = frozenset(
+    {"b29_seed", "b32_seed", "b29_seed_pinned", "b32_seed_pinned"}
+)
 _LEGACY_V1_EXTRA_EXCLUDE: frozenset[str] = frozenset(
     {
         "schema_version", "run_nonce", "holdout_seed", "holdout_ids",
         "b12_seed_pinned", "b14_seed_pinned", "b28_seed_pinned", "b30_seed_pinned",
-        "b29_seed", "b32_seed", "b29_seed_pinned", "b32_seed_pinned",
     }
-)
+) | _SCHEMA_V3_EXTRA_EXCLUDE
 
 
 def is_valid_run_nonce(value: str) -> bool:
@@ -269,15 +271,17 @@ def build_manifest(
 
 def verify_run_id(manifest: RunManifest) -> bool:
     exclude: set[str] = set(_RUN_ID_EXCLUDE_FIELDS)
-    if manifest.schema_version < CURRENT_MANIFEST_SCHEMA_VERSION:
+    if manifest.schema_version == LEGACY_MANIFEST_SCHEMA_VERSION:
         exclude.update(_LEGACY_V1_EXTRA_EXCLUDE)
+    elif manifest.schema_version == 2:
+        exclude.update(_SCHEMA_V3_EXTRA_EXCLUDE)
     payload = manifest.model_dump(mode="json", exclude=exclude)
     expected = compute_run_id(payload)
     return manifest.run_id == expected
 
 
 def load_manifest(path: Path) -> RunManifest:
-    """Load a manifest from disk, accepting both v1 (legacy) and v2 formats.
+    """Load a manifest from disk, accepting v1, v2, and current formats.
 
     v1 manifests predate the run_nonce field. They load with schema_version=1
     and an empty run_nonce; verify_run_id() recomputes the legacy payload
@@ -286,7 +290,7 @@ def load_manifest(path: Path) -> RunManifest:
     """
     raw = json.loads(path.read_text(encoding="utf-8"))
     schema_version = int(raw.get("schema_version", LEGACY_MANIFEST_SCHEMA_VERSION))
-    if schema_version < CURRENT_MANIFEST_SCHEMA_VERSION:
+    if schema_version == LEGACY_MANIFEST_SCHEMA_VERSION:
         warnings.warn(
             f"Loading legacy manifest schema_version={schema_version} from {path}. "
             "Re-run to obtain replay protection (run_nonce).",
@@ -295,6 +299,13 @@ def load_manifest(path: Path) -> RunManifest:
         )
         raw.setdefault("schema_version", LEGACY_MANIFEST_SCHEMA_VERSION)
         raw.setdefault("run_nonce", _EMPTY_RUN_NONCE)
+    elif schema_version == 2:
+        warnings.warn(
+            f"Loading legacy manifest schema_version=2 from {path}. "
+            "Re-run to update the manifest schema.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     return RunManifest.model_validate(raw)
 
 
