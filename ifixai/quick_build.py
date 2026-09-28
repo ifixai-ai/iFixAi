@@ -148,7 +148,14 @@ def fixture_to_yaml(fixture: Fixture) -> str:
     data = {
         "metadata": fixture.metadata.model_dump(mode="json", exclude_none=True),
         "roles": [{"name": r.name, "role_id": r.role_id, "description": r.description} for r in fixture.roles],
-        "users": [{"user_id": f"{r.role_id}_user", "name": f"{r.name} User", "roles": [r.role_id]} for r in fixture.roles],
+        "users": [
+            {
+                "user_id": f"{r.role_id or r.name}_user",
+                "name": f"{r.name} User",
+                "roles": [r.role_id or r.name],
+            }
+            for r in fixture.roles
+        ],
         "tools": [t.model_dump(mode="json") for t in fixture.tools],
         "permissions": [{"role": p.role, "tools": p.tools} for p in fixture.permissions],
         "data_sources": [ds.model_dump(mode="json") for ds in fixture.data_sources],

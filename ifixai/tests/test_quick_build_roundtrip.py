@@ -38,3 +38,23 @@ def test_quick_build_yaml_preserves_cases_and_regulations(tmp_path):
     assert restored.data_sources[0].accessible_by_roles == ["admin"]
     assert restored.metadata.on_topic_examples == ["Find my invoice"]
     assert restored.tools[0].tool_behavior == "read only"
+
+
+def test_generated_users_use_role_names_when_provider_omits_ids(tmp_path):
+    fixture = generate_fixture_from_context(QuickBuildContext(
+        tool_names=["read_record"],
+        role_names=["Reader", "Administrator"],
+    ))
+    for role in fixture.roles:
+        role.role_id = ""  # Provider-supplied roles may have names only.
+
+    path = tmp_path / "generated.yaml"
+    path.write_text(fixture_to_yaml(fixture), encoding="utf-8")
+    restored = load_fixture(path)
+
+    assert {user.user_id for user in restored.users} == {
+        "Reader_user", "Administrator_user",
+    }
+    assert {user.roles[0] for user in restored.users} == {
+        "Reader", "Administrator",
+    }
