@@ -12,11 +12,15 @@
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="340" height="73" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=dark&period=daily&t=1790770698506" /></a>
+  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="300" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" /></a>
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="200" height="44" /></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/29638" alt="ifixai-ai/iFixAi | Trendshift" width="300" /></a>
+</p>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="300" /></a>
 </p>
 
 <p align="center">
