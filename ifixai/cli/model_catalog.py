@@ -35,6 +35,7 @@ DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
     "orcarouter": "openai/gpt-4o",
     "requesty": "openai/gpt-4o-mini",
+    "cheaperinference": "gpt-5.4-mini",
     "openai": "gpt-4o",
     "anthropic": "claude-3-5-sonnet-latest",
     "gemini": "gemini-2.0-flash",
@@ -75,6 +76,13 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("anthropic/claude-sonnet-4-6", "Anthropic Claude Sonnet 4.6 — strong reasoning & safety"),
         ("google/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive"),
         ("google/gemini-2.5-pro", "Google Gemini 2.5 Pro — large context, strong reasoning"),
+    ],
+    "cheaperinference": [
+        ("gpt-5.4-mini", "OpenAI GPT-5.4 Mini — small and fast"),
+        ("gpt-5.4", "OpenAI GPT-5.4 — general reasoning"),
+        ("claude-sonnet-5", "Anthropic Claude Sonnet 5 — strong reasoning & safety"),
+        ("gemini-3.1-pro", "Google Gemini 3.1 Pro — large context, strong reasoning"),
+        ("deepseek-v4-flash", "DeepSeek V4 Flash — fast open-weights model"),
     ],
     "openai": [
         ("gpt-4o", "Flagship — strong general reasoning"),

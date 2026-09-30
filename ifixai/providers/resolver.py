@@ -61,6 +61,11 @@ except ImportError:
     RequestyProvider = None  # type: ignore[assignment,misc]
 
 try:
+    from ifixai.providers.cheaperinference import CheaperInferenceProvider
+except ImportError:
+    CheaperInferenceProvider = None  # type: ignore[assignment,misc]
+
+try:
     from ifixai.providers.litellm import LiteLLMProvider
 except ImportError:
     LiteLLMProvider = None
@@ -75,6 +80,7 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "openrouter",
     "orcarouter",
     "requesty",
+    "cheaperinference",
     "anthropic",
     "gemini",
     "azure",
@@ -97,6 +103,7 @@ _PROVIDER_MAP: dict[str, type] = {
         "openrouter": OpenRouterProvider,
         "orcarouter": OrcaRouterProvider,
         "requesty": RequestyProvider,
+        "cheaperinference": CheaperInferenceProvider,
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
         "azure": AzureOpenAIProvider,
@@ -177,6 +184,7 @@ _PROVIDER_CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "openrouter": ("OPENROUTER_API_KEY",),
     "orcarouter": ("ORCAROUTER_API_KEY",),
     "requesty": ("REQUESTY_API_KEY",),
+    "cheaperinference": ("CHEAPERINFERENCE_API_KEY", "CHEAPER_INFERENCE_API_KEY"),
     "litellm": ("LITELLM_API_KEY",),
 }
 

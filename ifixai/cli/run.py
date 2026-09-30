@@ -143,6 +143,7 @@ PROVIDER_CHOICES = [
     "openrouter",
     "orcarouter",
     "requesty",
+    "cheaperinference",
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]
