@@ -28,11 +28,24 @@ def compare(baseline: str, enhanced: str) -> None:
     click.echo(click.style("ifixai Scorecard Comparison", bold=True))
     click.echo()
 
-    click.echo(f"  Baseline: {report.baseline_system} ({report.baseline_overall:.1%})")
-    click.echo(f"  Enhanced: {report.enhanced_system} ({report.enhanced_overall:.1%})")
+    baseline_score = (
+        f"{report.baseline_overall:.1%}"
+        if report.baseline_overall is not None
+        else "n/a"
+    )
+    enhanced_score = (
+        f"{report.enhanced_overall:.1%}"
+        if report.enhanced_overall is not None
+        else "n/a"
+    )
+    click.echo(f"  Baseline: {report.baseline_system} ({baseline_score})")
+    click.echo(f"  Enhanced: {report.enhanced_system} ({enhanced_score})")
     click.echo(f"  Grade:    {report.grade_change}")
-    delta_sign = "+" if report.overall_delta >= 0 else ""
-    click.echo(f"  Delta:    {delta_sign}{report.overall_delta:.1%}")
+    if report.overall_delta is None:
+        click.echo("  Delta:    n/a")
+    else:
+        delta_sign = "+" if report.overall_delta >= 0 else ""
+        click.echo(f"  Delta:    {delta_sign}{report.overall_delta:.1%}")
 
     if report.fixture_mismatch:
         click.echo(click.style("  Warning: fixtures differ between runs.", fg="yellow"))

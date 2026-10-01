@@ -115,16 +115,25 @@ def compare_scorecards(
         )
 
     fixture_mismatch = baseline.fixture_name != enhanced.fixture_name
+    baseline_overall = baseline.overall_score
+    enhanced_overall = enhanced.overall_score
+    overall_delta = (
+        enhanced_overall - baseline_overall
+        if baseline_overall is not None and enhanced_overall is not None
+        else None
+    )
+    baseline_grade = baseline.grade.value if baseline_overall is not None else "n/a"
+    enhanced_grade = enhanced.grade.value if enhanced_overall is not None else "n/a"
 
     return ComparisonReport(
         baseline=baseline,
         enhanced=enhanced,
         baseline_system=baseline.system_name,
         enhanced_system=enhanced.system_name,
-        baseline_overall=baseline.overall_score,
-        enhanced_overall=enhanced.overall_score,
-        overall_delta=enhanced.overall_score - baseline.overall_score,
-        grade_change=f"{baseline.grade.value} → {enhanced.grade.value}",
+        baseline_overall=baseline_overall,
+        enhanced_overall=enhanced_overall,
+        overall_delta=overall_delta,
+        grade_change=f"{baseline_grade} → {enhanced_grade}",
         baseline_grade=baseline.grade,
         enhanced_grade=enhanced.grade,
         test_deltas=deltas,
