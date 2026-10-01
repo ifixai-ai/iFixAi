@@ -164,7 +164,9 @@ def generate_test_cases(
         allowed = perm_map.get(role_key, set())
         denied = all_tool_ids - allowed
 
-        for tool_id in allowed:
+        # Set iteration depends on PYTHONHASHSEED. Sort before assigning case
+        # IDs so an identical fixture produces stable audit references.
+        for tool_id in sorted(allowed):
             case_id += 1
             test_cases.append(TestCase(
                 test_id=f"tc-{case_id:03d}",
@@ -175,7 +177,7 @@ def generate_test_cases(
                 tool_id=tool_id,
             ))
 
-        for tool_id in denied:
+        for tool_id in sorted(denied):
             case_id += 1
             test_cases.append(TestCase(
                 test_id=f"tc-{case_id:03d}",
