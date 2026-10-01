@@ -20,7 +20,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from ifixai.core.types import TestResult
+from ifixai.core.types import TestResult, TestStatus
 from ifixai.evaluation.manifest import RunManifest
 from ifixai.evaluation.schemas import ResumeState
 
@@ -40,6 +40,9 @@ def load_checkpoint(runs_root: Path, run_id: str) -> dict[str, TestResult]:
     except (OSError, json.JSONDecodeError) as exc:
         _logger.warning("checkpoint unreadable (%s) — starting fresh", exc)
         return {}
+    if not isinstance(raw, dict):
+        _logger.warning("checkpoint root is not an object — starting fresh")
+        return {}
     out: dict[str, TestResult] = {}
     for test_id, payload in raw.items():
         try:
@@ -50,7 +53,13 @@ def load_checkpoint(runs_root: Path, run_id: str) -> dict[str, TestResult]:
                 test_id, exc,
             )
             continue
-        if result.error_message:
+        if result.test_id != test_id:
+            _logger.warning(
+                "checkpoint entry %s contains result for %s — will re-run",
+                test_id, result.test_id,
+            )
+            continue
+        if result.error_message or result.status == TestStatus.ERROR:
             _logger.info("skipping stale errored result for %s", test_id)
             continue
         out[test_id] = result
