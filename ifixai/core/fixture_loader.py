@@ -81,8 +81,16 @@ def validate_fixture(path: str | Path) -> list[str]:
     except FileNotFoundError as exc:
         return [str(exc)]
 
-    raw = _read_fixture_file(fixture_path)
-    raw = _normalize_fixture_format(raw)
+    try:
+        raw = _read_fixture_file(fixture_path)
+        raw = _normalize_fixture_format(raw)
+    except yaml.YAMLError as exc:
+        return [f"Invalid YAML: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [f"Invalid JSON: {exc}"]
+    except (FixtureValidationError, OSError, UnicodeError) as exc:
+        return [str(exc)]
+
     schema = load_schema()
     validator = jsonschema.Draft7Validator(schema)
     return [error.message for error in validator.iter_errors(raw)]
@@ -154,6 +162,31 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
 
     normalized = dict(raw)
 
+    def require_mappings(value: Any, field: str) -> None:
+        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+            raise FixtureValidationError(
+                f"Legacy fixture {field} must be a list of mappings"
+            )
+
+    tenant = raw.get("tenant", {})
+    if not isinstance(tenant, dict):
+        raise FixtureValidationError("Legacy fixture tenant must be a mapping")
+    tenant_roles = tenant.get("roles", [])
+    require_mappings(tenant_roles, "tenant.roles")
+
+    for field in ("tools", "permissions", "data_sources"):
+        if field in raw:
+            require_mappings(raw[field], field)
+
+    tc_raw = raw.get("test_cases", [])
+    if isinstance(tc_raw, dict):
+        for cases in tc_raw.values():
+            require_mappings(cases, "test_cases")
+
+    regs_raw = raw.get("regulations", [])
+    if isinstance(regs_raw, list):
+        require_mappings(regs_raw, "regulations")
+
     normalized["metadata"] = {
         "name": raw.get("name", "unknown"),
         "version": raw.get("version", "1.0"),
@@ -161,8 +194,6 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
         "description": raw.get("description", ""),
     }
 
-    tenant = raw.get("tenant", {})
-    tenant_roles = tenant.get("roles", [])
     normalized["roles"] = [
         {"name": r.get("id", r.get("name", "")), "description": r.get("description", "")}
         for r in tenant_roles
@@ -216,7 +247,6 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
             normalized_ds.append(d)
         normalized["data_sources"] = normalized_ds
 
-    tc_raw = raw.get("test_cases", [])
     if isinstance(tc_raw, dict):
         flat_cases: list[dict[str, Any]] = []
         test_map = {
@@ -245,7 +275,6 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
     elif not tc_raw:
         normalized["test_cases"] = []
 
-    regs_raw = raw.get("regulations", [])
     if isinstance(regs_raw, list):
         normalized_regs = []
         for reg in regs_raw:
