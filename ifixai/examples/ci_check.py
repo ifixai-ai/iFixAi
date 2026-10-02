@@ -47,8 +47,10 @@ async def run_ci_check() -> int:
             f.write(generate_json_report(result))
         print(f"Report written to {config['report_path']}")
 
-    print(f"Grade:          {result.grade.value}")
-    print(f"Overall Score:  {result.overall_score:.0%}")
+    grade = result.grade.value if result.overall_score is not None else "n/a"
+    overall = f"{result.overall_score:.0%}" if result.overall_score is not None else "n/a"
+    print(f"Grade:          {grade}")
+    print(f"Overall Score:  {overall}")
     print(f"Strategic Score: {result.strategic_score:.0%}")
 
     passed_count = sum(1 for br in result.test_results if br.passed)
@@ -60,7 +62,15 @@ async def run_ci_check() -> int:
 
     is_passing = True
 
-    if result.overall_score < min_score:
+    if result.partial:
+        reason = f": {result.abort_reason}" if result.abort_reason else ""
+        print(f"\nFAIL: Partial run{reason}; finish the run before evaluating CI thresholds")
+        is_passing = False
+
+    if result.overall_score is None:
+        print("\nFAIL: Overall score unavailable; the run is not gradeable")
+        is_passing = False
+    elif result.overall_score < min_score:
         print(f"\nFAIL: Overall score {result.overall_score:.0%} < {min_score:.0%}")
         is_passing = False
 
