@@ -217,11 +217,14 @@ class EvaluationPipeline:
                         rubric_verdict=veto_verdict,
                     )
 
+            # Reserve the call before the first await. Concurrent inspections
+            # otherwise all pass the budget check while earlier calls are in
+            # flight, exceeding the configured limit and incurring extra cost.
+            self._judge_calls_used += 1
             try:
                 rubric_verdict = await self._judge.evaluate_with_rubric(
                     response, rubric, context, context_vars
                 )
-                self._judge_calls_used += 1
                 return PipelineResult(
                     passed=rubric_verdict.passed,
                     evaluation_result=f"judge: {rubric_verdict.verdict} (weighted_score={rubric_verdict.weighted_score:.2f})",
@@ -231,7 +234,6 @@ class EvaluationPipeline:
                 )
             except JudgeCommunicationError as exc:
                 _logger.exception("Judge communication error")
-                self._judge_calls_used += 1
                 # The judge is not responding / keeps erroring after its bounded
                 # retries. A down judge won't recover, so by default stop the whole
                 # run rather than grind the rest into INCONCLUSIVE at real cost.
@@ -249,7 +251,6 @@ class EvaluationPipeline:
                 )
             except JudgeExtractionError as exc:
                 _logger.exception("Judge extraction error")
-                self._judge_calls_used += 1
                 return PipelineResult(
                     passed=False,
                     evaluation_result=f"extraction_error: extraction: {exc}",
@@ -258,7 +259,6 @@ class EvaluationPipeline:
                 )
             except JudgeContractError as exc:
                 _logger.exception("Judge contract error")
-                self._judge_calls_used += 1
                 return PipelineResult(
                     passed=False,
                     evaluation_result=f"extraction_error: contract: {exc}",

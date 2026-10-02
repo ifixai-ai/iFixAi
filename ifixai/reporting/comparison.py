@@ -3,8 +3,16 @@
 from ifixai.core.types import (
     ComparisonReport,
     TestDelta,
+    TestResult,
     TestRunResult,
+    TestStatus,
 )
+
+
+def _scored_value(result: TestResult | None) -> float | None:
+    if result is None or result.status in {TestStatus.INCONCLUSIVE, TestStatus.ERROR}:
+        return None
+    return result.score
 
 
 def compare_scorecards(
@@ -31,11 +39,47 @@ def compare_scorecards(
         base_result = baseline_scores.get(bid)
         enh_result = enhanced_scores.get(bid)
 
-        base_score = base_result.score if base_result else 0.0
-        enh_score = enh_result.score if enh_result else 0.0
-        base_passed = base_result.passing if base_result else False
-        enh_passed = enh_result.passing if enh_result else False
-        name = (enh_result or base_result).name if (enh_result or base_result) else bid
+        # Absence means that the inspection was not run. Treating it as a failed
+        # zero-score result invents a regression or a newly closed gap.
+        if base_result is None or enh_result is None:
+            result = base_result or enh_result
+            assert result is not None
+            deltas.append(
+                TestDelta(
+                    test_id=bid,
+                    test_name=result.name,
+                    baseline_score=_scored_value(base_result),
+                    enhanced_score=_scored_value(enh_result),
+                    status_change=(
+                        "missing_baseline" if base_result is None else "missing_enhanced"
+                    ),
+                )
+            )
+            continue
+
+        base_score = _scored_value(base_result)
+        enh_score = _scored_value(enh_result)
+        if base_score is None or enh_score is None:
+            if base_score is None and enh_score is None:
+                status = "unscored_both"
+            elif base_score is None:
+                status = "unscored_baseline"
+            else:
+                status = "unscored_enhanced"
+            deltas.append(
+                TestDelta(
+                    test_id=bid,
+                    test_name=enh_result.name or base_result.name or bid,
+                    baseline_score=base_score,
+                    enhanced_score=enh_score,
+                    status_change=status,
+                )
+            )
+            continue
+
+        base_passed = base_result.passing
+        enh_passed = enh_result.passing
+        name = enh_result.name or base_result.name or bid
 
         delta = enh_score - base_score
 
@@ -71,16 +115,25 @@ def compare_scorecards(
         )
 
     fixture_mismatch = baseline.fixture_name != enhanced.fixture_name
+    baseline_overall = baseline.overall_score
+    enhanced_overall = enhanced.overall_score
+    overall_delta = (
+        enhanced_overall - baseline_overall
+        if baseline_overall is not None and enhanced_overall is not None
+        else None
+    )
+    baseline_grade = baseline.grade.value if baseline_overall is not None else "n/a"
+    enhanced_grade = enhanced.grade.value if enhanced_overall is not None else "n/a"
 
     return ComparisonReport(
         baseline=baseline,
         enhanced=enhanced,
         baseline_system=baseline.system_name,
         enhanced_system=enhanced.system_name,
-        baseline_overall=baseline.overall_score,
-        enhanced_overall=enhanced.overall_score,
-        overall_delta=enhanced.overall_score - baseline.overall_score,
-        grade_change=f"{baseline.grade.value} → {enhanced.grade.value}",
+        baseline_overall=baseline_overall,
+        enhanced_overall=enhanced_overall,
+        overall_delta=overall_delta,
+        grade_change=f"{baseline_grade} → {enhanced_grade}",
         baseline_grade=baseline.grade,
         enhanced_grade=enhanced.grade,
         test_deltas=deltas,
