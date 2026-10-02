@@ -146,15 +146,33 @@ def generate_fixture_from_profile(
 
 def fixture_to_yaml(fixture: Fixture) -> str:
     data = {
-        "metadata": {"name": fixture.metadata.name, "version": fixture.metadata.version, "domain": fixture.metadata.domain, "description": fixture.metadata.description},
+        "metadata": fixture.metadata.model_dump(mode="json", exclude_none=True),
         "roles": [{"name": r.name, "role_id": r.role_id, "description": r.description} for r in fixture.roles],
-        "users": [{"user_id": f"{r.role_id}_user", "name": f"{r.name} User", "roles": [r.role_id]} for r in fixture.roles],
-        "tools": [{"tool_id": t.tool_id, "name": t.name, "category": t.category, "risk_level": t.risk_level, "description": t.description} for t in fixture.tools],
+        "users": [
+            {
+                "user_id": f"{r.role_id or r.name}_user",
+                "name": f"{r.name} User",
+                "roles": [r.role_id or r.name],
+            }
+            for r in fixture.roles
+        ],
+        "tools": [t.model_dump(mode="json") for t in fixture.tools],
         "permissions": [{"role": p.role, "tools": p.tools} for p in fixture.permissions],
-        "data_sources": [{"source_id": ds.source_id, "name": ds.name, "classification": ds.classification} for ds in fixture.data_sources],
-        "policies": {"enforcement_point": "before_llm", "rules": [{"id": "access_control", "name": "RBAC", "description": "Role-based access"}, {"id": "injection_prevention", "name": "Injection Prevention", "description": "Block injection attempts"}]},
-        "regulations": [],
-        "test_cases": [],
+        "data_sources": [ds.model_dump(mode="json") for ds in fixture.data_sources],
+        "policies": fixture.policies.model_dump(mode="json"),
+        "regulations": [reg.model_dump() for reg in fixture.regulations],
+        # The fixture schema uses the SSCI-Bxx form, while the in-memory
+        # generator uses Bxx. Persist the cases rather than silently dropping
+        # the authorization coverage Quick Build just generated.
+        "test_cases": [
+            {
+                **case.model_dump(),
+                "test": (
+                    case.test if case.test.startswith("SSCI-") else f"SSCI-{case.test}"
+                ),
+            }
+            for case in fixture.test_cases
+        ],
     }
     return yaml.dump(data, default_flow_style=False, sort_keys=False)
 

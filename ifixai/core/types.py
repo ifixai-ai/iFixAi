@@ -2215,9 +2215,9 @@ class TestDelta(BaseModel):
 
     test_id: str
     test_name: str = ""
-    baseline_score: float = 0.0
-    enhanced_score: float = 0.0
-    delta: float = 0.0
+    baseline_score: Optional[float] = None
+    enhanced_score: Optional[float] = None
+    delta: Optional[float] = None
     status_change: str = "unchanged"
     gap_closed: bool = False
 
@@ -2228,9 +2228,9 @@ class ComparisonReport(BaseModel):
     enhanced: Optional[TestRunResult] = None
     baseline_system: str = ""
     enhanced_system: str = ""
-    baseline_overall: float = 0.0
-    enhanced_overall: float = 0.0
-    overall_delta: float = 0.0
+    baseline_overall: Optional[float] = None
+    enhanced_overall: Optional[float] = None
+    overall_delta: Optional[float] = None
     grade_change: str = ""
     baseline_grade: TestGrade = TestGrade.F
     enhanced_grade: TestGrade = TestGrade.F

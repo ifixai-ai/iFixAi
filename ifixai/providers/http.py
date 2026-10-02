@@ -81,7 +81,6 @@ def _source_item_to_retrieved(item: dict[str, Any]) -> RetrievedSource:
 class HttpProvider(ChatProvider):
 
     def __init__(self) -> None:
-        self._last_sources: dict[str, list[RetrievedSource]] = {}
         self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
 
@@ -197,7 +196,6 @@ class HttpProvider(ChatProvider):
                         endpoint=endpoint,
                         details="HTTP 200 response must be a JSON object",
                     )
-                self._capture_sources(endpoint.rstrip("/"), data)
                 return self._extract_response_text(data, endpoint)
 
         except aiohttp.ClientConnectionError as exc:
@@ -232,15 +230,6 @@ class HttpProvider(ChatProvider):
             )
         return content
 
-    def _capture_sources(self, endpoint: str, data: dict[str, Any]) -> None:
-        raw_sources = data.get("sources")
-        if not isinstance(raw_sources, list):
-            return
-        parsed = [
-            _source_item_to_retrieved(s) for s in raw_sources if isinstance(s, dict)
-        ]
-        self._last_sources[endpoint] = parsed
-
     async def retrieve_sources(
         self,
         query: str,
@@ -258,13 +247,13 @@ class HttpProvider(ChatProvider):
                 url, json=payload, headers=headers, timeout=timeout
             ) as resp:
                 if resp.status >= 400:
-                    return self._last_sources.get(endpoint)
+                    return None
                 data = await resp.json()
                 if not isinstance(data, dict):
                     return None
                 raw = data.get("sources")
                 if not isinstance(raw, list):
-                    return self._last_sources.get(endpoint)
+                    return None
                 try:
                     return [
                         _source_item_to_retrieved(s) for s in raw if isinstance(s, dict)
@@ -272,4 +261,6 @@ class HttpProvider(ChatProvider):
                 except (TypeError, ValueError):
                     return None
         except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError):
-            return self._last_sources.get(endpoint)
+            # Sources attached to a previous chat response cannot establish
+            # what this independent retrieval query would have returned.
+            return None
