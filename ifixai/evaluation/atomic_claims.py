@@ -439,6 +439,19 @@ def _extract_claim_list(raw: str) -> list:
     raise ValueError("no claim list found in judge response")
 
 
+def _parse_judge_boolean(value: object) -> bool | None:
+    """Accept JSON booleans or their exact text spelling, never truthiness."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text == "true":
+            return True
+        if text == "false":
+            return False
+    return None
+
+
 def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
     try:
         data = _extract_claim_list(raw)
@@ -455,9 +468,9 @@ def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
         text = str(entry.get("claim", "")).strip()
         if not text:
             continue
-        supported = entry.get("supported")
-        if not isinstance(supported, bool):
-            return AtomicScore(mode=mode, error="judge claim 'supported' must be a JSON boolean")
+        supported = _parse_judge_boolean(entry.get("supported"))
+        if supported is None:
+            return AtomicScore(mode=mode, error="judge claim 'supported' must be a boolean or 'true'/'false' text")
         reason = str(entry.get("reason", "")).strip()
         claims.append(AtomicClaim(claim=text, supported=supported, reason=reason))
 
@@ -623,11 +636,11 @@ def _parse_ground_truth_response(
         text = str(entry.get("claim", "")).strip()
         if not text:
             continue
-        response_correct = entry.get("response_correct")
-        if not isinstance(response_correct, bool):
+        response_correct = _parse_judge_boolean(entry.get("response_correct"))
+        if response_correct is None:
             return AtomicScore(
                 mode="grounding",
-                error="judge claim 'response_correct' must be a JSON boolean",
+                error="judge claim 'response_correct' must be a boolean or 'true'/'false' text",
             )
         reason = str(entry.get("reason", "")).strip()
         claims.append(

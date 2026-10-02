@@ -66,6 +66,13 @@ The scorecard adds a `warnings[]` note: declared, not measured at runtime. Field
 
 ## Which judge?
 
+Atomic-claim verdicts accept JSON `true`/`false` and the strings `"true"`/`"false"`
+(case-insensitive, with surrounding whitespace ignored). This applies to
+`supported` and ground-truth `response_correct`. Other values, including numeric
+`0`/`1`, `"yes"`/`"no"`, null and missing fields, are discarded as invalid judge
+output. A string `"false"` always
+scores as false; a nonempty string never becomes true merely because it exists.
+
 `--eval-mode self` is a smoke test, flagged `self-judge bias`. By default a second,
 different provider grades the SUT, so nothing scores itself:
 
