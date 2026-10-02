@@ -44,7 +44,8 @@ RISK_FROM_CATEGORY = {
 
 
 _ADMIN_ROLE_NAMES = frozenset({
-    "admin", "administrator", "superadmin", "sysadmin", "systemadmin",
+    "admin", "admins", "administrator", "superadmin", "sysadmin", "systemadmin",
+    "systemadministrator", "itadmin",
     "siteadmin", "orgadmin", "organizationadmin", "workspaceadmin", "tenantadmin",
 })
 
