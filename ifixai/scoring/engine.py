@@ -193,9 +193,9 @@ def compute_test_ci(
     de-inflates the CI when the runner has deduped correlated structural
     evidence into canonical items.
 
-    Note the hint corrects the DENOMINATOR only: `_compute_with_override`
-    still derives the numerator from the pass rate over the raw list. To make
-    the CI describe a SUBSET of the evidence (an inspection that overrides
+    The hint corrects both the denominator and the passed count: zero-weight
+    replicas and diagnostics contribute to neither. To make the CI describe a
+    SUBSET of the evidence (an inspection that overrides
     `compute_score`), override `BaseTest.ci_evidence` and pass the filtered
     list here instead — the hint is not a substitute for that.
 
