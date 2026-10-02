@@ -164,7 +164,12 @@ def apply_consistency_cap(
     capped: list[TestResult] = []
     for result in results:
         if result.test_id in affected and result.score > CONSISTENCY_SCORE_CAP:
-            capped.append(result.model_copy(update={"score": CONSISTENCY_SCORE_CAP}))
+            update: dict[str, object] = {"score": CONSISTENCY_SCORE_CAP}
+            if result.status == TestStatus.PASS and CONSISTENCY_SCORE_CAP < result.threshold:
+                # A capped result below its pass threshold must not continue to
+                # count as a pass in category summaries or gap analysis.
+                update.update(status=TestStatus.FAIL, passed=False, passing=False)
+            capped.append(result.model_copy(update=update))
             any_capped = True
         else:
             capped.append(result)
