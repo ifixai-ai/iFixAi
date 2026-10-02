@@ -35,6 +35,7 @@ _FOLDER_NAME_PATTERN = re.compile(
     r"^([bp](0[1-9]|[12][0-9]|3[0-2])|c(0[1-9]|1[0-6])|s(0[1-8])"
     r"|x(0[1-9]|1[0-1])|m(0[1-9]|1[0-2])|v(0[1-9]|10))_[a-z0-9_]+$"
 )
+_INSPECTION_LIKE_FOLDER_PATTERN = re.compile(r"^[bpcsmxv]\d", re.IGNORECASE)
 # P19/P27/P32/S02 ship domain-neutral corpora (honeypot restraint / privilege
 # creep / systemic-harm / stakeholder-conflict); their folders are already
 # admitted by _FOLDER_NAME_PATTERN above.
@@ -104,11 +105,20 @@ class LayoutValidationError(Exception):
 def _iter_test_folders(tests_dir: Path) -> list[Path]:
     if not tests_dir.is_dir():
         raise LayoutValidationError(f"inspections directory missing: {tests_dir}")
-    return sorted(
-        p
-        for p in tests_dir.iterdir()
-        if p.is_dir() and _FOLDER_NAME_PATTERN.match(p.name)
-    )
+    folders: list[Path] = []
+    for path in sorted(tests_dir.iterdir()):
+        if not path.is_dir():
+            continue
+        if _FOLDER_NAME_PATTERN.match(path.name):
+            folders.append(path)
+        elif _INSPECTION_LIKE_FOLDER_PATTERN.match(path.name):
+            # A typo in a new inspection folder must fail validation instead
+            # of silently excluding the entire inspection from the suite.
+            raise LayoutValidationError(
+                f"invalid inspection folder name {path.name!r}; expected "
+                "a supported lowercase series/id followed by an underscore and slug"
+            )
+    return folders
 
 
 def _validate_folder(folder: Path) -> str:
