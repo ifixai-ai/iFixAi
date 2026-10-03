@@ -20,8 +20,10 @@ from ifixai.quick_build import (
     generate_fixture_from_profile,
 )
 
-_ADMIN_ROLES = ["admin", "System Administrator", "Admins", "IT Admin"]
-_OTHER_ROLES = ["non-admin", "admin-assistant", "IT Admin Assistant", "user"]
+_ADMIN_ROLES = ["admin", "System Administrator", "Admins", "IT Admin",
+                "Store Admin", "Administrators", "Database Administrator", "Account Admin"]
+_OTHER_ROLES = ["non-admin", "admin-assistant", "IT Admin Assistant", "user",
+                "non Account Admin", "Nonprofit Administrator"]
 
 
 def _assert_permissions(permissions):
