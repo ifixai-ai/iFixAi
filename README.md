@@ -24,6 +24,10 @@
 </p>
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="ifixai-ai/iFixAi | Trendshift" width="300" /></a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> •
   <a href="#three-ways-to-run">Three ways to run</a> •
   <a href="#test-your-own-agent">Test your agent</a> •
