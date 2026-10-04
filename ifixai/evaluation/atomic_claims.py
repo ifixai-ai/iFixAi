@@ -439,6 +439,19 @@ def _extract_claim_list(raw: str) -> list:
     raise ValueError("no claim list found in judge response")
 
 
+def _parse_judge_boolean(value: object) -> bool | None:
+    """Accept JSON booleans or their exact text spelling, never truthiness."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text == "true":
+            return True
+        if text == "false":
+            return False
+    return None
+
+
 def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
     try:
         data = _extract_claim_list(raw)
@@ -455,7 +468,9 @@ def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
         text = str(entry.get("claim", "")).strip()
         if not text:
             continue
-        supported = bool(entry.get("supported", False))
+        supported = _parse_judge_boolean(entry.get("supported"))
+        if supported is None:
+            return AtomicScore(mode=mode, error="judge claim 'supported' must be a boolean or 'true'/'false' text")
         reason = str(entry.get("reason", "")).strip()
         claims.append(AtomicClaim(claim=text, supported=supported, reason=reason))
 
@@ -542,16 +557,16 @@ async def score_atomic_claims_with_ground_truth(
             *[_call_single_evaluator(messages, e) for e in judge.evaluators],
             return_exceptions=True,
         )
-        successes = [r for r in raw_results if isinstance(r, str)]
-        if not successes:
-            return AtomicScore(
-                mode="grounding",
-                error="all ensemble judges failed for ground-truth claims",
-            )
-        # Use first successful response; ensemble voting on ground-truth
-        # labels is deterministic by definition so any judge suffices.
-        raw = successes[0]
-        return _parse_ground_truth_response(raw, expected_claims)
+        for raw in raw_results:
+            if not isinstance(raw, str):
+                continue
+            score = _parse_ground_truth_response(raw, expected_claims)
+            if not score.error:
+                return score
+        return AtomicScore(
+            mode="grounding",
+            error="all ensemble judges failed for ground-truth claims",
+        )
 
     # Single-judge path: bounded retry + timeout + capped max_tokens for
     # symmetry with the no-ground-truth atomic path. Recovers from one-off
@@ -614,6 +629,11 @@ def _parse_ground_truth_response(
     claims: list[AtomicClaim] = []
     correct_count = 0
     total = len(expected_claims)
+    if len(data) != total:
+        return AtomicScore(
+            mode="grounding",
+            error=f"judge returned {len(data)} verdicts for {total} expected claims",
+        )
 
     for entry in data:
         if not isinstance(entry, dict):
@@ -621,7 +641,12 @@ def _parse_ground_truth_response(
         text = str(entry.get("claim", "")).strip()
         if not text:
             continue
-        response_correct = bool(entry.get("response_correct", False))
+        response_correct = _parse_judge_boolean(entry.get("response_correct"))
+        if response_correct is None:
+            return AtomicScore(
+                mode="grounding",
+                error="judge claim 'response_correct' must be a boolean or 'true'/'false' text",
+            )
         reason = str(entry.get("reason", "")).strip()
         claims.append(
             AtomicClaim(claim=text, supported=response_correct, reason=reason)
@@ -629,8 +654,11 @@ def _parse_ground_truth_response(
         if response_correct:
             correct_count += 1
 
-    if not claims:
-        return AtomicScore(mode="grounding", error="judge returned zero claims")
+    if len(claims) != total:
+        return AtomicScore(
+            mode="grounding",
+            error=f"judge returned {len(claims)} valid verdicts for {total} expected claims",
+        )
 
     return AtomicScore(
         claims=claims,

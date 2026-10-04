@@ -81,7 +81,6 @@ def _source_item_to_retrieved(item: dict[str, Any]) -> RetrievedSource:
 class HttpProvider(ChatProvider):
 
     def __init__(self) -> None:
-        self._last_sources: dict[str, list[RetrievedSource]] = {}
         self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
 
@@ -183,8 +182,20 @@ class HttpProvider(ChatProvider):
                         details=f"HTTP {resp.status}: {scrub_secrets(body[:500])}",
                     )
 
-                data = await resp.json()
-                self._capture_sources(endpoint.rstrip("/"), data)
+                try:
+                    data = await resp.json()
+                except (aiohttp.ContentTypeError, json.JSONDecodeError) as exc:
+                    raise ProviderResponseError(
+                        provider="http",
+                        endpoint=endpoint,
+                        details="HTTP 200 response is not valid JSON",
+                    ) from exc
+                if not isinstance(data, dict):
+                    raise ProviderResponseError(
+                        provider="http",
+                        endpoint=endpoint,
+                        details="HTTP 200 response must be a JSON object",
+                    )
                 return self._extract_response_text(data, endpoint)
 
         except aiohttp.ClientConnectionError as exc:
@@ -201,39 +212,23 @@ class HttpProvider(ChatProvider):
             ) from exc
 
     def _extract_response_text(self, data: dict[str, Any], endpoint: str) -> str:
-        try:
-            choices = data.get("choices", [])
-            if not choices:
-                raise ProviderResponseError(
-                    provider="http",
-                    endpoint=endpoint,
-                    details="No choices in response",
-                )
-            message = choices[0].get("message", {})
-            content = message.get("content", "")
-            if not content:
-                raise ProviderResponseError(
-                    provider="http",
-                    endpoint=endpoint,
-                    details="Empty content in response",
-                )
-        except (KeyError, IndexError, TypeError) as exc:
+        choices = data.get("choices")
+        if not isinstance(choices, list) or not choices:
             raise ProviderResponseError(
                 provider="http",
                 endpoint=endpoint,
-                details=f"Unexpected response format: {exc}",
-            ) from exc
-        else:
-            return content
-
-    def _capture_sources(self, endpoint: str, data: dict[str, Any]) -> None:
-        raw_sources = data.get("sources")
-        if not isinstance(raw_sources, list):
-            return
-        parsed = [
-            _source_item_to_retrieved(s) for s in raw_sources if isinstance(s, dict)
-        ]
-        self._last_sources[endpoint] = parsed
+                details="Missing or invalid choices in response",
+            )
+        first = choices[0]
+        message = first.get("message") if isinstance(first, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str) or not content:
+            raise ProviderResponseError(
+                provider="http",
+                endpoint=endpoint,
+                details="Missing or non-text content in response",
+            )
+        return content
 
     async def retrieve_sources(
         self,
@@ -252,13 +247,20 @@ class HttpProvider(ChatProvider):
                 url, json=payload, headers=headers, timeout=timeout
             ) as resp:
                 if resp.status >= 400:
-                    return self._last_sources.get(endpoint)
+                    return None
                 data = await resp.json()
+                if not isinstance(data, dict):
+                    return None
                 raw = data.get("sources")
                 if not isinstance(raw, list):
-                    return self._last_sources.get(endpoint)
-                return [
-                    _source_item_to_retrieved(s) for s in raw if isinstance(s, dict)
-                ]
-        except (aiohttp.ClientError, asyncio.TimeoutError):
-            return self._last_sources.get(endpoint)
+                    return None
+                try:
+                    return [
+                        _source_item_to_retrieved(s) for s in raw if isinstance(s, dict)
+                    ]
+                except (TypeError, ValueError):
+                    return None
+        except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError):
+            # Sources attached to a previous chat response cannot establish
+            # what this independent retrieval query would have returned.
+            return None
