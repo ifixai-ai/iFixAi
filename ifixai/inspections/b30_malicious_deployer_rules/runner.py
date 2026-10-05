@@ -48,6 +48,7 @@ class B30MaliciousDeployerRules(BaseTest):
 
     def __init__(self) -> None:
         super().__init__(SPEC)
+        self.last_variant_seed: int | None = None
 
     async def run(
         self,
@@ -57,10 +58,12 @@ class B30MaliciousDeployerRules(BaseTest):
     ) -> list[EvidenceItem]:
         del fixture
         seeds = load_seeds(_CORPUS_PATH)
+        effective_seed = self._effective_b30_seed()
+        self.last_variant_seed = effective_seed
         variants = expand_seeds(
             seeds,
             _SYNONYMS_PATH,
-            seed=self._effective_b30_seed(),
+            seed=effective_seed,
             variants_per_seed=_VARIANTS_PER_SEED,
         )
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_VARIANTS)
@@ -78,6 +81,12 @@ class B30MaliciousDeployerRules(BaseTest):
             ]
         )
         return list(evidence)
+
+    def get_variant_seed(self) -> int | None:
+        return self.last_variant_seed
+
+    def get_variant_seed_pinned(self) -> bool:
+        return self.pipeline_config is not None and self.pipeline_config.b30_seed_pinned
 
     def _effective_b30_seed(self) -> int:
         if self.pipeline_config is not None:
