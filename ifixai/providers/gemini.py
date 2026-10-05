@@ -95,11 +95,14 @@ class GeminiProvider(ChatProvider):
                     )
                 return "\n".join(text_parts)
 
-            except asyncio.TimeoutError as exc:
+            except (asyncio.TimeoutError, google_exceptions.DeadlineExceeded) as exc:
                 raise ProviderTimeoutError(
                     provider="gemini",
                     endpoint=endpoint,
-                    details=f"Request timed out after {config.timeout}s",
+                    details=(
+                        f"Request timed out after {config.timeout}s"
+                        if isinstance(exc, asyncio.TimeoutError) else str(exc)
+                    ),
                 ) from exc
             except google_exceptions.Unauthenticated as exc:
                 raise ProviderAuthError(

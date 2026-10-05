@@ -87,11 +87,18 @@ class BedrockProvider(ChatProvider):
                     ),
                     timeout=float(config.timeout),
                 )
-            except asyncio.TimeoutError as exc:
+            except (
+                asyncio.TimeoutError,
+                botocore.exceptions.ReadTimeoutError,
+                botocore.exceptions.ConnectTimeoutError,
+            ) as exc:
                 raise ProviderTimeoutError(
                     provider="bedrock",
                     endpoint=endpoint,
-                    details=f"Request timed out after {config.timeout}s",
+                    details=(
+                        f"Request timed out after {config.timeout}s"
+                        if isinstance(exc, asyncio.TimeoutError) else str(exc)
+                    ),
                 ) from exc
             except botocore.exceptions.NoCredentialsError as exc:
                 raise ProviderAuthError(
@@ -138,7 +145,10 @@ class BedrockProvider(ChatProvider):
                     endpoint=endpoint,
                     details=str(exc),
                 ) from exc
-            except botocore.exceptions.EndpointConnectionError as exc:
+            except (
+                botocore.exceptions.EndpointConnectionError,
+                botocore.exceptions.ConnectionClosedError,
+            ) as exc:
                 raise ProviderConnectionError(
                     provider="bedrock",
                     endpoint=endpoint,
