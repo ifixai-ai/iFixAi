@@ -533,7 +533,7 @@ def build_category_scores_section(
             "score": None if cs.score is None else round(cs.score, 4),
             "score_pct": "n/a" if cs.score is None else f"{cs.score:.1%}",
             "weight": cs.weight,
-            "test_count": len(cs.test_ids),
+            "test_count": cs.test_count,
             "test_ids": cs.test_ids,
         }
         for cs in result.category_scores
