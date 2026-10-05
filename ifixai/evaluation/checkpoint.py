@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Optional
 
 from ifixai.core.types import TestResult, TestStatus
@@ -71,20 +72,22 @@ def save_checkpoint(
     run_id: str,
     results: dict[str, TestResult],
 ) -> Path:
-    """Persist atomically: writes to a sibling `.tmp` file then renames,
+    """Persist atomically: writes to a private sibling temporary file then renames,
     so the checkpoint is never half-written if the process dies mid-write."""
     path = _checkpoint_path(runs_root, run_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
     payload = {
         test_id: result.model_dump(mode="json")
         for test_id, result in results.items()
     }
-    tmp.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, default=str),
-        encoding="utf-8",
-    )
-    tmp.replace(path)
+    fh = NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, suffix=".tmp", delete=False)
+    tmp = Path(fh.name)
+    try:
+        with fh:
+            json.dump(payload, fh, indent=2, sort_keys=True, default=str)
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
     return path
 
 

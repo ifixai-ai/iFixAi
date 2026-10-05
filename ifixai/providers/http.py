@@ -14,6 +14,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.secrets import scrub_secrets
 
@@ -79,7 +80,6 @@ def _source_item_to_retrieved(item: dict[str, Any]) -> RetrievedSource:
 
 
 class HttpProvider(ChatProvider):
-
     def __init__(self) -> None:
         self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
@@ -196,7 +196,9 @@ class HttpProvider(ChatProvider):
                         endpoint=endpoint,
                         details="HTTP 200 response must be a JSON object",
                     )
-                return self._extract_response_text(data, endpoint)
+                return self._extract_response_text(
+                    data, endpoint, config.reject_truncated
+                )
 
         except aiohttp.ClientConnectionError as exc:
             raise ProviderConnectionError(
@@ -211,7 +213,9 @@ class HttpProvider(ChatProvider):
                 details=f"Request timed out after {config.timeout}s",
             ) from exc
 
-    def _extract_response_text(self, data: dict[str, Any], endpoint: str) -> str:
+    def _extract_response_text(
+        self, data: dict[str, Any], endpoint: str, reject_truncated: bool = False
+    ) -> str:
         choices = data.get("choices")
         if not isinstance(choices, list) or not choices:
             raise ProviderResponseError(
@@ -222,6 +226,15 @@ class HttpProvider(ChatProvider):
         first = choices[0]
         message = first.get("message") if isinstance(first, dict) else None
         content = message.get("content") if isinstance(message, dict) else None
+        if reject_truncated and isinstance(first, dict):
+            finish_reason = first.get("finish_reason")
+            if isinstance(finish_reason, str):
+                raise_if_truncated(
+                    "http",
+                    endpoint,
+                    finish_reason,
+                    content if isinstance(content, str) else "",
+                )
         if not isinstance(content, str) or not content:
             raise ProviderResponseError(
                 provider="http",
