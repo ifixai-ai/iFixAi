@@ -1085,7 +1085,7 @@ class AnalyticRubricJudge:
                 await asyncio.sleep(_BACKOFF_BASE * (2 ** (failures_so_far - 1)))
             try:
                 raw_response = await asyncio.wait_for(
-                    self._judge._provider.send_message(messages, judge_config),
+                    self._judge.send_message(messages, judge_config),
                     timeout=_JUDGE_TIMEOUT,
                 )
             except Exception as exc:
