@@ -101,6 +101,11 @@ class ConcurrencyGovernor:
         async with self._throttle_cond:
             await self._throttle_cond.wait_for(lambda: not self._throttled)
         async with self._semaphore:
+            # This call may have queued before a 429 started the cooldown.
+            # Recheck after admission so releasing an in-flight permit cannot
+            # silently bypass the shared throttle.
+            async with self._throttle_cond:
+                await self._throttle_cond.wait_for(lambda: not self._throttled)
             yield
 
     async def reserve_judge_call(self) -> None:
