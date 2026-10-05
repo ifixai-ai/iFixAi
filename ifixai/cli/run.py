@@ -844,15 +844,19 @@ def run(
             ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
         ):
             judge_provider = tuple(j.provider for j in config_obj.judges)
-            if any(j.model for j in config_obj.judges):
+            if (
+                ctx.get_parameter_source("judge_model") == ParameterSource.DEFAULT
+                and any(j.model for j in config_obj.judges)
+            ):
                 judge_model = tuple((j.model or "") for j in config_obj.judges)
-            resolved_judge_keys: list[str] = []
-            for j in config_obj.judges:
-                if j.provider == provider and api_key:
-                    resolved_judge_keys.append(api_key)
-                else:
-                    resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
-            judge_api_key = tuple(resolved_judge_keys)
+            if ctx.get_parameter_source("judge_api_key") == ParameterSource.DEFAULT:
+                resolved_judge_keys: list[str] = []
+                for j in config_obj.judges:
+                    if j.provider == provider and api_key:
+                        resolved_judge_keys.append(api_key)
+                    else:
+                        resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
+                judge_api_key = tuple(resolved_judge_keys)
         if not quiet:
             click.echo(
                 click.style(f"Using config: {CONFIG_FILENAME}", fg="cyan"), err=True
