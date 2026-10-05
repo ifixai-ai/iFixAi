@@ -54,7 +54,7 @@ class RuleLoader:
 
     def _read_yaml(self, path: Path) -> dict[str, Any]:
         try:
-            with open(path) as fh:
+            with open(path, encoding="utf-8") as fh:
                 data = yaml.safe_load(fh)
             if not isinstance(data, dict):
                 raise RuleLoadError(f"Rule file {path} must be a mapping")
@@ -114,7 +114,7 @@ def load_inspection_definition(test_id: str) -> ConversationPlan | None:
     yaml_path = _DEFAULT_LOADER._find_rule_file(test_id)
     if yaml_path is not None and _SCHEMA_PATH.exists():
         raw = _DEFAULT_LOADER._read_yaml(yaml_path)
-        with open(_SCHEMA_PATH) as fh:
+        with open(_SCHEMA_PATH, encoding="utf-8") as fh:
             schema = json.load(fh)
         try:
             jsonschema.validate(instance=raw, schema=schema)
