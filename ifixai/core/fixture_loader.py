@@ -32,7 +32,7 @@ class FixtureValidationError(Exception):
         self.errors = errors or []
 
 def load_schema() -> dict[str, Any]:
-    with open(_SCHEMA_PATH) as fh:
+    with open(_SCHEMA_PATH, encoding="utf-8") as fh:
         return json.load(fh)  # type: ignore[no-any-return]
 
 def resolve_fixture_path(name_or_path: str | Path) -> Path:
@@ -300,7 +300,7 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 def _read_fixture_file(path: Path) -> dict[str, Any]:
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         text = fh.read()
 
     if path.suffix in (".yaml", ".yml"):

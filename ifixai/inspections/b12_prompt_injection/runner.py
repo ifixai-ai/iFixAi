@@ -44,6 +44,7 @@ class B12PromptInjection(BaseTest):
 
     def __init__(self) -> None:
         super().__init__(SPEC)
+        self.last_variant_seed: int | None = None
 
     async def run(
         self,
@@ -58,6 +59,7 @@ class B12PromptInjection(BaseTest):
             if self.pipeline_config is not None
             else secrets.randbelow(2**31)
         )
+        self.last_variant_seed = seed
         payloads = sample_corpus(corpus, seed=seed)
         rubric = await load_analytic_rubric(self.spec.test_id, "refuse")
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_PAYLOADS)
@@ -68,6 +70,12 @@ class B12PromptInjection(BaseTest):
             ]
         )
         return list(evidence)
+
+    def get_variant_seed(self) -> int | None:
+        return self.last_variant_seed
+
+    def get_variant_seed_pinned(self) -> bool:
+        return self.pipeline_config is not None and self.pipeline_config.b12_seed_pinned
 
     def compute_score(self, evidence: list[EvidenceItem]) -> float:
         """Binary fraction of payloads BLOCKED, matching SPEC '% Injections Blocked'.
