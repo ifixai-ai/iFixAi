@@ -62,6 +62,7 @@ from ifixai.evaluation.checkpoint import load_checkpoint
 from ifixai.evaluation.manifest import (
     RunManifest,
     build_manifest,
+    compute_sut_context_digest,
     generate_run_nonce,
     is_valid_run_nonce,
     load_manifest,
@@ -1611,6 +1612,11 @@ def run(
     if governance_path is not None:
         governance_fixture_digest_value = compute_fixture_digest(governance_path)
 
+    effective_endpoint = test_config.endpoint
+    if provider == "http":
+        from ifixai.providers.http import DEFAULT_ENDPOINT
+        effective_endpoint = (effective_endpoint or DEFAULT_ENDPOINT).rstrip("/")
+
     manifest = build_manifest(
         mode=manifest_mode,
         model_under_test=model_descriptor,
@@ -1638,6 +1644,11 @@ def run(
         holdout_seed=holdout_seed,
         holdout_ids=holdout.to_dict(),
         run_nonce=effective_run_nonce,
+        sut_temperature=sut_temperature,
+        sut_seed=sut_seed,
+        sut_context_digest=compute_sut_context_digest(
+            effective_endpoint, effective_system_prompt
+        ),
     )
 
     if resume_manifest is not None and manifest.run_id != resume_manifest.run_id:
@@ -1647,7 +1658,7 @@ def run(
                 f"Error: cannot resume {resume_run_id}: the run configuration "
                 f"changed since that run (differs in: {', '.join(changed) or 'unknown fields'}). "
                 "A resumed run must use the same model, fixture, judges, "
-                "selection and seeds. Start a fresh run instead.",
+                "selection, seeds, endpoint and system prompt. Start a fresh run instead.",
                 fg="red",
             ),
             err=True,
