@@ -578,6 +578,12 @@ def build_test_results_section(
                 "inspection_method": ev.inspection_method.value,
                 "evaluation_method": ev.evaluation_method.value,
             }
+            # Keep the provenance used by runners to distinguish diagnostics
+            # and unscorable probes from behavioral failures. Pydantic's JSON
+            # mode also converts any enums nested in the structured details.
+            ev_dict.update(ev.model_dump(
+                mode="json", include={"details", "extraction_error", "is_diagnostic"}
+            ))
             if ev.dimension_scores:
                 ev_dict["dimension_scores"] = [
                     {
@@ -630,6 +636,11 @@ def build_test_results_section(
                 "sample_size": br.confidence_interval.sample_size,
                 "warning": br.confidence_interval.warning,
             }
+        if br.score_breakdown is not None:
+            br_dict["score_breakdown"] = br.score_breakdown
+        if br.variant_seed is not None:
+            br_dict["variant_seed"] = br.variant_seed
+            br_dict["variant_seed_pinned"] = br.variant_seed_pinned
         if br.evaluation_mode:
             br_dict["evaluation_mode"] = br.evaluation_mode.value
         if br.judge_calls_used:
