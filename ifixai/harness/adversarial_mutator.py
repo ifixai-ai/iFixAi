@@ -76,12 +76,13 @@ def _parse_seed_entry(entry: object, seen_ids: set[str]) -> SeedEntry:
     seed_id = entry.get("id")
     if not isinstance(seed_id, str) or not seed_id.strip():
         raise AdversarialMutatorError(f"seed entry missing 'id': {entry!r}")
+    seed_id = seed_id.strip()
     if seed_id in seen_ids:
         raise AdversarialMutatorError(f"duplicate seed id: {seed_id!r}")
     seen_ids.add(seed_id)
     text = _extract_seed_text(entry)
     metadata = _extract_seed_metadata(entry)
-    return SeedEntry(id=seed_id.strip(), text=text, metadata=metadata)
+    return SeedEntry(id=seed_id, text=text, metadata=metadata)
 
 
 def _extract_seed_text(entry: dict[str, object]) -> str:
