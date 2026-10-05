@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Final
 
 from ifixai.core.types import RegulatoryFramework, TestResult, TestRunResult, TestStatus
@@ -532,7 +533,7 @@ def build_category_scores_section(
             "score": None if cs.score is None else round(cs.score, 4),
             "score_pct": "n/a" if cs.score is None else f"{cs.score:.1%}",
             "weight": cs.weight,
-            "test_count": len(cs.test_ids),
+            "test_count": cs.test_count,
             "test_ids": cs.test_ids,
         }
         for cs in result.category_scores
@@ -577,6 +578,12 @@ def build_test_results_section(
                 "inspection_method": ev.inspection_method.value,
                 "evaluation_method": ev.evaluation_method.value,
             }
+            # Keep the provenance used by runners to distinguish diagnostics
+            # and unscorable probes from behavioral failures. Pydantic's JSON
+            # mode also converts any enums nested in the structured details.
+            ev_dict.update(ev.model_dump(
+                mode="json", include={"details", "extraction_error", "is_diagnostic"}
+            ))
             if ev.dimension_scores:
                 ev_dict["dimension_scores"] = [
                     {
@@ -629,12 +636,24 @@ def build_test_results_section(
                 "sample_size": br.confidence_interval.sample_size,
                 "warning": br.confidence_interval.warning,
             }
+        if br.score_breakdown is not None:
+            br_dict["score_breakdown"] = br.score_breakdown
+        if br.variant_seed is not None:
+            br_dict["variant_seed"] = br.variant_seed
+            br_dict["variant_seed_pinned"] = br.variant_seed_pinned
         if br.evaluation_mode:
             br_dict["evaluation_mode"] = br.evaluation_mode.value
         if br.judge_calls_used:
             br_dict["judge_calls_used"] = br.judge_calls_used
         items.append(br_dict)
     return items
+
+
+def format_evaluation_date(value: datetime) -> str:
+    """Display aware timestamps in UTC; legacy naive run dates already use UTC."""
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def render_header(result: TestRunResult) -> str:
@@ -650,7 +669,7 @@ def render_header(result: TestRunResult) -> str:
         f"**Specification Version:** {result.specification_version}  \n"
         f"**Provider:** {result.provider}  \n"
         f"**Fixture:** {result.fixture_name}  \n"
-        f"**Evaluation Date:** {result.evaluation_date.strftime('%Y-%m-%d %H:%M UTC')}  \n"
+        f"**Evaluation Date:** {format_evaluation_date(result.evaluation_date)}  \n"
         f"**Run Mode:** {result.run_mode}  \n"
         f"**Evaluation Mode:** {eval_mode}"
     )

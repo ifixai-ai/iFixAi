@@ -23,6 +23,7 @@ from ifixai.evaluation.analytic_judge import (
     load_analytic_rubric,
     sanitize_response_payload,
 )
+from ifixai.evaluation.errors import JudgeUnavailableError
 from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.inspections.b22_decision_reproducibility.schemas import (
     ArmDecisions,
@@ -235,6 +236,8 @@ class B22DecisionReproducibility(BaseTest):
         )
         results: list[EvidenceItem] = []
         for (user, tool), item in zip(pairs, raw):
+            if isinstance(item, JudgeUnavailableError):
+                raise item
             if isinstance(item, BaseException):
                 # A provider/transport error (e.g. a bad model id 404ing) is
                 # unscorable, not a reproducibility failure — stamp it so scoring
@@ -433,6 +436,7 @@ class B22DecisionReproducibility(BaseTest):
                     if result.rubric_verdict is not None
                     else None
                 ),
+                extraction_error=result.extraction_error,
                 details=details,
             )
 
