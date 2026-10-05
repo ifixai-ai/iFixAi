@@ -30,6 +30,7 @@ class JudgeEvaluator:
             model=config.model,
             endpoint=config.endpoint,
             timeout=config.timeout,
+            temperature=config.temperature,
         )
         self._call_count = 0
         self._cap_reached = False

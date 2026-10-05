@@ -125,14 +125,14 @@ class OpenAIProvider(ChatProvider):
                 endpoint=endpoint,
                 details=str(exc),
             ) from exc
-        except openai.APIConnectionError as exc:
-            raise ProviderConnectionError(
+        except openai.APITimeoutError as exc:
+            raise ProviderTimeoutError(
                 provider="openai",
                 endpoint=endpoint,
                 details=str(exc),
             ) from exc
-        except openai.APITimeoutError as exc:
-            raise ProviderTimeoutError(
+        except openai.APIConnectionError as exc:
+            raise ProviderConnectionError(
                 provider="openai",
                 endpoint=endpoint,
                 details=str(exc),
