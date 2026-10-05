@@ -1058,6 +1058,12 @@ def run(
 
     # provider is guaranteed non-None here (the interactive block above sets it when
     # it was not passed as a flag), so the env lookup always has a real provider.
+    if api_key is None and (
+        provider.lower() == "mock"
+        or (provider.lower() == "http" and auth_method.lower() == "none")
+    ):
+        # Offline mock and explicitly unauthenticated agents need no secret.
+        api_key = ""
     if api_key is None:
         api_key = _lookup_env_api_key(provider)
     if api_key is None:
