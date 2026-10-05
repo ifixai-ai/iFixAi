@@ -209,13 +209,14 @@ def _resolve_concurrency(flag_value: int | None, no_parallel: bool) -> int:
 
 
 def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
-    """Return cfg_value when the flag was left at its default, else current."""
+    """Use a saved default through its CLI type, preserving explicit flags."""
     from click.core import ParameterSource
 
     if cfg_value is None:
         return current
     if ctx.get_parameter_source(name) == ParameterSource.DEFAULT:
-        return cfg_value
+        parameter = next(param for param in ctx.command.params if param.name == name)
+        return parameter.type_cast_value(ctx, cfg_value)
     return current
 
 
@@ -842,15 +843,18 @@ def run(
         if config_obj.judges and (
             ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
         ):
-            judge_provider = tuple(j.provider for j in config_obj.judges)
+            judge_provider = _cfg_value(
+                ctx, "judge_provider", judge_provider,
+                tuple(j.provider for j in config_obj.judges),
+            )
             if any(j.model for j in config_obj.judges):
                 judge_model = tuple((j.model or "") for j in config_obj.judges)
             resolved_judge_keys: list[str] = []
-            for j in config_obj.judges:
-                if j.provider == provider and api_key:
+            for judge_name in judge_provider:
+                if judge_name == provider and api_key:
                     resolved_judge_keys.append(api_key)
                 else:
-                    resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
+                    resolved_judge_keys.append(_lookup_env_api_key(judge_name) or "")
             judge_api_key = tuple(resolved_judge_keys)
         if not quiet:
             click.echo(
