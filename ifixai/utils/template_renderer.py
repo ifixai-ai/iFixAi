@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
+from string import Formatter
 
-_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
+_FORMATTER = Formatter()
 
 
 class MissingPlaceholderError(KeyError):
@@ -29,7 +29,12 @@ class _StrictFormatDict(dict):  # type: ignore[type-arg]
 
 
 def extract_placeholders(template: str) -> set[str]:
-    return set(_PLACEHOLDER_RE.findall(template))
+    fields: set[str] = set()
+    for _, field, format_spec, _ in _FORMATTER.parse(template):
+        if field:
+            fields.add(field.split(".", 1)[0].split("[", 1)[0])
+            fields.update(extract_placeholders(format_spec))
+    return fields
 
 
 def render(template: str, context: Mapping[str, object]) -> str:
