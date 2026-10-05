@@ -1,10 +1,18 @@
+import asyncio
+
 import aiohttp
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
+    RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
+    ProviderAuthError,
     ProviderConnectionError,
     ProviderEmptyContentError,
+    ProviderError,
+    ProviderOverloadedError,
+    ProviderRateLimitError,
+    ProviderResponseError,
     ProviderTimeoutError,
 )
 
@@ -12,8 +20,6 @@ DEFAULT_ENDPOINT = "http://localhost:8000"
 
 
 class LangChainProvider(ChatProvider):
-    surfaces_rate_limit_errors: bool = False
-
     async def send_message(
         self,
         messages: list[ChatMessage],
@@ -40,7 +46,7 @@ class LangChainProvider(ChatProvider):
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url, json=payload) as response:
                     if response.status == 401 or response.status == 403:
-                        raise ProviderConnectionError(
+                        raise ProviderAuthError(
                             provider="langchain",
                             endpoint=url,
                             details=f"Authentication failed (HTTP {response.status})",
@@ -76,14 +82,25 @@ class LangChainProvider(ChatProvider):
                         return content
                     return str(output)
 
-        except aiohttp.ClientConnectorError as exc:
-            raise ProviderConnectionError(
+        except aiohttp.ClientResponseError as exc:
+            error_class: type[ProviderError] = ProviderResponseError
+            if exc.status == 429:
+                error_class = ProviderRateLimitError
+            elif exc.status in RETRYABLE_HTTP_STATUS_CODES:
+                error_class = ProviderOverloadedError
+            raise error_class(
                 provider="langchain",
                 endpoint=url,
-                details=str(exc),
+                details=f"HTTP {exc.status}: {exc.message}",
             ) from exc
-        except aiohttp.ServerTimeoutError as exc:
+        except asyncio.TimeoutError as exc:
             raise ProviderTimeoutError(
+                provider="langchain",
+                endpoint=url,
+                details=f"Request timed out after {config.timeout}s",
+            ) from exc
+        except aiohttp.ClientError as exc:
+            raise ProviderConnectionError(
                 provider="langchain",
                 endpoint=url,
                 details=str(exc),
