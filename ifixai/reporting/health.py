@@ -17,7 +17,7 @@ from ifixai.core.types import JudgeErrorKind, TestRunResult, TestStatus
 class _RunHealth(NamedTuple):
     n_inspections: int  # inspections that ran
     errored: int  # inspections that crashed before producing evidence (status ERROR)
-    total: int  # evidence items across every inspection
+    total: int  # measured evidence items (excludes operator diagnostics)
     scorable: int  # produced a graded result (no extraction_error)
     unreachable: int  # a model call failed to communicate (agent OR judge)
     judge_broke: int  # the judge replied but the verdict was unusable
@@ -67,6 +67,8 @@ def run_health(result: TestRunResult) -> _RunHealth:
         if br.status == TestStatus.ERROR:
             errored += 1
         for ev in br.evidence:
+            if ev.is_diagnostic:
+                continue
             total += 1
             kind = ev.extraction_error
             if kind is None:
