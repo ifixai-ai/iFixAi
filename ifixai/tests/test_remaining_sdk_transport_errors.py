@@ -90,15 +90,22 @@ async def test_gemini_native_deadline_is_timeout(monkeypatch):
     from google.api_core.exceptions import DeadlineExceeded
     from google.generativeai import client
 
-    from ifixai.providers.gemini import GeminiProvider
+    from ifixai.providers import gemini
 
     class OwnedTransport:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
         async def generate_content(self, request, **kwargs):
             raise DeadlineExceeded("owned transport deadline")
 
     monkeypatch.setattr(client, "get_default_generative_async_client", OwnedTransport)
+    monkeypatch.setattr(gemini, "GenerativeServiceAsyncClient", lambda **kwargs: OwnedTransport(), raising=False)
     with pytest.raises(ProviderTimeoutError):
-        await GeminiProvider().send_message([ChatMessage(content="hello")], ProviderConfig(provider="gemini", api_key="synthetic-local-key", max_retries=0))
+        await gemini.GeminiProvider().send_message([ChatMessage(content="hello")], ProviderConfig(provider="gemini", api_key="synthetic-local-key", max_retries=0))
 
 
 @pytest.mark.asyncio
