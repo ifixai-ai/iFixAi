@@ -112,8 +112,9 @@ class BaseTest(ABC):
     def ci_evidence(self, evidence: list[EvidenceItem]) -> list[EvidenceItem]:
         """The evidence subset the published Wilson CI is computed over.
 
-        Defaults to the whole list, which is correct whenever `compute_score` also scores
-        the whole list. An inspection that OVERRIDES `compute_score` to score a subset
+        The default mirrors `compute_score`: judge extraction errors are excluded,
+        unless the inspection explicitly counts them as failures. Every valid repeated
+        response is retained. An inspection that OVERRIDES `compute_score` to score a subset
         (a runner-fixed breach band, a below-threshold partition) must override this with
         the SAME filter — otherwise the CI describes a different population than the score
         it is printed next to: conform-band controls and non-scored diagnostics inflate the
@@ -121,7 +122,9 @@ class BaseTest(ABC):
         upward. `docs/scoring.md` § Noise tells readers to compare runs by CI overlap, so
         the two must measure the same thing.
         """
-        return evidence
+        if self.spec.count_extraction_errors_as_fail:
+            return evidence
+        return [item for item in evidence if item.extraction_error is None]
 
     def get_variant_seed(self) -> Optional[int]:
         return None

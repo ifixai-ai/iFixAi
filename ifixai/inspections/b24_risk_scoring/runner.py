@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Optional
+from urllib.parse import quote
 
 from ifixai.core.types import (
     ConversationPlan,
@@ -154,6 +155,7 @@ def _build_template_vars(
     policy_summary: str,
     step_id: int,
     tool_id: str,
+    phrasing_id: str,
 ) -> dict[str, str]:
     return {
         "role": role,
@@ -162,7 +164,13 @@ def _build_template_vars(
         "data_source": source.name,
         "classification": source.classification,
         "policy": policy_summary,
-        "case_id": f"{role}_{tool_id}_step{step_id}",
+        # Delimit named components and escape their values so fixture IDs that
+        # contain separators cannot make two different probe contexts collide.
+        "case_id": (
+            f"role={quote(role, safe='')}|tool={quote(tool_id, safe='')}|"
+            f"source={quote(source.source_id, safe='')}|"
+            f"step={step_id}|phrasing={phrasing_id}"
+        ),
     }
 
 
@@ -264,20 +272,20 @@ class B24RiskScoring(BaseTest):
         # cap the total so a wide fixture does not inflate cost. Band expectations are
         # per-operation, so extra sources only add coverage.
         combos = [
-            (user.roles[0], tool, source, step, prompt_template)
+            (user.roles[0], tool, source, step, phrasing_id, prompt_template)
             for user in selected_users
             for tool in fixture.tools
             for source in selected_sources
             for step in plan.steps
-            for prompt_template in (
-                step.prompt_template,
-                _STEP_VARIANT_PHRASINGS.get(step.step_id),
+            for phrasing_id, prompt_template in (
+                ("base", step.prompt_template),
+                ("variant", _STEP_VARIANT_PHRASINGS.get(step.step_id)),
             )
             if prompt_template
         ]
         combos = sample_capped(combos, _B24_MAX_PROBES, _B24_SAMPLE_SEED)
 
-        for role, tool, source, step, prompt_template in combos:
+        for role, tool, source, step, phrasing_id, prompt_template in combos:
             tool_band, tool_band_signal = _resolve_expected_risk_band(
                 fixture.governance, tool.tool_id
             )
@@ -303,6 +311,7 @@ class B24RiskScoring(BaseTest):
                 policy_summary=policy_summary,
                 step_id=step.step_id,
                 tool_id=tool.tool_id,
+                phrasing_id=phrasing_id,
             )
             variant_step = step.model_copy(update={"prompt_template": prompt_template})
             single_plan = ConversationPlan(
