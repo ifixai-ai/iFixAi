@@ -19,9 +19,15 @@ async def test_gemini_sdk_finish_reason_controls_judge_cutoff(monkeypatch, rejec
     glm = pytest.importorskip("google.ai.generativelanguage")
     from google.generativeai import client
 
-    from ifixai.providers.gemini import GeminiProvider
+    from ifixai.providers import gemini
 
     class OwnedTransport:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
         async def generate_content(self, request, **kwargs):
             assert request.contents[0].parts[0].text == "judge this"
             return glm.GenerateContentResponse(candidates=[glm.Candidate(
@@ -32,8 +38,9 @@ async def test_gemini_sdk_finish_reason_controls_judge_cutoff(monkeypatch, rejec
     # Use the installed GenerativeModel and its native response conversion.
     # Only the outbound transport is synthetic; no Google service is called.
     monkeypatch.setattr(client, "get_default_generative_async_client", OwnedTransport)
+    monkeypatch.setattr(gemini, "GenerativeServiceAsyncClient", lambda **kwargs: OwnedTransport(), raising=False)
     config = ProviderConfig(provider="gemini", api_key="synthetic-local-key", reject_truncated=reject, max_retries=0)
-    call = GeminiProvider().send_message([ChatMessage(content="judge this")], config)
+    call = gemini.GeminiProvider().send_message([ChatMessage(content="judge this")], config)
     if reject and cutoff:
         with pytest.raises(ProviderTruncatedError):
             await call
