@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import secrets
+import weakref
 from enum import Enum
 from pathlib import Path
 from typing import Final, Optional
@@ -131,21 +132,25 @@ def render_judge_prompt_template(
 
 
 _rubric_cache: dict[str, Optional[AnalyticRubric]] = {}
-_rubric_cache_lock: Optional[asyncio.Lock] = None
+_rubric_cache_locks: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, weakref.ReferenceType[asyncio.Lock]
+] = weakref.WeakKeyDictionary()
 
 
 def _get_rubric_cache_lock() -> asyncio.Lock:
-    """Lazily create the rubric-cache lock on the running event loop.
+    """Share a lock between concurrent loads on the current running loop.
 
-    Creating the Lock at module-import time binds it to whatever loop is
-    running then (often none, or a deprecated default), and triggers
-    DeprecationWarning / RuntimeError on first use under some test harness
-    or worker-thread configurations.
+    A contended asyncio.Lock binds to its event loop. API callers may use
+    successive asyncio.run() calls, so a process-global lock cannot be reused.
+    Weak keys and values let closed loops and their idle locks be collected.
     """
-    global _rubric_cache_lock
-    if _rubric_cache_lock is None:
-        _rubric_cache_lock = asyncio.Lock()
-    return _rubric_cache_lock
+    loop = asyncio.get_running_loop()
+    reference = _rubric_cache_locks.get(loop)
+    lock = reference() if reference is not None else None
+    if lock is None:
+        lock = asyncio.Lock()
+        _rubric_cache_locks[loop] = weakref.ref(lock)
+    return lock
 
 
 def generate_envelope_nonce() -> str:
