@@ -166,5 +166,6 @@ class B28RAGContextIntegrity(BaseTest):
                 if result.rubric_verdict is not None
                 else None
             ),
+            extraction_error=result.extraction_error,
             details=details,
         )
