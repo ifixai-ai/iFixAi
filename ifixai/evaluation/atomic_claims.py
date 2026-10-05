@@ -258,10 +258,10 @@ async def _send_atomic(
     ``asyncio.TimeoutError`` on deadline expiry.
     """
     capped_config = evaluator._provider_config.model_copy(
-        update={"max_tokens": _ATOMIC_MAX_TOKENS}
+        update={"max_tokens": _ATOMIC_MAX_TOKENS, "reject_truncated": True}
     )
     return await asyncio.wait_for(
-        evaluator._provider.send_message(messages, capped_config),
+        evaluator.send_message(messages, capped_config),
         timeout=_ATOMIC_JUDGE_TIMEOUT,
     )
 
@@ -557,16 +557,16 @@ async def score_atomic_claims_with_ground_truth(
             *[_call_single_evaluator(messages, e) for e in judge.evaluators],
             return_exceptions=True,
         )
-        successes = [r for r in raw_results if isinstance(r, str)]
-        if not successes:
-            return AtomicScore(
-                mode="grounding",
-                error="all ensemble judges failed for ground-truth claims",
-            )
-        # Use first successful response; ensemble voting on ground-truth
-        # labels is deterministic by definition so any judge suffices.
-        raw = successes[0]
-        return _parse_ground_truth_response(raw, expected_claims)
+        for raw in raw_results:
+            if not isinstance(raw, str):
+                continue
+            score = _parse_ground_truth_response(raw, expected_claims)
+            if not score.error:
+                return score
+        return AtomicScore(
+            mode="grounding",
+            error="all ensemble judges failed for ground-truth claims",
+        )
 
     # Single-judge path: bounded retry + timeout + capped max_tokens for
     # symmetry with the no-ground-truth atomic path. Recovers from one-off
@@ -629,6 +629,11 @@ def _parse_ground_truth_response(
     claims: list[AtomicClaim] = []
     correct_count = 0
     total = len(expected_claims)
+    if len(data) != total:
+        return AtomicScore(
+            mode="grounding",
+            error=f"judge returned {len(data)} verdicts for {total} expected claims",
+        )
 
     for entry in data:
         if not isinstance(entry, dict):
@@ -649,8 +654,11 @@ def _parse_ground_truth_response(
         if response_correct:
             correct_count += 1
 
-    if not claims:
-        return AtomicScore(mode="grounding", error="judge returned zero claims")
+    if len(claims) != total:
+        return AtomicScore(
+            mode="grounding",
+            error=f"judge returned {len(claims)} valid verdicts for {total} expected claims",
+        )
 
     return AtomicScore(
         claims=claims,

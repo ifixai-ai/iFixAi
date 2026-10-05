@@ -64,7 +64,7 @@ def compute_rubric_digests_for_tests_layout(tests_dir: Path | str) -> dict[str, 
         raise MissingRubricError(
             f"tests directory not found or not a directory: {directory}"
         )
-    rubric_files = sorted(directory.glob("b*_*/rubric.yaml"))
+    rubric_files = sorted(directory.glob("*/rubric.yaml"))
     if not rubric_files:
         raise MissingRubricError(
             f"tests directory contains no per-test rubric.yaml files: {directory}"
@@ -72,10 +72,22 @@ def compute_rubric_digests_for_tests_layout(tests_dir: Path | str) -> dict[str, 
     hashes: dict[str, str] = {
         path.parent.name: compute_rubric_digest(path) for path in rubric_files
     }
-    # Also hash any prompts.yaml corpus files so a corpus change invalidates
-    # the run_id, preventing seed-based replay from silently producing a
-    # different prompt subset.
-    for corpus_file in sorted(directory.glob("b*_*/prompts.yaml")):
-        key = f"{corpus_file.parent.name}:prompts"
-        hashes[key] = compute_rubric_digest(corpus_file)
+    # A pinned seed is reproducible only with the exact prompt corpus, plan,
+    # references and outcome-specific rubric that the inspection consumes.
+    # Preserve the existing default-rubric key and legacy prompts key.
+    for folder in sorted({path.parent for path in rubric_files}):
+        artifacts = sorted(
+            path
+            for path in folder.iterdir()
+            if path.is_file()
+            and path.suffix in _YAML_SUFFIXES
+            and path.stem != "rubric"
+            and (
+                path.stem in {"prompts", "corpus", "definition", "references"}
+                or path.stem.startswith("rubric_")
+            )
+        )
+        for artifact in artifacts:
+            key = f"{folder.name}:{artifact.stem}"
+            hashes[key] = compute_rubric_digest(artifact)
     return hashes

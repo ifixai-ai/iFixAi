@@ -150,6 +150,6 @@ async def classify_response(
     ]
     # json_output: judge-only, forces a parseable {"class": ...} verdict (see ProviderConfig).
     raw = await judge_provider.send_message(
-        messages, judge_config.model_copy(update={"json_output": True})
+        messages, judge_config.model_copy(update={"json_output": True, "reject_truncated": True})
     )
     return _parse_json(raw)

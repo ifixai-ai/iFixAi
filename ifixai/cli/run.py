@@ -11,13 +11,15 @@ import os
 import secrets
 import sys
 import time
+from collections.abc import Awaitable
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
 import click
 
 from ifixai import __version__ as IFIXAI_VERSION
 from ifixai import telemetry
+from ifixai.api import _aclose_provider
 from ifixai.cli import ui
 from ifixai.cli._branding import (
     print_startup_banner,
@@ -60,6 +62,7 @@ from ifixai.evaluation.checkpoint import load_checkpoint
 from ifixai.evaluation.manifest import (
     RunManifest,
     build_manifest,
+    compute_sut_context_digest,
     generate_run_nonce,
     is_valid_run_nonce,
     load_manifest,
@@ -314,6 +317,19 @@ def _print_concurrency_banner(resolved: int) -> None:
             f"Note: concurrency={resolved} is above default 5. Dial down if you see 429s.",
             err=True,
         )
+
+
+_ProbeResult = TypeVar("_ProbeResult")
+
+
+async def _probe_then_close(
+    provider: ChatProvider, operation: Awaitable[_ProbeResult]
+) -> _ProbeResult:
+    """Close CLI-owned probe resources in the event loop that opened them."""
+    try:
+        return await operation
+    finally:
+        await _aclose_provider(provider)
 
 
 @click.command()
@@ -828,15 +844,19 @@ def run(
             ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
         ):
             judge_provider = tuple(j.provider for j in config_obj.judges)
-            if any(j.model for j in config_obj.judges):
+            if (
+                ctx.get_parameter_source("judge_model") == ParameterSource.DEFAULT
+                and any(j.model for j in config_obj.judges)
+            ):
                 judge_model = tuple((j.model or "") for j in config_obj.judges)
-            resolved_judge_keys: list[str] = []
-            for j in config_obj.judges:
-                if j.provider == provider and api_key:
-                    resolved_judge_keys.append(api_key)
-                else:
-                    resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
-            judge_api_key = tuple(resolved_judge_keys)
+            if ctx.get_parameter_source("judge_api_key") == ParameterSource.DEFAULT:
+                resolved_judge_keys: list[str] = []
+                for j in config_obj.judges:
+                    if j.provider == provider and api_key:
+                        resolved_judge_keys.append(api_key)
+                    else:
+                        resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
+                judge_api_key = tuple(resolved_judge_keys)
         if not quiet:
             click.echo(
                 click.style(f"Using config: {CONFIG_FILENAME}", fg="cyan"), err=True
@@ -938,6 +958,16 @@ def run(
             run_mode = "standard"
     profile = "full" if run_mode == "full" else "quick"
 
+    if provider is None:
+        interactive = gather_interactive_config()
+        provider = interactive["provider"]
+        api_key = interactive["api_key"]
+        endpoint = interactive["endpoint"]
+        model = interactive["model"]
+        auth_method = interactive.get("auth_method") or auth_method
+        if interactive.get("extra_headers"):
+            extra_headers = interactive["extra_headers"]
+
     eval_mode_auto_selected_judge: str | None = None
     if eval_mode is None:
         if run_mode == "full":
@@ -1028,21 +1058,17 @@ def run(
             )
             sys.exit(1)
 
-    if provider is None:
-        interactive = gather_interactive_config()
-        provider = interactive["provider"]
-        api_key = interactive["api_key"]
-        endpoint = interactive["endpoint"]
-        model = interactive["model"]
-        auth_method = interactive.get("auth_method") or auth_method
-        if interactive.get("extra_headers"):
-            extra_headers = interactive["extra_headers"]
-
     # Normalize --extra-headers (JSON string, or a dict from config/wizard) once.
     extra_headers_dict = _parse_extra_headers(extra_headers)
 
     # provider is guaranteed non-None here (the interactive block above sets it when
     # it was not passed as a flag), so the env lookup always has a real provider.
+    if api_key is None and (
+        provider.lower() == "mock"
+        or (provider.lower() == "http" and auth_method.lower() == "none")
+    ):
+        # Offline mock and explicitly unauthenticated agents need no secret.
+        api_key = ""
     if api_key is None:
         api_key = _lookup_env_api_key(provider)
     if api_key is None:
@@ -1210,7 +1236,10 @@ def run(
         extra_headers=extra_headers_dict,
     )
     conn_result = asyncio.run(
-        _test_conn(cast(ChatProvider, resolved_provider), test_config)
+        _probe_then_close(
+            cast(ChatProvider, resolved_provider),
+            _test_conn(cast(ChatProvider, resolved_provider), test_config),
+        )
     )
     simulation_mode = False
     if not conn_result.success:
@@ -1336,7 +1365,10 @@ def run(
             click.echo()
             click.echo("Running auto-discovery...")
             disc_result = asyncio.run(
-                discover_system(resolved_provider, test_config, context_profile),
+                _probe_then_close(
+                    cast(ChatProvider, resolved_provider),
+                    discover_system(resolved_provider, test_config, context_profile),
+                ),
             )
             if disc_result.success:
                 display_discovery_summary(disc_result)
@@ -1584,6 +1616,11 @@ def run(
     if governance_path is not None:
         governance_fixture_digest_value = compute_fixture_digest(governance_path)
 
+    effective_endpoint = test_config.endpoint
+    if provider == "http":
+        from ifixai.providers.http import DEFAULT_ENDPOINT
+        effective_endpoint = (effective_endpoint or DEFAULT_ENDPOINT).rstrip("/")
+
     manifest = build_manifest(
         mode=manifest_mode,
         model_under_test=model_descriptor,
@@ -1611,6 +1648,11 @@ def run(
         holdout_seed=holdout_seed,
         holdout_ids=holdout.to_dict(),
         run_nonce=effective_run_nonce,
+        sut_temperature=sut_temperature,
+        sut_seed=sut_seed,
+        sut_context_digest=compute_sut_context_digest(
+            effective_endpoint, effective_system_prompt
+        ),
     )
 
     if resume_manifest is not None and manifest.run_id != resume_manifest.run_id:
@@ -1620,7 +1662,7 @@ def run(
                 f"Error: cannot resume {resume_run_id}: the run configuration "
                 f"changed since that run (differs in: {', '.join(changed) or 'unknown fields'}). "
                 "A resumed run must use the same model, fixture, judges, "
-                "selection and seeds. Start a fresh run instead.",
+                "selection, seeds, endpoint and system prompt. Start a fresh run instead.",
                 fg="red",
             ),
             err=True,
@@ -1888,7 +1930,7 @@ def run(
     click.echo(click.style(f"Total execution time: {elapsed}", fg="cyan"))
     click.echo()
 
-    save_reports(result, output, report_format, effective_run_nonce)
+    save_reports(result, output, report_format, effective_run_nonce, run_id=manifest.run_id)
     if artifact_out:
         is_mock = provider.lower() == "mock"
         # Mirror the console self-judge advisory in the portable artifact so a
