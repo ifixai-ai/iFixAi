@@ -114,3 +114,14 @@ def test_real_sdk_success_control(monkeypatch):
     with owned_server() as (url, received):
         assert send(url, monkeypatch) == "owned reply"
         assert received.is_set()
+
+
+def test_sdk_without_optional_permission_export_keeps_transient_errors(monkeypatch):
+    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    sdk = pytest.importorskip("litellm")
+    monkeypatch.delattr(sdk, "PermissionDeniedError", raising=False)
+    with owned_server(status=503) as (url, received):
+        with pytest.raises(ProviderOverloadedError) as caught:
+            send(url, monkeypatch)
+        assert received.is_set()
+        assert not is_fatal_provider_error(caught.value)

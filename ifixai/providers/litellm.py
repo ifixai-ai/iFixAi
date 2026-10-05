@@ -96,7 +96,7 @@ class LiteLLMProvider(ChatProvider):
 
         except ProviderResponseError:
             raise
-        except (_litellm.AuthenticationError, _litellm.PermissionDeniedError) as exc:
+        except (_litellm.AuthenticationError, openai.PermissionDeniedError) as exc:
             raise ProviderAuthError(
                 provider="litellm",
                 endpoint=config.endpoint or "default",
