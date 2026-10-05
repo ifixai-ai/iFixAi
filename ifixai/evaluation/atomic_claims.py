@@ -258,7 +258,7 @@ async def _send_atomic(
     ``asyncio.TimeoutError`` on deadline expiry.
     """
     capped_config = evaluator._provider_config.model_copy(
-        update={"max_tokens": _ATOMIC_MAX_TOKENS}
+        update={"max_tokens": _ATOMIC_MAX_TOKENS, "reject_truncated": True}
     )
     return await asyncio.wait_for(
         evaluator._provider.send_message(messages, capped_config),
