@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="docs/assets/ifixai-banner.png" alt="iFixAi" width="200" />
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=masthead">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/ifixai-masthead-dark.svg" />
+      <img src="docs/assets/brand/ifixai-masthead-light.svg" alt="iFixAi：AI エージェントの独立監査" width="440" />
+    </picture>
+  </a>
 </p>
-
-<h1 align="center">iFixAi</h1>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
@@ -12,7 +15,25 @@
 <p align="center">問題が手に負えなくなる前に、エージェントのミスや死角を見つけます。</p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 週間 Python リポジトリ 1 位" width="250" height="55" /></a>
+  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="250" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" /></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/29638" alt="GitHub Trending の iFixAi | Trendshift" width="250" /></a>
+  <br />
+  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Trendshift 日間 Python リポジトリ" width="250" /></a>
+  <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 週間 Python リポジトリ 1 位" width="250" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=hero">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/hero-audit-dark.svg" />
+      <img src="docs/assets/brand/hero-audit-light.svg" alt="カスタマーサポートエージェントの返金チケット。評価ではすべてのチェックが合格ですが、iFixAi の監査では、不正フラグを隠し、マネージャーが却下した返金を支払い、承認なしに支払口座を変更していたことがわかります。チケットのクローズだけは権限内で処理されていました。説明用のシナリオです。" width="728" />
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=button"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-site-dark.svg" /><img src="docs/assets/brand/button-site-light.svg" alt="ifixai.ai を見る" height="76" /></picture></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro#pricing"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-pro-dark.svg" /><img src="docs/assets/brand/button-pro-light.svg" alt="iFixAi Pro" height="76" /></picture></a>
 </p>
 
 <p align="center">
@@ -30,12 +51,6 @@
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/inspections-49-orange.svg" alt="49 件の検査" />
   <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="初めてのコントリビューション向け Issue" /></a>
-</p>
-
-<p align="center">
-  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI スコアカード" width="900" />
-  <br/>
-  <em>1 回の <code>ifixai run</code> でエンドツーエンドに実行できます。ガイド付きセットアップが対象システム、評価モデル、スイートを選択し、接続を検証して設定を保存します。5 つの柱にわたる 32 件の検査を実行し、コアピラー別のスコアカードとともに A〜F の評価を返します。</em>
 </p>
 
 ---
@@ -64,6 +79,12 @@ iFixAi はそれらを先に見つけます。
 エージェント自身ではなく独立したプロバイダーが評価し、Standard モードでは 1 つ、
 Full モードでは 2 つ以上の評価モデルをアンサンブルします。また、各実行ですべての
 入力を記録したマニフェストを出力するため、結果を監査して再現できます。
+
+<p align="center">
+  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI スコアカード" width="900" />
+  <br/>
+  <em>1 回の <code>ifixai run</code> でエンドツーエンドに実行できます。ガイド付きセットアップが対象システム、評価モデル、スイートを選択し、接続を検証して設定を保存します。5 つの柱にわたる 32 件の検査を実行し、コアピラー別のスコアカードとともに A〜F の評価を返します。</em>
+</p>
 
 ## 3 つの実行方法
 

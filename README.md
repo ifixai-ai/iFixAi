@@ -1,30 +1,38 @@
 <p align="center">
-  <img src="docs/assets/ifixai-banner.png" alt="iFixAi" width="200" />
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=masthead">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/ifixai-masthead-dark.svg" />
+      <img src="docs/assets/brand/ifixai-masthead-light.svg" alt="iFixAi: Independent auditing for AI agents" width="440" />
+    </picture>
+  </a>
 </p>
-
-<h1 align="center">iFixAi</h1>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
 </p>
 
-<p align="center"><strong> Independent Auditing of AI Agents </strong></p>
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="300" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" /></a>
+  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="250" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" /></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/29638" alt="iFixAi on GitHub Trending | Trendshift" width="250" /></a>
+  <br />
+  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Python repository of the day on Trendshift" width="250" /></a>
+  <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="250" /></a>
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/29638" alt="ifixai-ai/iFixAi | Trendshift" width="300" /></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=hero">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/hero-audit-dark.svg" />
+      <img src="docs/assets/brand/hero-audit-light.svg" alt="A customer support agent's refund ticket as its evals see it, every check green, then through an iFixAi audit: it hid a fraud flag, paid a refund a manager had declined and changed a payout account without authorisation, while closing the ticket was handled correctly. Illustrative scenario." width="728" />
+    </picture>
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="300" /></a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="ifixai-ai/iFixAi | Trendshift" width="300" /></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=button"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-site-dark.svg" /><img src="docs/assets/brand/button-site-light.svg" alt="Visit ifixai.ai" height="76" /></picture></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro#pricing"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-pro-dark.svg" /><img src="docs/assets/brand/button-pro-light.svg" alt="iFixAi Pro" height="76" /></picture></a>
 </p>
 
 <p align="center">
@@ -44,12 +52,6 @@
   <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="good first issues" /></a>
 </p>
 
-<p align="center">
-  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI scorecard" width="900" />
-  <br/>
-  <em>One <code>ifixai run</code>, end to end: guided setup picks the system, judge, and suite; the run verifies the connection and saves your config; 32 inspections execute across five pillars; and the result lands as an A–F grade with a scored core-pillar scorecard.</em>
-</p>
-
 ---
 
 ## What it is
@@ -59,6 +61,12 @@ The existing Eval, Red-teaming, and Observability Tools are evaluating the agent
 Is the agent doing the job it is supposed to do based on the business KPIs and Organizational Structure? iFixAi gives you this answer in less than 120 seconds by striking the right balance between AI-Red Teaming and Operational Assurance. 
 
 Adversarial depth. Assurance discipline. All-in-one auditing process.
+
+<p align="center">
+  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI scorecard" width="900" />
+  <br/>
+  <em>One <code>ifixai run</code>, end to end: guided setup picks the system, judge, and suite; the run verifies the connection and saves your config; 32 inspections execute across five pillars; and the result lands as an A–F grade with a scored core-pillar scorecard.</em>
+</p>
 
 ## Three ways to run
 
@@ -305,6 +313,15 @@ well-governed agent scores materially higher (see [Test your own agent](#test-yo
 Full math and weights: **[docs/scoring.md](docs/scoring.md)**. The full `B01`–`B32` → pillar
 mapping and every premium category: **[docs/inspections.md](docs/inspections.md#categories)**.
 
+## iFixAi Pro
+
+Everything in this repo is the open-source engine, and it stays free: 60 inspections, self-hosted
+with your own model keys. **[iFixAi Pro](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section#pricing)**
+is the full product: it audits the agent you already run, over its endpoint, with up to 400
+inspections, returns an audit report with the proof, and adds the Pro dashboard and, from the
+Growth package up, the *Audited by iFixAi* badge. Packages and how to start are on
+**[ifixai.ai](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section)**.
+
 ## Documentation
 
 Docs are sorted by what you came to do. Start in **[docs/](docs/)**:
@@ -337,7 +354,8 @@ Issues and PRs welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)**. Good first i
 ## Contact
 
 Bug reports, features, questions: open a [GitHub issue](https://github.com/ifixai-ai/iFixAi/issues).
-Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **info@ime.life**.
+Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **info@ime.life**, or
+**[ifixai.ai](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=contact)**.
 
 ## License
 
