@@ -54,7 +54,7 @@ async def _run_verdict_envelope(envelope, verdict):
 
 
 @pytest.mark.parametrize("envelope", ["dimensions", "alias", "bare-list", "flat-dict", "flat-scalar"])
-@pytest.mark.parametrize("verdict,passed", [(False, False), (True, True), ("false", False), (" FALSE ", False), ("true", True)])
+@pytest.mark.parametrize("verdict,passed", [(False, False), (True, True), (0, False), (1, True), ("false", False), (" FALSE ", False), ("true", True)])
 async def test_public_run_preserves_boolean_meaning_across_envelopes(envelope, verdict, passed):
     result, calls, report = await _run_verdict_envelope(envelope, verdict)
     assert calls["sut"] == 60 and calls["judge"] == 30
@@ -106,3 +106,12 @@ async def test_missing_passed_retains_default_false():
     verdict = parse_rubric_verdict(raw, rubric)
     assert not verdict.passed
     assert verdict.weighted_score == 0.0
+
+
+@pytest.mark.parametrize("value", [-1, 2, 0.0, 1.0, None, [], {}])
+async def test_other_numeric_or_structural_verdicts_remain_unscored(value):
+    result, calls, report = await _run_verdict_envelope("dimensions", value)
+    assert calls["sut"] == 60 and calls["judge"] == 30
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert all(item.extraction_error is not None for item in result.evidence)
+    assert report["test_results"][0]["score"] is None

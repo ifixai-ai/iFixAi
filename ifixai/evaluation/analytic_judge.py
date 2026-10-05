@@ -499,6 +499,8 @@ def _normalize_dim_name(name: str) -> str:
 def _parse_dimension_passed(value: object) -> bool:
     if isinstance(value, bool):
         return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
     if isinstance(value, str):
         token = value.strip().lower()
         if token in _VERDICT_TRUE_TOKENS:
@@ -506,7 +508,7 @@ def _parse_dimension_passed(value: object) -> bool:
         if token in _VERDICT_FALSE_TOKENS:
             return False
     raise JudgeContractError(
-        f"Judge dimension 'passed' must be a boolean or a recognized verdict token; got {value!r}"
+        f"Judge dimension 'passed' must be a boolean, integer 0/1, or a recognized verdict token; got {value!r}"
     )
 
 
@@ -533,7 +535,7 @@ def _recover_dimensions_from_top_level(
 
     Llama sometimes returns `{"dim_name_a": {...}, "dim_name_b": {...},
     "overall_reasoning": "..."}` instead of the contract envelope. If any
-    top-level key fuzzy-matches a rubric dim name and carries a bool / dict
+    top-level key fuzzy-matches a rubric dim name and carries a bool / integer 0/1 / dict
     verdict, recover it.
     """
     reserved = {"overall_reasoning", "dimensions"}
@@ -554,7 +556,7 @@ def _recover_dimensions_from_top_level(
                     "reasoning": str(value.get("reasoning", "")),
                 }
             )
-        elif isinstance(value, str):
+        elif isinstance(value, (str, int)):
             recovered.append({"name": canonical, "passed": _parse_dimension_passed(value), "reasoning": ""})
     return recovered or None
 
