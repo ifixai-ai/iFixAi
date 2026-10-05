@@ -4,6 +4,7 @@ from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
     ProviderConnectionError,
+    ProviderEmptyContentError,
     ProviderTimeoutError,
 )
 
@@ -51,7 +52,28 @@ class LangChainProvider(ChatProvider):
                     if isinstance(output, str):
                         return output
                     if isinstance(output, dict):
-                        return output.get("content", str(output))
+                        content = output.get("content", str(output))
+                        if isinstance(content, list):
+                            # AIMessage.content may contain ordered strings and
+                            # multimodal blocks. Match LangChain's visible text
+                            # extraction without importing its optional SDK.
+                            text_parts = []
+                            for block in content:
+                                if isinstance(block, str):
+                                    text_parts.append(block)
+                                elif isinstance(block, dict) and block.get("type") == "text":
+                                    text = block.get("text")
+                                    if isinstance(text, str):
+                                        text_parts.append(text)
+                            text = "".join(text_parts)
+                            if not text:
+                                raise ProviderEmptyContentError(
+                                    provider="langchain",
+                                    endpoint=url,
+                                    details="No text content in response message",
+                                )
+                            return text
+                        return content
                     return str(output)
 
         except aiohttp.ClientConnectorError as exc:
