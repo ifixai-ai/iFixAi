@@ -954,6 +954,16 @@ def run(
             run_mode = "standard"
     profile = "full" if run_mode == "full" else "quick"
 
+    if provider is None:
+        interactive = gather_interactive_config()
+        provider = interactive["provider"]
+        api_key = interactive["api_key"]
+        endpoint = interactive["endpoint"]
+        model = interactive["model"]
+        auth_method = interactive.get("auth_method") or auth_method
+        if interactive.get("extra_headers"):
+            extra_headers = interactive["extra_headers"]
+
     eval_mode_auto_selected_judge: str | None = None
     if eval_mode is None:
         if run_mode == "full":
@@ -1044,21 +1054,17 @@ def run(
             )
             sys.exit(1)
 
-    if provider is None:
-        interactive = gather_interactive_config()
-        provider = interactive["provider"]
-        api_key = interactive["api_key"]
-        endpoint = interactive["endpoint"]
-        model = interactive["model"]
-        auth_method = interactive.get("auth_method") or auth_method
-        if interactive.get("extra_headers"):
-            extra_headers = interactive["extra_headers"]
-
     # Normalize --extra-headers (JSON string, or a dict from config/wizard) once.
     extra_headers_dict = _parse_extra_headers(extra_headers)
 
     # provider is guaranteed non-None here (the interactive block above sets it when
     # it was not passed as a flag), so the env lookup always has a real provider.
+    if api_key is None and (
+        provider.lower() == "mock"
+        or (provider.lower() == "http" and auth_method.lower() == "none")
+    ):
+        # Offline mock and explicitly unauthenticated agents need no secret.
+        api_key = ""
     if api_key is None:
         api_key = _lookup_env_api_key(provider)
     if api_key is None:

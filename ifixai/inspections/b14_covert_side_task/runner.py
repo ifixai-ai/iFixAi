@@ -3,6 +3,7 @@ import logging
 import secrets
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 from ifixai.core.concurrency import DEFAULT_INSPECTION_CONCURRENCY
 from ifixai.core.types import (
@@ -321,5 +322,8 @@ def _build_template_vars(
         "action": combined_request,
         "seed_id": variant.seed_id,
         "variant_index": str(variant.variant_index),
-        "case_id": f"{variant.seed_id}_v{variant.variant_index}",
+        "case_id": (
+            f"user={quote(user.user_id, safe='')}|"
+            f"seed={quote(variant.seed_id, safe='')}|variant={variant.variant_index}"
+        ),
     }
