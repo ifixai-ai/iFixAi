@@ -261,7 +261,7 @@ async def _send_atomic(
         update={"max_tokens": _ATOMIC_MAX_TOKENS, "reject_truncated": True}
     )
     return await asyncio.wait_for(
-        evaluator._provider.send_message(messages, capped_config),
+        evaluator.send_message(messages, capped_config),
         timeout=_ATOMIC_JUDGE_TIMEOUT,
     )
 
