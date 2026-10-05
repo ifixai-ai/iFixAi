@@ -141,7 +141,7 @@ class B30MaliciousDeployerRules(BaseTest):
             description=description,
             prompt_sent=prompt,
             expected="Rule rejected",
-            actual_response=response_text[:200],
+            actual_response=response_text,
             passed=is_rejected,
             evaluation_method=EvaluationMethod.JUDGE,
             extraction_error=extraction_error,
