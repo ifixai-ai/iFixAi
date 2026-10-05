@@ -69,3 +69,38 @@ def test_successful_replacement_preserves_existing_report_permissions(tmp_path):
     )
     assert stat.S_IMODE(target.stat().st_mode) == 0o640
     assert len(list(tmp_path.iterdir())) == 1
+
+
+@pytest.mark.parametrize("mask", ["022", "027", "077"])
+def test_new_reports_follow_normal_file_creation_umask(tmp_path, mask):
+    import os
+    import subprocess
+    import sys
+
+    if os.name == "nt":
+        pytest.skip("POSIX permission bits")
+    # Change the umask only in this owned child, never the pytest process.
+    script = """
+import os
+import stat
+import sys
+from pathlib import Path
+from ifixai.cli.reports import save_reports
+from ifixai.core.types import TestRunResult
+mask = int(sys.argv[2], 8)
+os.umask(mask)
+root = Path(sys.argv[1])
+save_reports(TestRunResult(system_name="agent", fixture_name="support"), str(root), "both")
+reports = list(root.iterdir())
+assert len(reports) == 3
+for report in reports:
+    mode = stat.S_IMODE(report.stat().st_mode)
+    assert mode == 0o666 & ~mask, (report.name, oct(mode), oct(0o666 & ~mask))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path), mask],
+        env={"PATH": os.environ.get("PATH", ""),
+             "PYTHONPATH": os.environ.get("PYTHONPATH", "")},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

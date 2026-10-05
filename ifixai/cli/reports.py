@@ -1,9 +1,9 @@
 import os
 import re
 import stat
-import tempfile
 from contextlib import suppress
 from pathlib import Path
+from uuid import uuid4
 
 import click
 
@@ -25,9 +25,14 @@ def _slugify(value: str) -> str:
 
 def _write_report_atomic(path: Path, content: str) -> None:
     mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else None
-    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)
+    temporary = path.parent / f".ifixai-report-{uuid4().hex}.tmp"
+    # New exports follow normal file-creation permissions, including the umask.
+    # Replacements stay private until the existing target mode is restored.
+    descriptor = os.open(
+        temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+        0o666 if mode is None else 0o600,
+    )
     os.close(descriptor)
-    temporary = Path(name)
     try:
         temporary.write_text(content, encoding="utf-8")
         if mode is not None:
