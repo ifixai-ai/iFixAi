@@ -45,7 +45,7 @@ class HuggingFaceProvider(ChatProvider):
         endpoint = config.endpoint or "https://api-inference.huggingface.co"
 
         client = InferenceClient(
-            model=config.model or None,
+            model=config.endpoint or config.model or None,
             token=config.api_key or None,
             timeout=float(config.timeout),
         )
