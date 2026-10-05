@@ -186,6 +186,7 @@ class EvaluationPipeline:
                     passed=False,
                     evaluation_result="inconclusive: judge budget exhausted",
                     evaluation_method=EvaluationMethod.JUDGE,
+                    extraction_error=JudgeErrorKind.BUDGET,
                 )
 
             if (

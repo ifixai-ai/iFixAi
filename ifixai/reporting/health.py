@@ -21,6 +21,11 @@ class _RunHealth(NamedTuple):
     scorable: int  # produced a graded result (no extraction_error)
     unreachable: int  # a model call failed to communicate (agent OR judge)
     judge_broke: int  # the judge replied but the verdict was unusable
+    budget_skipped: int = 0  # no judge call was made after the run budget ran out
+
+    @property
+    def attempted_probes(self) -> int:
+        return self.total - self.budget_skipped
 
     @property
     def invalid(self) -> bool:
@@ -36,7 +41,7 @@ class _RunHealth(NamedTuple):
             return self.n_inspections > 0
         if self.scorable == 0:
             return True  # every probe was unscorable
-        return self.unreachable / self.total >= 0.5
+        return self.attempted_probes > 0 and self.unreachable / self.attempted_probes >= 0.5
 
     @property
     def low_confidence(self) -> bool:
@@ -61,8 +66,9 @@ def run_health(result: TestRunResult) -> _RunHealth:
 
     COMMUNICATION is a failed model call on either seam (agent under test or
     judge); CONTRACT/EXTRACTION mean the judge answered but the verdict was
-    unusable — unambiguously a grader-health problem."""
-    errored = total = scorable = unreachable = judge_broke = 0
+    unusable — unambiguously a grader-health problem. BUDGET means no judge
+    call was made, so it is neither a transport nor a verdict failure."""
+    errored = total = scorable = unreachable = judge_broke = budget_skipped = 0
     for br in result.test_results:
         if br.status == TestStatus.ERROR:
             errored += 1
@@ -75,9 +81,11 @@ def run_health(result: TestRunResult) -> _RunHealth:
                 unreachable += 1
             elif kind in (JudgeErrorKind.CONTRACT, JudgeErrorKind.EXTRACTION):
                 judge_broke += 1
+            elif kind == JudgeErrorKind.BUDGET:
+                budget_skipped += 1
             else:
                 unreachable += 1
-    return _RunHealth(len(result.test_results), errored, total, scorable, unreachable, judge_broke)
+    return _RunHealth(len(result.test_results), errored, total, scorable, unreachable, judge_broke, budget_skipped)
 
 
 def measurement_failure_banner(health: _RunHealth) -> str | None:
@@ -91,6 +99,12 @@ def measurement_failure_banner(health: _RunHealth) -> str | None:
         cause = (
             f"all {health.n_inspections} inspection(s) ran but produced no gradeable "
             "evidence. Check the model id / key / endpoint and re-run."
+        )
+    elif health.budget_skipped == health.total and not health.errored:
+        cause = (
+            f"all {health.budget_skipped} probes were skipped because the judge "
+            "budget was exhausted; no judge call was made for those probes. "
+            "Increase the judge budget or select fewer inspections and re-run."
         )
     elif health.scorable == 0 and health.judge_broke and health.unreachable == 0 and not health.errored:
         # Every probe reached a model but the judge produced no usable verdict —
@@ -108,7 +122,7 @@ def measurement_failure_banner(health: _RunHealth) -> str | None:
         )
     else:
         cause = (
-            f"{health.unreachable} of {health.total} model calls failed to complete "
+            f"{health.unreachable} of {health.attempted_probes} attempted probes had model calls fail to complete "
             "(the agent under test or a judge was unreachable). Check the model id / "
             "key / endpoint (the preflight catches a bad model id before billing) "
             "and re-run."
