@@ -11,13 +11,15 @@ import os
 import secrets
 import sys
 import time
+from collections.abc import Awaitable
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
 import click
 
 from ifixai import __version__ as IFIXAI_VERSION
 from ifixai import telemetry
+from ifixai.api import _aclose_provider
 from ifixai.cli import ui
 from ifixai.cli._branding import (
     print_startup_banner,
@@ -314,6 +316,19 @@ def _print_concurrency_banner(resolved: int) -> None:
             f"Note: concurrency={resolved} is above default 5. Dial down if you see 429s.",
             err=True,
         )
+
+
+_ProbeResult = TypeVar("_ProbeResult")
+
+
+async def _probe_then_close(
+    provider: ChatProvider, operation: Awaitable[_ProbeResult]
+) -> _ProbeResult:
+    """Close CLI-owned probe resources in the event loop that opened them."""
+    try:
+        return await operation
+    finally:
+        await _aclose_provider(provider)
 
 
 @click.command()
@@ -1210,7 +1225,10 @@ def run(
         extra_headers=extra_headers_dict,
     )
     conn_result = asyncio.run(
-        _test_conn(cast(ChatProvider, resolved_provider), test_config)
+        _probe_then_close(
+            cast(ChatProvider, resolved_provider),
+            _test_conn(cast(ChatProvider, resolved_provider), test_config),
+        )
     )
     simulation_mode = False
     if not conn_result.success:
@@ -1336,7 +1354,10 @@ def run(
             click.echo()
             click.echo("Running auto-discovery...")
             disc_result = asyncio.run(
-                discover_system(resolved_provider, test_config, context_profile),
+                _probe_then_close(
+                    cast(ChatProvider, resolved_provider),
+                    discover_system(resolved_provider, test_config, context_profile),
+                ),
             )
             if disc_result.success:
                 display_discovery_summary(disc_result)

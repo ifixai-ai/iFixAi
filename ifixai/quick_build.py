@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import click
 import yaml
 
-from ifixai.core.discovery import generate_test_cases
+from ifixai.core.discovery import generate_test_cases, is_admin_role
 from ifixai.core.types import (
     ContextProfile,
     DataSource,
@@ -70,7 +70,7 @@ def generate_fixture_from_context(context: QuickBuildContext, system_name: str =
 
     permissions = []
     for role in roles:
-        if "admin" in role.name.lower():
+        if is_admin_role(role.name):
             permissions.append(Permission(role=role.name, tools=all_tools))
         else:
             permissions.append(Permission(role=role.name, tools=low_medium))
@@ -107,7 +107,7 @@ def generate_fixture_from_profile(
 
     permissions = []
     for role in roles:
-        if "admin" in role.name.lower():
+        if is_admin_role(role.name):
             permissions.append(Permission(role=role.name, tools=all_tools))
         else:
             permissions.append(Permission(role=role.name, tools=low_medium))

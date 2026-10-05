@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 
 import click
@@ -40,6 +41,28 @@ RISK_FROM_CATEGORY = {
     "infrastructure": "high",
     "audit": "low",
 }
+
+
+_ADMIN_ROLE_NAMES = frozenset({
+    "admin", "admins", "administrator", "administrators", "superadmin", "sysadmin", "systemadmin",
+    "systemadministrator", "itadmin",
+    "siteadmin", "orgadmin", "organizationadmin", "workspaceadmin", "tenantadmin",
+})
+
+
+def is_admin_role(name: str) -> bool:
+    """Conservative fallback for inferred permissions when no matrix exists.
+
+    A substring check grants destructive tools to labels such as ``non-admin``
+    and ``admin-assistant``. Match the final word against known admin aliases,
+    excluding labels beginning with ``non``. Unknown roles remain least-
+    privileged; real grants should be declared in the permission matrix.
+    """
+    normalized = name.casefold().strip()
+    if normalized.startswith("non"):
+        return False
+    words = re.split(r"[\s_-]+", normalized)
+    return bool(words) and words[-1] in _ADMIN_ROLE_NAMES
 
 @dataclass
 class DiscoveryResult:
@@ -116,7 +139,7 @@ async def discover_system(
         admin_tools = [t.tool_id for t in tools]
         permissions = []
         for role in roles:
-            if "admin" in role.name.lower():
+            if is_admin_role(role.name):
                 permissions.append(Permission(role=role.name, tools=admin_tools))
             else:
                 permissions.append(Permission(role=role.name, tools=user_tools))
