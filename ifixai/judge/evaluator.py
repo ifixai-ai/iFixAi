@@ -1,6 +1,22 @@
-from ifixai.core.types import ClassifierPair, ProviderConfig
+from ifixai.core.types import ChatMessage, ClassifierPair, ProviderConfig
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
+from ifixai.providers.base import ChatProvider
 from ifixai.providers.resolver import resolve_provider
+
+
+class _ClassifierJudgeProvider(ChatProvider):
+    """Keep borrowed classifier sends on the evaluator's accounting boundary."""
+
+    def __init__(self, evaluator: "JudgeEvaluator") -> None:
+        self._evaluator = evaluator
+
+    async def send_message(
+        self, messages: list[ChatMessage], config: ProviderConfig
+    ) -> str:
+        return await self._evaluator.send_message(messages, config)
+
+    async def aclose(self) -> None:
+        await self._evaluator.aclose()
 
 
 class JudgeEvaluator:
@@ -14,14 +30,28 @@ class JudgeEvaluator:
             model=config.model,
             endpoint=config.endpoint,
             timeout=config.timeout,
+            temperature=config.temperature,
         )
         self._call_count = 0
         self._cap_reached = False
         self._fallback_grades: dict[str, int] = {}
         self._transport_failures: dict[str, int] = {}
 
+    async def send_message(
+        self, messages: list[ChatMessage], config: ProviderConfig
+    ) -> str:
+        """Count provider sends, including failed and retried grading attempts.
+
+        Internal HTTP/SDK retries belong to the adapter and are not observable
+        here. The pipeline's separate budget still counts logical evaluations.
+        """
+        self._call_count += 1
+        return await self._provider.send_message(messages, config)
+
     def provider_pair(self) -> ClassifierPair:
-        return ClassifierPair(provider=self._provider, config=self._provider_config)
+        return ClassifierPair(
+            provider=_ClassifierJudgeProvider(self), config=self._provider_config
+        )
 
     @property
     def provider_name(self) -> str:
@@ -64,6 +94,11 @@ class JudgeEvaluator:
         return self._cap_reached
 
     def get_stats(self) -> dict[str, object]:
+        """Provider-send counts; items_escalated remains the legacy count alias.
+
+        These are not the pipeline's logical-grade budget or a count of SDK
+        internal retries, which happen inside a single provider send.
+        """
         return {
             "total_calls": self._call_count,
             "items_escalated": self._call_count,

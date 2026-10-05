@@ -130,14 +130,14 @@ class AnthropicProvider(ChatProvider):
                     endpoint=endpoint,
                     details=str(exc),
                 ) from exc
-            except anthropic.APIConnectionError as exc:
-                raise ProviderConnectionError(
+            except anthropic.APITimeoutError as exc:
+                raise ProviderTimeoutError(
                     provider="anthropic",
                     endpoint=endpoint,
                     details=str(exc),
                 ) from exc
-            except anthropic.APITimeoutError as exc:
-                raise ProviderTimeoutError(
+            except anthropic.APIConnectionError as exc:
+                raise ProviderConnectionError(
                     provider="anthropic",
                     endpoint=endpoint,
                     details=str(exc),

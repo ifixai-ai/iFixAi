@@ -157,14 +157,14 @@ class AzureOpenAIProvider(ChatProvider):
                 endpoint=config.endpoint,
                 details=str(exc),
             ) from exc
-        except openai.APIConnectionError as exc:
-            raise ProviderConnectionError(
+        except openai.APITimeoutError as exc:
+            raise ProviderTimeoutError(
                 provider="azure",
                 endpoint=config.endpoint,
                 details=str(exc),
             ) from exc
-        except openai.APITimeoutError as exc:
-            raise ProviderTimeoutError(
+        except openai.APIConnectionError as exc:
+            raise ProviderConnectionError(
                 provider="azure",
                 endpoint=config.endpoint,
                 details=str(exc),

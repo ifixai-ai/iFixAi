@@ -19,7 +19,7 @@ _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 _ZERO_SHA256 = "0" * 64
 _RUN_NONCE_RE = re.compile(r"^[0-9a-f]{16}$")
 _EMPTY_RUN_NONCE = ""
-CURRENT_MANIFEST_SCHEMA_VERSION = 3
+CURRENT_MANIFEST_SCHEMA_VERSION = 4
 LEGACY_MANIFEST_SCHEMA_VERSION = 1
 
 _logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ class RunManifest(BaseModel):
     timestamp: str
     schema_version: int = Field(default=CURRENT_MANIFEST_SCHEMA_VERSION, ge=1)
     run_nonce: str = Field(default=_EMPTY_RUN_NONCE)
+    sut_context_digest: str | None = None
     mode: RunMode
     model_under_test: ModelDescriptor
     judge_models: list[ModelDescriptor] = Field(default_factory=list)
@@ -141,6 +142,12 @@ def compute_run_id(manifest_fields: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
+def compute_sut_context_digest(endpoint: str | None, system_prompt: str | None) -> str:
+    """Fingerprint effective SUT inputs without persisting prompt or credentials."""
+    canonical = _canonical_json({"endpoint": endpoint, "system_prompt": system_prompt})
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def build_manifest(
     mode: RunMode,
     model_under_test: ModelDescriptor,
@@ -177,6 +184,7 @@ def build_manifest(
     b32_seed: int = 20260422,
     b29_seed_pinned: bool = False,
     b32_seed_pinned: bool = False,
+    sut_context_digest: str | None = None,
 ) -> RunManifest:
     if judge_models and model_under_test.model_id in {j.model_id for j in judge_models}:
         raise ValueError(
@@ -191,6 +199,7 @@ def build_manifest(
     payload = {
         "schema_version": CURRENT_MANIFEST_SCHEMA_VERSION,
         "run_nonce": effective_run_nonce,
+        "sut_context_digest": sut_context_digest,
         "mode": mode.value,
         "model_under_test": model_under_test.model_dump(),
         "judge_models": [j.model_dump() for j in judge_models],
@@ -231,6 +240,7 @@ def build_manifest(
         timestamp=timestamp or datetime.utcnow().isoformat(timespec="seconds") + "Z",
         schema_version=CURRENT_MANIFEST_SCHEMA_VERSION,
         run_nonce=effective_run_nonce,
+        sut_context_digest=sut_context_digest,
         holdout_seed=holdout_seed,
         holdout_ids=holdout_ids or {},
         b29_seed=b29_seed,
@@ -269,7 +279,9 @@ def build_manifest(
 
 def verify_run_id(manifest: RunManifest) -> bool:
     exclude: set[str] = set(_RUN_ID_EXCLUDE_FIELDS)
-    if manifest.schema_version < CURRENT_MANIFEST_SCHEMA_VERSION:
+    if manifest.schema_version < 4:
+        exclude.add("sut_context_digest")
+    if manifest.schema_version < 3:
         exclude.update(_LEGACY_V1_EXTRA_EXCLUDE)
     payload = manifest.model_dump(mode="json", exclude=exclude)
     expected = compute_run_id(payload)
@@ -277,7 +289,7 @@ def verify_run_id(manifest: RunManifest) -> bool:
 
 
 def load_manifest(path: Path) -> RunManifest:
-    """Load a manifest from disk, accepting both v1 (legacy) and v2 formats.
+    """Load current and historical manifest formats without changing run IDs.
 
     v1 manifests predate the run_nonce field. They load with schema_version=1
     and an empty run_nonce; verify_run_id() recomputes the legacy payload
@@ -286,7 +298,7 @@ def load_manifest(path: Path) -> RunManifest:
     """
     raw = json.loads(path.read_text(encoding="utf-8"))
     schema_version = int(raw.get("schema_version", LEGACY_MANIFEST_SCHEMA_VERSION))
-    if schema_version < CURRENT_MANIFEST_SCHEMA_VERSION:
+    if schema_version < 3:
         warnings.warn(
             f"Loading legacy manifest schema_version={schema_version} from {path}. "
             "Re-run to obtain replay protection (run_nonce).",

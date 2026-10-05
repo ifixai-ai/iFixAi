@@ -606,26 +606,36 @@ async def _run_parallel(
     total = len(items)
     spec_map = {s.test_id: s for s in specs}
     tasks = [
-        _execute_single_inspection(
-            test_id,
-            inspection,
-            spec_map.get(test_id),
-            provider,
-            config,
-            fixture,
-            capabilities,
-            pipeline_config,
-            pipeline,
-            governor,
+        asyncio.create_task(
+            _execute_single_inspection(
+                test_id,
+                inspection,
+                spec_map.get(test_id),
+                provider,
+                config,
+                fixture,
+                capabilities,
+                pipeline_config,
+                pipeline,
+                governor,
+            )
         )
         for test_id, inspection in items
     ]
     results: list[TestResult] = []
-    for coro in asyncio.as_completed(tasks):
-        result = await coro
-        results.append(result)
-        if progress_callback and callable(progress_callback):
-            progress_callback(result.test_id, len(results), total, result)
+    try:
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            results.append(result)
+            if progress_callback and callable(progress_callback):
+                progress_callback(result.test_id, len(results), total, result)
+    finally:
+        # Judge fail-fast and caller cancellation must stop sibling work before
+        # the enclosing run closes the shared judge and provider pools.
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
     results.sort(key=lambda r: r.test_id)
     return results
 
