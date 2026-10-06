@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,8 @@ import yaml
 
 
 def _canonicalise(obj: Any) -> Any:
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
     if isinstance(obj, dict):
         return {key: _canonicalise(obj[key]) for key in sorted(obj)}
     if isinstance(obj, list):
