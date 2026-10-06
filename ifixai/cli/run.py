@@ -1844,7 +1844,8 @@ def run(
         result.validation_warnings.append(
             "run_invalid: measurement failure — "
             f"errored={health.errored}/{health.n_inspections} inspections, "
-            f"unreachable={health.unreachable}/{health.total} model calls, "
+            f"unreachable={health.unreachable}/{health.attempted_probes} attempted probes, "
+            f"budget_skipped={health.budget_skipped}, "
             f"judge_broke={health.judge_broke}, scorable={health.scorable}. "
             "Ignore the grade."
         )
