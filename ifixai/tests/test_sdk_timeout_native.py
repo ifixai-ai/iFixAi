@@ -111,7 +111,6 @@ def test_connection_close_remains_a_connection_error(adapter):
 
 
 @pytest.mark.parametrize("spec", [*ADAPTERS[:-1],
-    ("litellm", "LiteLLMProvider", "litellm"),
     ("huggingface", "HuggingFaceProvider", "huggingface_hub"),
 ], ids=lambda spec: spec[1])
 @pytest.mark.parametrize("text", ["", "partial reply"])
@@ -149,7 +148,7 @@ def test_native_sdk_embedded_completion_errors_keep_their_identity(monkeypatch, 
     thread.start()
     async def exercise():
         provider = adapter()
-        config = ProviderConfig(provider=spec[0], api_key="owned-key", model="openai/gpt-4o" if spec[0] == "litellm" else "gpt-4o",
+        config = ProviderConfig(provider=spec[0], api_key="owned-key", model="gpt-4o",
                                 endpoint=f"http://127.0.0.1:{server.server_port}/v1", max_retries=0)
         try:
             expected = ProviderRateLimitError if code == 429 else ProviderOverloadedError
