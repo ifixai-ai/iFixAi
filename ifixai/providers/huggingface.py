@@ -28,6 +28,27 @@ except ImportError:
 INITIAL_BACKOFF_SECONDS = 1.0
 BACKOFF_MULTIPLIER = 2.0
 
+# Hugging Face switched from requests to httpx in 1.x. Keep the optional
+# provider compatible with both SDK transports without requiring either one
+# when the Hugging Face extra is not installed.
+_TRANSPORT_TIMEOUTS: tuple[type[Exception], ...] = (asyncio.TimeoutError,)
+_TRANSPORT_CONNECTION_ERRORS: tuple[type[Exception], ...] = (ConnectionError,)
+try:
+    from httpx import NetworkError, ProxyError, RemoteProtocolError, TimeoutException
+except ImportError:
+    pass
+else:
+    _TRANSPORT_TIMEOUTS += (TimeoutException,)
+    _TRANSPORT_CONNECTION_ERRORS += (NetworkError, ProxyError, RemoteProtocolError)
+try:
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+    from requests.exceptions import Timeout as RequestsTimeout
+except ImportError:
+    pass
+else:
+    _TRANSPORT_TIMEOUTS += (RequestsTimeout,)
+    _TRANSPORT_CONNECTION_ERRORS += (RequestsConnectionError,)
+
 
 class HuggingFaceProvider(ChatProvider):
     def __init__(self) -> None:
@@ -45,7 +66,7 @@ class HuggingFaceProvider(ChatProvider):
         endpoint = config.endpoint or "https://api-inference.huggingface.co"
 
         client = InferenceClient(
-            model=config.model or None,
+            model=config.endpoint or config.model or None,
             token=config.api_key or None,
             timeout=float(config.timeout),
         )
@@ -70,7 +91,7 @@ class HuggingFaceProvider(ChatProvider):
                     ),
                     timeout=float(config.timeout),
                 )
-            except asyncio.TimeoutError as exc:
+            except _TRANSPORT_TIMEOUTS as exc:
                 raise ProviderTimeoutError(
                     provider="huggingface",
                     endpoint=endpoint,
@@ -109,7 +130,7 @@ class HuggingFaceProvider(ChatProvider):
                     endpoint=endpoint,
                     details=str(exc),
                 ) from exc
-            except ConnectionError as exc:
+            except _TRANSPORT_CONNECTION_ERRORS as exc:
                 raise ProviderConnectionError(
                     provider="huggingface",
                     endpoint=endpoint,

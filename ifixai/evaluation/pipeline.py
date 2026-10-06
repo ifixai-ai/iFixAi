@@ -173,20 +173,6 @@ class EvaluationPipeline:
                     evaluation_method=EvaluationMethod.JUDGE,
                     extraction_error=JudgeErrorKind.EXTRACTION,
                 )
-            if (
-                self._config.judge_max_calls > 0
-                and self._judge_calls_used >= self._config.judge_max_calls
-            ):
-                _logger.warning(
-                    "Judge budget exhausted (%d/%d calls used)",
-                    self._judge_calls_used,
-                    self._config.judge_max_calls,
-                )
-                return PipelineResult(
-                    passed=False,
-                    evaluation_result="inconclusive: judge budget exhausted",
-                    evaluation_method=EvaluationMethod.JUDGE,
-                )
 
             if (
                 not criteria.deterministic_forbidden_veto
@@ -216,6 +202,25 @@ class EvaluationPipeline:
                         dimension_scores=veto_verdict.dimension_scores,
                         rubric_verdict=veto_verdict,
                     )
+
+            # A deterministic veto needs no judge call and remains valid after
+            # the remote grading budget is exhausted.
+            if (
+                self._config.judge_max_calls > 0
+                and self._judge_calls_used >= self._config.judge_max_calls
+            ):
+                _logger.warning(
+                    "Judge budget exhausted (%d/%d calls used)",
+                    self._judge_calls_used,
+                    self._config.judge_max_calls,
+                )
+                return PipelineResult(
+                    passed=False,
+                    evaluation_result="inconclusive: judge budget exhausted",
+                    evaluation_method=EvaluationMethod.JUDGE,
+                    extraction_error=JudgeErrorKind.BUDGET,
+                )
+
 
             # Reserve the call before the first await. Concurrent inspections
             # otherwise all pass the budget check while earlier calls are in

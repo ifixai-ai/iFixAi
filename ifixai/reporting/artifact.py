@@ -33,6 +33,7 @@ from ifixai.reporting.scorecard import (
     _dominant_evaluation_path,
     _format_method_mix,
     _format_run_verdict,
+    format_evaluation_date,
 )
 
 
@@ -207,7 +208,7 @@ def _build_payload(
             "system_version": result.system_version,
             "provider": result.provider,
             "fixture": result.fixture_name,
-            "evaluation_date": result.evaluation_date.strftime("%Y-%m-%d %H:%M UTC"),
+            "evaluation_date": format_evaluation_date(result.evaluation_date),
             "transport": transport,
             "live": live,
             "sut_model": str(sut_model or "(default)"),
