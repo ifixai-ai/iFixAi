@@ -15,6 +15,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
 )
+from ifixai.providers.http import _build_auth_headers
 
 DEFAULT_ENDPOINT = "http://localhost:8000"
 
@@ -44,7 +45,7 @@ class LangChainProvider(ChatProvider):
 
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(url, json=payload) as response:
+                async with session.post(url, json=payload, headers=_build_auth_headers(config)) as response:
                     if response.status == 401 or response.status == 403:
                         raise ProviderAuthError(
                             provider="langchain",
