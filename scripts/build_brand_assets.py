@@ -10,18 +10,31 @@ can hand GitHub's two themes their own art through <picture>:
   button-site-*.svg       the "Visit ifixai.ai" link under the hero
   button-pro-*.svg        the "iFixAi Pro" link beside it
 
+and, for phones, hero-audit-phone.svg, button-site.svg and button-pro.svg,
+which carry both themes in one file. GitHub's <picture> handling replaces a
+source's whole media query with its theme's, so a source cannot ask for a
+phone and a theme at once; the phone source asks for the width only, and its
+file picks its own theme from the viewer's colour scheme.
+
 The hero is the landing page's HeroAudit (app/components/landing/HeroAudit.tsx
 in the website repo) ported from GSAP to CSS keyframes, because GitHub shows an
-SVG through an <img>, where no script runs but CSS animation does. Its
-geometry and colours were measured off www.ifixai.ai at a 1440px viewport, its
-timings are HeroAudit's, and its text is set in subsets of Inter and IBM Plex
-Mono embedded in each file, so it renders the same on every machine. With
-reduced motion it rests on the finished audit, as the site does.
+SVG through an <img>, where no script runs but CSS animation does. Its timings
+are HeroAudit's, its colours the site's, its geometry measured off
+www.ifixai.ai into brand_hero_layouts.json (the desktop layout and the phone
+one), and its text is set in subsets of Inter and IBM Plex Mono embedded in
+each file, so it renders the same on every machine. With reduced motion it
+rests on the finished audit, as the site does.
 
 Needs network (the fonts come from Google Fonts) and fontTools:
 
     pip install fonttools brotli
     python scripts/build_brand_assets.py
+
+When the site's hero changes, re-measure it first (needs Playwright and
+Google Chrome):
+
+    pip install playwright
+    python scripts/build_brand_assets.py --measure
 """
 
 from __future__ import annotations
@@ -378,12 +391,13 @@ class Timeline:
     curve that leads into that point. The first value holds from the loop's
     start and the last one to its end."""
 
-    def __init__(self, period: float) -> None:
+    def __init__(self, period: float, prefix: str = "") -> None:
         self.period = period
+        self.prefix = prefix
         self.keyframes: list[str] = []
 
     def track(self, points: list[tuple], fmt) -> str:
-        name = f"k{len(self.keyframes)}"
+        name = f"{self.prefix}k{len(self.keyframes)}"
         keys = [
             (0.0, points[0][1], "linear"),
             *[(p[0], p[1], p[2] if len(p) > 2 else "linear") for p in points],
@@ -504,47 +518,16 @@ SETTLED = SCAN + 7.06  # the seal has landed
 BACK = SETTLED + 7.0
 PERIOD = round(BACK + 0.7 + 1.4, 2)
 
-# Geometry in CSS px from the window's top-left corner, as Chrome lays the
-# site out at 1440px. Text positions are baselines. Chrome draws the site's
-# 1.5px borders a whole pixel wide, so they are 1px here too.
-WIN_W, WIN_H = 583.55, 461.36
-ROW_X, ROW_W, ROW_H = 18, 547.55, 57.97
-ROW_TOP = (147.69, 213.66, 279.63, 345.59)
-LEDGER_H = 255.87
-FACE_W, FACE_H = ROW_W - 2, ROW_H - 2
-THUMB = (23, 94.97, 268.77, 34.72)
-SEAL = (333, 450.16, 280.55, 64)
-GLOW = (-58.34, -68.61, 711.91, 637.19)
-STATUS_RIGHT, STATUS_TOP, STATUS_H = 565.55, 46.81, 25.34
-CHIP_RIGHT, CHIP_TOP, CHIP_H = 533.54, 16.78, 22.39  # in the row's face
+# The window as the site lays it out, measured off www.ifixai.ai by
+# --measure: at a 1440px desktop, and at a 390px phone, where the site
+# switches to its phone layout (tighter boxes, details wrapping to two
+# lines, the seal without its reference). Positions are CSS px from the
+# window's top-left corner and text positions are baselines. Chrome draws
+# the site's 1.5px borders a whole pixel wide, so the boxes here are 1px.
+LAYOUTS = Path(__file__).with_name("brand_hero_layouts.json")
+# where the window sits on its desk: (left, top, desk width, desk height)
+DESKS = {"desktop": (72, 56, 728, 620), "phone": (14, 18, 386, 576)}
 
-# what each row's evals report, then what the audit finds
-ROWS = (
-    (
-        ("Order checked", "No issues found", "ok"),
-        ("Hid information", "Left the order's fraud flag out of its summary.", "high"),
-    ),
-    (
-        ("Refund issued", "$1,240 back to the customer", "ok"),
-        (
-            "Overrode your decision",
-            "A manager declined this refund. It paid it anyway.",
-            "critical",
-        ),
-    ),
-    (
-        ("Account updated", "Payout details saved", "ok"),
-        (
-            "Acted without authorisation",
-            "Changed the customer's payout account on its own.",
-            "critical",
-        ),
-    ),
-    (
-        ("Ticket closed", "Customer rated it 5/5", "ok"),
-        ("Ticket closed", "Handled inside its authority.", "passed"),
-    ),
-)
 HERO_ALT = (
     "A customer support agent's refund ticket as its evals see it, resolved with every check green. "
     "The same ticket through an iFixAi audit shows the agent hid a fraud flag, paid a refund a manager "
@@ -552,21 +535,21 @@ HERO_ALT = (
     "ticket was handled correctly. Illustrative scenario."
 )
 
-# the text styles, as (family, weight, style, size, letter-spacing)
+# the text styles, as (family, weight, style); each layout has its own sizes
 TEXT = {
-    "tb": (MONO, 700, "normal", 11.52, 0.1152),  # the title bar
-    "ag": (SANS, 800, "normal", 14.72, -0.1472),  # the agent
-    "tk": (MONO, 400, "normal", 10.88, 0),  # its ticket
-    "pl": (MONO, 700, "normal", 10.24, 0.7168),  # the status pill
-    "sw": (MONO, 700, "normal", 12.48, 0),  # the switch
-    "ti": (SANS, 800, "normal", 13.76, -0.08256),  # a row's title
-    "de": (SANS, 400, "normal", 12.16, 0),  # a row's detail
-    "ch": (MONO, 700, "normal", 9.6, 0.768),  # a severity chip
-    "ft": (MONO, 700, "normal", 11.2, 0.224),  # the footer
-    "nt": (SANS, 400, "italic", 11.2, 0),  # the caption under the window
-    "sb": (MONO, 700, "normal", 9.6, 1.344),  # the seal's "Audited by"
-    "sn": (MONO, 700, "normal", 20.48, -0.2048),  # the seal's name
-    "sr": (MONO, 400, "normal", 10.56, 0),  # the seal's reference
+    "tb": (MONO, 700, "normal"),  # the title bar
+    "ag": (SANS, 800, "normal"),  # the agent
+    "tk": (MONO, 400, "normal"),  # its ticket
+    "pl": (MONO, 700, "normal"),  # the status pill
+    "sw": (MONO, 700, "normal"),  # the switch
+    "ti": (SANS, 800, "normal"),  # a row's title
+    "de": (SANS, 400, "normal"),  # a row's detail
+    "ch": (MONO, 700, "normal"),  # a severity chip
+    "ft": (MONO, 700, "normal"),  # the footer
+    "nt": (SANS, 400, "italic"),  # the caption under the window
+    "sb": (MONO, 700, "normal"),  # the seal's "Audited by"
+    "sn": (MONO, 700, "normal"),  # the seal's name
+    "sr": (MONO, 400, "normal"),  # the seal's reference
 }
 FALLBACK = {
     SANS: "Inter,system-ui,sans-serif",
@@ -574,26 +557,54 @@ FALLBACK = {
 }
 
 
-def text_css(classes) -> str:
+def text_css(classes, sizes: dict) -> str:
     rules = []
     for cls in classes:
-        family, weight, style, size, spacing = TEXT[cls]
+        family, weight, style = TEXT[cls]
+        size, spacing = sizes[cls]
         rule = f".{cls}{{font:{style} {weight} {n(size)}px {family},{FALLBACK[family]}"
         rule += f";letter-spacing:{n(spacing)}px}}" if spacing else "}"
         rules.append(rule)
     return "".join(rules)
 
 
-def hero(theme: dict, files: FontFiles) -> str:
-    c = theme
-    fonts = Fonts(files)
-    tl = Timeline(PERIOD)
-    defs: list[str] = []
+# with motion off, every animated element rests on the finished audit
+ANIMATION_CSS = (
+    f".a{{animation-duration:{n(PERIOD)}s;animation-iteration-count:infinite}}"
+    ".c{transform-box:fill-box;transform-origin:center}"
+    ".t{transform-box:fill-box;transform-origin:top}"
+    ".bl{animation:bl .8s infinite}@keyframes bl{0%,50%{opacity:1}50.01%,100%{opacity:.2}}"
+    "@media (prefers-reduced-motion:reduce){.a,.bl{animation:none!important}}"
+)
+# a file carrying both themes shows the one the viewer's colour scheme
+# asks for (GitHub's own theme in Chrome and Firefox, the OS's in Safari)
+BOTH_THEMES_CSS = ".td{display:none}@media (prefers-color-scheme:dark){.tl{display:none}.td{display:inline}}"
 
-    def text(cls: str, x: float, y: float, s: str, fill: str, extra: str = "") -> str:
-        family, weight, style, *_ = TEXT[cls]
+
+def hero_art(
+    c: dict, L: dict, desk: tuple, fonts: Fonts, p: str = ""
+) -> tuple[str, str]:
+    """One theme of the hero on its desk, as (markup, keyframes). `p`
+    prefixes every id and keyframe, so two themes can share a file."""
+    tl = Timeline(PERIOD, p)
+    defs: list[str] = []
+    out: list[str] = []
+    win_w, win_h = L["win"][2], L["win"][3]
+
+    def text(
+        cls: str,
+        line: list,
+        fill: str,
+        dx: float = 0,
+        dy: float = 0,
+        extra: str = "",
+        upper: bool = False,
+    ) -> str:
+        s, x, y = line
+        s = s.upper() if upper else s
+        family, weight, style = TEXT[cls]
         fonts.use(family, weight, style, s)
-        return f'<text class="{cls}" x="{n(x)}" y="{n(y)}" fill="{fill}"{extra}>{esc(s)}</text>'
+        return f'<text class="{cls}" x="{n(x - dx)}" y="{n(y - dy)}" fill="{fill}"{extra}>{esc(s)}</text>'
 
     def pill_rect(
         x: float,
@@ -616,89 +627,92 @@ def hero(theme: dict, files: FontFiles) -> str:
     # ── the window's own chrome ──
     defs.append(
         shadow_filter(
-            "ws", (0, 0, WIN_W, WIN_H), c["shadow_soft"], 18, 50, c["shadow_hard"], 4
+            f"{p}ws",
+            (0, 0, win_w, win_h),
+            c["shadow_soft"],
+            18,
+            50,
+            c["shadow_hard"],
+            4,
         )
     )
     defs.append(
-        shadow_filter("ss", SEAL, c["shadow_soft"], 18, 50, c["shadow_hard"], 4)
+        shadow_filter(
+            f"{p}ss", L["seal"], c["shadow_soft"], 18, 50, c["shadow_hard"], 4
+        )
     )
     defs.append(
-        f'<radialGradient id="glow">{stops((0, c["glow"]), (0.74, clear(c["glow"])))}</radialGradient>'
+        f'<radialGradient id="{p}glow">{stops((0, c["glow"]), (0.74, clear(c["glow"])))}</radialGradient>'
     )
-    gx, gy, gw, gh = GLOW
-    out = [
-        f'<ellipse cx="{n(gx + gw / 2)}" cy="{n(gy + gh / 2)}" rx="{n(gw / 2)}" ry="{n(gh / 2)}" fill="url(#glow)"/>'
-    ]
+    gx, gy, gw, gh = L["glow"]
     out.append(
-        f'<rect x="1" y="1" width="{n(WIN_W - 2)}" height="{n(WIN_H - 2)}" rx="6" fill="{c["window"]}" '
-        f'stroke="{c["ink"]}" stroke-width="2" filter="url(#ws)"/>'
+        f'<ellipse cx="{n(gx + gw / 2)}" cy="{n(gy + gh / 2)}" rx="{n(gw / 2)}" ry="{n(gh / 2)}" fill="url(#{p}glow)"/>'
+    )
+    out.append(
+        f'<rect x="1" y="1" width="{n(win_w - 2)}" height="{n(win_h - 2)}" rx="6" fill="{c["window"]}" '
+        f'stroke="{c["ink"]}" stroke-width="2" filter="url(#{p}ws)"/>'
     )
     # title bar: pinstripes, the title on its own plate, three boxes
+    bx, by, bw, bh = L["titlebar"]
     out.append(
-        f'<rect x="2" y="24" width="{n(WIN_W - 4)}" height="2" fill="{c["ink"]}"/>'
+        f'<rect x="{n(bx)}" y="{n(by + bh - 2)}" width="{n(bw)}" height="2" fill="{c["ink"]}"/>'
     )
-    out.append(
-        "".join(
-            f'<rect x="30" y="{y}" width="501.55" height="1" fill="{c["pinstripe"]}"/>'
-            for y in (7, 10, 13, 16, 19)
-        )
-    )
-    out.append(
-        f'<rect x="213.04" y="4.36" width="135.47" height="17.28" fill="{c["window"]}"/>'
-    )
-    out.append(text("tb", 221.04, 17.36, "support-agent.exe", c["text"]))
-    for x, name in ((8, "close"), (539.55, "minimize"), (561.55, "maximize")):
-        out.append(pill_rect(x, 6, 14, 14, c["window"], c["ink"], r=4))
+    sx, sy, sw, sh = L["stripe"]
+    stripe_y = sy + sh - 1
+    while stripe_y >= sy:
         out.append(
-            f'<path d="M{n(x + 1)} 18.5H{n(x + 12.5)}V7" fill="none" stroke="{c["bevel_dark"]}"/>'
-            f'<path d="M{n(x + 1.5)} 18.5V7.5H{n(x + 13)}" fill="none" stroke="{c["bevel_light"]}"/>'
+            f'<rect x="{n(sx)}" y="{n(stripe_y)}" width="{n(sw)}" height="1" fill="{c["pinstripe"]}"/>'
         )
-        out.append(icon(name, x + 3, 9, 8, c["text"]))
+        stripe_y -= 3
+    px, py, pw, ph = L["plate"]
+    out.append(
+        f'<rect x="{n(px)}" y="{n(py)}" width="{n(pw)}" height="{n(ph)}" fill="{c["window"]}"/>'
+    )
+    out.append(text("tb", L["title"][0], c["text"]))
+    for (x, y, s, _), (ix, iy, isz, _), name in zip(
+        L["tbBoxes"], L["tbIcons"], ("close", "minimize", "maximize")
+    ):
+        out.append(pill_rect(x, y, s, s, c["window"], c["ink"], r=4))
+        out.append(
+            f'<path d="M{n(x + 1)} {n(y + s - 1.5)}H{n(x + s - 1.5)}V{n(y + 1)}" fill="none" stroke="{c["bevel_dark"]}"/>'
+            f'<path d="M{n(x + 1.5)} {n(y + s - 1.5)}V{n(y + 1.5)}H{n(x + s - 1)}" fill="none" stroke="{c["bevel_light"]}"/>'
+        )
+        out.append(icon(name, ix, iy, isz, c["text"]))
 
     # ── the agent, its ticket and where the ticket stands ──
-    out.append(pill_rect(18, 42.48, 34, 34, c["window_2"], c["ink"], r=4))
-    out.append(icon("bot", 26.5, 50.98, 17, c["text"], 1.5))
-    out.append(text("ag", 63, 55, "Customer Support Agent", c["text"]))
-    out.append(text("tk", 63, 72.66, "Ticket #4821 · Refund request", c["text_3"]))
+    ax, ay, asz, _ = L["avatar"]
+    out.append(pill_rect(ax, ay, asz, asz, c["window_2"], c["ink"], r=4))
+    ix, iy, isz, _ = L["avatarIcon"]
+    out.append(icon("bot", ix, iy, isz, c["text"], 1.5))
+    # On a phone the name wraps to two lines and the site cuts the ticket
+    # short with an ellipsis; the whole ticket is drawn here, since it runs
+    # below the status pill rather than into it.
+    out += [text("ag", line, c["text"]) for line in L["agent"]]
+    out.append(text("tk", L["ticket"][0], c["text_3"]))
 
-    pill_size, pill_spacing = TEXT["pl"][3], TEXT["pl"][4]
-    count_w = mono_width("250/250", pill_size, pill_spacing)
-
-    def status(
-        label: str,
-        ink: str,
-        bg: str,
-        border: str,
-        track: str,
-        rest: float,
-        count: bool = False,
-    ) -> str:
-        label_w = mono_width(label, pill_size, pill_spacing)
-        width = 35 + label_w + (8 + count_w if count else 0)
-        x = STATUS_RIGHT - width
-        base = 62.81
-        parts = [pill_rect(x, STATUS_TOP, width, STATUS_H, bg, border)]
-        dot = f'<circle cx="{n(x + 14.5)}" cy="59.48" r="3.5" fill="{ink}"'
-        parts.append(dot + (' class="bl"/>' if count else "/>"))
-        parts.append(text("pl", x + 24, base, label, ink))
-        if count:
+    def status(i: int, ink: str, bg: str, border: str, track: str, rest: float) -> str:
+        item = L["status"][i]
+        x, y, w, h = item["rect"]
+        dx, dy, ds, _ = item["dot"]
+        label = item["text"][0]
+        parts = [pill_rect(x, y, w, h, bg, border)]
+        dot = f'<circle cx="{n(dx + ds / 2)}" cy="{n(dy + ds / 2)}" r="{n(ds / 2)}" fill="{ink}"'
+        parts.append(dot + (' class="bl"/>' if i == 1 else "/>"))
+        parts.append(text("pl", label, ink, upper=True))
+        if i == 1:
             # The count runs on a column of every number from 0 to 250,
             # stepped through one at a time inside a window one line high.
-            right = (
-                x
-                + 24
-                + label_w
-                + 8
-                + count_w
-                - mono_width("/250", pill_size, pill_spacing)
-            )
+            slash = next(line for line in item["text"] if line[0] == "/")
+            right, base = slash[1], slash[2]
+            size = L["fonts"]["pl"][0]
             column = "".join(
                 f'<tspan x="{n(right)}" y="{n(base + k * 16)}">{k}</tspan>'
                 for k in range(251)
             )
             fonts.use(MONO, 700, "normal", "0123456789/")
             defs.append(
-                f'<clipPath id="count"><rect x="{n(right - 30)}" y="{n(base - 11)}" width="30" height="15"/></clipPath>'
+                f'<clipPath id="{p}count"><rect x="{n(right - 30)}" y="{n(base - 1.1 * size)}" '
+                f'width="30" height="{n(1.5 * size)}"/></clipPath>'
             )
             points = [(SCAN + 0.3, 0)]
             span = DONE - (SCAN + 0.3)
@@ -706,19 +720,14 @@ def hero(theme: dict, files: FontFiles) -> str:
                 f = j / 12
                 eased = 2 * f * f if f < 0.5 else 1 - (-2 * f + 2) ** 2 / 2
                 k = round(250 * eased)
-                points.append(
-                    (
-                        SCAN + 0.3 + span * f,
-                        -16 * k,
-                        f"steps({max(k - round(-points[-1][1] / 16), 1)},end)",
-                    )
-                )
+                steps = max(k - round(-points[-1][1] / 16), 1)
+                points.append((SCAN + 0.3 + span * f, -16 * k, f"steps({steps},end)"))
             column_track = tl.track(points, ty)
             parts.append(
-                f'<g clip-path="url(#count)" opacity=".85"><g {anim(column_track, rest="transform:translateY(-4000px)")}>'
+                f'<g clip-path="url(#{p}count)" opacity=".85"><g {anim(column_track, rest="transform:translateY(-4000px)")}>'
                 f'<text class="pl" fill="{ink}" text-anchor="end">{column}</text></g></g>'
             )
-            parts.append(text("pl", right, base, "/250", ink, ' opacity=".85"'))
+            parts.append(text("pl", ["/250", right, base], ink, extra=' opacity=".85"'))
         return f"<g {anim(track, rest=f'opacity:{n(rest)}')}>{''.join(parts)}</g>"
 
     dash_track = tl.track(
@@ -752,46 +761,29 @@ def hero(theme: dict, files: FontFiles) -> str:
     )
     out.append(
         status(
-            "TASK COMPLETE",
-            c["pass"],
-            alpha(c["pass"], 0.12),
-            alpha(c["pass"], 0.45),
-            dash_track,
-            0,
+            0, c["pass"], alpha(c["pass"], 0.12), alpha(c["pass"], 0.45), dash_track, 0
         )
     )
     out.append(
-        status(
-            "AUDITING",
-            c["cyan_ink"],
-            c["run_bg"],
-            alpha(c["cyan"], 0.55),
-            run_track,
-            0,
-            count=True,
-        )
+        status(1, c["cyan_ink"], c["run_bg"], alpha(c["cyan"], 0.55), run_track, 0)
     )
     out.append(
         status(
-            "3 FINDINGS",
-            c["fail"],
-            alpha(c["fail"], 0.12),
-            alpha(c["fail"], 0.5),
-            audit_track,
-            1,
+            2, c["fail"], alpha(c["fail"], 0.12), alpha(c["fail"], 0.5), audit_track, 1
         )
     )
 
     # ── the switch: the same ticket as the evals tell it, or as the audit finds it ──
-    out.append(pill_rect(18, 89.97, 547.55, 44.72, c["sunken"], c["ink"], sw=2, r=4))
-    tx_, ty_, tw, th = THUMB
+    out.append(pill_rect(*L["switch"], c["sunken"], c["ink"], sw=2, r=4))
+    tx_, ty_, tw, th = L["thumb"]
+    reach = (tw + th) * 0.25  # a CSS 135deg gradient's half-length along each axis
     defs.append(
-        f'<linearGradient id="thumb" gradientUnits="userSpaceOnUse" x1="{n(tw / 2 - (tw + th) * 0.25)}" '
-        f'y1="{n(th / 2 - (tw + th) * 0.25)}" x2="{n(tw / 2 + (tw + th) * 0.25)}" y2="{n(th / 2 + (tw + th) * 0.25)}">'
+        f'<linearGradient id="{p}thumb" gradientUnits="userSpaceOnUse" x1="{n(tw / 2 - reach)}" '
+        f'y1="{n(th / 2 - reach)}" x2="{n(tw / 2 + reach)}" y2="{n(th / 2 + reach)}">'
         f"{stops((0, c['accent']), (1, c['accent_2']))}</linearGradient>"
     )
     defs.append(
-        '<filter id="ts" x="-10%" y="-40%" width="120%" height="200%">'
+        f'<filter id="{p}ts" x="-10%" y="-40%" width="120%" height="200%">'
         f'<feDropShadow dy="2" stdDeviation="3.5" flood-color="{c["accent_shadow"]}"/></filter>'
     )
     thumb_track = tl.track(
@@ -805,7 +797,7 @@ def hero(theme: dict, files: FontFiles) -> str:
     )
     out.append(
         f'<g transform="translate({n(tx_)} {n(ty_)})"><g {anim(thumb_track, rest=f"transform:translateX({n(tw)}px)")}>'
-        f'<rect width="{n(tw)}" height="{n(th)}" rx="3" fill="url(#thumb)" filter="url(#ts)"/></g></g>'
+        f'<rect width="{n(tw)}" height="{n(th)}" rx="3" fill="url(#{p}thumb)" filter="url(#{p}ts)"/></g></g>'
     )
     # the labels change hands as the thumb passes halfway
     evals_color = tl.track(
@@ -826,17 +818,19 @@ def hero(theme: dict, files: FontFiles) -> str:
         ],
         color,
     )
+    evals, audit = L["btns"]
+    ex, ey, es, _ = evals["icon"]
     out.append(
-        f"<g {anim(evals_color, rest='color:' + c['text_2'])}>{icon('pulse', 109.95, 105.83, 13, 'currentColor', 1.6)}"
-        f"{text('sw', 129.94, 116.97, 'Your Evals', 'currentColor')}</g>"
+        f"<g {anim(evals_color, rest='color:' + c['text_2'])}>{icon('pulse', ex, ey, es, 'currentColor', 1.6)}"
+        f"{text('sw', evals['text'][0], 'currentColor')}</g>"
     )
+    ux, uy, us, _ = audit["icon"]
     out.append(
-        f"<g {anim(audit_color, rest='color:' + c['on_accent'])}>{badge(370.73, 105.33, 14, 'currentColor')}"
-        f"{text('sw', 391.72, 116.97, 'iFixAi Audit', 'currentColor')}</g>"
+        f"<g {anim(audit_color, rest='color:' + c['on_accent'])}>{badge(ux, uy, us, 'currentColor')}"
+        f"{text('sw', audit['text'][0], 'currentColor')}</g>"
     )
 
     # ── the ledger ──
-    chip_size, chip_spacing = TEXT["ch"][3], TEXT["ch"][4]
     chip_style = {
         "ok": (c["pass"], alpha(c["pass"], 0.5), c["window"]),
         "passed": (c["pass"], alpha(c["pass"], 0.5), c["window"]),
@@ -844,34 +838,34 @@ def hero(theme: dict, files: FontFiles) -> str:
         "critical": ("#ffffff", c["fail_fill"], c["fail_fill"]),
     }
     defs.append(
-        f'<clipPath id="face"><rect width="{n(FACE_W)}" height="{n(FACE_H)}" rx="3"/></clipPath>'
+        f'<linearGradient id="{p}scan">{stops((0.35, clear(alpha(c["cyan"], 0.18))), (1, alpha(c["cyan"], 0.18)))}</linearGradient>'
     )
-    defs.append(
-        f'<linearGradient id="scan">{stops((0.35, clear(alpha(c["cyan"], 0.18))), (1, alpha(c["cyan"], 0.18)))}</linearGradient>'
-    )
-    defs.append(glow_filter("sg", 10))
+    defs.append(glow_filter(f"{p}sg", 10))
 
-    def face(title: str, detail: str, chip: str, finding: bool, row: int) -> str:
+    def face(fc: dict, finding: bool, row: int) -> str:
         """One reading of a row, in the row's face coordinates."""
-        fail = chip in ("high", "critical")
+        fx, fy, fw, fh = fc["rect"]
+        kind = fc["chipText"][0][0].lower()
+        fail = kind in ("high", "critical")
         bg = (c["fail_face"] if fail else c["pass_face"]) if finding else c["window"]
-        parts = [f'<rect width="{n(FACE_W)}" height="{n(FACE_H)}" rx="3" fill="{bg}"/>']
+        parts = [f'<rect width="{n(fw)}" height="{n(fh)}" rx="3" fill="{bg}"/>']
+        mx, my, ms, _ = fc["mark"]
+        ix, iy, isz, _ = fc["icon"]
+        circle = f'<circle cx="{n(mx - fx + ms / 2)}" cy="{n(my - fy + ms / 2)}" r="{n(ms / 2 - 0.5)}"'
         if fail:
             mark = (
-                f'<circle cx="24" cy="27.985" r="11.5" fill="{c["fail_fill"]}" stroke="{c["fail_fill"]}"/>'
-                + icon("cross", 18, 21.985, 12, "#ffffff", 2.4)
+                f'{circle} fill="{c["fail_fill"]}" stroke="{c["fail_fill"]}"/>'
+                + icon("cross", ix - fx, iy - fy, isz, "#ffffff", 2.4)
             )
         else:
             mark = (
-                f'<circle cx="24" cy="27.985" r="11.5" fill="{alpha(c["pass"], 0.12)}" stroke="{alpha(c["pass"], 0.45)}"/>'
-                + icon("check", 18, 21.985, 12, c["pass"], 2.4)
+                f'{circle} fill="{alpha(c["pass"], 0.12)}" stroke="{alpha(c["pass"], 0.45)}"/>'
+                + icon("check", ix - fx, iy - fy, isz, c["pass"], 2.4)
             )
-        label = chip.upper()
-        ink, border, chip_bg = chip_style[chip]
-        width = mono_width(label, chip_size, chip_spacing) + 18
-        x = CHIP_RIGHT - width
-        chip_svg = pill_rect(x, CHIP_TOP, width, CHIP_H, chip_bg, border) + text(
-            "ch", x + 9, 30.78, label, ink
+        ink, border, chip_bg = chip_style[kind]
+        cx, cy, cw, ch = fc["chip"]
+        chip = pill_rect(cx - fx, cy - fy, cw, ch, chip_bg, border) + text(
+            "ch", fc["chipText"][0], ink, fx, fy, upper=True
         )
         if finding:
             # the verdict lands just behind the scan line: the mark pops,
@@ -896,20 +890,22 @@ def hero(theme: dict, files: FontFiles) -> str:
                 fade_scale,
             )
             mark = f"<g {anim(mark_track, box='c')}>{mark}</g>"
-            chip_svg = f"<g {anim(chip_track, box='c')}>{chip_svg}</g>"
+            chip = f"<g {anim(chip_track, box='c')}>{chip}</g>"
         parts.append(mark)
-        parts.append(text("ti", 47, 23, title, c["text"]))
-        parts.append(
-            text("de", 47, 41.2, detail, c["text_2"] if finding else c["text_3"])
-        )
-        parts.append(chip_svg)
+        parts += [text("ti", line, c["text"], fx, fy) for line in fc["title"]]
+        detail_ink = c["text_2"] if finding else c["text_3"]
+        parts += [text("de", line, detail_ink, fx, fy) for line in fc["detail"]]
+        parts.append(chip)
         return "".join(parts)
 
-    for i, (surface, truth) in enumerate(ROWS):
-        top = ROW_TOP[i]
+    for i, row in enumerate(L["rows"]):
+        rx, ry, rw, rh = row["rect"]
+        surface, truth = row["faces"]
+        fx, fy, fw, fh = surface["rect"]
         at = ROW_AT[i]
-        out.append(
-            pill_rect(ROW_X, top, ROW_W, ROW_H, c["window"], c["border_soft"], r=4)
+        out.append(pill_rect(rx, ry, rw, rh, c["window"], c["border_soft"], r=4))
+        defs.append(
+            f'<clipPath id="{p}face{i}"><rect width="{n(fw)}" height="{n(fh)}" rx="3"/></clipPath>'
         )
         # The finding is uncovered by a viewport sliding in from the left
         # while its content slides the other way, so the content holds still
@@ -918,40 +914,46 @@ def hero(theme: dict, files: FontFiles) -> str:
         back_at = BACK + 0.05 + 0.05 * i
         outer = tl.track(
             [
-                (at, -FACE_W),
+                (at, -fw),
                 (at + 0.62, 0, "power2.inOut"),
                 (back_at, 0),
-                (back_at + 0.5, -FACE_W, "power2.inOut"),
+                (back_at + 0.5, -fw, "power2.inOut"),
             ],
             tx,
         )
         inner = tl.track(
             [
-                (at, FACE_W),
+                (at, fw),
                 (at + 0.62, 0, "power2.inOut"),
                 (back_at, 0),
-                (back_at + 0.5, FACE_W, "power2.inOut"),
+                (back_at + 0.5, fw, "power2.inOut"),
             ],
             tx,
         )
-        scan_x = tl.track([(at, -FACE_W), (at + 0.62, 0, "power2.inOut")], tx)
+        scan_x = tl.track([(at, -fw), (at + 0.62, 0, "power2.inOut")], tx)
         scan_o = tl.track(
             [(at, 0), (at + 0.01, 1), (at + 0.62, 1), (at + 0.82, 0, "linear")], op
         )
         out.append(
-            f'<g transform="translate({n(ROW_X + 1)} {n(top + 1)})">'
-            + face(*surface, finding=False, row=i)
-            + f'<g {anim(outer)}><svg width="{n(FACE_W)}" height="{n(FACE_H)}" overflow="hidden">'
-            f"<g {anim(inner)}>{face(*truth, finding=True, row=i)}</g></svg></g>"
-            f'<g clip-path="url(#face)"><g {anim(scan_x, scan_o, rest="opacity:0")}>'
-            f'<rect width="{n(FACE_W)}" height="{n(FACE_H)}" fill="url(#scan)"/>'
-            f'<rect x="{n(FACE_W - 3)}" width="4" height="{n(FACE_H)}" fill="{alpha(c["cyan"], 0.7)}" filter="url(#sg)"/>'
-            f'<rect x="{n(FACE_W - 2)}" width="2" height="{n(FACE_H)}" fill="{c["cyan"]}"/></g></g></g>'
+            f'<g transform="translate({n(fx)} {n(fy)})">'
+            + face(surface, finding=False, row=i)
+            + f'<g {anim(outer)}><svg width="{n(fw)}" height="{n(fh)}" overflow="hidden">'
+            f"<g {anim(inner)}>{face(truth, finding=True, row=i)}</g></svg></g>"
+            f'<g clip-path="url(#{p}face{i})"><g {anim(scan_x, scan_o, rest="opacity:0")}>'
+            f'<rect width="{n(fw)}" height="{n(fh)}" fill="url(#{p}scan)"/>'
+            f'<rect x="{n(fw - 3)}" width="4" height="{n(fh)}" fill="{alpha(c["cyan"], 0.7)}" filter="url(#{p}sg)"/>'
+            f'<rect x="{n(fw - 2)}" width="2" height="{n(fh)}" fill="{c["cyan"]}"/></g></g></g>'
         )
 
-    # the lens: the badge's two brackets closing on the row under inspection
-    defs.append(glow_filter("lg", 6))
-    lens_w = WIN_W - 22
+    # The lens: the badge's two brackets closing on the row under
+    # inspection. It is drawn the first row's height and stretched to each
+    # row's own, since phone rows wrap to different heights.
+    defs.append(glow_filter(f"{p}lg", 6))
+    lens_x, _, lens_w, _ = L["lens"]
+    ledger_y, ledger_h = L["ledger"][1], L["ledger"][3]
+    tops = [row["rect"][1] - ledger_y for row in L["rows"]]
+    heights = [row["rect"][3] for row in L["rows"]]
+    h0 = heights[0]
     lens_o = tl.track(
         [
             (SCAN + 0.45, 0),
@@ -961,37 +963,39 @@ def hero(theme: dict, files: FontFiles) -> str:
         ],
         op,
     )
-    lens_points = [(SCAN + 0.45, 0)]
-    for i in range(1, 4):
-        lens_points += [
-            (ROW_AT[i] - 0.45, ROW_TOP[i - 1] - ROW_TOP[0]),
-            (ROW_AT[i], ROW_TOP[i] - ROW_TOP[0], "power3.inOut"),
-        ]
-    lens_points += [(DONE, ROW_TOP[3] - ROW_TOP[0]), (DONE + 0.5, 0, "power3.inOut")]
-    lens_y = tl.track(lens_points, ty)
+
+    def follow(at_row, final):
+        points = [(SCAN + 0.45, at_row(0))]
+        for i in range(1, 4):
+            points += [
+                (ROW_AT[i] - 0.45, at_row(i - 1)),
+                (ROW_AT[i], at_row(i), "power3.inOut"),
+            ]
+        return [*points, (DONE, at_row(3)), (DONE + 0.5, final, "power3.inOut")]
+
+    lens_y = tl.track(follow(lambda i: tops[i], 0), ty)
+    lens_open = tl.track(follow(lambda i: heights[i] / h0, ledger_h / h0), scale_y)
+    lens_foot = tl.track(follow(lambda i: heights[i] - h0, ledger_h - h0), ty)
     lens_scale = tl.track(
         [(SCAN + 0.45, 1.1), (SCAN + 0.87, 1, "back.out(2.2)")], scale
-    )
-    lens_open = tl.track(
-        [(DONE, 1), (DONE + 0.5, LEDGER_H / ROW_H, "power3.inOut")], scale_y
-    )
-    lens_foot = tl.track(
-        [(DONE, 0), (DONE + 0.5, LEDGER_H - ROW_H, "power3.inOut")], ty
     )
     corner = "M0 22V8a8 8 0 0 1 8-8h14v4H8a4 4 0 0 0-4 4v14z"
     corners = (
         f'<path d="{corner}" transform="translate(0 -5)" fill="{c["cyan"]}"/>'
-        f'<g {anim(lens_foot)}><path d="{corner}" transform="translate({n(lens_w)} {n(ROW_H + 5)}) rotate(180)" fill="{c["cyan"]}"/></g>'
+        f'<g {anim(lens_foot)}><path d="{corner}" transform="translate({n(lens_w)} {n(h0 + 5)}) rotate(180)" '
+        f'fill="{c["cyan"]}"/></g>'
     )
     out.append(
-        f'<g transform="translate(11 {n(ROW_TOP[0])})"><g {anim(lens_y, lens_o, rest="opacity:0")}><g {anim(lens_scale, box="c")}>'
-        f'<g {anim(lens_open, box="t")}><rect width="{n(lens_w)}" height="{n(ROW_H)}" rx="8" fill="{alpha(c["cyan"], 0.06)}"/></g>'
-        f'<g filter="url(#lg)" opacity=".55">{corners}</g>{corners}</g></g></g>'
+        f'<g transform="translate({n(lens_x)} {n(ledger_y)})"><g {anim(lens_y, lens_o, rest="opacity:0")}>'
+        f"<g {anim(lens_scale, box='c')}><g {anim(lens_open, box='t')}>"
+        f'<rect width="{n(lens_w)}" height="{n(h0)}" rx="8" fill="{alpha(c["cyan"], 0.06)}"/></g>'
+        f'<g filter="url(#{p}lg)" opacity=".55">{corners}</g>{corners}</g></g></g>'
     )
 
     # ── what the window concludes, in one line ──
+    fx, fy, fw, _ = L["foot"]
     out.append(
-        f'<path d="M18 417.06H565.55" stroke="{c["border_soft"]}" stroke-dasharray="3 3"/>'
+        f'<path d="M{n(fx)} {n(fy + 0.5)}H{n(fx + fw)}" stroke="{c["border_soft"]}" stroke-dasharray="3 3"/>'
     )
     foot_dash = tl.track(
         [
@@ -1013,18 +1017,19 @@ def hero(theme: dict, files: FontFiles) -> str:
         ],
         fade_y,
     )
-    out.append(
-        f"<g {anim(foot_dash, rest='opacity:0')}>{icon('pulse', 18, 430.45, 13, c['pass'], 1.6)}"
-        f"{text('ft', 38, 440.56, 'Evals 96% · 0 errors · resolved in 38s', c['pass'])}</g>"
-    )
-    out.append(
-        f"<g {anim(foot_audit, rest='opacity:1')}>{icon('warn', 18, 430.45, 13, c['fail'], 1.6)}"
-        f"{text('ft', 38, 440.56, '3 findings your evals missed', c['fail'])}</g>"
-    )
-    out.append(text("nt", 2, 485.36, "Illustrative scenario", c["desk_ink_3"]))
+    for item, name, ink, track, rest in (
+        (L["footItems"][0], "pulse", c["pass"], foot_dash, 0),
+        (L["footItems"][1], "warn", c["fail"], foot_audit, 1),
+    ):
+        ix, iy, isz, _ = item["icon"]
+        out.append(
+            f"<g {anim(track, rest=f'opacity:{rest}')}>{icon(name, ix, iy, isz, ink, 1.6)}"
+            f"{text('ft', item['text'][0], ink)}</g>"
+        )
+    out.append(text("nt", L["note"][0], c["desk_ink_3"]))
 
     # ── the mark the audit leaves, stamped across the window's corner ──
-    sx, sy, sw_, sh = SEAL
+    sx, sy, sw_, sh = L["seal"]
     seal_track = tl.track(
         [
             (DONE + 0.45, (0, 1.7, -16)),
@@ -1036,62 +1041,74 @@ def hero(theme: dict, files: FontFiles) -> str:
         ],
         lambda v: f"opacity:{n(v[0])};transform:rotate({n(v[2])}deg) scale({n(v[1])})",
     )
-    out.append(
-        f"<g {anim(seal_track, rest='transform:rotate(-6deg)', box='c')}>"
+    bx, by, bs, _ = L["sealBadge"]
+    seal = [
         f'<rect x="{n(sx + 1)}" y="{n(sy + 1)}" width="{n(sw_ - 2)}" height="{n(sh - 2)}" rx="6" fill="{c["window"]}" '
-        f'stroke="{c["ink"]}" stroke-width="2" filter="url(#ss)"/>'
-        f'<rect x="{n(sx + 5.75)}" y="{n(sy + 5.75)}" width="{n(sw_ - 11.5)}" height="{n(sh - 11.5)}" rx="1.25" fill="none" '
-        f'stroke="{c["cyan"]}" stroke-width="1.5"/>'
-        + badge(348, 464.16, 36, c["text"])
-        + text("sb", 396, 473.37, "AUDITED BY", c["text_3"])
-        + text("sn", 396, 495.44, "iFixAi", c["text"])
-        + f'<path d="M485 464.16V500.16" stroke="{c["border_soft"]}" stroke-dasharray="3 3"/>'
-        + text("sr", 498.5, 485.23, "№ IFX-2026-0923", c["text_3"])
-        + "</g>"
+        f'stroke="{c["ink"]}" stroke-width="2" filter="url(#{p}ss)"/>',
+        f'<rect x="{n(sx + 5.75)}" y="{n(sy + 5.75)}" width="{n(sw_ - 11.5)}" height="{n(sh - 11.5)}" rx="1.25" '
+        f'fill="none" stroke="{c["cyan"]}" stroke-width="1.5"/>',
+        badge(bx, by, bs, c["text"]),
+        text("sb", L["sealBy"][0], c["text_3"], upper=True),
+        text("sn", L["sealName"][0], c["text"]),
+    ]
+    if L["sealRef"]:  # the phone layout drops the reference number
+        rx, ry, _, rh = L["sealRef"]
+        seal.append(
+            f'<path d="M{n(rx + 0.5)} {n(ry)}V{n(ry + rh)}" stroke="{c["border_soft"]}" stroke-dasharray="3 3"/>'
+        )
+        seal.append(text("sr", L["sealRefText"][0], c["text_3"]))
+    out.append(
+        f"<g {anim(seal_track, rest='transform:rotate(-6deg)', box='c')}>{''.join(seal)}</g>"
     )
 
     # ── the desk it all sits on ──
-    ox, oy = 72, 56
-    width, height = 728, 620
+    ox, oy, width, height = desk
     defs.append(
-        '<pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse" x="-11" y="-11">'
+        f'<pattern id="{p}dots" width="22" height="22" patternUnits="userSpaceOnUse" x="-11" y="-11">'
         f'<circle cx="11" cy="11" r="1.2" fill="{c["desk_dot"]}"/></pattern>'
     )
     defs.append(
-        f'<radialGradient id="sheen">{stops((0, c["sheen"]), (0.56, clear(c["sheen"])))}</radialGradient>'
+        f'<radialGradient id="{p}sheen">{stops((0, c["sheen"]), (0.56, clear(c["sheen"])))}</radialGradient>'
     )
     defs.append(
-        f'<clipPath id="desk"><rect width="{width}" height="{height}" rx="16"/></clipPath>'
+        f'<clipPath id="{p}desk"><rect width="{width}" height="{height}" rx="16"/></clipPath>'
+    )
+    desk_art = (
+        f'<rect width="{width}" height="{height}" fill="{c["desk"]}"/>'
+        f'<rect width="{width}" height="{height}" fill="url(#{p}dots)"/>'
+        f'<ellipse cx="{n(width / 2)}" cy="{n(-0.14 * height)}" rx="{n(1.25 * width)}" ry="{n(0.7 * height)}" '
+        f'fill="url(#{p}sheen)"/>'
     )
     edge = c["desk_edge"]
-    desk = (
-        f'<rect width="{width}" height="{height}" fill="{c["desk"]}"/>'
-        f'<rect width="{width}" height="{height}" fill="url(#dots)"/>'
-        f'<ellipse cx="{n(width / 2)}" cy="{n(-0.14 * height)}" rx="{n(1.25 * width)}" ry="{n(0.7 * height)}" fill="url(#sheen)"/>'
-    )
     frame = (
         f'<rect x=".5" y=".5" width="{width - 1}" height="{height - 1}" rx="15.5" fill="none" stroke="{edge}"/>'
         if edge
         else ""
     )
-
-    used = sorted(
-        {m for m in re.findall(r'class="([a-z]{2})"', "".join(out)) if m in TEXT}
-    )
-    style = (
-        fonts.css()
-        + text_css(used)
-        + f".a{{animation-duration:{n(PERIOD)}s;animation-iteration-count:infinite}}"
-        + ".c{transform-box:fill-box;transform-origin:center}.t{transform-box:fill-box;transform-origin:top}"
-        + ".bl{animation:bl .8s infinite}@keyframes bl{0%,50%{opacity:1}50.01%,100%{opacity:.2}}"
-        + "@media (prefers-reduced-motion:reduce){.a,.bl{animation:none!important}}"
-        + tl.css()
-    )
-    body = (
-        f'<defs>{"".join(defs)}</defs><g clip-path="url(#desk)">{desk}'
+    markup = (
+        f'<defs>{"".join(defs)}</defs><g clip-path="url(#{p}desk)">{desk_art}'
         f'<g transform="translate({ox} {oy})">{"".join(out)}</g></g>{frame}'
     )
-    return svg_doc(width, height, HERO_ALT, style, body)
+    return markup, tl.css()
+
+
+def hero(themes: list[dict], layout: str, files: FontFiles, layouts: dict) -> str:
+    """The hero for one layout, in one theme, or in both when the file has to
+    follow the viewer's colour scheme by itself (the phone one, see README)."""
+    L = layouts[layout]
+    desk = DESKS[layout]
+    fonts = Fonts(files)
+    if len(themes) == 1:
+        markup, keyframes = hero_art(themes[0], L, desk, fonts)
+        both = ""
+    else:
+        light, light_keys = hero_art(themes[0], L, desk, fonts, "l")
+        dark, dark_keys = hero_art(themes[1], L, desk, fonts, "d")
+        markup = f'<g class="tl">{light}</g><g class="td">{dark}</g>'
+        keyframes, both = light_keys + dark_keys, BOTH_THEMES_CSS
+    used = sorted({m for m in re.findall(r'class="([a-z]{2})"', markup) if m in TEXT})
+    style = fonts.css() + text_css(used, L["fonts"]) + ANIMATION_CSS + both + keyframes
+    return svg_doc(desk[2], desk[3], HERO_ALT, style, markup)
 
 
 # ── the wordmark and the masthead ─────────────────────────────────────────
@@ -1147,32 +1164,42 @@ def sans_width(files: FontFiles, text: str, weight: int, size: float) -> float:
     return sum(hmtx[cmap[ord(ch)]][0] for ch in text) * size / font["head"].unitsPerEm
 
 
-def button(theme: dict, files: FontFiles, label: str, primary: bool) -> str:
-    """The site's .os-btn: Inter 600 at 15.2px, a 2px ink border, the hard
-    ink shadow, the accent gradient when it is the primary action. The
-    primary ends on the arrow the site's "Start now" carries; the other leads
-    with the badge."""
-    c = theme
-    fonts = Fonts(files)
+BUTTON_SIZE, BUTTON_PAD, BUTTON_H, BUTTON_MARGIN = 15.2, 24, 44, 16
+
+
+def button_art(
+    c: dict, files: FontFiles, fonts: Fonts, label: str, primary: bool, p: str = ""
+) -> tuple[str, float]:
+    """The site's .os-btn in one theme, as (markup, canvas width): Inter 600
+    at 15.2px, a 2px ink border, the hard ink shadow, the accent gradient
+    when it is the primary action. The primary ends on the arrow the site's
+    "Start now" carries; the other leads with the badge."""
     fonts.use(SANS, 600, "normal", label)
-    size, pad_x, height, margin = 15.2, 24, 44, 16
+    size, height, margin = BUTTON_SIZE, BUTTON_H, BUTTON_MARGIN
     label_w = sans_width(files, label, 600, size)
     icon_w, gap = (13, 7) if primary else (18, 9)
-    width = pad_x * 2 + label_w + gap + icon_w
+    width = BUTTON_PAD * 2 + label_w + gap + icon_w
     x0 = y0 = margin
-    content_x = x0 + pad_x
+    content_x = x0 + BUTTON_PAD
     # Inter's capitals stand 0.73em tall: centre them, not the line box
     base = y0 + height / 2 + 0.73 * size / 2
     defs = shadow_filter(
-        "bs", (x0, y0, width, height), c["button_shadow"], 4, 12, c["shadow_hard"], 3
+        f"{p}bs",
+        (x0, y0, width, height),
+        c["button_shadow"],
+        4,
+        12,
+        c["shadow_hard"],
+        3,
     )
     if primary:
+        reach = (width + height) / 4
+        cx, cy = x0 + width / 2, y0 + height / 2
         defs += (
-            f'<linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="{n(x0 + width / 2 - (width + height) / 4)}" '
-            f'y1="{n(y0 + height / 2 - (width + height) / 4)}" x2="{n(x0 + width / 2 + (width + height) / 4)}" '
-            f'y2="{n(y0 + height / 2 + (width + height) / 4)}">{stops((0, c["accent"]), (1, c["accent_2"]))}</linearGradient>'
+            f'<linearGradient id="{p}bg" gradientUnits="userSpaceOnUse" x1="{n(cx - reach)}" y1="{n(cy - reach)}" '
+            f'x2="{n(cx + reach)}" y2="{n(cy + reach)}">{stops((0, c["accent"]), (1, c["accent_2"]))}</linearGradient>'
         )
-        fill, ink = "url(#bg)", c["on_accent"]
+        fill, ink = f"url(#{p}bg)", c["on_accent"]
         content = (
             f'<text x="{n(content_x)}" y="{n(base)}" fill="{ink}" class="bt">{esc(label)}</text>'
             + icon(
@@ -1188,31 +1215,203 @@ def button(theme: dict, files: FontFiles, label: str, primary: bool) -> str:
         content = badge(content_x, y0 + (height - icon_w) / 2, icon_w, ink) + (
             f'<text x="{n(content_x + icon_w + gap)}" y="{n(base)}" fill="{ink}" class="bt">{esc(label)}</text>'
         )
-    body = (
+    markup = (
         f"<defs>{defs}</defs>"
         f'<rect x="{n(x0 + 1)}" y="{n(y0 + 1)}" width="{n(width - 2)}" height="{n(height - 2)}" rx="3" fill="{fill}" '
-        f'stroke="{c["ink"]}" stroke-width="2" filter="url(#bs)"/>{content}'
+        f'stroke="{c["ink"]}" stroke-width="2" filter="url(#{p}bs)"/>{content}'
     )
-    style = fonts.css() + f".bt{{font:600 {n(size)}px {SANS},{FALLBACK[SANS]}}}"
-    return svg_doc(width + margin * 2, height + margin * 2, label, style, body)
+    return markup, width + margin * 2
+
+
+def button(themes: list[dict], files: FontFiles, label: str, primary: bool) -> str:
+    """A button in one theme, or in both for the phone layout (see hero())."""
+    fonts = Fonts(files)
+    if len(themes) == 1:
+        markup, width = button_art(themes[0], files, fonts, label, primary)
+        both = ""
+    else:
+        light, width = button_art(themes[0], files, fonts, label, primary, "l")
+        dark, _ = button_art(themes[1], files, fonts, label, primary, "d")
+        markup, both = (
+            f'<g class="tl">{light}</g><g class="td">{dark}</g>',
+            BOTH_THEMES_CSS,
+        )
+    style = (
+        fonts.css()
+        + f".bt{{font:600 {n(BUTTON_SIZE)}px {SANS},{FALLBACK[SANS]}}}"
+        + both
+    )
+    return svg_doc(width, BUTTON_H + BUTTON_MARGIN * 2, label, style, markup)
+
+
+# ── measuring the site ────────────────────────────────────────────────────
+
+SITE = "https://www.ifixai.ai/"
+VIEWPORTS = {
+    "desktop": {"viewport": {"width": 1440, "height": 900}, "device_scale_factor": 2},
+    "phone": {
+        "viewport": {"width": 390, "height": 844},
+        "device_scale_factor": 3,
+        "is_mobile": True,
+    },
+}
+# Lays a copy of the hero window out with every animated style stripped, so
+# each reading of each row is measured where the stylesheet puts it, and
+# returns every box and every line of text (wrapped lines one by one) the
+# drawing above reads.
+MEASURE_JS = r"""
+() => {
+  document.querySelectorAll('.ha-measure').forEach(n => n.remove());
+  const fig = document.querySelector('figure.ha');
+  const clone = fig.cloneNode(true);
+  clone.classList.add('ha-measure');
+  clone.querySelectorAll('[style]').forEach(n => {
+    if (n.tagName.toLowerCase() !== 'svg' && !n.classList.contains('os-titlebar-box')) n.removeAttribute('style');
+  });
+  clone.style.cssText = `position:absolute;left:0;top:0;width:${fig.getBoundingClientRect().width}px;`;
+  fig.parentElement.appendChild(clone);
+  // reduced motion pre-slides the thumb and tilts the seal; measure them at rest
+  clone.querySelector('.ha-seal').style.transform = 'none';
+  clone.querySelector('.ha-switch-thumb').style.transform = 'none';
+  const W = clone.querySelector('.ha-win').getBoundingClientRect();
+  const f = v => Math.round(v * 100) / 100;
+  const box = el => {
+    const r = el.getBoundingClientRect();
+    return r.width ? [f(r.x - W.x), f(r.y - W.y), f(r.width), f(r.height)] : null;
+  };
+  const q = (s, root = clone) => root.querySelector(s);
+  const qa = (s, root = clone) => [...root.querySelectorAll(s)];
+  // every line of every text node under el, as [text, x, baseline]
+  const lines = el => {
+    if (!el || !el.getBoundingClientRect().width) return null;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = []; let n;
+    while ((n = walker.nextNode())) if (n.nodeValue.trim()) nodes.push(n);
+    const out = [];
+    for (const node of nodes) {
+      const span = document.createElement('span');
+      node.parentNode.insertBefore(span, node); span.appendChild(node);
+      const probe = document.createElement('span');
+      probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+      span.insertBefore(probe, node);
+      const r = document.createRange();
+      r.setStart(node, 0); r.setEnd(node, 1);
+      const ascent = probe.getBoundingClientRect().y - r.getClientRects()[0].y;
+      probe.remove();
+      const s = node.nodeValue; let cur = null; const mine = [];
+      for (let i = 0; i < s.length; i++) {
+        r.setStart(node, i); r.setEnd(node, i + 1);
+        const c = r.getClientRects()[0]; if (!c) continue;
+        if (!cur || Math.abs(c.y - cur.y) > 2) { cur = {y: c.y, x: c.x, text: ''}; mine.push(cur); }
+        cur.text += s[i];
+      }
+      for (const l of mine) {
+        const lead = l.text.length - l.text.trimStart().length;
+        out.push([l.text.trim(), f(l.x - W.x), f(l.y + ascent - W.y), lead]);
+      }
+    }
+    return out.map(([t, x, b]) => [t, x, b]);
+  };
+  const font = s => { const c = getComputedStyle(q(s)); return [parseFloat(c.fontSize), parseFloat(c.letterSpacing) || 0]; };
+  const spec = {
+    win: box(q('.ha-win')),
+    titlebar: box(q('.os-titlebar')),
+    tbBoxes: qa('.os-titlebar-box').map(box),
+    tbIcons: qa('.os-titlebar-box svg').map(box),
+    stripe: box(q('.os-titlebar-pinstripe')),
+    plate: box(q('.os-titlebar-text')),
+    title: lines(q('.os-titlebar-text')),
+    avatar: box(q('.ha-avatar')), avatarIcon: box(q('.ha-avatar svg')),
+    agent: lines(q('.ha-agent')), ticket: lines(q('.ha-ticket')),
+    status: qa('.ha-status-item').map(e => ({rect: box(e), dot: box(q('.ha-status-dot', e)), text: lines(e)})),
+    switch: box(q('.ha-switch')), thumb: box(q('.ha-switch-thumb')),
+    btns: qa('.ha-switch-btn').map(e => ({icon: box(q('svg', e)), text: lines(e)})),
+    ledger: box(q('.ha-ledger')),
+    rows: qa('.ha-row').map(row => ({rect: box(row), faces: qa('.ha-face', row).map(fc => ({
+      rect: box(fc), mark: box(q('.ha-mark', fc)), icon: box(q('.ha-mark svg', fc)),
+      title: lines(q('.ha-title', fc)), detail: lines(q('.ha-detail', fc)),
+      chip: box(q('.ha-chip', fc)), chipText: lines(q('.ha-chip', fc)),
+    }))})),
+    lens: box(q('.ha-lens')),
+    foot: box(q('.ha-foot')),
+    footItems: qa('.ha-foot-item').map(e => ({icon: box(q('svg', e)), text: lines(e)})),
+    note: lines(q('.ha-note')),
+    seal: box(q('.ha-seal')), sealBadge: box(q('.ha-seal svg')),
+    sealBy: lines(q('.ha-seal-by')), sealName: lines(q('.ha-seal-name')),
+    sealRef: box(q('.ha-seal-ref')), sealRefText: lines(q('.ha-seal-ref')),
+    glow: box(q('.ha-glow')),
+    fonts: {
+      tb: font('.os-titlebar-text'), ag: font('.ha-agent'), tk: font('.ha-ticket'), pl: font('.ha-status-item'),
+      sw: font('.ha-switch-btn'), ti: font('.ha-title'), de: font('.ha-detail'), ch: font('.ha-chip'),
+      ft: font('.ha-foot-item'), nt: font('.ha-note'), sb: font('.ha-seal-by'), sn: font('.ha-seal-name'), sr: font('.ha-seal-ref'),
+    },
+  };
+  clone.remove();
+  return spec;
+}
+"""
+
+
+def measure() -> None:
+    """Re-measure the hero off the live site into brand_hero_layouts.json.
+    Needs Playwright (pip install playwright) and Google Chrome."""
+    import asyncio
+    import json
+
+    from playwright.async_api import async_playwright
+
+    async def run() -> dict:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(channel="chrome")
+            layouts = {}
+            for name, viewport in VIEWPORTS.items():
+                # reduced motion opens the site on the finished audit, so
+                # the count reads 250 and its pill is at its full width
+                context = await browser.new_context(reduced_motion="reduce", **viewport)
+                page = await context.new_page()
+                await page.goto(SITE, wait_until="networkidle")
+                await page.evaluate("document.fonts.ready")
+                layouts[name] = await page.evaluate(MEASURE_JS)
+                await context.close()
+            await browser.close()
+            return layouts
+
+    LAYOUTS.write_text(
+        json.dumps(asyncio.run(run()), ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8",
+    )
+    print(f"measured {LAYOUTS.name}")
 
 
 def main() -> None:
+    import json
+    import sys
+
+    if "--measure" in sys.argv:
+        measure()
+    layouts = json.loads(LAYOUTS.read_text(encoding="utf-8"))
     files = FontFiles()
     OUT.mkdir(parents=True, exist_ok=True)
+    art = {}
     for mode, theme in (("light", LIGHT), ("dark", DARK)):
-        art = {
-            f"ifixai-logo-{mode}.svg": logo(mode),
-            f"ifixai-masthead-{mode}.svg": masthead(mode, files),
-            f"hero-audit-{mode}.svg": hero(theme, files),
-            f"button-site-{mode}.svg": button(
-                theme, files, "Visit ifixai.ai", primary=True
-            ),
-            f"button-pro-{mode}.svg": button(theme, files, "iFixAi Pro", primary=False),
-        }
-        for name, svg in art.items():
-            (OUT / name).write_text(svg, encoding="utf-8")
-            print(f"{name:28} {len(svg.encode()) / 1024:6.1f} KB")
+        art[f"ifixai-logo-{mode}.svg"] = logo(mode)
+        art[f"ifixai-masthead-{mode}.svg"] = masthead(mode, files)
+        art[f"hero-audit-{mode}.svg"] = hero([theme], "desktop", files, layouts)
+        art[f"button-site-{mode}.svg"] = button(
+            [theme], files, "Visit ifixai.ai", primary=True
+        )
+        art[f"button-pro-{mode}.svg"] = button(
+            [theme], files, "iFixAi Pro", primary=False
+        )
+    # the phone files carry both themes; see the README's <picture> sources
+    art["hero-audit-phone.svg"] = hero([LIGHT, DARK], "phone", files, layouts)
+    art["button-site.svg"] = button(
+        [LIGHT, DARK], files, "Visit ifixai.ai", primary=True
+    )
+    art["button-pro.svg"] = button([LIGHT, DARK], files, "iFixAi Pro", primary=False)
+    for name, svg in art.items():
+        (OUT / name).write_text(svg, encoding="utf-8")
+        print(f"{name:28} {len(svg.encode()) / 1024:6.1f} KB")
 
 
 if __name__ == "__main__":
