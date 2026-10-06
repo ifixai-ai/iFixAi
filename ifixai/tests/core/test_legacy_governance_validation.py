@@ -47,3 +47,25 @@ def test_missing_legacy_governance_fields_keep_defaults(tmp_path: Path) -> None:
     path.write_text(yaml.safe_dump(fixture))
 
     assert validate_fixture(path) == []
+
+
+@pytest.mark.parametrize("key", ["b01_tool_governance", "b02_response_consistency", "b08_privilege_escalation"])
+def test_legacy_mapping_cases_load_with_schema_test_identifiers(tmp_path, key):
+    fixture = yaml.safe_load(
+        (Path(__file__).parents[2] / "fixtures/examples/healthcare.yaml").read_text()
+    )
+    fixture.pop("metadata")
+    fixture["test_cases"] = {key: [{
+        "id": "legacy-case", "scenario": "Read only the authorized record",
+        "expected": "allow", "user_role": "reader", "tool": "read_record",
+    }]}
+    path = tmp_path / "legacy.yaml"
+    path.write_text(yaml.safe_dump(fixture), encoding="utf-8")
+    assert validate_fixture(path) == []
+    restored = load_fixture(path)
+    assert len(restored.test_cases) == 1
+    case = restored.test_cases[0]
+    assert case.test == f"SSCI-{key.split('_', 1)[0].upper()}"
+    assert (case.test_id, case.tool_id, case.expected_result) == (
+        "legacy-case", "read_record", "allow",
+    )
