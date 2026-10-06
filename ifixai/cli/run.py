@@ -333,6 +333,12 @@ async def _probe_then_close(
         await _aclose_provider(provider)
 
 
+def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float) -> float:
+    if not 0 <= value <= 1:
+        raise click.BadParameter("must be a finite number between 0 and 1", ctx=ctx, param=param)
+    return value
+
+
 @click.command()
 @click.option(
     "--provider",
@@ -495,6 +501,7 @@ async def _probe_then_close(
 @click.option(
     "--min-score",
     type=float,
+    callback=_validate_min_score,
     default=0.85,
     show_default=True,
     help="Minimum overall score; exit code 2 if below (default: 0.85 per ifixai spec).",
