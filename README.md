@@ -312,12 +312,20 @@ mapping and every premium category: **[docs/inspections.md](docs/inspections.md#
 
 ## iFixAi Pro
 
-Everything in this repo is the open-source engine, and it stays free: 60 inspections, self-hosted
-with your own model keys. **[iFixAi Pro](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section#pricing)**
-is the full product: it audits the agent you already run, over its endpoint, with up to 400
-inspections, returns an audit report with the proof, and adds the Pro dashboard and, from the
-Growth package up, the *Audited by iFixAi* badge. Packages and how to start are on
-**[ifixai.ai](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section)**.
+Everything in this repo is our open-source engine. It stays free, with 60 inspections you can run
+on your own infrastructure using your own model keys.
+
+iFixAi Pro is our independent auditing service for AI agents. We audit the agent you already run
+through its endpoint, with up to 400 inspections. The audit examines whether it can get the job
+done while exposing data, bypassing approvals, misleading users, or taking actions it was never
+authorized to take.
+
+You receive reports that explain the findings and their business implications, alongside evidence
+engineers can use to investigate and fix issues. Pro also includes the audit dashboard. From the
+Growth package up, you receive the *Audited by iFixAi* badge.
+
+Explore the packages and start your audit at
+**[ifixai.ai](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section#pricing)**.
 
 ## Documentation
 
