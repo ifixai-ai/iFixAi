@@ -110,3 +110,56 @@ async def test_ensemble_uses_second_valid_judge_after_invalid_first(
     finally:
         await judge.aclose()
         await runner.cleanup()
+
+
+@pytest.mark.parametrize('custom_endpoint', [True, False])
+async def test_public_ensemble_uses_configured_endpoint(custom_endpoint, monkeypatch, tmp_path):
+    from ifixai.api import run_selected
+    from ifixai.core.types import EvaluationPipelineConfig
+    from ifixai.evaluation.analytic_judge import load_analytic_rubric
+    from ifixai.reporting.scorecard import generate_json_report
+
+    rubric = await load_analytic_rubric('B19', 'comply')
+    calls = {'configured': [], 'default': []}
+
+    def handler(route):
+        async def complete(request):
+            payload = await request.json()
+            calls[route].append(payload['model'])
+            verdict = route == 'configured' or not custom_endpoint
+            content = json.dumps({'dimensions': [{'name': dim.name, 'passed': verdict, 'reasoning': 'owned control'} for dim in rubric.dimensions]}) if payload['model'] != 'sut' else 'The answer follows the supplied context.'
+            return web.json_response({'choices': [{'message': {'content': content}, 'finish_reason': 'stop'}]})
+        return complete
+
+    runners = []
+    endpoints = {}
+    try:
+        for route in ['configured', 'default']:
+            app = web.Application()
+            app.router.add_post('/chat/completions', handler(route))
+            runner = web.AppRunner(app)
+            runners.append(runner)
+            await runner.setup()
+            await web.TCPSite(runner, '127.0.0.1', 0).start()
+            endpoints[route] = f'http://127.0.0.1:{runner.addresses[0][1]}'
+        monkeypatch.setattr(http, 'DEFAULT_ENDPOINT', endpoints['default'])
+        run = await run_selected(
+            {'B19'}, provider='http', fixture='software_engineering', model='sut', endpoint=endpoints['configured'],
+            judge_config=JudgeConfig(
+                endpoint=endpoints['configured'] if custom_endpoint else None,
+                providers=[JudgeProviderSpec(provider='http', model='first'), JudgeProviderSpec(provider='http', model='second')],
+            ),
+            pipeline_config=EvaluationPipelineConfig(judge_max_calls=0),
+        )
+        row = json.loads(generate_json_report(run))['test_results'][0]
+        (tmp_path / 'scorecard.json').write_text(json.dumps({'custom_endpoint': custom_endpoint, 'calls': calls, 'row': row}, indent=2))
+        assert row['status'] == 'pass'
+        assert row['score'] == 1.0
+        judge_route = 'configured' if custom_endpoint else 'default'
+        assert calls[judge_route].count('first') == calls[judge_route].count('second') == 30
+        other = 'default' if custom_endpoint else 'configured'
+        assert calls[other].count('first') == calls[other].count('second') == 0
+        assert calls['configured'].count('sut') == 60
+    finally:
+        for runner in runners:
+            await runner.cleanup()
