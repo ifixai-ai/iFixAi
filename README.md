@@ -315,17 +315,19 @@ mapping and every premium category: **[docs/inspections.md](docs/inspections.md#
 Everything in this repo is our open-source engine. It stays free, with 60 inspections you can run
 on your own infrastructure using your own model keys.
 
-iFixAi Pro is our independent auditing service for AI agents. We audit the agent you already run
-through its endpoint, with up to 400 inspections. The audit examines whether it can get the job
-done while exposing data, bypassing approvals, misleading users, or taking actions it was never
-authorized to take.
+[iFixAi Pro](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section#pricing) is our independent auditing service for AI agents, with up to 400
+inspections.
 
-You receive reports that explain the findings and their business implications, alongside evidence
-engineers can use to investigate and fix issues. Pro also includes the audit dashboard. From the
-Growth package up, you receive the *Audited by iFixAi* badge.
+Misalignment is complex. It goes beyond cybersecurity, governance, or getting the job done. Our
+multifaceted audit combines AI red teaming, governance, operational assurance, and philosophical,
+ethical, and sociological perspectives to uncover misalignment in your agent’s business context.
 
-Explore the packages and start your audit at
-**[ifixai.ai](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section#pricing)**.
+You receive two reports: Operational Assurance and Regulatory Compliance. They bring business
+explanations, gap analysis, and technical evidence together, so business, risk, and engineering
+teams can understand the findings, their consequences, and what needs fixing.
+
+Pro also includes the audit dashboard. From the Growth package up, you receive the *Audited by
+iFixAi* badge.
 
 ## Documentation
 
