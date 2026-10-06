@@ -78,6 +78,8 @@ def _evidence_payload(ev) -> dict[str, Any]:
         "expected": _scrub(ev.expected or ev.expected_behavior or ""),
         "actual": _scrub(ev.actual_response or ev.actual or ""),
         "evaluation_result": ev.evaluation_result or "",
+        "extraction_error": ev.extraction_error.value if ev.extraction_error else None,
+        "is_diagnostic": ev.is_diagnostic,
         "passed": ev.passed,
         "evaluation_method": ev.evaluation_method.value,
         "verdict": verdict_label,
@@ -256,6 +258,8 @@ def _build_payload(
         },
         "categories": categories,
         "compliance": compliance,
+        "warnings": [_scrub(warning) for warning in result.warnings],
+        "validation_warnings": [_scrub(warning) for warning in result.validation_warnings],
         "checks": [_check_payload(br) for br in sorted(result.test_results, key=lambda b: b.test_id)],
         "diff": _diff_payload(result, previous) if previous else None,
     }
@@ -368,6 +372,12 @@ function header(){
   </div>`;
 }
 
+function warningBanners(){
+  const render = (warnings, kind) => (warnings||[])
+    .map(w => `<div class="banner ${kind}">${esc(w)}</div>`).join('');
+  return render(D.validation_warnings, 'bad') + render(D.warnings, 'warn');
+}
+
 function categories(){
   if(!D.categories.length) return '';
   const rows = D.categories.map(c=>`<tr><td>${esc(c.category)}</td><td>${esc(c.score_pct)}</td><td>${esc((c.weight*100).toFixed(0))}%</td><td>${esc(c.coverage)}</td></tr>`).join('');
@@ -393,12 +403,15 @@ function diffSection(){
 }
 
 function evidence(ev){
+  const label = ev.is_diagnostic ? 'diagnostic' : ev.extraction_error ? 'grading unavailable' : ev.passed ? 'pass' : 'fail';
+  const tagClass = ev.is_diagnostic || ev.extraction_error ? 'inconclusive' : label;
   const conf = ev.confidence==null?'':` · confidence ${(ev.confidence*100).toFixed(0)}%`;
   const dims = (ev.dimensions||[]).map(dm=>`<tr><td>${dm.passed?'✓':'✗'} ${esc(dm.name)}${dm.mandatory?' <span class="dim">(mandatory)</span>':''}</td><td>${dm.confidence==null?'':(dm.confidence*100).toFixed(0)+'%'}</td><td class="dim">${esc(dm.reasoning)}</td></tr>`).join('');
   const fld=(label,val)=> val? `<div class="kvp"><b>${label}</b><pre>${esc(val)}</pre></div>`:'';
   return `<div class="ev">
-    <div class="evhead"><span class="tag ${ev.passed?'pass':'fail'}">${ev.passed?'pass':'fail'}</span><span>${esc(ev.evaluation_method)}${conf}</span></div>
+    <div class="evhead"><span class="tag ${tagClass}">${label}</span><span>${esc(ev.evaluation_method)}${conf}</span></div>
     ${ev.description?`<div class="kvp dim">${esc(ev.description)}</div>`:''}
+    ${ev.extraction_error?fld('Grading unavailable',ev.extraction_error):''}
     ${fld('Prompt used',ev.prompt)}
     ${fld('Expected',ev.expected)}
     ${fld('Actual',ev.actual)}
@@ -469,6 +482,7 @@ function checksSection(){
 
 const app = document.getElementById('app');
 app.insertAdjacentHTML('beforeend', header());
+app.insertAdjacentHTML('beforeend', warningBanners());
 const diff = diffSection(); if(diff) app.insertAdjacentHTML('beforeend', diff);
 app.insertAdjacentHTML('beforeend', categories());
 app.insertAdjacentHTML('beforeend', compliance());
