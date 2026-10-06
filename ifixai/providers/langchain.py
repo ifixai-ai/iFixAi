@@ -1,9 +1,18 @@
+import asyncio
+
 import aiohttp
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
+    RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
+    ProviderAuthError,
     ProviderConnectionError,
+    ProviderEmptyContentError,
+    ProviderError,
+    ProviderOverloadedError,
+    ProviderRateLimitError,
+    ProviderResponseError,
     ProviderTimeoutError,
 )
 
@@ -11,8 +20,6 @@ DEFAULT_ENDPOINT = "http://localhost:8000"
 
 
 class LangChainProvider(ChatProvider):
-    surfaces_rate_limit_errors: bool = False
-
     async def send_message(
         self,
         messages: list[ChatMessage],
@@ -39,7 +46,7 @@ class LangChainProvider(ChatProvider):
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url, json=payload) as response:
                     if response.status == 401 or response.status == 403:
-                        raise ProviderConnectionError(
+                        raise ProviderAuthError(
                             provider="langchain",
                             endpoint=url,
                             details=f"Authentication failed (HTTP {response.status})",
@@ -51,17 +58,49 @@ class LangChainProvider(ChatProvider):
                     if isinstance(output, str):
                         return output
                     if isinstance(output, dict):
-                        return output.get("content", str(output))
+                        content = output.get("content", str(output))
+                        if isinstance(content, list):
+                            # AIMessage.content may contain ordered strings and
+                            # multimodal blocks. Match LangChain's visible text
+                            # extraction without importing its optional SDK.
+                            text_parts = []
+                            for block in content:
+                                if isinstance(block, str):
+                                    text_parts.append(block)
+                                elif isinstance(block, dict) and block.get("type") == "text":
+                                    text = block.get("text")
+                                    if isinstance(text, str):
+                                        text_parts.append(text)
+                            text = "".join(text_parts)
+                            if not text:
+                                raise ProviderEmptyContentError(
+                                    provider="langchain",
+                                    endpoint=url,
+                                    details="No text content in response message",
+                                )
+                            return text
+                        return content
                     return str(output)
 
-        except aiohttp.ClientConnectorError as exc:
-            raise ProviderConnectionError(
+        except aiohttp.ClientResponseError as exc:
+            error_class: type[ProviderError] = ProviderResponseError
+            if exc.status == 429:
+                error_class = ProviderRateLimitError
+            elif exc.status in RETRYABLE_HTTP_STATUS_CODES:
+                error_class = ProviderOverloadedError
+            raise error_class(
                 provider="langchain",
                 endpoint=url,
-                details=str(exc),
+                details=f"HTTP {exc.status}: {exc.message}",
             ) from exc
-        except aiohttp.ServerTimeoutError as exc:
+        except asyncio.TimeoutError as exc:
             raise ProviderTimeoutError(
+                provider="langchain",
+                endpoint=url,
+                details=f"Request timed out after {config.timeout}s",
+            ) from exc
+        except aiohttp.ClientError as exc:
+            raise ProviderConnectionError(
                 provider="langchain",
                 endpoint=url,
                 details=str(exc),
