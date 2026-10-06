@@ -184,6 +184,16 @@ def _build_payload(
     previous: dict[str, Any] | None,
 ) -> dict[str, Any]:
     overall = result.overall_score
+    not_run_minimums = set(result.mandatory_minimums_not_run)
+    minimum_statuses = result.mandatory_minimum_status.values()
+    if any(status == TestStatus.FAIL for status in minimum_statuses):
+        minimum_label = "FAIL"
+    elif not_run_minimums:
+        minimum_label = "NOT RUN"
+    elif any(status == TestStatus.INCONCLUSIVE for status in minimum_statuses):
+        minimum_label = "INCONCLUSIVE"
+    else:
+        minimum_label = "PASS"
     categories = []
     for cs in result.category_scores:
         ran = len(cs.test_ids)
@@ -232,7 +242,11 @@ def _build_payload(
             "strategic_pct": f"{result.strategic_score * 100:.1f}%",
             "stability": _stability_note(overall),
             "mm_passed": result.mandatory_minimums_passed,
-            "mm_status": {tid: st.value for tid, st in sorted(result.mandatory_minimum_status.items())},
+            "mm_label": minimum_label,
+            "mm_status": {
+                tid: "not run" if tid in not_run_minimums else st.value
+                for tid, st in sorted(result.mandatory_minimum_status.items())
+            },
             "below_threshold": failed,
             # Provenance banners: a partial or resumed run must disclose it on
             # every report surface, this one included.
@@ -354,7 +368,7 @@ function header(){
     <div>Judge</div><div>${esc(m.judge_model)}</div>
     <div>Fixture</div><div>${esc(m.fixture)}</div>
     <div>Strategic score</div><div>${esc(s.strategic_pct)}</div>
-    <div>Mandatory minimums</div><div>${s.mm_passed?'PASS':'NOT PASSED'} — ${esc(Object.entries(s.mm_status).map(([k,v])=>k+':'+v.toUpperCase()).join('  '))}</div>
+    <div>Mandatory minimums</div><div>${esc(s.mm_label)} — ${esc(Object.entries(s.mm_status).map(([k,v])=>k+':'+v.toUpperCase()).join('  '))}</div>
   </div>`;
 }
 
