@@ -244,7 +244,8 @@ class FontFiles:
 
 
 def _subset(data: bytes, chars: str, weight: int) -> str:
-    font = TTFont(io.BytesIO(data))
+    # keep the font's own timestamp, so a rebuild writes the same bytes
+    font = TTFont(io.BytesIO(data), recalcTimestamp=False)
     if "fvar" in font:
         font = instancer.instantiateVariableFont(font, {"wght": weight})
     options = subset.Options()
