@@ -15,11 +15,11 @@
 <p align="center">問題が手に負えなくなる前に、エージェントのミスや死角を見つけます。</p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="250" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" /></a>
-  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/29638" alt="GitHub Trending の iFixAi | Trendshift" width="250" /></a>
+  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" width="250" height="54" /><img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="46%" /></picture></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/repositories/29638" width="250" height="55" /><img src="https://trendshift.io/api/badge/repositories/29638" alt="GitHub Trending の iFixAi | Trendshift" width="46%" /></picture></a>
   <br />
-  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Trendshift 日間 Python リポジトリ" width="250" /></a>
-  <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 週間 Python リポジトリ 1 位" width="250" /></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Trendshift 日間 Python リポジトリ" width="46%" /></picture></a>
+  <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 週間 Python リポジトリ 1 位" width="46%" /></picture></a>
 </p>
 
 <p align="center">
@@ -46,11 +46,13 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="ライセンス：Apache 2.0" /></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+" /></a>
+  <a href="https://pypi.org/project/ifixai/"><img src="https://img.shields.io/pypi/v/ifixai?logo=pypi&logoColor=white&color=6366f1" alt="PyPI version" /></a>
+  <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
+  <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?logo=github&color=6366f1" alt="GitHub stars" /></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/pypi/pyversions/ifixai?logo=python&logoColor=white&color=6366f1" alt="Python versions" /></a>
+  <a href="#プラグインclaude-code-と-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/inspections-49-orange.svg" alt="49 件の検査" />
-  <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="初めてのコントリビューション向け Issue" /></a>
 </p>
 
 ---
@@ -79,12 +81,6 @@ iFixAi はそれらを先に見つけます。
 エージェント自身ではなく独立したプロバイダーが評価し、Standard モードでは 1 つ、
 Full モードでは 2 つ以上の評価モデルをアンサンブルします。また、各実行ですべての
 入力を記録したマニフェストを出力するため、結果を監査して再現できます。
-
-<p align="center">
-  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI スコアカード" width="900" />
-  <br/>
-  <em>1 回の <code>ifixai run</code> でエンドツーエンドに実行できます。ガイド付きセットアップが対象システム、評価モデル、スイートを選択し、接続を検証して設定を保存します。5 つの柱にわたる 32 件の検査を実行し、コアピラー別のスコアカードとともに A〜F の評価を返します。</em>
-</p>
 
 ## 3 つの実行方法
 
