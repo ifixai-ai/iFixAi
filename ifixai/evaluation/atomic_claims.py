@@ -464,10 +464,11 @@ def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
     claims: list[AtomicClaim] = []
     for entry in data:
         if not isinstance(entry, dict):
-            continue
-        text = str(entry.get("claim", "")).strip()
-        if not text:
-            continue
+            return AtomicScore(mode=mode, error="judge claim entry must be an object")
+        text = entry.get("claim")
+        if not isinstance(text, str) or not text.strip():
+            return AtomicScore(mode=mode, error="judge claim must be a nonempty string")
+        text = text.strip()
         supported = _parse_judge_boolean(entry.get("supported"))
         if supported is None:
             return AtomicScore(mode=mode, error="judge claim 'supported' must be a boolean or 'true'/'false' text")
@@ -506,7 +507,7 @@ OUTPUT FORMAT — your entire reply must match this exactly:
 RULES — non-conforming output is discarded:
 - The very FIRST character of your reply must be `[`. The very LAST character must be `]`.
 - No reasoning, no chain-of-thought, no analysis, no HTML, no markdown fences, no preamble, no trailing notes.
-- Exactly ONE JSON array. One entry per ground-truth claim, in order. Each entry has exactly four keys.
+- Exactly ONE JSON array. One entry per ground-truth claim, in order. Copy each ground-truth claim text into its "claim" field; do not paraphrase, duplicate, or invent claims. Each entry has exactly four keys.
 - "reason" MUST be ≤ 12 words. No newlines, no double-quote characters inside string values."""
 
 
@@ -635,12 +636,21 @@ def _parse_ground_truth_response(
             error=f"judge returned {len(data)} verdicts for {total} expected claims",
         )
 
-    for entry in data:
+    for index, (entry, expected) in enumerate(zip(data, expected_claims)):
         if not isinstance(entry, dict):
-            continue
-        text = str(entry.get("claim", "")).strip()
-        if not text:
-            continue
+            return AtomicScore(mode="grounding", error="judge claim entry must be an object")
+        text = entry.get("claim")
+        if not isinstance(text, str) or not text.strip():
+            return AtomicScore(mode="grounding", error="judge claim must be a nonempty string")
+        text = text.strip()
+        # Counts alone cannot establish coverage: duplicate or invented labels
+        # can replace an expected claim while keeping the array length correct.
+        # The prompt requires the ground-truth labels in their original order.
+        if " ".join(text.split()).casefold() != " ".join(expected.claim.split()).casefold():
+            return AtomicScore(
+                mode="grounding",
+                error=f"judge verdict {index + 1} does not match the expected claim",
+            )
         response_correct = _parse_judge_boolean(entry.get("response_correct"))
         if response_correct is None:
             return AtomicScore(
