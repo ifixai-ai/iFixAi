@@ -287,3 +287,184 @@ async def test_real_judge_cache_reuses_fresh_envelopes_but_preserves_response_id
         assert inner.calls == 2
     finally:
         await evaluator.aclose()
+
+
+@pytest.mark.parametrize("test_id", ["B17", "B22", "B29"])
+async def test_registered_bundle_recording_replays_fresh_generated_ids(
+    monkeypatch, tmp_path, owned_endpoint, test_id
+):
+    import itertools
+    import re
+
+    from ifixai.core.fixture_loader import load_fixture
+    from ifixai.core.runner import run_selected
+    from ifixai.core.types import EvaluationPipelineConfig, ProviderConfig
+    from ifixai.evaluation import analytic_judge
+    from ifixai.inspections.b17_fact_consistency import runner as b17
+    from ifixai.inspections.b22_decision_reproducibility import runner as b22
+    from ifixai.inspections.b29_prompt_sensitivity import runner as b29
+    from ifixai.judge.config import JudgeConfig
+    from ifixai.providers import bridge
+    from ifixai.providers.http import HttpProvider
+    from ifixai.reporting.scorecard import generate_json_report
+
+    endpoint, requests = owned_endpoint
+    http = HttpProvider()
+
+    class HttpTransport(bridge.Transport):
+        async def complete(self, messages, config, channel):
+            return await http.send_message(
+                messages,
+                config.model_copy(update={"provider": "http", "endpoint": endpoint}),
+            )
+
+    recorded_messages = []
+
+    class CapturingJudge(bridge.StubJudgeTransport):
+        async def complete(self, messages, config, channel):
+            recorded_messages.append(messages)
+            return await super().complete(messages, config, channel)
+
+    store = {}
+    fixture = load_fixture("software_engineering")
+    config = ProviderConfig(provider="bridge", model="owned-sut")
+    judge_config = JudgeConfig(provider="bridge", model="owned-judge")
+    pipeline_config = EvaluationPipelineConfig(judge_max_calls=0, b29_seed=7)
+    records = []
+    try:
+        for index in range(2):
+            nonces = itertools.count(1 + index * 100000)
+            for producer in [analytic_judge, b17, b22, b29]:
+                monkeypatch.setattr(
+                    producer, "generate_envelope_nonce", lambda: f"{next(nonces):016x}"
+                )
+            transports = (
+                {
+                    bridge.SUT_CHANNEL: bridge.RecordingTransport(
+                        HttpTransport(), store
+                    ),
+                    bridge.JUDGE_CHANNEL: bridge.RecordingTransport(
+                        CapturingJudge(), store
+                    ),
+                }
+                if index == 0
+                else {
+                    bridge.SUT_CHANNEL: bridge.ReplayTransport(store),
+                    bridge.JUDGE_CHANNEL: bridge.ReplayTransport(store),
+                }
+            )
+            monkeypatch.setattr(bridge, "_TRANSPORTS", transports)
+            run = await run_selected(
+                test_ids={test_id},
+                provider=bridge.BridgeProvider(),
+                config=config,
+                fixture=fixture,
+                judge_config=judge_config,
+                pipeline_config=pipeline_config,
+            )
+            records.append(json.loads(generate_json_report(run))["test_results"][0])
+            assert records[-1]["status"] == "pass", records[-1]
+            if index == 0:
+                native_calls = len(requests)
+        assert native_calls > 0
+        assert len(requests) == native_calls
+        assert records[0]["score"] == records[1]["score"]
+        assert recorded_messages
+        for messages in recorded_messages:
+            # Real producer messages distinguish literal IDs, including nested
+            # tag-like response text, even within a recognized bundle.
+            for literal in [
+                "Event {}",
+                '<turn id="{}">Policy</turn>',
+                '<repetition index="1" id="{}">\nPolicy\n</repetition>',
+            ]:
+                keys = []
+                for identifier in ["0123456789abcdef", "fedcba9876543210"]:
+                    rendered = literal.format(identifier)
+                    changed = [
+                        messages[0],
+                        messages[1].model_copy(
+                            update={
+                                "content": messages[1].content.replace(
+                                    "I cannot verify that claim.", rendered, 1
+                                )
+                            }
+                        ),
+                    ]
+                    keys.append(
+                        bridge.replay_key(changed, judge_config, bridge.JUDGE_CHANNEL)
+                    )
+                assert keys[0] != keys[1]
+
+            # Malformed or unrelated bundles retain inner IDs. Outer paired
+            # nonce normalization alone must not erase these distinctions.
+            controls = [
+                [
+                    messages[0].model_copy(
+                        update={
+                            "content": messages[0].content.replace(
+                                "Evaluation context: " + test_id,
+                                "Evaluation context: B19",
+                                1,
+                            )
+                        }
+                    ),
+                    messages[1],
+                ],
+                [
+                    messages[0],
+                    messages[1].model_copy(
+                        update={
+                            "content": messages[1].content.replace(
+                                'index="1"', 'index="2"', 1
+                            )
+                        }
+                    ),
+                ],
+                [
+                    messages[0],
+                    messages[1].model_copy(
+                        update={
+                            "content": messages[1].content.replace(
+                                "\n</"
+                                + {
+                                    "B17": "turn",
+                                    "B22": "repetition",
+                                    "B29": "phrasing",
+                                }[test_id]
+                                + ">",
+                                "",
+                                1,
+                            )
+                        }
+                    ),
+                ],
+            ]
+            for control in controls:
+                generated_ids = set(
+                    re.findall(r'id="([0-9a-f]{16})"', messages[1].content)
+                )
+                changed = []
+                for message in control:
+                    content = message.content
+                    for nonce in generated_ids:
+                        content = content.replace(
+                            nonce, f"{int(nonce, 16) + 100000:016x}"
+                        )
+                    changed.append(message.model_copy(update={"content": content}))
+                assert bridge.replay_key(
+                    control, judge_config, bridge.JUDGE_CHANNEL
+                ) != (bridge.replay_key(changed, judge_config, bridge.JUDGE_CHANNEL))
+    finally:
+        (tmp_path / "record-replay.json").write_text(
+            json.dumps(
+                {
+                    "test_id": test_id,
+                    "scorecards": records,
+                    "total_http_requests": len(requests),
+                    "recording_http_requests": locals().get("native_calls"),
+                },
+                indent=2,
+            )
+        )
+        await http.aclose()
