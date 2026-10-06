@@ -61,3 +61,23 @@ def test_explicit_judge_flags_override_config_defaults(tmp_path, monkeypatch, op
     # The production CLI also completes its offline run and writes a scorecard.
     assert result.exit_code == 2, result.output
     assert list((tmp_path / "reports").glob("*.json"))
+
+
+@pytest.mark.parametrize("selection", ["sut", "judge", "config"])
+def test_registered_litellm_provider_is_available_to_cli(tmp_path, monkeypatch, selection):
+    monkeypatch.chdir(tmp_path)
+    args = ["run", "--test", "B01", "--dry-run", "--no-telemetry"]
+    if selection == "sut":
+        args += ["--provider", "LITELLM", "--api-key", "synthetic", "--eval-mode", "self"]
+    elif selection == "judge":
+        args += [
+            "--provider", "mock", "--eval-mode", "single",
+            "--judge-provider", "LITELLM", "--judge-api-key", "synthetic",
+        ]
+    else:
+        write_config(RunConfig(provider="litellm", eval_mode="self", fixture="customer_support"))
+        args += ["--api-key", "synthetic"]
+    result = CliRunner().invoke(ifixai_cli, args)
+    assert result.exit_code == 0, result.output
+    assert "Dry run" in result.output
+    assert not (tmp_path / "runs").exists()
