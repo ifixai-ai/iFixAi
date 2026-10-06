@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ChatProvider,
     ProviderAuthError,
     ProviderConnectionError,
+    ProviderEmptyContentError,
     ProviderOverloadedError,
     ProviderRateLimitError,
     ProviderResponseError,
@@ -244,6 +245,18 @@ class HttpProvider(ChatProvider):
                     finish_reason,
                     content if isinstance(content, str) else "",
                 )
+        if (
+            isinstance(content, str)
+            and not content
+            and data.get("error") is None
+            and first.get("error") is None
+            and str(first.get("finish_reason", "")).lower() != "error"
+        ):
+            raise ProviderEmptyContentError(
+                provider="http",
+                endpoint=endpoint,
+                details=f"Empty content in response (finish_reason={first.get('finish_reason', 'unknown')})",
+            )
         if not isinstance(content, str) or not content:
             raise ProviderResponseError(
                 provider="http",
