@@ -350,7 +350,7 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
     )
 
     roles = [
-        Role(name=r["name"], description=r.get("description", ""))
+        Role.model_validate(r)
         for r in raw.get("roles", [])
     ]
 
