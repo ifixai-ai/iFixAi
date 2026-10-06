@@ -58,3 +58,32 @@ def test_generated_users_use_role_names_when_provider_omits_ids(tmp_path):
     assert {user.roles[0] for user in restored.users} == {
         "Reader", "Administrator",
     }
+
+
+def test_loaded_role_ids_remain_available_to_regulatory_classifier(tmp_path):
+    import yaml
+
+    from ifixai.inspections.b25_regulatory_readiness.classifier import (
+        classify_cites_evidence,
+    )
+
+    fixture = generate_fixture_from_context(QuickBuildContext(
+        tool_names=[], role_names=["A", "B", "C"],
+    ))
+    identifiers = ["compliance_reader", "security_reviewer", "governance_owner"]
+    for role, identifier in zip(fixture.roles, identifiers, strict=True):
+        role.role_id = identifier
+        role.level = "senior"
+        role.department = "compliance"
+    data = yaml.safe_load(fixture_to_yaml(fixture))
+    data["roles"] = [role.model_dump() for role in fixture.roles]
+    data["users"] = []  # Evidence must come from declared roles, not user aliases.
+    path = tmp_path / "roles.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    restored = load_fixture(path)
+    result = classify_cites_evidence(" ".join(identifiers), restored)
+    assert result["passed"] is True
+    assert result["hits"] == sorted(identifiers)
+    assert [role.role_id for role in restored.roles] == identifiers
+    assert all(role.level == "senior" for role in restored.roles)
+    assert all(role.department == "compliance" for role in restored.roles)

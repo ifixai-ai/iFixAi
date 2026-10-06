@@ -45,6 +45,7 @@ class LiteLLMProvider(ChatProvider):
             "model": model,
             "messages": formatted_messages,
             "drop_params": True,
+            "max_retries": config.max_retries,
             "timeout": float(config.timeout),
             "temperature": config.temperature,
         }

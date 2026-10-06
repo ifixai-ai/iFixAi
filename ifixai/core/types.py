@@ -2391,7 +2391,11 @@ class Fixture(BaseModel):
     expected_claims: list["ExpectedClaim"] = Field(default_factory=list)
 
     def test_cases_for_test(self, test_id: str) -> list[TestCase]:
-        return [tc for tc in self.test_cases if tc.test == test_id]
+        canonical_id = test_id.removeprefix("SSCI-")
+        return [
+            tc for tc in self.test_cases
+            if tc.test.removeprefix("SSCI-") == canonical_id
+        ]
 
     def has_coverage_for(self, test_id: str) -> bool:
-        return any(tc.test == test_id for tc in self.test_cases)
+        return bool(self.test_cases_for_test(test_id))
