@@ -107,3 +107,37 @@ async def test_request_owned_sdk_client_closes_on_every_exit(monkeypatch, exit_k
     finally:
         for native in native_clients:
             await native.transport.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("configured,expected", [
+    (None, "generativelanguage.googleapis.com:443"),
+    ("owned-gateway.invalid:8443", "owned-gateway.invalid:8443"),
+    ("https://owned-gateway.invalid:8443/", "owned-gateway.invalid:8443"),
+])
+async def test_native_gemini_client_uses_configured_endpoint(monkeypatch, configured, expected):
+    pytest.importorskip("google.generativeai")
+    glm = pytest.importorskip("google.ai.generativelanguage")
+    from ifixai.providers import gemini
+
+    seen = []
+
+    def request_client(**kwargs):
+        native = glm.GenerativeServiceAsyncClient(**kwargs)
+        seen.append(native.transport._host)
+
+        async def generate_content(request, **options):
+            assert request.model == "models/owned-model"
+            return glm.GenerateContentResponse(candidates=[glm.Candidate(
+                content=glm.Content(parts=[glm.Part(text="owned reply")]),
+                finish_reason=glm.Candidate.FinishReason.STOP,
+            )])
+
+        monkeypatch.setattr(native, "generate_content", generate_content)
+        return native
+
+    monkeypatch.setattr(gemini, "GenerativeServiceAsyncClient", request_client)
+    config = ProviderConfig(provider="gemini", endpoint=configured, model="owned-model",
+                            api_key="owned-key", max_retries=0)
+    assert await gemini.GeminiProvider().send_message([ChatMessage(content="hello")], config) == "owned reply"
+    assert seen == [expected]
