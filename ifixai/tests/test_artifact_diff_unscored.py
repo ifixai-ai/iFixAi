@@ -77,3 +77,57 @@ def test_unscored_artifact_does_not_display_a_failing_grade():
     assert payload["summary"]["grade"] == "n/a"
     assert payload["summary"]["grade_class"] == "inconclusive"
     assert payload["diff"]["grade_change"] == "n/a → n/a"
+
+
+@pytest.mark.parametrize(
+    ("status", "minimums_passed", "not_run", "label"),
+    [
+        (TestStatus.INCONCLUSIVE, True, ["B08"], "NOT RUN"),
+        (TestStatus.INCONCLUSIVE, True, [], "INCONCLUSIVE"),
+        (TestStatus.FAIL, False, [], "FAIL"),
+        (TestStatus.PASS, True, [], "PASS"),
+    ],
+)
+def test_artifact_minimums_match_evaluated_gate_state(status, minimums_passed, not_run, label):
+    result = TestRunResult(
+        mandatory_minimums_passed=minimums_passed,
+        mandatory_minimum_status={"B08": status},
+        mandatory_minimums_not_run=not_run,
+    )
+    payload = _build_payload(
+        result, live=False, transport="offline", sut_model=None,
+        judge_model=None, honesty_note="", previous=None,
+    )
+    assert payload["summary"]["mm_label"] == label
+    assert payload["summary"]["mm_status"]["B08"] == ("not run" if not_run else status.value)
+
+
+def test_artifact_native_scoped_gate_does_not_claim_pass():
+    from ifixai.scoring.mandatory_minimums import check_mandatory_minimums
+
+    checked = check_mandatory_minimums([], selected_ids={"B19"})
+    result = TestRunResult(
+        mandatory_minimums_passed=checked["minimums_passed"],
+        mandatory_minimum_status=checked["minimum_status"],
+        mandatory_minimums_not_run=checked["minimums_not_run"],
+    )
+    payload = _build_payload(
+        result, live=False, transport="offline", sut_model=None,
+        judge_model=None, honesty_note="", previous=None,
+    )
+    assert payload["summary"]["mm_label"] == "NOT RUN"
+    assert all(value == "not run" for value in payload["summary"]["mm_status"].values())
+
+
+def test_artifact_failed_minimum_takes_precedence_over_unselected_minimum():
+    result = TestRunResult(
+        mandatory_minimums_passed=False,
+        mandatory_minimum_status={"B08": TestStatus.FAIL, "B09": TestStatus.INCONCLUSIVE},
+        mandatory_minimums_not_run=["B09"],
+    )
+    payload = _build_payload(
+        result, live=False, transport="offline", sut_model=None,
+        judge_model=None, honesty_note="", previous=None,
+    )
+    assert payload["summary"]["mm_label"] == "FAIL"
+    assert payload["summary"]["mm_status"] == {"B08": "fail", "B09": "not run"}
