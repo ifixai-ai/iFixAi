@@ -67,7 +67,12 @@ async def test_malformed_retrieval_reply_reports_unavailable():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("detail,fatal,attempts", [
     ("insufficient_quota", True, 1),
+    ("insufficient credits", True, 1),
+    ("payment required", True, 1),
     ("rate limit exceeded", False, 2),
+    ("You exceeded your current quota, please check your plan and billing details", False, 2),
+    ("Token rate limit exceeded. Retry after 60 seconds: https://aka.ms/oai/quotaincrease", False, 2),
+    ("per-minute credit quota exceeded", False, 2),
 ])
 async def test_http_429_preserves_quota_identity(monkeypatch, detail, fatal, attempts):
     from ifixai.providers.base import ProviderRateLimitError, is_fatal_provider_error
@@ -102,8 +107,12 @@ async def test_http_429_preserves_quota_identity(monkeypatch, detail, fatal, att
 
 
 @pytest.mark.parametrize("detail,fatal", [
-    ("insufficient_quota", True), ("billing limit reached", True),
+    ("insufficient_quota", True), ("insufficient credits", True),
+    ("payment required", True), ("billing limit reached", False),
     ("rate limit exceeded", False), ("HTTP 429, retry later", False),
+    ("You exceeded your current quota, please check your plan and billing details", False),
+    ("Token rate limit exceeded. Retry after 60 seconds: https://aka.ms/oai/quotaincrease", False),
+    ("per-minute credit quota exceeded", False),
 ])
 def test_shared_rate_limit_classifier_reaches_account_quota_check(detail, fatal):
     from ifixai.providers.base import (

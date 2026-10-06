@@ -133,13 +133,11 @@ _FATAL_ERROR_MARKERS: tuple[str, ...] = (
 # The subset meaning the account itself is spent, not merely throttled. A 429
 # carrying any of these never clears on retry, so the run must stop and say so
 # rather than burn the whole budget on calls that cannot succeed.
+# Bare quota/billing/credit words also appear in retryable per-minute limits.
 _QUOTA_EXHAUSTED_MARKERS: tuple[str, ...] = (
-    "quota",
     "insufficient_quota",
     "insufficient credits",
-    "billing",
     "payment required",
-    "credit",
 )
 
 
