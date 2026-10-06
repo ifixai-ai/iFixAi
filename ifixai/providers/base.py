@@ -147,6 +147,8 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     """True when an error means the credential is rejected / out of quota."""
     if isinstance(exc, ProviderAuthError):
         return True
+    if isinstance(exc, ProviderRateLimitError):
+        return any(marker in exc.details.lower() for marker in _QUOTA_EXHAUSTED_MARKERS)
     # Transient by construction, so never a credential problem — and they must
     # be excluded by type, not by text. The markers below are matched as bare
     # substrings, and a truncation detail carries a character count: a reply cut
@@ -154,13 +156,6 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     if isinstance(exc, TRANSIENT_PROVIDER_ERRORS):
         return False
     text = str(exc).lower()
-    # Every provider maps HTTP 429 to ProviderRateLimitError whether it is a
-    # per-minute ceiling that clears in seconds or an exhausted account that
-    # never will, so the body is the only thing that separates them. Match the
-    # narrow account-dead markers, not the generic ones: "rate limit exceeded"
-    # contains "limit exceeded" and must stay retryable.
-    if isinstance(exc, ProviderRateLimitError):
-        return any(marker in text for marker in _QUOTA_EXHAUSTED_MARKERS)
     return any(marker in text for marker in _FATAL_ERROR_MARKERS)
 
 
