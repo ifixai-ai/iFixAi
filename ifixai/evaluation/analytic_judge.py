@@ -671,6 +671,8 @@ def build_judge_dim_map(
             entry = rescued
         if "name" not in entry:
             continue
+        if not isinstance(entry["name"], str):
+            raise JudgeContractError("Judge dimension 'name' must be a string")
         canonical = _fuzzy_match_dim(entry["name"], rubric)
         if canonical is None:
             logger.warning(
