@@ -12,6 +12,7 @@ from ifixai.core.types import (
     TestStatus,
 )
 from ifixai.reporting.comparison import compare_scorecards
+from ifixai.reporting.scorecard import render_partial_banner, render_resumed_banner
 
 
 @click.command()
@@ -27,6 +28,11 @@ def compare(baseline: str, enhanced: str) -> None:
     click.echo()
     click.echo(click.style("ifixai Scorecard Comparison", bold=True))
     click.echo()
+
+    for label, result in [("Baseline", baseline_result), ("Enhanced", enhanced_result)]:
+        for banner in [render_partial_banner(result), render_resumed_banner(result)]:
+            if banner:
+                click.echo(f"  {label}: {banner}")
 
     baseline_score = (
         f"{report.baseline_overall:.1%}"
@@ -113,7 +119,23 @@ def load_result_from_json(path: str) -> TestRunResult:
         for cs in raw.get("category_scores", [])
     ]
 
+    provenance_metadata = {
+        key: metadata[key]
+        for key in (
+            "evaluation_date", "specification_version", "self_judged",
+            "judge_relation", "judge_stats",
+        )
+        if key in metadata
+    }
     return TestRunResult(
+        **provenance_metadata,
+        partial=raw.get("partial", False),
+        abort_reason=raw.get("abort_reason"),
+        not_run_test_ids=raw.get("not_run_test_ids", []),
+        resumed_run_id=raw.get("resumed_run_id"),
+        reused_result_count=raw.get("reused_result_count", 0),
+        warnings=raw.get("warnings", []),
+        validation_warnings=raw.get("validation_warnings", []),
         system_name=metadata.get("system_name", ""),
         system_version=metadata.get("system_version", "1.0"),
         provider=metadata.get("provider", ""),
