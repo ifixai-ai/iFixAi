@@ -671,6 +671,8 @@ def build_judge_dim_map(
             entry = rescued
         if "name" not in entry:
             continue
+        if not isinstance(entry["name"], str):
+            raise JudgeContractError("Judge dimension 'name' must be a string")
         canonical = _fuzzy_match_dim(entry["name"], rubric)
         if canonical is None:
             logger.warning(
@@ -950,6 +952,13 @@ class AnalyticRubricJudge:
             references=rubric.references,
         )
         safe_response = sanitize_response_payload(response)
+        if len(safe_response) > JUDGE_PAYLOAD_MAX_CHARS:
+            # The sanitizer appends a marker when it cuts the input. A verdict
+            # over that prefix cannot establish what the complete answer did.
+            raise JudgeExtractionError(
+                f"response exceeds the {JUDGE_PAYLOAD_MAX_CHARS}-character judge payload limit; "
+                "the complete response cannot be graded"
+            )
 
         messages = [
             ChatMessage(role="system", content=prompt),

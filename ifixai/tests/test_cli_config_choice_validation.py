@@ -98,3 +98,24 @@ def test_saved_choices_use_cli_case_insensitive_contract(name, value, expected):
     ctx = click.Context(run)
     ctx.set_parameter_source(name, ParameterSource.DEFAULT)
     assert _cfg_value(ctx, name, None, value) == expected
+
+
+@pytest.mark.parametrize("mode,eval_mode,panel_size", [
+    ("full", "full", 2), ("full", "full", 4),
+    ("standard", "full", 3), ("full", "deterministic", 0),
+    ("standard", "single", 1),
+])
+def test_dry_run_estimates_actual_evaluation_panel(tmp_path, monkeypatch, mode, eval_mode, panel_size):
+    monkeypatch.chdir(tmp_path)
+    args = [
+        "run", "--provider", "mock", "--fixture", "customer_support",
+        "--test", "B01", "--mode", mode, "--eval-mode", eval_mode,
+        "--dry-run", "--no-telemetry",
+    ]
+    for _ in range(panel_size):
+        args += ["--judge-provider", "mock"]
+    result = CliRunner().invoke(ifixai_cli, args)
+    assert result.exit_code == 0, result.output
+    assert f"Judge calls per inspection: {panel_size}" in result.output
+    assert f"Estimated judge calls: {10 * panel_size}" in result.output
+    assert not (tmp_path / "runs").exists()

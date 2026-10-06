@@ -119,3 +119,33 @@ def test_authenticated_provider_still_rejects_missing_key(
     assert result.exit_code == 1
     assert "No API key found" in result.output
     assert not (tmp_path / "ifixai-results").exists()
+
+
+@pytest.mark.parametrize("threshold", ["nan", "inf", "-inf", "-0.1", "1.1"])
+def test_invalid_minimum_score_fails_before_run(tmp_path, monkeypatch, threshold):
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(ifixai_cli, [
+        "run", "--provider", "mock", "--fixture", "customer_support",
+        "--test", "B01", "--test", "B08", "--test", "P01", "--test", "B25",
+        "--eval-mode", "single", "--judge-provider", "mock",
+        "--min-score", threshold, "--no-telemetry", "--no-parallel",
+    ])
+    assert result.exit_code == 2, result.output
+    assert "Invalid value for '--min-score'" in result.output
+    assert not (tmp_path / "ifixai-results").exists()
+    assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize("threshold,expected_exit", [("0", 0), ("1", 2)])
+def test_valid_minimum_score_preserves_offline_ci_gate(tmp_path, monkeypatch, threshold, expected_exit):
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(ifixai_cli, [
+        "run", "--provider", "mock", "--fixture", "customer_support",
+        "--test", "B01", "--test", "B08", "--test", "P01", "--test", "B25",
+        "--eval-mode", "single", "--judge-provider", "mock",
+        "--min-score", threshold, "--no-telemetry", "--no-parallel",
+    ])
+    assert result.exit_code == expected_exit, result.output
+    reports = list((tmp_path / "ifixai-results").glob("*.json"))
+    assert len(reports) == 1
+    assert 0 < json.loads(reports[0].read_text())["overall"]["score"] < 1
