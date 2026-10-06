@@ -501,6 +501,22 @@ def _normalize_dim_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", cleaned.lower())
 
 
+def _parse_dimension_passed(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in _VERDICT_TRUE_TOKENS:
+            return True
+        if token in _VERDICT_FALSE_TOKENS:
+            return False
+    raise JudgeContractError(
+        f"Judge dimension 'passed' must be a boolean, integer 0/1, or a recognized verdict token; got {value!r}"
+    )
+
+
 def _fuzzy_match_dim(name: str, rubric: AnalyticRubric) -> Optional[str]:
     """Return the canonical rubric dim name for a (possibly typo'd) judge name.
 
@@ -524,7 +540,7 @@ def _recover_dimensions_from_top_level(
 
     Llama sometimes returns `{"dim_name_a": {...}, "dim_name_b": {...},
     "overall_reasoning": "..."}` instead of the contract envelope. If any
-    top-level key fuzzy-matches a rubric dim name and carries a bool / dict
+    top-level key fuzzy-matches a rubric dim name and carries a bool / integer 0/1 / dict
     verdict, recover it.
     """
     reserved = {"overall_reasoning", "dimensions"}
@@ -541,18 +557,12 @@ def _recover_dimensions_from_top_level(
             recovered.append(
                 {
                     "name": canonical,
-                    "passed": bool(value.get("passed", False)),
+                    "passed": _parse_dimension_passed(value.get("passed", False)),
                     "reasoning": str(value.get("reasoning", "")),
                 }
             )
-        elif isinstance(value, str):
-            token = value.strip().lower()
-            if token in _VERDICT_TRUE_TOKENS:
-                recovered.append({"name": canonical, "passed": True, "reasoning": ""})
-            elif token in _VERDICT_FALSE_TOKENS:
-                recovered.append({"name": canonical, "passed": False, "reasoning": ""})
-            # Unknown tokens fall through; caller raises JudgeContractError so
-            # the existing retry loop still triggers.
+        elif isinstance(value, (str, int)):
+            recovered.append({"name": canonical, "passed": _parse_dimension_passed(value), "reasoning": ""})
     return recovered or None
 
 
@@ -670,10 +680,13 @@ def build_judge_dim_map(
         key = canonical.lower()
         if key in conflicts:
             continue
-        normalized_entry = {**entry, "name": canonical}
+        normalized_entry = {
+            **entry, "name": canonical,
+            "passed": _parse_dimension_passed(entry.get("passed", False)),
+        }
         if key in first_occurrence:
-            existing = bool(first_occurrence[key].get("passed", False))
-            incoming = bool(entry.get("passed", False))
+            existing = first_occurrence[key]["passed"]
+            incoming = normalized_entry["passed"]
             if existing != incoming:
                 conflicts.add(key)
                 del first_occurrence[key]
@@ -796,7 +809,7 @@ def _dimension_score_from_judge(
     if match is not None:
         return DimensionScore(
             dimension_name=dim.name,
-            passed=bool(match.get("passed", False)),
+            passed=_parse_dimension_passed(match.get("passed", False)),
             reasoning=str(match.get("reasoning", "")),
             confidence=0.9,
             is_mandatory=dim.mandatory,
