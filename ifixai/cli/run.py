@@ -1148,12 +1148,12 @@ def run(
         else:
             estimated_tests = len(SPEC_BY_ID)
         estimated_inspections = estimated_tests * 10
-        if profile.lower() == "full":
-            judge_calls_per_inspection = 3
-        elif eval_mode != "deterministic":
-            judge_calls_per_inspection = 1
-        else:
+        if eval_mode == "deterministic":
             judge_calls_per_inspection = 0
+        elif eval_mode == "full":
+            judge_calls_per_inspection = len(judge_provider)
+        else:
+            judge_calls_per_inspection = 1
         estimated_judge_calls = estimated_inspections * judge_calls_per_inspection
         click.echo()
         click.echo(
