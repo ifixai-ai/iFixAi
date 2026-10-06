@@ -260,7 +260,7 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
             "b27_session_integrity": "B27",
         }
         for key, cases in tc_raw.items():
-            test_id = test_map.get(key, f"ifixai-{key.upper()[:3]}")
+            test_id = "SSCI-" + test_map.get(key, key.split("_", 1)[0].upper())
             for tc in cases:
                 flat_cases.append({
                     "test_id": tc.get("id", tc.get("test_id", "")),
