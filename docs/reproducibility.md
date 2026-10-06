@@ -6,7 +6,7 @@ Every run writes `runs/<run_id>/manifest.json`. It records the exact inputs to t
 
 `fixture_digest` is a SHA-256 over the canonicalised fixture YAML (parsed, keys sorted, JSON-serialised). Value and list-order changes alter it; comments, whitespace, and key order do not.
 
-YAML dates and timestamps in metadata use ISO strings during canonicalisation, matching the fixture model's JSON export representation.
+YAML dates and timestamps in metadata use ISO strings during canonicalisation, compatible with the fixture model's existing JSON export representation.
 
 ## Run nonce
 
