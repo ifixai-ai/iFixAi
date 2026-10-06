@@ -201,6 +201,7 @@ class JudgeErrorKind(str, Enum):
     COMMUNICATION = "communication"
     EXTRACTION = "extraction"
     CONTRACT = "contract"
+    BUDGET = "budget"
 
 
 class EvaluationMode(str, Enum):
