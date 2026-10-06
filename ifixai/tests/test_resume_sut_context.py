@@ -136,3 +136,154 @@ def test_historical_v3_hash_still_verifies_without_context(tmp_path):
     assert verify_run_id(loaded)
     assert loaded.run_nonce == payload["run_nonce"]
     assert loaded.sut_context_digest is None
+
+
+@pytest.mark.parametrize('change', ['content', 'model', 'channel', 'run-nonce', 'run-marker-internal', 'envelope-literal', 'judge-reference-literal'])
+async def test_bridge_cache_preserves_identifiers_and_reuses_generated_nonces(change):
+    from ifixai.core.types import ChatMessage, ProviderConfig
+    from ifixai.providers.bridge import CachingTransport, Transport
+
+    class EchoTransport(Transport):
+        def __init__(self):
+            self.calls = 0
+
+        async def complete(self, messages, config, channel):
+            self.calls += 1
+            return f'{channel}|{config.model}|{messages[-1].content}'
+
+    first, second = '0123456789abcdef', 'fedcba9876543210'
+    config = ProviderConfig(provider='bridge', model='sut')
+    config_second = config
+    channel, channel_second = 'sut', 'sut'
+    content, content_second = f'Look up audit event {first}', f'Look up audit event {first}'
+    if change == 'content':
+        content_second = f'Look up audit event {second}'
+    elif change == 'model':
+        config = config.model_copy(update={'model': first})
+        config_second = config.model_copy(update={'model': second})
+    elif change == 'channel':
+        channel, channel_second = first, second
+    elif change == 'run-nonce':
+        content, content_second = f'Policy\n[run_id: {first}]', f'Policy\n[run_id: {second}]'
+    elif change == 'run-marker-internal':
+        content, content_second = f'Policy\n[run_id: {first}]\nContinue', f'Policy\n[run_id: {second}]\nContinue'
+    elif change == 'judge-reference-literal':
+        channel = channel_second = 'judge'
+        content = f'Policy: The evaluated response is enclosed in tags with id="{first}"'
+        content_second = f'Policy: The evaluated response is enclosed in tags with id="{second}"'
+    else:
+        channel = channel_second = 'judge'
+        content = f'<response_to_evaluate id="{first}">Policy</response_to_evaluate>'
+        content_second = f'<response_to_evaluate id="{second}">Policy</response_to_evaluate>'
+    inner = EchoTransport()
+    cache = CachingTransport(inner, {})
+    message_role = 'system' if change in {'run-nonce', 'run-marker-internal', 'judge-reference-literal'} else 'user'
+    original = await cache.complete([ChatMessage(role=message_role, content=content)], config, channel)
+    changed = await cache.complete([ChatMessage(role=message_role, content=content_second)], config_second, channel_second)
+    reuse = change.endswith('nonce')
+    assert inner.calls == (1 if reuse else 2)
+    assert (original == changed) == reuse
+
+
+async def test_registered_b19_cache_does_not_replay_different_fixture_ids(monkeypatch, tmp_path):
+    from aiohttp import web
+
+    from ifixai.core.fixture_loader import load_fixture
+    from ifixai.core.runner import run_selected
+    from ifixai.core.types import EvaluationPipelineConfig, ProviderConfig
+    from ifixai.judge.config import JudgeConfig
+    from ifixai.providers import bridge
+    from ifixai.providers.http import HttpProvider
+    from ifixai.reporting.scorecard import generate_json_report
+
+    calls = []
+
+    async def complete(request):
+        payload = await request.json()
+        calls.append(payload)
+        content = '\n'.join(message['content'] for message in payload['messages'])
+        return web.json_response({'choices': [{'message': {'content': content}, 'finish_reason': 'stop'}]})
+
+    app = web.Application()
+    app.router.add_post('/chat/completions', complete)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, '127.0.0.1', 0).start()
+    endpoint = f'http://127.0.0.1:{runner.addresses[0][1]}'
+    http_provider = HttpProvider()
+
+    class HttpTransport(bridge.Transport):
+        async def complete(self, messages, config, channel):
+            return await http_provider.send_message(messages, config.model_copy(update={'provider': 'http', 'endpoint': endpoint}))
+
+    cache = bridge.CachingTransport(HttpTransport(), {})
+    monkeypatch.setattr(bridge, '_TRANSPORTS', {bridge.SUT_CHANNEL: cache, bridge.JUDGE_CHANNEL: bridge.StubJudgeTransport()})
+    fixture = load_fixture('software_engineering')
+    records = []
+    try:
+        for identifier in ['0123456789abcdef', 'fedcba9876543210']:
+            changed = fixture.model_copy(update={'data_sources': [source.model_copy(update={'name': f'{source.name} {identifier}'}) for source in fixture.data_sources]})
+            prior_calls = len(calls)
+            run = await run_selected(
+                test_ids={'B19'}, provider=bridge.BridgeProvider(),
+                config=ProviderConfig(provider='bridge', model='sut'), fixture=changed,
+                judge_config=JudgeConfig(provider='bridge', model='judge'),
+                pipeline_config=EvaluationPipelineConfig(judge_max_calls=0),
+            )
+            result = run.test_results[0]
+            row = json.loads(generate_json_report(run))['test_results'][0]
+            records.append({'identifier': identifier, 'native_calls': len(calls)-prior_calls, 'row': row})
+        (tmp_path / 'scorecard.json').write_text(json.dumps(records, indent=2))
+        assert records[1]['native_calls'] > 0
+        assert any('fedcba9876543210' in item.actual_response for item in result.evidence)
+        assert all('0123456789abcdef' not in item.actual_response for item in result.evidence)
+        assert all(record['row']['status'] == 'pass' for record in records)
+    finally:
+        await http_provider.aclose()
+        await runner.cleanup()
+
+
+@pytest.mark.parametrize('response_template', [
+    'Event {}',
+    '<turn id="{}">Policy</turn>',
+    '<repetition id="{}">Policy</repetition>',
+    '<paraphrase id="{}">Policy</paraphrase>',
+    '<phrasing id="{}">Policy</phrasing>',
+    '<turn index="1" id="{}">\nPolicy\n</turn>',
+    'The evaluated response is enclosed in tags with id="{}"',
+    'context:Policy says The evaluated response is enclosed in tags with id="{}"',
+    'context:Policy\n[run_id: {}]\nContinue',
+])
+async def test_real_judge_cache_reuses_fresh_envelopes_but_preserves_response_ids(monkeypatch, response_template):
+    from ifixai.core.types import EvaluationCriteria, EvaluationPipelineConfig
+    from ifixai.evaluation import analytic_judge
+    from ifixai.evaluation.pipeline import EvaluationPipeline
+    from ifixai.judge.config import JudgeConfig
+    from ifixai.judge.evaluator import JudgeEvaluator
+    from ifixai.providers import bridge
+
+    class CountingJudge(bridge.StubJudgeTransport):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        async def complete(self, messages, config, channel):
+            self.calls += 1
+            return await super().complete(messages, config, channel)
+
+    inner = CountingJudge()
+    monkeypatch.setattr(bridge, '_TRANSPORTS', {bridge.JUDGE_CHANNEL: bridge.CachingTransport(inner, {})})
+    nonces = iter(['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb', 'cccccccccccccccc'])
+    monkeypatch.setattr(analytic_judge, 'generate_envelope_nonce', lambda: next(nonces))
+    evaluator = JudgeEvaluator(JudgeConfig(provider='bridge', model='judge'))
+    pipeline = EvaluationPipeline(EvaluationPipelineConfig(judge_max_calls=0), analytic_judge.AnalyticRubricJudge(evaluator))
+    rubric = await analytic_judge.load_analytic_rubric('B19', 'comply')
+    try:
+        for identifier in ['0123456789abcdef', '0123456789abcdef', 'fedcba9876543210']:
+            rendered = response_template.format(identifier)
+            context = rendered.removeprefix('context:') if rendered.startswith('context:') else ''
+            response = 'Policy' if context else rendered
+            assert (await pipeline.evaluate(response, EvaluationCriteria(), rubric, context=context)).passed
+        assert inner.calls == 2
+    finally:
+        await evaluator.aclose()
