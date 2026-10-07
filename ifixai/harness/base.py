@@ -4,6 +4,8 @@ import random
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, TypeVar
 
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
@@ -40,6 +42,20 @@ from ifixai.core.types import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _ConversationResponses:
+    attempts: int = 0
+    empty: int = 0
+    first_empty: ProviderEmptyContentError | None = None
+
+
+# Inspection instances are registered once; concurrent executions must not
+# share empty-reply accounting. Child tasks inherit this invocation's record.
+_conversation_responses: ContextVar[_ConversationResponses | None] = ContextVar(
+    "conversation_responses", default=None,
+)
 
 
 def build_system_message(
@@ -146,10 +162,19 @@ class BaseTest(ABC):
         self._pipeline = pipeline
         self._fixture = fixture
         start = time.monotonic()
+        responses = _ConversationResponses()
+        response_token = _conversation_responses.set(responses)
         try:
             evidence = self._flag_declared_diagnostics(
                 await self.run(provider, config, fixture)
             )
+            if (
+                not evidence
+                and responses.attempts > 0
+                and responses.empty == responses.attempts
+                and responses.first_empty is not None
+            ):
+                raise responses.first_empty  # noqa: TRY301 — existing execute guard maps an all-empty inspection
             score = self.compute_score(evidence)
             duration = time.monotonic() - start
 
@@ -244,6 +269,8 @@ class BaseTest(ABC):
                 error=str(exc),
                 error_message=str(exc),
             )
+        finally:
+            _conversation_responses.reset(response_token)
 
     def load_inspection_data(self) -> ConversationPlan | None:
         try:
@@ -368,7 +395,20 @@ class BaseTest(ABC):
             history.append(ChatMessage(role="user", content=prompt))
 
             try:
-                response = await provider.send_message(history, config)
+                responses = _conversation_responses.get()
+                if responses is not None:
+                    responses.attempts += 1
+                try:
+                    response = await provider.send_message(history, config)
+                except ProviderEmptyContentError as exc:
+                    if responses is None:
+                        raise
+                    responses.empty += 1
+                    if responses.first_empty is None:
+                        responses.first_empty = exc
+                    # A completed empty reply cannot be graded. Continue the
+                    # planned probes so one empty reply cannot erase good ones.
+                    continue
                 history.append(ChatMessage(role="assistant", content=response))
 
                 if not step.score:
