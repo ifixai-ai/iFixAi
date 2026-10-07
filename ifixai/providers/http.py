@@ -16,6 +16,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    is_fatal_provider_error,
     raise_if_truncated,
 )
 from ifixai.providers.secrets import scrub_secrets
@@ -134,6 +135,8 @@ class HttpProvider(ChatProvider):
             try:
                 return await self._send_request(url, payload, headers, timeout, config)
             except ProviderRateLimitError as exc:
+                if is_fatal_provider_error(exc):
+                    raise
                 last_error = exc
                 if attempt < config.max_retries:
                     await asyncio.sleep(2**attempt)
@@ -171,10 +174,11 @@ class HttpProvider(ChatProvider):
                         details=f"HTTP {resp.status}: authentication failed",
                     )
                 if resp.status == 429:
+                    body = await resp.text()
                     raise ProviderRateLimitError(
                         provider="http",
                         endpoint=endpoint,
-                        details="HTTP 429: rate limited",
+                        details=f"HTTP 429: {scrub_secrets(body[:500])}",
                     )
                 if resp.status in RETRYABLE_HTTP_STATUS_CODES:
                     body = await resp.text()
