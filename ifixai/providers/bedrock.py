@@ -2,6 +2,7 @@ import asyncio
 
 import boto3
 import botocore.exceptions
+from botocore.config import Config
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
@@ -55,7 +56,24 @@ class BedrockProvider(ChatProvider):
 
         session = boto3.Session(**session_kwargs)
 
-        client_kwargs: dict = {"service_name": "bedrock-runtime"}
+        # The adapter owns this client and its retry loop. Configure the native
+        # socket limits too: cancelling to_thread cannot stop a blocking read.
+        # Nonpositive values retain the native defaults: wait_for reports the
+        # existing immediate timeout without starting a request.
+        socket_limits = (
+            {
+                "connect_timeout": float(config.timeout),
+                "read_timeout": float(config.timeout),
+            }
+            if config.timeout > 0 else {}
+        )
+        client_kwargs: dict = {
+            "service_name": "bedrock-runtime",
+            "config": Config(
+                retries={"total_max_attempts": 1},
+                **socket_limits,
+            ),
+        }
         if config.endpoint:
             client_kwargs["endpoint_url"] = config.endpoint
 
