@@ -148,10 +148,15 @@ class BedrockProvider(ChatProvider):
                         details=str(exc),
                     ) from exc
 
+                http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                 if error_code in (
                     "ServiceUnavailableException",
                     "InternalServerException",
-                ):
+                ) or http_status in (500, 502, 503, 504):
+                    if attempt < attempts - 1:
+                        await asyncio.sleep(backoff)
+                        backoff *= BACKOFF_MULTIPLIER
+                        continue
                     raise ProviderConnectionError(
                         provider="bedrock",
                         endpoint=endpoint,
@@ -167,6 +172,10 @@ class BedrockProvider(ChatProvider):
                 botocore.exceptions.EndpointConnectionError,
                 botocore.exceptions.ConnectionClosedError,
             ) as exc:
+                if attempt < attempts - 1:
+                    await asyncio.sleep(backoff)
+                    backoff *= BACKOFF_MULTIPLIER
+                    continue
                 raise ProviderConnectionError(
                     provider="bedrock",
                     endpoint=endpoint,

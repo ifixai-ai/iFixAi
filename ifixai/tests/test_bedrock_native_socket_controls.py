@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -19,6 +20,12 @@ import pytest
     (4, 0, "throttle", "ProviderRateLimitError", 1),
     (4, 0, "unavailable", "ProviderConnectionError", 1),
     (4, 0, "denied", "ProviderAuthError", 1),
+    *[(4, 1, f"http_{status}_once", "success", 2) for status in (500, 502, 503, 504)],
+    (4, 1, "reset_once", "success", 2),
+    (4, 2, "unavailable", "ProviderConnectionError", 3),
+    (4, 0, "reset", "ProviderConnectionError", 1),
+    (4, 2, "denied", "ProviderAuthError", 1),
+    (4, 2, "invalid_request", "ProviderResponseError", 1),
 ])
 def test_bedrock_timeout_releases_cli_probe_loop(timeout, retries, mode, expected, calls):
     requests = []
@@ -29,11 +36,20 @@ def test_bedrock_timeout_releases_cli_probe_loop(timeout, retries, mode, expecte
             assert request["messages"][0]["content"] == [{"text": "owned probe"}]
             if mode == "slow":
                 time.sleep(3)
+            if mode == "reset" or (mode == "reset_once" and len(requests) == 1):
+                self.connection.shutdown(socket.SHUT_RDWR)
+                self.connection.close()
+                return
             error = None
             if mode == "throttle" or (mode == "throttle_once" and len(requests) == 1):
                 error = (429, "ThrottlingException")
             elif mode == "unavailable":
                 error = (503, "ServiceUnavailableException")
+            elif mode.startswith("http_") and len(requests) == 1:
+                # An unmodelled proxy/service error still carries its HTTP status.
+                error = (int(mode.split("_")[1]), "OwnedTransientError")
+            elif mode == "invalid_request":
+                error = (400, "ValidationException")
             elif mode == "denied":
                 error = (403, "AccessDeniedException")
             body = json.dumps({"output": {"message": {"role": "assistant", "content": [{"text": "owned response"}]}}, "stopReason": "end_turn", "usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2}, "metrics": {"latencyMs": 3000}}).encode()
@@ -84,6 +100,8 @@ else:
             # Bound only this owned stalled read, excluding import startup.
             # Socket limits do not promise a global DNS/streaming deadline.
             assert payload['probe_elapsed'] < 2.5, 'CLI-owned loop still waits for the timed-out SDK socket'
+        if mode == "unavailable" and retries == 2:
+            assert payload['probe_elapsed'] >= 2.8, 'manual exponential backoff was bypassed'
         if expected == "success":
             assert payload['reply'] == 'owned response'
     finally:
