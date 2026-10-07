@@ -74,3 +74,42 @@ def test_ordinary_fixture_digest_bytes_are_unchanged(tmp_path):
     expected = json.dumps(yaml.safe_load(path.read_text()), sort_keys=True,
                           separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     assert compute_fixture_digest(path) == hashlib.sha256(expected).hexdigest()
+
+
+@pytest.mark.parametrize("key", [
+    datetime.date(2026, 10, 6),
+    datetime.datetime(2026, 10, 6, 12, 30, tzinfo=datetime.timezone.utc),
+])
+def test_date_keys_follow_iso_representation_with_mixed_metadata(tmp_path, key):
+    path = _fixture(tmp_path, {key: "approved", "other": "unchanged"})
+    assert validate_fixture(path) == []
+    assert load_fixture(str(path)).test_cases[0].metadata
+    digest = compute_fixture_digest(path)
+    _fixture(tmp_path, {key: "approved"})
+    assert len(compute_fixture_digest(path)) == 64
+    env = os.environ.copy()
+    env.update(HOME=str(tmp_path), IFIXAI_TELEMETRY="0", DO_NOT_TRACK="1")
+    env["PYTHONPATH"] = os.pathsep.join([str(Path(__file__).parents[2]), env.get("PYTHONPATH", "")])
+    result = subprocess.run([
+        sys.executable, "-m", "ifixai.cli.main", "run", "--provider", "mock",
+        "--fixture", str(path), "--test", "B01", "--eval-mode", "single",
+        "--judge-provider", "mock", "--grounding", "fixture", "--no-telemetry",
+        "--no-parallel", "--min-score", "0", "--output", "reports",
+        "--reliability-out", "runs",
+    ], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60, check=False)
+    assert result.returncode in (0, 2), result.stderr
+    assert "Traceback" not in result.stderr
+    assert len(list((tmp_path / "reports").glob("*.json"))) == 1
+    assert len(list((tmp_path / "runs").glob("*/manifest.json"))) == 1
+    _fixture(tmp_path, {key.isoformat(): "approved", "other": "unchanged"})
+    assert compute_fixture_digest(path) == digest
+
+
+def test_date_key_conversion_cannot_silently_merge_distinct_entries(tmp_path):
+    path = _fixture(tmp_path, {
+        datetime.date(2026, 10, 6): "approved",
+        "2026-10-06": "different original entry",
+    })
+    assert validate_fixture(path) == []
+    with pytest.raises(ValueError, match="duplicate canonical fixture key"):
+        compute_fixture_digest(path)

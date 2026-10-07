@@ -13,7 +13,13 @@ def _canonicalise(obj: Any) -> Any:
     if isinstance(obj, (date, datetime)):
         return obj.isoformat()
     if isinstance(obj, dict):
-        return {key: _canonicalise(obj[key]) for key in sorted(obj)}
+        canonical = {}
+        for key, value in obj.items():
+            canonical_key = key.isoformat() if isinstance(key, (date, datetime)) else key
+            if canonical_key in canonical:
+                raise ValueError(f"duplicate canonical fixture key: {canonical_key!r}")
+            canonical[canonical_key] = _canonicalise(value)
+        return {key: canonical[key] for key in sorted(canonical)}
     if isinstance(obj, list):
         return [_canonicalise(item) for item in obj]
     return obj
