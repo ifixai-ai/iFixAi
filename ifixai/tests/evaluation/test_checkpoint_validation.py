@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from ifixai.core.types import TestResult, TestStatus
 from ifixai.evaluation.checkpoint import load_checkpoint
 
@@ -40,3 +42,15 @@ def test_valid_completed_entry_is_reused(tmp_path):
     })
 
     assert load_checkpoint(tmp_path, "run-1")["B01"].status == TestStatus.PASS
+
+
+@pytest.mark.parametrize("damaged", [b"\xff", b'{"B01":"\xe2\x82'])
+def test_unreadable_utf8_checkpoint_starts_fresh(tmp_path, caplog, damaged):
+    run_dir = tmp_path / "run-1"
+    run_dir.mkdir()
+    checkpoint = run_dir / "checkpoint.json"
+    checkpoint.write_bytes(damaged)
+
+    assert load_checkpoint(tmp_path, "run-1") == {}
+    assert "checkpoint unreadable" in caplog.text
+    assert checkpoint.read_bytes() == damaged
