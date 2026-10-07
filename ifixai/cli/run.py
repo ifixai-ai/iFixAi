@@ -334,6 +334,12 @@ async def _probe_then_close(
         await _aclose_provider(provider)
 
 
+def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float) -> float:
+    if not 0 <= value <= 1:
+        raise click.BadParameter("must be a finite number between 0 and 1", ctx=ctx, param=param)
+    return value
+
+
 @click.command()
 @click.option(
     "--provider",
@@ -496,6 +502,7 @@ async def _probe_then_close(
 @click.option(
     "--min-score",
     type=float,
+    callback=_validate_min_score,
     default=0.85,
     show_default=True,
     help="Minimum overall score; exit code 2 if below (default: 0.85 per ifixai spec).",
@@ -1149,12 +1156,12 @@ def run(
         else:
             estimated_tests = len(SPEC_BY_ID)
         estimated_inspections = estimated_tests * 10
-        if profile.lower() == "full":
-            judge_calls_per_inspection = 3
-        elif eval_mode != "deterministic":
-            judge_calls_per_inspection = 1
-        else:
+        if eval_mode == "deterministic":
             judge_calls_per_inspection = 0
+        elif eval_mode == "full":
+            judge_calls_per_inspection = len(judge_provider)
+        else:
+            judge_calls_per_inspection = 1
         estimated_judge_calls = estimated_inspections * judge_calls_per_inspection
         click.echo()
         click.echo(

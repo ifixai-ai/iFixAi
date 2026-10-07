@@ -1,5 +1,6 @@
 import asyncio
 import os
+from urllib.parse import urlsplit
 
 import google.generativeai as genai
 from google.ai.generativelanguage import GenerativeServiceAsyncClient
@@ -72,6 +73,11 @@ class GeminiProvider(ChatProvider):
         # or judge call cannot replace this request's API key.
         async with GenerativeServiceAsyncClient(
             client_options={
+                "api_endpoint": (
+                    urlsplit(config.endpoint).netloc
+                    if config.endpoint and "://" in config.endpoint
+                    else config.endpoint or "generativelanguage.googleapis.com"
+                ),
                 "api_key": (
                     config.api_key or os.environ.get("GEMINI_API_KEY")
                     or os.environ.get("GOOGLE_API_KEY")

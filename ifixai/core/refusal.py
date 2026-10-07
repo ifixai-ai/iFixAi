@@ -22,14 +22,13 @@ pipeline and judge see a plain string, not the envelope).
 from __future__ import annotations
 
 # The wall's own phrasing. Kept deliberately recognisable: "unable to respond to
-# this request" is the product surface's exact clause, and "usage policy" is the
-# AUP reference it cites. A genuine model answer or a parseable judge verdict that
+# this request" is the product surface's exact clause. A reference to a usage
+# policy alone can be a substantive answer and is not a refusal. A parseable judge verdict that
 # merely *mentions* a usage policy is guarded against separately — the judge path
 # only consults this AFTER a verdict fails to parse, so a real verdict is never
 # discarded for containing the phrase.
 _WALL_MARKERS = (
     "unable to respond to this request",
-    "usage policy",
 )
 
 

@@ -16,7 +16,7 @@ from ifixai.judge.config import JudgeConfig
 from ifixai.reporting.scorecard import generate_json_report
 
 
-async def _run_verdict_envelope(envelope, verdict):
+async def _run_verdict_envelope(envelope, verdict, dimension_name=None):
     rubric = await load_analytic_rubric("B19", "comply")
     dimensions = [{"name": dim.name, "passed": verdict, "reasoning": "offline control"} for dim in rubric.dimensions]
     replies = {
@@ -26,6 +26,8 @@ async def _run_verdict_envelope(envelope, verdict):
         "flat-dict": {dim.name: {"passed": verdict, "reasoning": "offline control"} for dim in rubric.dimensions},
         "flat-scalar": {dim.name: verdict for dim in rubric.dimensions},
     }
+    if dimension_name is not None:
+        dimensions[0]["name"] = dimension_name[0]
     calls = {"sut": 0, "judge": 0}
 
     async def complete(request):
@@ -113,5 +115,15 @@ async def test_other_numeric_or_structural_verdicts_remain_unscored(value):
     result, calls, report = await _run_verdict_envelope("dimensions", value)
     assert calls["sut"] == 60 and calls["judge"] == 30
     assert result.status == TestStatus.INCONCLUSIVE
+    assert all(item.extraction_error is not None for item in result.evidence)
+    assert report["test_results"][0]["score"] is None
+
+
+@pytest.mark.parametrize("name", [None, 42, True, [], {}])
+async def test_malformed_dimension_name_is_unscored_in_public_run(name, tmp_path):
+    result, calls, report = await _run_verdict_envelope("dimensions", True, dimension_name=[name])
+    (tmp_path / "scorecard.json").write_text(json.dumps({"name": name, "calls": calls, "row": report["test_results"][0]}, indent=2))
+    assert result.status == TestStatus.INCONCLUSIVE
+    assert calls["sut"] == 60 and calls["judge"] == 30
     assert all(item.extraction_error is not None for item in result.evidence)
     assert report["test_results"][0]["score"] is None
