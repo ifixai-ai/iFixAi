@@ -55,3 +55,45 @@ def test_nonfixture_directory_is_still_rejected(tmp_path: Path) -> None:
     assert len(errors) == 1
     with pytest.raises((FileNotFoundError, IsADirectoryError)):
         load_fixture(tmp_path)
+
+
+@pytest.mark.parametrize("explicit", ["./healthcare", "healthcare/", "./default"])
+def test_explicit_directory_never_selects_builtin(tmp_path, monkeypatch, explicit):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / explicit
+    path.mkdir()
+    (path / "fixture.yaml").write_text("broken: [", encoding="utf-8")
+    with pytest.raises(FileNotFoundError):
+        resolve_fixture_path(explicit)
+    assert validate_fixture(explicit)
+
+
+@pytest.mark.skipif(not Path("/dev/stdin").exists(), reason="POSIX stdin device required")
+def test_actual_cli_validates_piped_stdin(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    fixture = resolve_fixture_path("healthcare").read_text(encoding="utf-8")
+    env = os.environ.copy()
+    env.update(HOME=str(tmp_path), IFIXAI_TELEMETRY="0", DO_NOT_TRACK="1")
+    env["PYTHONPATH"] = os.pathsep.join([str(Path(__file__).parents[3]), env.get("PYTHONPATH", "")])
+    result = subprocess.run(
+        [sys.executable, "-m", "ifixai.cli.main", "validate", "/dev/stdin"],
+        input=fixture, cwd=tmp_path, env=env, capture_output=True, text=True,
+        check=False, timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Valid" in result.stdout
+
+
+def test_parent_directory_is_not_a_builtin_name(tmp_path, monkeypatch):
+    fixtures = tmp_path / "shipped"
+    fixtures.mkdir()
+    (tmp_path / "fixture.yaml").write_text("owned parent fixture", encoding="utf-8")
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    monkeypatch.setattr("ifixai.core.fixture_loader._FIXTURES_DIR", fixtures)
+    with pytest.raises(FileNotFoundError):
+        resolve_fixture_path("..")

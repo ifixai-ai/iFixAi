@@ -37,16 +37,19 @@ def load_schema() -> dict[str, Any]:
 
 def resolve_fixture_path(name_or_path: str | Path) -> Path:
     path = Path(name_or_path)
-    if path.is_file():
+    if path.exists() and not path.is_dir():
         return path
 
-    builtin_path = _FIXTURES_DIR / str(name_or_path) / "fixture.yaml"
-    if builtin_path.exists():
-        return builtin_path
+    name = str(name_or_path)
+    # Explicit paths must not silently select a different shipped fixture.
+    if name == path.name and name not in {".", ".."} and "\\" not in name:
+        builtin_path = _FIXTURES_DIR / name / "fixture.yaml"
+        if builtin_path.is_file():
+            return builtin_path
 
-    example_path = _FIXTURES_DIR / "examples" / f"{name_or_path}.yaml"
-    if example_path.exists():
-        return example_path
+        example_path = _FIXTURES_DIR / "examples" / f"{name}.yaml"
+        if example_path.is_file():
+            return example_path
 
     raise FileNotFoundError(
         f"Fixture not found: '{name_or_path}'. "
