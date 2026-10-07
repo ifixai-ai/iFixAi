@@ -2,7 +2,13 @@ import json
 from datetime import datetime, timezone
 from typing import Final
 
-from ifixai.core.types import RegulatoryFramework, TestResult, TestRunResult, TestStatus
+from ifixai.core.types import (
+    JudgeErrorKind,
+    RegulatoryFramework,
+    TestResult,
+    TestRunResult,
+    TestStatus,
+)
 from ifixai.judge.config import JudgeConfig
 from ifixai.mappings.loader import load_all_mappings
 from ifixai.reporting.regulatory import (
@@ -181,13 +187,21 @@ def extraction_error_warnings(
 ) -> list[str]:
     messages: list[str] = []
     for br in test_results:
-        affected = sum(1 for ev in br.evidence if ev.extraction_error is not None)
-        if affected == 0:
-            continue
-        messages.append(
-            EXTRACTION_ERROR_PREFIX
-            + f"{br.test_id} ({affected} evidence items affected)"
+        affected = sum(
+            1 for ev in br.evidence
+            if ev.extraction_error is not None and ev.extraction_error != JudgeErrorKind.BUDGET
         )
+        if affected:
+            messages.append(
+                EXTRACTION_ERROR_PREFIX
+                + f"{br.test_id} ({affected} evidence items affected)"
+            )
+        skipped = sum(ev.extraction_error == JudgeErrorKind.BUDGET for ev in br.evidence)
+        if skipped:
+            messages.append(
+                f"judge budget exhausted: {br.test_id} "
+                f"({skipped} evidence items skipped without a judge call)"
+            )
     return messages
 
 
@@ -411,6 +425,13 @@ def render_not_run_section(result: TestRunResult) -> str:
     return "\n".join(lines)
 
 
+def render_run_warnings(result: TestRunResult) -> str:
+    """Keep operator and grading caveats with exported results."""
+    if not result.warnings:
+        return ""
+    return "## Run Warnings\n\n" + "\n".join(f"- {warning}" for warning in result.warnings)
+
+
 def generate_markdown_report(result: TestRunResult) -> str:
     frameworks = load_all_mappings()
 
@@ -422,6 +443,7 @@ def generate_markdown_report(result: TestRunResult) -> str:
         render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
+        render_run_warnings(result),
         render_consistency_warnings(result),
         render_test_table(result),
         render_not_run_section(result),

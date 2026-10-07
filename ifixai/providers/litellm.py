@@ -9,14 +9,19 @@ See https://docs.litellm.ai/docs/providers for all supported models.
 """
 
 import litellm as _litellm
+import openai
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
     ChatProvider,
+    ProviderAuthError,
     ProviderConnectionError,
     ProviderEmptyContentError,
+    ProviderOverloadedError,
+    ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_for_http_status,
     raise_if_choice_errored,
     raise_if_truncated,
 )
@@ -40,6 +45,7 @@ class LiteLLMProvider(ChatProvider):
             "model": model,
             "messages": formatted_messages,
             "drop_params": True,
+            "max_retries": config.max_retries,
             "timeout": float(config.timeout),
             "temperature": config.temperature,
         }
@@ -91,18 +97,51 @@ class LiteLLMProvider(ChatProvider):
 
         except ProviderResponseError:
             raise
-        except TimeoutError as exc:
+        except (_litellm.AuthenticationError, openai.PermissionDeniedError) as exc:
+            raise ProviderAuthError(
+                provider="litellm",
+                endpoint=config.endpoint or "default",
+                details=str(exc),
+            ) from exc
+        except _litellm.RateLimitError as exc:
+            raise ProviderRateLimitError(
+                provider="litellm",
+                endpoint=config.endpoint or "default",
+                details=str(exc),
+            ) from exc
+        except (_litellm.InternalServerError, _litellm.ServiceUnavailableError) as exc:
+            raise ProviderOverloadedError(
+                provider="litellm",
+                endpoint=config.endpoint or "default",
+                details=str(exc),
+            ) from exc
+        except (_litellm.Timeout, TimeoutError) as exc:
             raise ProviderTimeoutError(
                 provider="litellm",
                 endpoint=config.endpoint or "default",
                 details=str(exc),
             ) from exc
-        except ConnectionError as exc:
+        except (_litellm.APIConnectionError, ConnectionError) as exc:
             raise ProviderConnectionError(
                 provider="litellm",
                 endpoint=config.endpoint or "default",
                 details=str(exc),
             ) from exc
+        except (_litellm.APIError, openai.APIStatusError) as exc:
+            status = getattr(exc, "status_code", None)
+            if status in (401, 403):
+                raise ProviderAuthError(
+                    provider="litellm",
+                    endpoint=config.endpoint or "default",
+                    details=str(exc),
+                ) from exc
+            if status == 429:
+                raise ProviderRateLimitError(
+                    provider="litellm",
+                    endpoint=config.endpoint or "default",
+                    details=str(exc),
+                ) from exc
+            raise_for_http_status("litellm", config.endpoint or "default", exc)
         except Exception as exc:
             raise ProviderResponseError(
                 provider="litellm",

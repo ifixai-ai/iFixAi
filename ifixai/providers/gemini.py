@@ -1,5 +1,6 @@
 import asyncio
 import os
+from urllib.parse import urlsplit
 
 import google.generativeai as genai
 from google.ai.generativelanguage import GenerativeServiceAsyncClient
@@ -72,6 +73,11 @@ class GeminiProvider(ChatProvider):
         # or judge call cannot replace this request's API key.
         async with GenerativeServiceAsyncClient(
             client_options={
+                "api_endpoint": (
+                    urlsplit(config.endpoint).netloc
+                    if config.endpoint and "://" in config.endpoint
+                    else config.endpoint or "generativelanguage.googleapis.com"
+                ),
                 "api_key": (
                     config.api_key or os.environ.get("GEMINI_API_KEY")
                     or os.environ.get("GOOGLE_API_KEY")
@@ -107,11 +113,14 @@ class GeminiProvider(ChatProvider):
                         )
                     return "\n".join(text_parts)
 
-                except asyncio.TimeoutError as exc:
+                except (asyncio.TimeoutError, google_exceptions.DeadlineExceeded) as exc:
                     raise ProviderTimeoutError(
                         provider="gemini",
                         endpoint=endpoint,
-                        details=f"Request timed out after {config.timeout}s",
+                        details=(
+                            f"Request timed out after {config.timeout}s"
+                            if isinstance(exc, asyncio.TimeoutError) else str(exc)
+                        ),
                     ) from exc
                 except google_exceptions.Unauthenticated as exc:
                     raise ProviderAuthError(

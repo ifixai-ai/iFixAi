@@ -179,6 +179,7 @@ def _single_config_for(
         provider=spec.provider,
         model=spec.model,
         api_key=spec.api_key,
+        endpoint=parent.endpoint,
         temperature=parent.temperature,
         max_calls_per_run=parent.max_calls_per_run,
         timeout=parent.timeout,

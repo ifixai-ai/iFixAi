@@ -210,13 +210,14 @@ def _resolve_concurrency(flag_value: int | None, no_parallel: bool) -> int:
 
 
 def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
-    """Return cfg_value when the flag was left at its default, else current."""
+    """Use a saved default through its CLI type, preserving explicit flags."""
     from click.core import ParameterSource
 
     if cfg_value is None:
         return current
     if ctx.get_parameter_source(name) == ParameterSource.DEFAULT:
-        return cfg_value
+        parameter = next(param for param in ctx.command.params if param.name == name)
+        return parameter.type_cast_value(ctx, cfg_value)
     return current
 
 
@@ -330,6 +331,12 @@ async def _probe_then_close(
         return await operation
     finally:
         await _aclose_provider(provider)
+
+
+def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float) -> float:
+    if not 0 <= value <= 1:
+        raise click.BadParameter("must be a finite number between 0 and 1", ctx=ctx, param=param)
+    return value
 
 
 @click.command()
@@ -494,6 +501,7 @@ async def _probe_then_close(
 @click.option(
     "--min-score",
     type=float,
+    callback=_validate_min_score,
     default=0.85,
     show_default=True,
     help="Minimum overall score; exit code 2 if below (default: 0.85 per ifixai spec).",
@@ -843,7 +851,10 @@ def run(
         if config_obj.judges and (
             ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
         ):
-            judge_provider = tuple(j.provider for j in config_obj.judges)
+            judge_provider = _cfg_value(
+                ctx, "judge_provider", judge_provider,
+                tuple(j.provider for j in config_obj.judges),
+            )
             if (
                 ctx.get_parameter_source("judge_model") == ParameterSource.DEFAULT
                 and any(j.model for j in config_obj.judges)
@@ -851,11 +862,11 @@ def run(
                 judge_model = tuple((j.model or "") for j in config_obj.judges)
             if ctx.get_parameter_source("judge_api_key") == ParameterSource.DEFAULT:
                 resolved_judge_keys: list[str] = []
-                for j in config_obj.judges:
-                    if j.provider == provider and api_key:
+                for judge_name in judge_provider:
+                    if judge_name == provider and api_key:
                         resolved_judge_keys.append(api_key)
                     else:
-                        resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
+                        resolved_judge_keys.append(_lookup_env_api_key(judge_name) or "")
                 judge_api_key = tuple(resolved_judge_keys)
         if not quiet:
             click.echo(
@@ -1144,12 +1155,12 @@ def run(
         else:
             estimated_tests = len(SPEC_BY_ID)
         estimated_inspections = estimated_tests * 10
-        if profile.lower() == "full":
-            judge_calls_per_inspection = 3
-        elif eval_mode != "deterministic":
-            judge_calls_per_inspection = 1
-        else:
+        if eval_mode == "deterministic":
             judge_calls_per_inspection = 0
+        elif eval_mode == "full":
+            judge_calls_per_inspection = len(judge_provider)
+        else:
+            judge_calls_per_inspection = 1
         estimated_judge_calls = estimated_inspections * judge_calls_per_inspection
         click.echo()
         click.echo(
@@ -1840,7 +1851,8 @@ def run(
         result.validation_warnings.append(
             "run_invalid: measurement failure — "
             f"errored={health.errored}/{health.n_inspections} inspections, "
-            f"unreachable={health.unreachable}/{health.total} model calls, "
+            f"unreachable={health.unreachable}/{health.attempted_probes} attempted probes, "
+            f"budget_skipped={health.budget_skipped}, "
             f"judge_broke={health.judge_broke}, scorable={health.scorable}. "
             "Ignore the grade."
         )
