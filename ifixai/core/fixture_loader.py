@@ -37,7 +37,7 @@ def load_schema() -> dict[str, Any]:
 
 def resolve_fixture_path(name_or_path: str | Path) -> Path:
     path = Path(name_or_path)
-    if path.exists():
+    if path.is_file():
         return path
 
     builtin_path = _FIXTURES_DIR / str(name_or_path) / "fixture.yaml"
