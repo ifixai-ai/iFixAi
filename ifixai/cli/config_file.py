@@ -7,6 +7,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from ifixai.cli.reports import _write_report_atomic
+
 CONFIG_FILENAME = "ifixai.yaml"
 
 
@@ -66,7 +68,8 @@ def load_config(start_dir: Path | None = None) -> RunConfig | None:
 
 
 def write_config(config: RunConfig, start_dir: Path | None = None) -> Path:
-    """Write ``config`` to ``ifixai.yaml`` and return the path."""
+    """Atomically save ``config`` to ``ifixai.yaml`` and return its requested path."""
     path = config_path(start_dir)
-    path.write_text(config.to_yaml(), encoding="utf-8")
+    # Keep linked configurations linked while replacing their resolved target.
+    _write_report_atomic(path.resolve(), config.to_yaml())
     return path
