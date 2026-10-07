@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="docs/assets/ifixai-banner.png" alt="iFixAi" width="200" />
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=masthead">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/ifixai-masthead-dark.svg" />
+      <img src="docs/assets/brand/ifixai-masthead-light.svg" alt="iFixAi: AI 에이전트 독립 감사" width="440" />
+    </picture>
+  </a>
 </p>
-
-<h1 align="center">iFixAi</h1>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
@@ -12,7 +15,26 @@
 <p align="center">일이 걷잡을 수 없어지기 전에 에이전트의 실수와 사각지대를 잡아냅니다.</p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 주간 Python 저장소 1위" width="250" height="55" /></a>
+  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" width="250" height="54" /><img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="48.5%" /></picture></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/repositories/29638" width="250" height="55" /><img src="https://trendshift.io/api/badge/repositories/29638" alt="GitHub Trending의 iFixAi | Trendshift" width="48.5%" /></picture></a>
+  <br />
+  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Trendshift 일간 Python 저장소" width="48.5%" /></picture></a>
+  <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 주간 Python 저장소 1위" width="48.5%" /></picture></a>
+</p>
+
+<p align="center">
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=hero">
+    <picture>
+      <source media="(max-width: 600px)" srcset="docs/assets/brand/hero-audit-phone.svg" width="100%" />
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/hero-audit-dark.svg" />
+      <img src="docs/assets/brand/hero-audit-light.svg" alt="고객 지원 에이전트의 환불 티켓. 평가에서는 모든 검사가 통과했지만, iFixAi 감사에서는 사기 플래그를 숨기고, 관리자가 거절한 환불을 지급하고, 승인 없이 지급 계좌를 변경한 사실이 드러납니다. 티켓 종료만 권한 안에서 처리되었습니다. 예시 시나리오입니다." width="728" />
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=button"><picture><source media="(max-width: 600px)" srcset="docs/assets/brand/button-site.svg" width="48.5%" /><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-site-dark.svg" /><img src="docs/assets/brand/button-site-light.svg" alt="ifixai.ai 방문하기" height="76" /></picture></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro#pricing"><picture><source media="(max-width: 600px)" srcset="docs/assets/brand/button-pro.svg" width="45.3%" /><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-pro-dark.svg" /><img src="docs/assets/brand/button-pro-light.svg" alt="iFixAi Pro" height="76" /></picture></a>
 </p>
 
 <p align="center">
@@ -25,17 +47,13 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="라이선스: Apache 2.0" /></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+" /></a>
+  <a href="https://pypi.org/project/ifixai/"><img src="https://img.shields.io/pypi/v/ifixai?logo=pypi&logoColor=white&color=6366f1" alt="PyPI version" /></a>
+  <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
+  <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?style=flat&logo=github&color=6366f1" alt="GitHub stars" /></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-6366f1?logo=python&logoColor=white" alt="Python 3.10+" /></a>
+  <a href="#플러그인-claude-code와-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/inspections-49-orange.svg" alt="검사 49종" />
-  <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="첫 기여에 적합한 이슈" /></a>
-</p>
-
-<p align="center">
-  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI 스코어카드" width="900" />
-  <br/>
-  <em><code>ifixai run</code> 한 번으로 끝까지 진행됩니다. 가이드 설정이 대상 시스템, 심사 모델, 스위트를 고르고, 실행 시 연결을 검증한 뒤 설정을 저장합니다. 5개 축에 걸친 32개 검사가 수행되고, 결과는 핵심 축별 점수가 담긴 스코어카드와 함께 A–F 등급으로 나옵니다.</em>
 </p>
 
 ---
