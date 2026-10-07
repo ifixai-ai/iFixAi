@@ -213,7 +213,7 @@ class HttpProvider(ChatProvider):
                     data, endpoint, config.reject_truncated
                 )
 
-        except aiohttp.ClientConnectionError as exc:
+        except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError) as exc:
             raise ProviderConnectionError(
                 provider="http",
                 endpoint=endpoint,
