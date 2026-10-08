@@ -144,9 +144,9 @@ def _splice_agents_md(existing: str, body: str) -> str:
     if has_begin and has_end:
         pre = existing.split(MD_BEGIN, 1)[0]
         post = existing.split(MD_END, 1)[1]
-        return f"{pre.rstrip()}\n\n{block}\n{post.lstrip()}".strip() + "\n"
-    sep = "" if not existing.strip() else existing.rstrip() + "\n\n"
-    return f"{sep}{block}\n"
+        return pre + block + post
+    separator = "" if not existing or existing.endswith("\n\n") else "\n" if existing.endswith("\n") else "\n\n"
+    return existing + separator + block + "\n"
 
 
 def _strip_agents_md(existing: str) -> str:
@@ -154,7 +154,11 @@ def _strip_agents_md(existing: str) -> str:
         return existing
     pre = existing.split(MD_BEGIN, 1)[0]
     post = existing.split(MD_END, 1)[1]
-    return (pre.rstrip() + "\n" + post.lstrip()).strip() + "\n" if (pre.strip() or post.strip()) else ""
+    if post.startswith("\r\n"):
+        post = post[2:]
+    elif post.startswith("\n"):
+        post = post[1:]
+    return pre + post
 
 
 def _resolve_agents(agents: str | None, project_root: Path, name: str) -> list[AgentTarget]:
@@ -233,8 +237,13 @@ def install(agents: str | None, name: str, project_dir: str, revert: bool, list_
         path.parent.mkdir(parents=True, exist_ok=True)
 
         if t.fmt == "agents_md":
-            existing = path.read_text(encoding="utf-8") if path.is_file() else ""
-            path.write_text(_splice_agents_md(existing, body), encoding="utf-8")
+            existing = ""
+            if path.is_file():
+                with path.open(encoding="utf-8", newline="") as handle:
+                    existing = handle.read()
+            updated = _splice_agents_md(existing, body)
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                handle.write(updated)
             click.echo(f"  {click.style('updated', fg='green')} {t.label}: {path}")
             written += 1
             continue
@@ -266,9 +275,12 @@ def _do_revert(targets: list[AgentTarget], project_root: Path, name: str) -> Non
         text = path.read_text(encoding="utf-8")
 
         if t.fmt == "agents_md":
+            with path.open(encoding="utf-8", newline="") as handle:
+                text = handle.read()
             stripped = _strip_agents_md(text)
-            if stripped.strip():
-                path.write_text(stripped, encoding="utf-8")
+            if stripped:
+                with path.open("w", encoding="utf-8", newline="") as handle:
+                    handle.write(stripped)
             else:
                 path.unlink()
             click.echo(f"  {click.style('reverted', fg='yellow')} {t.label}: {path}")

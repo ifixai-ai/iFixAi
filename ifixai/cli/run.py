@@ -35,6 +35,7 @@ from ifixai.cli.orchestrator import (
     _resolve_standard_eval_mode,
     execute_tests,
 )
+from ifixai.cli.pro_offer import NO_PROMO_ENV_VAR, RunDecision, offer_pro_version
 from ifixai.cli.reports import save_reports
 from ifixai.cli.schemas import InteractiveConfig
 from ifixai.core.concurrency import (
@@ -143,6 +144,7 @@ PROVIDER_CHOICES = [
     "huggingface",
     "http",
     "langchain",
+    "litellm",
     "openrouter",
     "orcarouter",
     "requesty",
@@ -734,6 +736,16 @@ def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float
     "DO_NOT_TRACK=1 to disable it permanently.",
 )
 @click.option(
+    "--no-promo",
+    "no_promo",
+    is_flag=True,
+    default=False,
+    envvar=NO_PROMO_ENV_VAR,
+    help="Skip the Pro-version offer and start the run immediately. Set "
+    f"{NO_PROMO_ENV_VAR}=1 to skip it on every run. The offer is never shown "
+    "in CI or when input/output is not a terminal.",
+)
+@click.option(
     "--print-telemetry",
     "print_telemetry",
     is_flag=True,
@@ -795,6 +807,7 @@ def run(
     grounding: str,
     quiet: bool,
     no_telemetry: bool,
+    no_promo: bool,
     print_telemetry: bool,
     show_install_id: bool,
 ) -> None:
@@ -937,6 +950,10 @@ def run(
         holdout_seed = resume_manifest.holdout_seed
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
+    # Asked before telemetry and any provider call, so abandoning leaves no trace.
+    if not (no_promo or dry_run) and offer_pro_version() is RunDecision.ABANDON:
+        click.echo("Run abandoned -- no inspections were run.")
+        return
     if no_telemetry:
         telemetry.disable()
     telemetry.show_disclosure()

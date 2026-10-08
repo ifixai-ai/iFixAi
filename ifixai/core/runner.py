@@ -270,6 +270,13 @@ async def run_selected(
     computed via _build_result, so it may be capped when a mandatory-minimum
     inspection is absent from the selection. Per-test results are exact.
     """
+    unknown_ids = sorted(set(test_ids) - INSPECTION_REGISTRY.keys())
+    if unknown_ids:
+        raise ValueError(
+            f"Unknown test ID(s): {', '.join(unknown_ids)}. "
+            f"Available: {sorted(INSPECTION_REGISTRY.keys())}"
+        )
+
     if capabilities is None:
         capabilities = await detect_capabilities(provider, config)
 
@@ -347,6 +354,12 @@ async def run_single(
     capabilities: ProviderCapabilities | None = None,
 ) -> TestResult:
 
+    inspection = INSPECTION_REGISTRY.get(test_id)
+    if inspection is None:
+        raise ValueError(
+            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
+        )
+
     if capabilities is None:
         capabilities = await detect_capabilities(provider, config)
 
@@ -354,11 +367,6 @@ async def run_single(
 
     pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
-    inspection = INSPECTION_REGISTRY.get(test_id)
-    if inspection is None:
-        raise ValueError(
-            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
-        )
     try:
         return await inspection.execute(
             provider,
