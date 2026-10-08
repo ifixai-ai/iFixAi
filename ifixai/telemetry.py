@@ -111,7 +111,8 @@ def disable() -> None:
     _force_disabled = True
 
 
-def _in_ci() -> bool:
+def in_ci() -> bool:
+    """True when the process is running under an automated CI system."""
     ci = os.environ.get("CI")
     if ci is not None and ci.strip().lower() not in {"", "0", "false", "no"}:
         return True
@@ -127,7 +128,7 @@ def is_enabled() -> bool:
         return False
     if "DO_NOT_TRACK" in os.environ:  # presence-based, any value incl. "0"
         return False
-    if _in_ci():
+    if in_ci():
         return False
     try:
         if _optout_path().exists():
