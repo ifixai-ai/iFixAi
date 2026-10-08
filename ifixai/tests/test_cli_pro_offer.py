@@ -27,6 +27,14 @@ from ifixai.cli.pro_offer import (
 UNKNOWN_TEST_ID = "ZZ99"
 UNKNOWN_TEST_ERROR = "unknown test ID"
 ABANDONED_MESSAGE = "Run abandoned"
+OFFER_LINE = "  Claim your free fast audit\n"
+OFFER_QUESTION = "Claim your free fast audit now?"
+RETIRED_COPY = ("free sample", "Try the Pro version")
+SKIPPED_RUNS = [
+    (["--no-promo"], {}),
+    ([], {NO_PROMO_ENV_VAR: "1"}),
+    (["--dry-run"], {}),
+]
 
 
 class FakeStream(io.StringIO):
@@ -115,6 +123,13 @@ def report_outside_ci() -> bool:
 def show_offer_decision() -> None:
     """Minimal host command so CliRunner can answer the offer's prompts."""
     click.echo(f"decision={pro_offer.offer_pro_version().value}")
+
+
+@pytest.fixture(autouse=True)
+def offer_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Where the shown-once marker lands; kept in ``tmp_path``, never the real home."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    return tmp_path / "config" / "ifixai" / "pro-offer-shown"
 
 
 @pytest.fixture
@@ -219,13 +234,14 @@ def test_no_color_terminals_get_the_numbered_list_not_the_arrow_menu(
 
 
 def test_no_terminal_means_no_prompt_and_the_run_continues(
-    browser: BrowserRecorder,
+    browser: BrowserRecorder, offer_marker: Path
 ) -> None:
     # CliRunner's streams are not terminals, so the real gate is exercised here.
     result = CliRunner().invoke(show_offer_decision, input="1\n2\n")
 
     assert result.output.strip() == "decision=continue"
     assert browser.opened_urls == []
+    assert not offer_marker.exists()
 
 
 @pytest.mark.parametrize(
@@ -260,23 +276,18 @@ def test_a_missing_standard_stream_is_not_a_terminal(
 
 
 def test_ci_is_never_prompted_even_with_a_terminal(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, offer_marker: Path
 ) -> None:
     monkeypatch.setenv("CI", "true")
     monkeypatch.setattr(sys, "stdin", FakeStream(is_terminal=True))
     monkeypatch.setattr(sys, "stdout", FakeStream(is_terminal=True))
 
     assert pro_offer.can_prompt_user() is False
+    assert pro_offer.offer_pro_version() is RunDecision.CONTINUE
+    assert not offer_marker.exists()
 
 
-@pytest.mark.parametrize(
-    "extra_args,env",
-    [
-        (["--no-promo"], {}),
-        ([], {NO_PROMO_ENV_VAR: "1"}),
-        (["--dry-run"], {}),
-    ],
-)
+@pytest.mark.parametrize("extra_args,env", SKIPPED_RUNS)
 def test_run_skips_the_offer_when_told_to_or_when_nothing_will_run(
     run_args: list[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -427,3 +438,99 @@ def test_ctrl_c_on_the_arrow_menu_aborts_instead_of_starting_the_run(
     assert "Aborted!" in result.output
     assert started.call_count == 0
     assert not (tmp_path / "runs").exists()
+
+
+def test_the_offer_invites_a_free_fast_audit(
+    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    failing_browser = BrowserRecorder(is_launch_successful=False)
+    monkeypatch.setattr(pro_offer.webbrowser, "open", failing_browser)
+
+    result = CliRunner().invoke(show_offer_decision, input="1\n1\n")
+
+    assert OFFER_LINE in result.output
+    assert OFFER_QUESTION in result.output
+    assert [copy for copy in RETIRED_COPY if copy in result.output] == []
+
+
+def test_a_second_run_starts_straight_away_without_the_offer(
+    run_args: list[str],
+    attached_terminal: None,
+    browser: BrowserRecorder,
+    offer_marker: Path,
+) -> None:
+    first = CliRunner().invoke(ifixai_cli, run_args, input="2\n")
+    # No input: a second offer would stop at the prompt and abort.
+    second = CliRunner().invoke(ifixai_cli, run_args, input="")
+
+    assert OFFER_LINE in first.output
+    assert offer_marker.exists()
+    assert OFFER_LINE not in second.output
+    assert "Aborted!" not in second.output
+    assert UNKNOWN_TEST_ERROR in second.output
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [[NO_OPTION], [YES_OPTION, CONTINUE_OPTION], [YES_OPTION, ABANDON_OPTION]],
+)
+def test_any_answer_counts_as_shown(
+    attached_terminal: None,
+    browser: BrowserRecorder,
+    monkeypatch: pytest.MonkeyPatch,
+    answers: list[str],
+) -> None:
+    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
+    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu(answers))
+    pro_offer.offer_pro_version()
+    monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
+
+    assert pro_offer.offer_pro_version() is RunDecision.CONTINUE
+
+
+def test_ctrl_c_on_the_offer_counts_as_shown(
+    attached_terminal: None, browser: BrowserRecorder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
+    monkeypatch.setattr(ui, "select_or_abort", CancelledMenu())
+    with pytest.raises(KeyboardInterrupt):
+        pro_offer.offer_pro_version()
+    monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
+
+    assert pro_offer.offer_pro_version() is RunDecision.CONTINUE
+
+
+@pytest.mark.parametrize("extra_args,env", SKIPPED_RUNS)
+def test_a_skipped_offer_is_not_marked_shown(
+    run_args: list[str],
+    attached_terminal: None,
+    browser: BrowserRecorder,
+    offer_marker: Path,
+    extra_args: list[str],
+    env: dict[str, str],
+) -> None:
+    result = CliRunner().invoke(ifixai_cli, [*run_args, *extra_args], env=env)
+
+    assert OFFER_LINE not in result.output
+    assert UNKNOWN_TEST_ERROR in result.output
+    assert not offer_marker.exists()
+
+
+@pytest.mark.parametrize("blocking_file", ["config", "config/ifixai"])
+def test_a_marker_that_cannot_be_written_skips_the_offer_and_runs(
+    tmp_path: Path,
+    run_args: list[str],
+    attached_terminal: None,
+    browser: BrowserRecorder,
+    blocking_file: str,
+) -> None:
+    # A file where the config dir should be: the marker can't be created.
+    blocker = tmp_path / blocking_file
+    blocker.parent.mkdir(parents=True, exist_ok=True)
+    blocker.write_text("not a directory", encoding="utf-8")
+
+    result = CliRunner().invoke(ifixai_cli, run_args, input="")
+
+    assert OFFER_LINE not in result.output
+    assert "Aborted!" not in result.output
+    assert UNKNOWN_TEST_ERROR in result.output

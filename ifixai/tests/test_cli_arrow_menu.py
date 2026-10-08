@@ -1,6 +1,7 @@
 """Real keystrokes through the arrow-key menu (needs ``questionary`` installed)."""
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -32,6 +33,12 @@ class BrowserRecorder:
 
 def report_terminal_attached() -> bool:
     return True
+
+
+@pytest.fixture(autouse=True)
+def config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keeps the offer's shown-once marker in ``tmp_path``, never the real home."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
 
 @pytest.fixture

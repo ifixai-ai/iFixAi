@@ -81,11 +81,11 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 
 ## Pro-version offer
 
-An interactive `ifixai run` opens with one question: whether you'd like to try the Pro version's free sample at <https://www.ifixai.ai/>.
+The first interactive `ifixai run` on a machine opens with one question: whether you'd like to claim your free fast audit at <https://www.ifixai.ai/>. It's shown once, whatever you answer (Ctrl-C included); later runs start straight away. The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the offer again.
 
 Move with the arrow keys and press Enter:
 
-- **No** (preselected — just press Enter): the run starts.
+- **No** (preselected, just press Enter): the run starts.
 - **Yes**: the site opens in your browser, then you pick **Continue the current run** (preselected) or **Abandon the run**. Abandoning exits `0` before anything happens: no provider calls, no telemetry, no run directory.
 
 Ctrl-C on either question aborts without starting the run. Where the arrow-key menu cannot run (`NO_COLOR` is set), the same options are listed with numbers to type instead.

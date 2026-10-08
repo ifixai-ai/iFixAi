@@ -1,9 +1,10 @@
 """Pro-version offer shown at the start of an interactive ``ifixai run``.
 
-The offer is made before telemetry and before any provider call, so a run the
-user abandons for the website leaves no trace. It is never shown when stdin or
-stdout is not a terminal, or in CI, so scripted and agent-driven runs cannot
-block on it. Skip it with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
+The offer is made once per machine, before telemetry and before any provider
+call, so a run the user abandons for the website leaves no trace beyond the
+``pro-offer-shown`` marker. It is never shown when stdin or stdout is not a
+terminal, or in CI, so scripted and agent-driven runs cannot block on it. Skip
+it with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
 """
 
 import sys
@@ -18,6 +19,7 @@ from ifixai.cli import ui
 
 PRO_URL = "https://www.ifixai.ai/"
 NO_PROMO_ENV_VAR = "IFIXAI_NO_PROMO"
+OFFER_MARKER_NAME = "pro-offer-shown"
 
 YES_OPTION = "Yes"
 NO_OPTION = "No"
@@ -41,7 +43,7 @@ class ChoiceQuestion(TypedDict):
 
 
 PRO_INTEREST_QUESTION = ChoiceQuestion(
-    message="Try the Pro version now?",
+    message="Claim your free fast audit now?",
     options=(YES_OPTION, NO_OPTION),
     default=NO_OPTION,
 )
@@ -56,9 +58,9 @@ def offer_pro_version() -> RunDecision:
     """Offer the Pro version and report whether the current run should go ahead.
 
     Opens the Pro website when the user accepts. Returns ``CONTINUE`` without
-    asking anything when nobody is at a terminal to answer.
+    asking anything when nobody is at a terminal to answer or it was already shown.
     """
-    if not can_prompt_user():
+    if not can_prompt_user() or not mark_offer_shown():
         return RunDecision.CONTINUE
     print_offer()
     if ask_choice(PRO_INTEREST_QUESTION) != YES_OPTION:
@@ -76,6 +78,19 @@ def can_prompt_user() -> bool:
     )
 
 
+def mark_offer_shown() -> bool:
+    """Create the shown-once marker; False if it exists or can't be written.
+
+    Marked before asking, so any answer (Ctrl-C included) counts. When it can't
+    be written the offer is skipped, so a looping script never stops on it twice.
+    """
+    try:
+        (telemetry._ensure_config_dir() / OFFER_MARKER_NAME).touch(exist_ok=False)
+    except OSError:
+        return False
+    return True
+
+
 def is_terminal(stream: TextIO | None) -> bool:
     """True when the stream exists and is attached to a terminal.
 
@@ -88,7 +103,7 @@ def is_terminal(stream: TextIO | None) -> bool:
 def print_offer() -> None:
     """Print the Pro-version pitch and its link."""
     click.echo(click.style("  iFixAi Pro", bold=True))
-    click.echo("  Wouldn't you like to try the Pro version? We have a free sample.")
+    click.echo("  Claim your free fast audit")
     click.echo(click.style(f"  {PRO_URL}", fg="cyan"))
     click.echo()
 
@@ -100,7 +115,7 @@ def open_pro_site() -> None:
         return
     click.echo(
         click.style(
-            f"Could not open a browser. Visit {PRO_URL} to try the free sample.",
+            f"Could not open a browser. Visit {PRO_URL} to claim your free fast audit.",
             fg="yellow",
         )
     )
