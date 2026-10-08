@@ -144,6 +144,7 @@ PROVIDER_CHOICES = [
     "huggingface",
     "http",
     "langchain",
+    "litellm",
     "openrouter",
     "orcarouter",
     "requesty",
