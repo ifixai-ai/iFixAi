@@ -98,8 +98,9 @@ async def discover_system(
 
     tools: list[Tool] = []
     for info in tool_infos:
+        description_words = info.description.lower().split()
         risk = info.risk_level or RISK_FROM_CATEGORY.get(
-            info.description.lower().split()[0] if info.description else "",
+            description_words[0] if description_words else "",
             "medium",
         )
         tools.append(Tool(

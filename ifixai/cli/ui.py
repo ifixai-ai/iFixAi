@@ -16,6 +16,7 @@ from ifixai.cli._branding import supports_color
 
 _ACCENT = "rgb(232,99,42)"
 _DIM = "grey62"
+SELECT_INSTRUCTION = "(↑/↓ to move, enter to select)"
 
 
 @lru_cache(maxsize=1)
@@ -109,12 +110,31 @@ def select(
         default=default or choices[0],
         style=_qstyle(),
         use_shortcuts=False,
-        instruction="(↑/↓ to move, enter to select)",
+        instruction=SELECT_INSTRUCTION,
     )
     if descriptions:
         kwargs["show_description"] = True
     answer = questionary.select(message, **kwargs).ask()
     return answer if answer is not None else (default or choices[0])
+
+
+def select_or_abort(message: str, choices: Sequence[str], default: str) -> str:
+    """Arrow-key single choice where Ctrl-C aborts instead of picking the default.
+
+    ``select`` answers a cancelled prompt with its default, which is wrong when
+    the default starts work the user just tried to stop. Raises
+    ``KeyboardInterrupt`` on Ctrl-C. Callers must check ``is_interactive()`` first.
+    """
+    import questionary
+
+    return questionary.select(
+        message,
+        choices=_choices(list(choices), None),
+        default=default,
+        style=_qstyle(),
+        use_shortcuts=False,
+        instruction=SELECT_INSTRUCTION,
+    ).unsafe_ask()
 
 
 def multiselect(
