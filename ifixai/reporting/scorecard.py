@@ -225,7 +225,8 @@ def judge_substitution_warnings(judge_stats: dict | None) -> list[str]:
         )
         messages.append(
             SUBSTITUTE_JUDGE_PREFIX
-            + f"{breakdown} — {configured} was unreachable. "
+            + f"{breakdown}. {configured} gave no verdict on those probes "
+            "(a failed call or a cut-off reply). "
             "Scores are not comparable to a run graded by the configured judge."
         )
     failures = judge_stats.get("judge_transport_failures") or {}

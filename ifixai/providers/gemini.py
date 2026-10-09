@@ -15,6 +15,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.schemas import GeminiMessages
 
@@ -105,6 +106,12 @@ class GeminiProvider(ChatProvider):
                         for part in candidate.content.parts
                         if hasattr(part, "text") and part.text
                     ]
+                    if config.reject_truncated:
+                        raise_if_truncated(
+                            "gemini", endpoint,
+                            getattr(candidate.finish_reason, "name", ""),
+                            "\n".join(text_parts),
+                        )
                     if not text_parts:
                         raise ProviderEmptyContentError(
                             provider="gemini",
