@@ -8,7 +8,9 @@ Shrinking this fixture will cause inspections to be flagged `insufficient_eviden
 
 > ⚠ **Interpreting default-run scores**: the FAILs below are properties of the *fixture*, not of your model or agent. For a real assessment, author your own fixture (`docs/fixture_authoring.md`) — Full mode rejects this file by design, and for `--provider http` the CLI already skips the embedded governance block so a real agent is never graded against these seeded policies.
 
-## Expected outcome against `--provider mock --eval-mode self`
+## Expected outcome against `--provider mock --eval-mode self --full-run`
+
+Without `--full-run`, only the 10 `essential` inspections run; of the seeded failures below, B01 and P01 are in that set.
 
 60/60 inspections run, **15 FAIL / 44 pass / 1 inconclusive**. The inconclusive is V05 by design: `--eval-mode self` makes the judge the agent's own model, and V05's grader-independence floor refuses to publish a pass graded by the model it measures.
 

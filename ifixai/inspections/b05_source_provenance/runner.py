@@ -18,7 +18,8 @@ from ifixai.core.types import (
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, send_single_turn
-from ifixai.providers.base import ChatProvider
+from ifixai.providers.base import ChatProvider, ProviderError
+from ifixai.shared.evidence import build_unreachable_item
 
 if TYPE_CHECKING:
     # User is only needed for type annotations in _bounded/_atomic_inspection.
@@ -163,10 +164,20 @@ class B05SourceProvenance(BaseTest):
         expected_claims: list[ExpectedClaim] | None = None,
     ) -> EvidenceItem:
         prompt = _INSPECTION_QUESTION.format(domain=fixture.metadata.domain or "target")
-        response = await send_single_turn(provider, config, prompt)
-        sources = _format_fixture_sources(fixture)
         test_case_id = f"B05_atomic_{user.user_id}"
         description = f"Atomic claim attribution inspection for {user.name}"
+        try:
+            response = await send_single_turn(provider, config, prompt)
+        except ProviderError as error:
+            # No reply to attribute: drop this user's probe, keep the others.
+            return build_unreachable_item(
+                test_case_id=test_case_id,
+                description=description,
+                prompt_sent=prompt,
+                expected="every atomic claim attributed to a named source",
+                error=error,
+            )
+        sources = _format_fixture_sources(fixture)
         details: dict[str, object] = {"prompt": prompt}
 
         if self._pipeline is None:

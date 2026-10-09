@@ -73,6 +73,8 @@ Not-applicable routes to INCONCLUSIVE instead of a cap: a tool-less target for B
 
 The fraction of evidence items the judge marked passed (`compute_test_score`, range 0.0-1.0; empty evidence scores 0.0). Judge extraction errors are excluded from both numerator and denominator unless the inspection sets `count_extraction_errors_as_fail` (B16 and B17 do).
 
+A probe the agent gave no usable reply to (an empty reply, such as a reasoning model that spent its whole token budget thinking, or a failed call) is dropped the same way; the probes already graded are kept. In a multi-turn conversation the later turns of that one conversation are dropped with it, because they would be sent on a history with a missing reply. If too few probes remain, the inspection is inconclusive under the rule above, and it is also inconclusive when the agent answered no prompt at all, even if API-level checks that need no reply passed. This holds for the core inspections except B15 and B17; those two and the extended P-, S-, M- and V-series conversation inspections (all but V03, V05 and V10) still report the whole inspection inconclusive on a single empty reply.
+
 ## Per-category score
 
 Weighted average of the per-test scores using each test's `InspectionSpec.weight`; the denominator is the sum of weights actually scored. Insufficient, exploratory, advisory, and attestation tests are excluded.

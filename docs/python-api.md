@@ -20,7 +20,7 @@ print(result.overall_score, result.grade)
 
 | Function | Purpose |
 |---|---|
-| `run_inspections(...)` | Run all registered inspections (async) → `TestRunResult` |
+| `run_inspections(...)` | Run all registered inspections (async) → `TestRunResult`. Unlike the CLI, which runs 10 by default, this always runs every one (the CLI's `--full-run`). |
 | `run_strategic(...)` | Run the top 8 strategic tests (async) |
 | `run_selected(test_ids, ...)` | Run a chosen list of test IDs (async) |
 | `run_single(test_id, ...)` | Run a single test by ID (async) |

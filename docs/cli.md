@@ -6,7 +6,8 @@ Every `ifixai` command and `ifixai run` flag. Guided first run: [get-started.md]
 
 ```bash
 ifixai init                  # check env for provider keys, suggest a first run
-ifixai run                   # run inspections (Standard or Full mode)
+ifixai run                   # run the default 10 inspections (Standard or Full mode)
+ifixai run --full-run        # run all 60 inspections
 ifixai run --fixture FILE    # custom fixture (YAML or JSON)
 ifixai list tests            # all 60 inspections (32 core + 28 extended)
 ifixai list fixtures         # registered named fixtures
@@ -49,8 +50,12 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 
 ### Suite subset
 
+With none of these flags, `ifixai run` runs the 10-inspection `essential` suite: B01, B08, P01, B12, B09, B27 (high impact) and B06, B16, B18, B20 (medium impact). It always carries the three mandatory minimums, so it still produces a grade. What each one checks: [README](../README.md#what-a-default-run-covers).
+
 | Flag | Does |
 |---|---|
+| `--full-run` | Every inspection (all 60) instead of the default 10. Cannot be combined with the flags below. Overrides a `suite:` saved in `ifixai.yaml`. Unrelated to `--mode full`. |
+| `--suite` | A named suite: `smoke` (3), `strategic` (8), `essential` (10, the default), `core` (32), `extended` (28), `all` (60), or a theme (`security`, `reliability`, `compliance`, `frontier`). `ifixai list suites` shows them. |
 | `--strategic` | Top 8 strategic tests only. |
 | `--test`, `-b` | Test(s) by ID, repeatable: `-b B01 -b B08`. |
 | `--category`, `-c` | Category name(s), case-insensitive, repeatable; beats `--strategic`. Names: `FABRICATION`, `MANIPULATION`, `DECEPTION`, `UNPREDICTABILITY`, `OPACITY`, `SABOTAGE`, `SUBVERSION`, `CONCEALMENT`, `SANDBAGGING`, `INSUBORDINATION`, `USURPATION`, `SYSTEMIC_RISK`, `MISCALIBRATION`, `STAKEHOLDER_CONFLICT`, `PERCEPTION_GOVERNANCE`, `OVERSIGHT_ATROPHY`, `PERSISTENCE`, `IDENTITY_ATTESTATION`, `INFLUENCE`, `BALANCE_INTEGRITY`, `FRANKNESS_CORRECTNESS_LINK`, `GRADER_VALIDITY`, `BENCHMARK_CONTAMINATION`, `TRAINING_DISPOSITION_PROVENANCE`, `VULNERABLE_USER_CARE`. |
@@ -118,7 +123,7 @@ With no `--judge-*` flags, iFixAi picks a judge from a different provider whose 
 
 ### Standard vs Full
 
-Same 60 inspections either way. Standard: auto fixture (the bundled default is a **seeded-defect demo** — expect 15/60 FAILs by design; see [`ifixai/fixtures/default/README.md`](../ifixai/fixtures/default/README.md)), one auto-paired judge. Full (`--mode full`): requires `--fixture` (the default fixture is refused) and >=2 judge providers; majority vote, tie-break `fail > partial > pass`.
+Mode changes how a run is judged, not which inspections run: the same selection either way (10 by default, all 60 with `--full-run`). Standard: auto fixture (the bundled default is a **seeded-defect demo** — expect B01 and P01 to FAIL by design on a default run, and more on a `--full-run`; see [`ifixai/fixtures/default/README.md`](../ifixai/fixtures/default/README.md)), one auto-paired judge. Full (`--mode full`): requires `--fixture` (the default fixture is refused) and >=2 judge providers; majority vote, tie-break `fail > partial > pass`.
 
 ```bash
 # Standard: export a second provider key and the judge auto-pairs.

@@ -90,3 +90,32 @@ def flag_diagnostics(
         else:
             flagged.append(item.model_copy(update={"is_diagnostic": is_diagnostic}))
     return flagged
+
+
+def build_unreachable_item(
+    *,
+    test_case_id: str,
+    description: str,
+    prompt_sent: str,
+    expected: str,
+    error: Exception,
+) -> EvidenceItem:
+    """Build the unscorable item for an agent call that produced no usable reply.
+
+    An empty reply and a failed call are treated alike: neither is a behaviour the
+    inspection can grade, so the probe is dropped from the score while every probe already
+    graded is kept. ``comm_failure`` is the flag the run-health gate reads to report an
+    agent that could not be reached.
+    """
+    return build_unscorable_item(
+        test_case_id=test_case_id,
+        description=f"{description}: no usable reply from the agent",
+        prompt_sent=prompt_sent,
+        expected=expected,
+        expected_behavior=expected,
+        actual=f"error: {error}",
+        evaluation_result="error",
+        extraction_error=JudgeErrorKind.COMMUNICATION,
+        evaluation_method=EvaluationMethod.JUDGE,
+        details={"error": str(error), "comm_failure": True},
+    )

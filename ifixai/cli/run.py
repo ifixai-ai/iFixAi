@@ -77,7 +77,7 @@ from ifixai.harness.registry import (
     SPEC_BY_ID,
     resolve_category_test_ids,
 )
-from ifixai.harness.suites import SUITE_NAMES, resolve_suite
+from ifixai.harness.suites import DEFAULT_SUITE, SUITE_NAMES, resolve_suite
 from ifixai.inspections.holdout_ids import HoldoutIds, generate_holdout_ids
 from ifixai.providers.base import ChatProvider
 from ifixai.providers.governance_fixture import GovernanceFixture
@@ -304,6 +304,15 @@ def _describe_filter(
     return f"all ({len(SPEC_BY_ID)})"
 
 
+def describe_default_selection(selected_count: int) -> str:
+    """Tell the user the run is the default subset and how to run everything."""
+    total = len(SPEC_BY_ID)
+    return (
+        f"Default run: {selected_count} of {total} inspections "
+        f"(suite '{DEFAULT_SUITE}'). Add --full-run to run all {total}."
+    )
+
+
 def _print_concurrency_banner(resolved: int) -> None:
     if resolved == 1:
         click.echo(
@@ -454,10 +463,21 @@ def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float
 @click.option(
     "--suite",
     default=None,
-    help="Run a named suite. Tiers: smoke, strategic, core (32 graded), "
-    "extended (28 frontier), all. Themes: security, reliability, compliance, "
-    "frontier. Folds into the selection like --category; combine with -b/-c to "
-    "add more. Run `ifixai list suites` to browse.",
+    help="Run a named suite. Tiers: smoke, strategic, essential (10, the "
+    "default), core (32 graded), extended (28 frontier), all. Themes: security, "
+    "reliability, compliance, frontier. Folds into the selection like "
+    "--category; combine with -b/-c to add more. Run `ifixai list suites` to "
+    "browse.",
+)
+@click.option(
+    "--full-run",
+    "full_run",
+    is_flag=True,
+    default=False,
+    help="Run every inspection instead of the default 10-inspection essential "
+    "suite. Takes longer and costs more. Cannot be combined with --suite, "
+    "--test, --category or --strategic. Unrelated to --mode full, which sets "
+    "how the run is judged.",
 )
 @click.option(
     "--output",
@@ -775,6 +795,7 @@ def run(
     test: tuple[str, ...],
     categories: tuple[str, ...],
     suite: str | None,
+    full_run: bool,
     output: str,
     artifact_out: str | None,
     report_format: str,
@@ -823,6 +844,17 @@ def run(
         return
     run_start_monotonic = time.monotonic()
 
+    if full_run and (strategic or test or categories or suite):
+        click.echo(
+            click.style(
+                "Error: --full-run runs every inspection and cannot be combined "
+                "with --suite, --test, --category or --strategic.",
+                fg="red",
+            ),
+            err=True,
+        )
+        sys.exit(1)
+
     try:
         config_obj = load_config()
     except ValueError as exc:
@@ -835,7 +867,8 @@ def run(
         model = _cfg_value(ctx, "model", model, config_obj.model)
         fixture = _cfg_value(ctx, "fixture", fixture, config_obj.fixture)
         explicit_selector = (
-            strategic
+            full_run
+            or strategic
             or bool(test)
             or bool(categories)
             or ctx.get_parameter_source("suite") != ParameterSource.DEFAULT
@@ -948,6 +981,17 @@ def run(
         b29_seed_pinned = resume_manifest.b29_seed_pinned
         b32_seed_pinned = resume_manifest.b32_seed_pinned
         holdout_seed = resume_manifest.holdout_seed
+
+    # A resumed run keeps the selection it started with: a manifest that recorded
+    # every inspection resumes as a full run, with or without --full-run.
+    is_resuming_full_run = (
+        resume_manifest is not None and resume_manifest.mode_filter == ["all"]
+    )
+    is_default_selection = not (
+        full_run or is_resuming_full_run or strategic or test or categories or suite
+    )
+    if is_default_selection:
+        suite = DEFAULT_SUITE
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
     # Asked before telemetry and any provider call, so abandoning leaves no trace.
@@ -1190,6 +1234,8 @@ def run(
         click.echo(f"  Estimated inspections:      {estimated_inspections}")
         click.echo(f"  Judge calls per inspection: {judge_calls_per_inspection}")
         click.echo(f"  Estimated judge calls: {estimated_judge_calls}")
+        if is_default_selection:
+            click.echo(f"  {describe_default_selection(len(test))}")
         click.echo()
         click.echo(
             "Estimates are conservative averages; real cost depends on inspection length, "
@@ -1476,6 +1522,8 @@ def run(
     click.echo(f"  Provider:  {provider}")
     click.echo(f"  Fixture:   {fixture}")
     click.echo(f"  Filter:    {_describe_filter(strategic, test, categories, suite)}")
+    if is_default_selection:
+        click.echo(f"             {describe_default_selection(len(test))}")
     click.echo(f"  Mode:      {run_mode}")
     click.echo(f"  Judge:     {judge_label}")
     click.echo(f"  Timeout:   {timeout}s")

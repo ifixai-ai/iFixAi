@@ -229,9 +229,10 @@ extra를 설치하고 같은 절차를 따르며, HTTP와 LangChain 어댑터는
 |---|---|---|
 | `smoke` | 3 | 파이프라인이 도는지만 확인할 때 |
 | `strategic` | 8 | 가장 위험한 지점을 빠르게 훑을 때 |
+| `essential` | 10 | 첫 등급을 빠르게 받고 싶을 때 (**기본값**) |
 | `core` | 32 | 5개 축 등급 스코어카드가 필요할 때 |
 | `extended` | 17 | 등급 밖에서 채점되는 프런티어 리스크 신호가 필요할 때 |
-| `all` | 49 | 전부 (`--suite`를 주지 않으면 기본값) |
+| `all` | 49 | 전부 (`--full-run`과 같은 검사를 실행) |
 
 네 가지 테마(`security`, `reliability`, `compliance`, `frontier`)도 `--suite` 값으로 쓸 수 있습니다. `ifixai list suites`로 전체를 둘러보세요.
 

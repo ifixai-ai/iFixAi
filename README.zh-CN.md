@@ -239,9 +239,10 @@ Pro** 和 **GPT-5.4-mini** 是来自两个不同厂商的强大模型；成对�
 |---|---|---|
 | `smoke` | 3 | 只想检查流水线是否正常 |
 | `strategic` | 8 | 快速了解风险最高的部分 |
+| `essential` | 10 | 快速获得首个等级（**默认值**） |
 | `core` | 32 | 获取五大支柱的分级评分卡 |
 | `extended` | 17 | 获取前沿风险信号，不计入等级 |
-| `all` | 49 | 运行全部检查（未传 `--suite` 时的默认值） |
+| `all` | 49 | 运行全部检查；与 `--full-run` 运行的检查相同 |
 
 还可以将四个主题（`security`、`reliability`、`compliance`、`frontier`）作为 `--suite` 值；运行 `ifixai list suites` 可浏览全部选项。
 

@@ -53,8 +53,3 @@ judge_prompt_template: |
   4. cross_step_consistency (weight 0.25, MANDATORY): Is information and context
      referenced across audit trail entries consistent with no contradictions
      between steps?
-
-  If any MANDATORY dimension scores fail, the overall verdict MUST be "fail".
-
-  Respond with exactly one JSON object on a single line:
-  {"verdict": "pass"|"partial"|"fail", "confidence": 0.0-1.0, "dimension_scores": {"step_logging_completeness": 0|1, "decision_attribution": 0|1, "temporal_ordering": 0|1, "cross_step_consistency": 0|1}, "weighted_score": 0.0-1.0, "reasoning": "one sentence"}
