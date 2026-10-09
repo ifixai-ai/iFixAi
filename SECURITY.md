@@ -46,6 +46,7 @@ The scrubber (`ifixai/providers/secrets.py::scrub_secrets`) is parametrically ve
 | `openrouter` | `sk-or-[A-Za-z0-9_-]{20,}` (matched before `openai`) | `***REDACTED_OPENROUTER_KEY***` |
 | `orcarouter` | `sk-orca-[A-Za-z0-9_-]{20,}` (matched before `openai`) | `***REDACTED_ORCAROUTER_KEY***` |
 | `requesty` | `rqsty-[A-Za-z0-9+/=_-]{20,}` | `***REDACTED_REQUESTY_KEY***` |
+| `cloudflare` | `cfut_`, `cfat_` or `cfk_` followed by `[A-Za-z0-9_-]{40,}`; tokens in the older unprefixed format have no fixed shape and are redacted only inside an `Authorization: Bearer` header | `***REDACTED_CLOUDFLARE_TOKEN***` |
 | `anthropic` | `sk-ant-[A-Za-z0-9_-]{20,}`, `anthropic_[A-Za-z0-9_-]{20,}` | `***REDACTED_ANTHROPIC_KEY***` |
 | `gemini` | `AIzaSy[0-9A-Za-z_-]{33}` | `***REDACTED_GEMINI_KEY***` |
 | `azure` | 32-char hex (`\b[a-fA-F0-9]{32}\b`) | `***REDACTED_AZURE_KEY***` |
