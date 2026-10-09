@@ -12,6 +12,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.schemas import MessageSplit
 
@@ -102,6 +103,18 @@ class AnthropicProvider(ChatProvider):
                 response = await _create_message(client, kwargs, config.temperature)
 
                 content_blocks = response.content
+                text_parts = [
+                    block.text
+                    for block in (content_blocks or [])
+                    if block.type == "text"
+                ]
+                if config.reject_truncated:
+                    raise_if_truncated(
+                        "anthropic",
+                        endpoint,
+                        response.stop_reason or "unknown",
+                        "\n".join(text_parts),
+                    )
                 if not content_blocks:
                     raise ProviderEmptyContentError(
                         provider="anthropic",
@@ -109,9 +122,6 @@ class AnthropicProvider(ChatProvider):
                         details="Empty content in response",
                     )
 
-                text_parts = [
-                    block.text for block in content_blocks if block.type == "text"
-                ]
                 if not text_parts:
                     raise ProviderEmptyContentError(
                         provider="anthropic",
