@@ -225,7 +225,8 @@ def judge_substitution_warnings(judge_stats: dict | None) -> list[str]:
         )
         messages.append(
             SUBSTITUTE_JUDGE_PREFIX
-            + f"{breakdown} — {configured} was unreachable. "
+            + f"{breakdown}. {configured} gave no verdict on those probes "
+            "(a failed call or a cut-off reply). "
             "Scores are not comparable to a run graded by the configured judge."
         )
     failures = judge_stats.get("judge_transport_failures") or {}
@@ -425,6 +426,13 @@ def render_not_run_section(result: TestRunResult) -> str:
     return "\n".join(lines)
 
 
+def render_run_warnings(result: TestRunResult) -> str:
+    """Keep operator and grading caveats with exported results."""
+    if not result.warnings:
+        return ""
+    return "## Run Warnings\n\n" + "\n".join(f"- {warning}" for warning in result.warnings)
+
+
 def generate_markdown_report(result: TestRunResult) -> str:
     frameworks = load_all_mappings()
 
@@ -436,6 +444,7 @@ def generate_markdown_report(result: TestRunResult) -> str:
         render_insights(result),
         render_category_table(result),
         render_mandatory_minimums(result),
+        render_run_warnings(result),
         render_consistency_warnings(result),
         render_test_table(result),
         render_not_run_section(result),

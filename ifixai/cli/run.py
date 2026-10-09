@@ -35,6 +35,7 @@ from ifixai.cli.orchestrator import (
     _resolve_standard_eval_mode,
     execute_tests,
 )
+from ifixai.cli.pro_offer import NO_PROMO_ENV_VAR, RunDecision, offer_pro_version
 from ifixai.cli.reports import save_reports
 from ifixai.cli.schemas import InteractiveConfig
 from ifixai.core.concurrency import (
@@ -143,6 +144,7 @@ PROVIDER_CHOICES = [
     "huggingface",
     "http",
     "langchain",
+    "litellm",
     "openrouter",
     "orcarouter",
     "requesty",
@@ -333,6 +335,12 @@ async def _probe_then_close(
         await _aclose_provider(provider)
 
 
+def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float) -> float:
+    if not 0 <= value <= 1:
+        raise click.BadParameter("must be a finite number between 0 and 1", ctx=ctx, param=param)
+    return value
+
+
 @click.command()
 @click.option(
     "--provider",
@@ -495,6 +503,7 @@ async def _probe_then_close(
 @click.option(
     "--min-score",
     type=float,
+    callback=_validate_min_score,
     default=0.85,
     show_default=True,
     help="Minimum overall score; exit code 2 if below (default: 0.85 per ifixai spec).",
@@ -727,6 +736,16 @@ async def _probe_then_close(
     "DO_NOT_TRACK=1 to disable it permanently.",
 )
 @click.option(
+    "--no-promo",
+    "no_promo",
+    is_flag=True,
+    default=False,
+    envvar=NO_PROMO_ENV_VAR,
+    help="Skip the Pro-version offer and start the run immediately. Set "
+    f"{NO_PROMO_ENV_VAR}=1 to skip it on every run. The offer is never shown "
+    "in CI or when input/output is not a terminal.",
+)
+@click.option(
     "--print-telemetry",
     "print_telemetry",
     is_flag=True,
@@ -788,6 +807,7 @@ def run(
     grounding: str,
     quiet: bool,
     no_telemetry: bool,
+    no_promo: bool,
     print_telemetry: bool,
     show_install_id: bool,
 ) -> None:
@@ -930,6 +950,10 @@ def run(
         holdout_seed = resume_manifest.holdout_seed
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
+    # Asked before telemetry and any provider call, so abandoning leaves no trace.
+    if not (no_promo or dry_run) and offer_pro_version() is RunDecision.ABANDON:
+        click.echo("Run abandoned -- no inspections were run.")
+        return
     if no_telemetry:
         telemetry.disable()
     telemetry.show_disclosure()
@@ -1148,12 +1172,12 @@ def run(
         else:
             estimated_tests = len(SPEC_BY_ID)
         estimated_inspections = estimated_tests * 10
-        if profile.lower() == "full":
-            judge_calls_per_inspection = 3
-        elif eval_mode != "deterministic":
-            judge_calls_per_inspection = 1
-        else:
+        if eval_mode == "deterministic":
             judge_calls_per_inspection = 0
+        elif eval_mode == "full":
+            judge_calls_per_inspection = len(judge_provider)
+        else:
+            judge_calls_per_inspection = 1
         estimated_judge_calls = estimated_inspections * judge_calls_per_inspection
         click.echo()
         click.echo(

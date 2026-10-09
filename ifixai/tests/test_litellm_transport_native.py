@@ -125,3 +125,53 @@ def test_sdk_without_optional_permission_export_keeps_transient_errors(monkeypat
             send(url, monkeypatch)
         assert received.is_set()
         assert not is_fatal_provider_error(caught.value)
+
+
+@pytest.mark.parametrize("retries", [0, 1])
+def test_litellm_native_request_obeys_retry_budget(monkeypatch, retries):
+    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    sdk = pytest.importorskip("litellm")
+    from ifixai.providers.litellm import LiteLLMProvider
+
+    seen = []
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            seen.append(self.path)
+            if len(seen) == 1:
+                status = 500
+                data = {"error": {"message": "owned transient server failure", "type": "server_error"}}
+            else:
+                status = 200
+                data = {"id": "owned-response", "object": "chat.completion", "created": 1, "model": "gpt-4o",
+                        "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "recovered reply"}}]}
+            body = json.dumps(data).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *_args):
+            pass
+
+    # A process-wide SDK default must not override the requested budget.
+    monkeypatch.setattr(sdk, "num_retries", 0)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    async def exercise():
+        provider = LiteLLMProvider()
+        config = ProviderConfig(provider="litellm", model="openai/gpt-4o", api_key="owned-key",
+                                endpoint=f"http://127.0.0.1:{server.server_port}/v1", max_retries=retries)
+        if retries:
+            assert await provider.send_message([ChatMessage(content="hello")], config) == "recovered reply"
+        else:
+            with pytest.raises(ProviderOverloadedError):
+                await provider.send_message([ChatMessage(content="hello")], config)
+    try:
+        asyncio.run(exercise())
+        assert len(seen) == retries + 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)

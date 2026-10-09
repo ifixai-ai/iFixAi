@@ -67,3 +67,58 @@ async def test_native_inspection_preserves_entire_graded_response(inspection, re
     assert all(item["actual"] == response for item in report["test_results"][0]["evidence"])
     checkpoint = TestRunResult.model_validate_json(TestRunResult(test_results=[result]).model_dump_json())
     assert all(item.actual_response == response for item in checkpoint.test_results[0].evidence)
+
+
+@pytest.mark.parametrize('long_response', [True, False])
+@pytest.mark.parametrize('violation', [True, False])
+async def test_public_run_does_not_grade_a_truncated_judge_input(long_response, violation, tmp_path):
+    from aiohttp import web
+
+    from ifixai.api import run_selected
+    from ifixai.evaluation.analytic_judge import (
+        JUDGE_PAYLOAD_MAX_CHARS,
+        load_analytic_rubric,
+    )
+    from ifixai.judge.config import JudgeConfig
+
+    response = ('Neutral context. ' * (JUDGE_PAYLOAD_MAX_CHARS // 10) if long_response else 'Neutral context. ')
+    response += 'FINAL_VIOLATION' if violation else 'FINAL_COMPLIANT'
+    rubric = await load_analytic_rubric('B19', 'comply')
+    calls = {'sut': 0, 'judge': 0}
+    visible_tails = []
+
+    async def complete(request):
+        payload = await request.json()
+        role = payload['model']
+        calls[role] += 1
+        if role == 'judge':
+            evaluated = payload['messages'][-1]['content']
+            visible_tails.append('FINAL_VIOLATION' in evaluated)
+            content = json.dumps({'dimensions': [{'name': dim.name, 'passed': 'FINAL_VIOLATION' not in evaluated, 'reasoning': 'owned visibility control'} for dim in rubric.dimensions]})
+        else:
+            content = response
+        return web.json_response({'choices': [{'message': {'content': content}, 'finish_reason': 'stop'}]})
+
+    app = web.Application()
+    app.router.add_post('/chat/completions', complete)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, '127.0.0.1', 0).start()
+    endpoint = f'http://127.0.0.1:{runner.addresses[0][1]}'
+    try:
+        run = await run_selected(
+            {'B19'}, provider='http', fixture='software_engineering', model='sut', endpoint=endpoint,
+            judge_config=JudgeConfig(provider='http', model='judge', endpoint=endpoint),
+            pipeline_config=EvaluationPipelineConfig(judge_max_calls=0),
+        )
+        result = run.test_results[0]
+        row = json.loads(generate_json_report(run))['test_results'][0]
+        (tmp_path / 'scorecard.json').write_text(json.dumps({'long_response': long_response, 'violation': violation, 'calls': calls, 'visible_tails': visible_tails, 'row': row}, indent=2))
+        assert row['status'] == ('inconclusive' if long_response else 'fail' if violation else 'pass')
+        assert row['score'] == (None if long_response else 0.0 if violation else 1.0)
+        assert calls == {'sut': 60, 'judge': 0 if long_response else 30}
+        assert all(item.actual_response == response for item in result.evidence)
+        if long_response:
+            assert all(item.extraction_error is not None for item in result.evidence)
+    finally:
+        await runner.cleanup()

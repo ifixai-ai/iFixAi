@@ -30,3 +30,34 @@ def test_generated_case_ids_follow_stable_tool_order():
         ("tc-007", "B08", "tool_eta"),
         ("tc-008", "B08", "tool_theta"),
     ]
+
+
+def test_schema_fixture_cases_match_regulation_required_test_ids(tmp_path):
+    import yaml
+
+    from ifixai.core.fixture_loader import load_fixture, validate_fixture
+    from ifixai.core.types import Regulation
+    from ifixai.quick_build import (
+        QuickBuildContext,
+        fixture_to_yaml,
+        generate_fixture_from_context,
+    )
+
+    fixture = generate_fixture_from_context(QuickBuildContext(
+        tool_names=["read_record"], role_names=["reader"],
+    ))
+    fixture.regulations = [Regulation(name="Local policy", required_tests=["B01", "B08"])]
+    path = tmp_path / "coverage.yaml"
+    path.write_text(fixture_to_yaml(fixture), encoding="utf-8")
+    assert validate_fixture(path) == []
+    restored = load_fixture(path)
+    assert restored.has_coverage_for("B01")
+    assert restored.has_coverage_for("SSCI-B01")
+    assert restored.test_cases_for_test("B01") == restored.test_cases
+    assert not restored.has_coverage_for("B08")
+    assert restored.test_cases_for_test("B08") == []
+    # In-memory generated cases use bare IDs; both sides must accept the prefix.
+    assert fixture.has_coverage_for("SSCI-B01")
+    assert fixture.test_cases_for_test("SSCI-B01") == fixture.test_cases
+    data = yaml.safe_load(path.read_text())
+    assert data["test_cases"][0]["test"] == "SSCI-B01"

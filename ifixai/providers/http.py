@@ -8,12 +8,15 @@ import aiohttp
 
 from ifixai.core.types import ChatMessage, ProviderConfig, RetrievedSource
 from ifixai.providers.base import (
+    RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
     ProviderAuthError,
     ProviderConnectionError,
+    ProviderOverloadedError,
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    is_fatal_provider_error,
     raise_if_truncated,
 )
 from ifixai.providers.secrets import scrub_secrets
@@ -132,12 +135,14 @@ class HttpProvider(ChatProvider):
             try:
                 return await self._send_request(url, payload, headers, timeout, config)
             except ProviderRateLimitError as exc:
+                if is_fatal_provider_error(exc):
+                    raise
                 last_error = exc
                 if attempt < config.max_retries:
                     await asyncio.sleep(2**attempt)
                     continue
                 raise
-            except (ProviderConnectionError, ProviderTimeoutError) as exc:
+            except (ProviderConnectionError, ProviderTimeoutError, ProviderOverloadedError) as exc:
                 last_error = exc
                 if attempt < config.max_retries:
                     await asyncio.sleep(2**attempt)
@@ -169,10 +174,18 @@ class HttpProvider(ChatProvider):
                         details=f"HTTP {resp.status}: authentication failed",
                     )
                 if resp.status == 429:
+                    body = await resp.text()
                     raise ProviderRateLimitError(
                         provider="http",
                         endpoint=endpoint,
-                        details="HTTP 429: rate limited",
+                        details=f"HTTP 429: {scrub_secrets(body[:500])}",
+                    )
+                if resp.status in RETRYABLE_HTTP_STATUS_CODES:
+                    body = await resp.text()
+                    raise ProviderOverloadedError(
+                        provider="http",
+                        endpoint=endpoint,
+                        details=f"HTTP {resp.status}: {scrub_secrets(body[:500])}",
                     )
                 if resp.status >= 400:
                     body = await resp.text()
@@ -200,7 +213,7 @@ class HttpProvider(ChatProvider):
                     data, endpoint, config.reject_truncated
                 )
 
-        except aiohttp.ClientConnectionError as exc:
+        except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError) as exc:
             raise ProviderConnectionError(
                 provider="http",
                 endpoint=endpoint,
