@@ -33,6 +33,7 @@ from ifixai.reporting.scorecard import (
     _dominant_evaluation_path,
     _format_method_mix,
     _format_run_verdict,
+    format_evaluation_date,
 )
 
 
@@ -77,6 +78,8 @@ def _evidence_payload(ev) -> dict[str, Any]:
         "expected": _scrub(ev.expected or ev.expected_behavior or ""),
         "actual": _scrub(ev.actual_response or ev.actual or ""),
         "evaluation_result": ev.evaluation_result or "",
+        "extraction_error": ev.extraction_error.value if ev.extraction_error else None,
+        "is_diagnostic": ev.is_diagnostic,
         "passed": ev.passed,
         "evaluation_method": ev.evaluation_method.value,
         "verdict": verdict_label,
@@ -181,6 +184,16 @@ def _build_payload(
     previous: dict[str, Any] | None,
 ) -> dict[str, Any]:
     overall = result.overall_score
+    not_run_minimums = set(result.mandatory_minimums_not_run)
+    minimum_statuses = result.mandatory_minimum_status.values()
+    if any(status == TestStatus.FAIL for status in minimum_statuses):
+        minimum_label = "FAIL"
+    elif not_run_minimums:
+        minimum_label = "NOT RUN"
+    elif any(status == TestStatus.INCONCLUSIVE for status in minimum_statuses):
+        minimum_label = "INCONCLUSIVE"
+    else:
+        minimum_label = "PASS"
     categories = []
     for cs in result.category_scores:
         ran = len(cs.test_ids)
@@ -207,7 +220,7 @@ def _build_payload(
             "system_version": result.system_version,
             "provider": result.provider,
             "fixture": result.fixture_name,
-            "evaluation_date": result.evaluation_date.strftime("%Y-%m-%d %H:%M UTC"),
+            "evaluation_date": format_evaluation_date(result.evaluation_date),
             "transport": transport,
             "live": live,
             "sut_model": str(sut_model or "(default)"),
@@ -229,7 +242,11 @@ def _build_payload(
             "strategic_pct": f"{result.strategic_score * 100:.1f}%",
             "stability": _stability_note(overall),
             "mm_passed": result.mandatory_minimums_passed,
-            "mm_status": {tid: st.value for tid, st in sorted(result.mandatory_minimum_status.items())},
+            "mm_label": minimum_label,
+            "mm_status": {
+                tid: "not run" if tid in not_run_minimums else st.value
+                for tid, st in sorted(result.mandatory_minimum_status.items())
+            },
             "below_threshold": failed,
             # Provenance banners: a partial or resumed run must disclose it on
             # every report surface, this one included.
@@ -241,6 +258,8 @@ def _build_payload(
         },
         "categories": categories,
         "compliance": compliance,
+        "warnings": [_scrub(warning) for warning in result.warnings],
+        "validation_warnings": [_scrub(warning) for warning in result.validation_warnings],
         "checks": [_check_payload(br) for br in sorted(result.test_results, key=lambda b: b.test_id)],
         "diff": _diff_payload(result, previous) if previous else None,
     }
@@ -349,8 +368,14 @@ function header(){
     <div>Judge</div><div>${esc(m.judge_model)}</div>
     <div>Fixture</div><div>${esc(m.fixture)}</div>
     <div>Strategic score</div><div>${esc(s.strategic_pct)}</div>
-    <div>Mandatory minimums</div><div>${s.mm_passed?'PASS':'NOT PASSED'} — ${esc(Object.entries(s.mm_status).map(([k,v])=>k+':'+v.toUpperCase()).join('  '))}</div>
+    <div>Mandatory minimums</div><div>${esc(s.mm_label)} — ${esc(Object.entries(s.mm_status).map(([k,v])=>k+':'+v.toUpperCase()).join('  '))}</div>
   </div>`;
+}
+
+function warningBanners(){
+  const render = (warnings, kind) => (warnings||[])
+    .map(w => `<div class="banner ${kind}">${esc(w)}</div>`).join('');
+  return render(D.validation_warnings, 'bad') + render(D.warnings, 'warn');
 }
 
 function categories(){
@@ -378,12 +403,15 @@ function diffSection(){
 }
 
 function evidence(ev){
+  const label = ev.is_diagnostic ? 'diagnostic' : ev.extraction_error ? 'grading unavailable' : ev.passed ? 'pass' : 'fail';
+  const tagClass = ev.is_diagnostic || ev.extraction_error ? 'inconclusive' : label;
   const conf = ev.confidence==null?'':` · confidence ${(ev.confidence*100).toFixed(0)}%`;
   const dims = (ev.dimensions||[]).map(dm=>`<tr><td>${dm.passed?'✓':'✗'} ${esc(dm.name)}${dm.mandatory?' <span class="dim">(mandatory)</span>':''}</td><td>${dm.confidence==null?'':(dm.confidence*100).toFixed(0)+'%'}</td><td class="dim">${esc(dm.reasoning)}</td></tr>`).join('');
   const fld=(label,val)=> val? `<div class="kvp"><b>${label}</b><pre>${esc(val)}</pre></div>`:'';
   return `<div class="ev">
-    <div class="evhead"><span class="tag ${ev.passed?'pass':'fail'}">${ev.passed?'pass':'fail'}</span><span>${esc(ev.evaluation_method)}${conf}</span></div>
+    <div class="evhead"><span class="tag ${tagClass}">${label}</span><span>${esc(ev.evaluation_method)}${conf}</span></div>
     ${ev.description?`<div class="kvp dim">${esc(ev.description)}</div>`:''}
+    ${ev.extraction_error?fld('Grading unavailable',ev.extraction_error):''}
     ${fld('Prompt used',ev.prompt)}
     ${fld('Expected',ev.expected)}
     ${fld('Actual',ev.actual)}
@@ -454,6 +482,7 @@ function checksSection(){
 
 const app = document.getElementById('app');
 app.insertAdjacentHTML('beforeend', header());
+app.insertAdjacentHTML('beforeend', warningBanners());
 const diff = diffSection(); if(diff) app.insertAdjacentHTML('beforeend', diff);
 app.insertAdjacentHTML('beforeend', categories());
 app.insertAdjacentHTML('beforeend', compliance());

@@ -75,12 +75,13 @@ def load_injection_corpus(path: Path | None = None) -> InjectionCorpus:
                 raise InjectionCorpusError(
                     f"payload entry missing required field {field!r}: {entry!r}"
                 )
-        if entry["id"] in seen_ids:
-            raise InjectionCorpusError(f"duplicate payload id: {entry['id']!r}")
-        seen_ids.add(entry["id"])
+        payload_id = entry["id"].strip()
+        if payload_id in seen_ids:
+            raise InjectionCorpusError(f"duplicate payload id: {payload_id!r}")
+        seen_ids.add(payload_id)
         payloads.append(
             InjectionPayload(
-                id=entry["id"].strip(),
+                id=payload_id,
                 category=entry["category"].strip(),
                 payload=entry["payload"],
             )

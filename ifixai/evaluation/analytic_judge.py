@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import secrets
+import weakref
 from enum import Enum
 from pathlib import Path
 from typing import Final, Optional
@@ -61,6 +62,9 @@ class JudgeContractError(ValueError):
 logger = logging.getLogger(__name__)
 
 _BACKOFF_BASE: float = 0.5
+
+# Cut-offs in a row (no verdict between) before a judge model is retired.
+_CUTOFF_RETIRE_STREAK: Final[int] = 3
 
 
 # Per grading call. The 60s default suits a fast direct-API judge; a judge
@@ -131,21 +135,25 @@ def render_judge_prompt_template(
 
 
 _rubric_cache: dict[str, Optional[AnalyticRubric]] = {}
-_rubric_cache_lock: Optional[asyncio.Lock] = None
+_rubric_cache_locks: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, weakref.ReferenceType[asyncio.Lock]
+] = weakref.WeakKeyDictionary()
 
 
 def _get_rubric_cache_lock() -> asyncio.Lock:
-    """Lazily create the rubric-cache lock on the running event loop.
+    """Share a lock between concurrent loads on the current running loop.
 
-    Creating the Lock at module-import time binds it to whatever loop is
-    running then (often none, or a deprecated default), and triggers
-    DeprecationWarning / RuntimeError on first use under some test harness
-    or worker-thread configurations.
+    A contended asyncio.Lock binds to its event loop. API callers may use
+    successive asyncio.run() calls, so a process-global lock cannot be reused.
+    Weak keys and values let closed loops and their idle locks be collected.
     """
-    global _rubric_cache_lock
-    if _rubric_cache_lock is None:
-        _rubric_cache_lock = asyncio.Lock()
-    return _rubric_cache_lock
+    loop = asyncio.get_running_loop()
+    reference = _rubric_cache_locks.get(loop)
+    lock = reference() if reference is not None else None
+    if lock is None:
+        lock = asyncio.Lock()
+        _rubric_cache_locks[loop] = weakref.ref(lock)
+    return lock
 
 
 def generate_envelope_nonce() -> str:
@@ -496,6 +504,22 @@ def _normalize_dim_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", cleaned.lower())
 
 
+def _parse_dimension_passed(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in _VERDICT_TRUE_TOKENS:
+            return True
+        if token in _VERDICT_FALSE_TOKENS:
+            return False
+    raise JudgeContractError(
+        f"Judge dimension 'passed' must be a boolean, integer 0/1, or a recognized verdict token; got {value!r}"
+    )
+
+
 def _fuzzy_match_dim(name: str, rubric: AnalyticRubric) -> Optional[str]:
     """Return the canonical rubric dim name for a (possibly typo'd) judge name.
 
@@ -519,7 +543,7 @@ def _recover_dimensions_from_top_level(
 
     Llama sometimes returns `{"dim_name_a": {...}, "dim_name_b": {...},
     "overall_reasoning": "..."}` instead of the contract envelope. If any
-    top-level key fuzzy-matches a rubric dim name and carries a bool / dict
+    top-level key fuzzy-matches a rubric dim name and carries a bool / integer 0/1 / dict
     verdict, recover it.
     """
     reserved = {"overall_reasoning", "dimensions"}
@@ -536,18 +560,12 @@ def _recover_dimensions_from_top_level(
             recovered.append(
                 {
                     "name": canonical,
-                    "passed": bool(value.get("passed", False)),
+                    "passed": _parse_dimension_passed(value.get("passed", False)),
                     "reasoning": str(value.get("reasoning", "")),
                 }
             )
-        elif isinstance(value, str):
-            token = value.strip().lower()
-            if token in _VERDICT_TRUE_TOKENS:
-                recovered.append({"name": canonical, "passed": True, "reasoning": ""})
-            elif token in _VERDICT_FALSE_TOKENS:
-                recovered.append({"name": canonical, "passed": False, "reasoning": ""})
-            # Unknown tokens fall through; caller raises JudgeContractError so
-            # the existing retry loop still triggers.
+        elif isinstance(value, (str, int)):
+            recovered.append({"name": canonical, "passed": _parse_dimension_passed(value), "reasoning": ""})
     return recovered or None
 
 
@@ -656,6 +674,8 @@ def build_judge_dim_map(
             entry = rescued
         if "name" not in entry:
             continue
+        if not isinstance(entry["name"], str):
+            raise JudgeContractError("Judge dimension 'name' must be a string")
         canonical = _fuzzy_match_dim(entry["name"], rubric)
         if canonical is None:
             logger.warning(
@@ -665,10 +685,13 @@ def build_judge_dim_map(
         key = canonical.lower()
         if key in conflicts:
             continue
-        normalized_entry = {**entry, "name": canonical}
+        normalized_entry = {
+            **entry, "name": canonical,
+            "passed": _parse_dimension_passed(entry.get("passed", False)),
+        }
         if key in first_occurrence:
-            existing = bool(first_occurrence[key].get("passed", False))
-            incoming = bool(entry.get("passed", False))
+            existing = first_occurrence[key]["passed"]
+            incoming = normalized_entry["passed"]
             if existing != incoming:
                 conflicts.add(key)
                 del first_occurrence[key]
@@ -791,7 +814,7 @@ def _dimension_score_from_judge(
     if match is not None:
         return DimensionScore(
             dimension_name=dim.name,
-            passed=bool(match.get("passed", False)),
+            passed=_parse_dimension_passed(match.get("passed", False)),
             reasoning=str(match.get("reasoning", "")),
             confidence=0.9,
             is_mandatory=dim.mandatory,
@@ -877,11 +900,15 @@ class JudgeTransportExhaustedError(Exception):
     a timeout, a dropped connection) or hard (a rejected request, an unknown
     model). If every candidate fails *hard*, the judge is misconfigured rather
     than merely unlucky, and the run still fails fast.
+
+    ``cutoff`` marks a cut-off reply: it is about one prompt, not a dead model,
+    so the model is only retired after ``_CUTOFF_RETIRE_STREAK`` in a row.
     """
 
-    def __init__(self, detail: str, recoverable: bool) -> None:
+    def __init__(self, detail: str, recoverable: bool, cutoff: bool = False) -> None:
         super().__init__(detail)
         self.recoverable = recoverable
+        self.cutoff = cutoff
 
 
 class AnalyticRubricJudge:
@@ -897,6 +924,7 @@ class AnalyticRubricJudge:
             excluded_model=sut_model,
         )
         self._retired_models: set[str | None] = set()
+        self._cutoff_streaks: dict[str | None, int] = {}
         self._last_exhausted: JudgeTransportExhaustedError | None = None
         self._any_hard_failure = False
 
@@ -932,6 +960,13 @@ class AnalyticRubricJudge:
             references=rubric.references,
         )
         safe_response = sanitize_response_payload(response)
+        if len(safe_response) > JUDGE_PAYLOAD_MAX_CHARS:
+            # The sanitizer appends a marker when it cuts the input. A verdict
+            # over that prefix cannot establish what the complete answer did.
+            raise JudgeExtractionError(
+                f"response exceeds the {JUDGE_PAYLOAD_MAX_CHARS}-character judge payload limit; "
+                "the complete response cannot be graded"
+            )
 
         messages = [
             ChatMessage(role="system", content=prompt),
@@ -994,6 +1029,7 @@ class AnalyticRubricJudge:
             except JudgeTransportExhaustedError as exc:
                 self._retire_model(candidate, rubric.test_id, exc)
                 continue
+            self._cutoff_streaks.pop(candidate, None)
             if candidate != self._model_chain[0]:
                 self._judge.note_fallback_grade(candidate or "<provider default>")
             return verdict
@@ -1008,12 +1044,41 @@ class AnalyticRubricJudge:
         test_id: str,
         exc: JudgeTransportExhaustedError,
     ) -> None:
-        """Take `candidate` out of the chain for the rest of the run."""
+        """Take `candidate` out of the chain for the rest of the run.
+
+        A cut-off only retires it once ``_CUTOFF_RETIRE_STREAK`` land in a row,
+        so one long prompt can't kill a working judge and a broken one stops billing.
+        """
         self._last_exhausted = exc
         self._any_hard_failure = self._any_hard_failure or not exc.recoverable
+        name = candidate or "<provider default>"
+        if exc.cutoff:
+            streak = self._cutoff_streaks.get(candidate, 0) + 1
+            self._cutoff_streaks[candidate] = streak
+            if streak < _CUTOFF_RETIRE_STREAK:
+                logger.warning(
+                    "Judge model %s cut off its reply on %s (%d/%d in a row), "
+                    "skipping it for this probe: %s",
+                    name,
+                    test_id,
+                    streak,
+                    _CUTOFF_RETIRE_STREAK,
+                    exc.__cause__,
+                )
+                return
         if candidate in self._retired_models:
             return
         self._retired_models.add(candidate)
+        if exc.cutoff:
+            logger.warning(
+                "Retiring judge model %s for this run after %d cut-offs in a row "
+                "(last on %s): %s",
+                name,
+                _CUTOFF_RETIRE_STREAK,
+                test_id,
+                exc.__cause__,
+            )
+            return
         logger.warning(
             "Retiring judge model %s for this run after it failed on %s — %s",
             candidate or "<provider default>",
@@ -1085,7 +1150,7 @@ class AnalyticRubricJudge:
                 await asyncio.sleep(_BACKOFF_BASE * (2 ** (failures_so_far - 1)))
             try:
                 raw_response = await asyncio.wait_for(
-                    self._judge._provider.send_message(messages, judge_config),
+                    self._judge.send_message(messages, judge_config),
                     timeout=_JUDGE_TIMEOUT,
                 )
             except Exception as exc:
@@ -1107,14 +1172,15 @@ class AnalyticRubricJudge:
                 # the same prompt: retrying only re-buys the same truncated
                 # generation. Verbose models were seen billing whole dollars per
                 # inspection this way, so a cutoff spends the model's budget in
-                # one go and the chain moves on.
-                if transport_failures >= transport_budget or isinstance(
-                    exc, ProviderTruncatedError
-                ):
+                # one go and the chain moves on for this probe. Only
+                # _CUTOFF_RETIRE_STREAK cut-offs in a row retire the model.
+                cutoff = isinstance(exc, ProviderTruncatedError)
+                if transport_failures >= transport_budget or cutoff:
                     raise JudgeTransportExhaustedError(
                         f"{type(exc).__name__} after {transport_failures} attempt(s) "
                         f"on model {judge_config.model or '<provider default>'}: {exc}",
                         recoverable=isinstance(exc, _RECOVERABLE_JUDGE_ERRORS),
+                        cutoff=cutoff,
                     ) from exc
                 logger.warning(
                     "Judge communication error for %s (attempt %d/%d), retrying — %s: %s",

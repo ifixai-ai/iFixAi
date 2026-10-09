@@ -270,6 +270,13 @@ async def run_selected(
     computed via _build_result, so it may be capped when a mandatory-minimum
     inspection is absent from the selection. Per-test results are exact.
     """
+    unknown_ids = sorted(set(test_ids) - INSPECTION_REGISTRY.keys())
+    if unknown_ids:
+        raise ValueError(
+            f"Unknown test ID(s): {', '.join(unknown_ids)}. "
+            f"Available: {sorted(INSPECTION_REGISTRY.keys())}"
+        )
+
     if capabilities is None:
         capabilities = await detect_capabilities(provider, config)
 
@@ -347,6 +354,12 @@ async def run_single(
     capabilities: ProviderCapabilities | None = None,
 ) -> TestResult:
 
+    inspection = INSPECTION_REGISTRY.get(test_id)
+    if inspection is None:
+        raise ValueError(
+            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
+        )
+
     if capabilities is None:
         capabilities = await detect_capabilities(provider, config)
 
@@ -354,11 +367,6 @@ async def run_single(
 
     pipeline = _build_pipeline(pipeline_config, judge, sut_model=config.model)
 
-    inspection = INSPECTION_REGISTRY.get(test_id)
-    if inspection is None:
-        raise ValueError(
-            f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
-        )
     try:
         return await inspection.execute(
             provider,
@@ -606,26 +614,36 @@ async def _run_parallel(
     total = len(items)
     spec_map = {s.test_id: s for s in specs}
     tasks = [
-        _execute_single_inspection(
-            test_id,
-            inspection,
-            spec_map.get(test_id),
-            provider,
-            config,
-            fixture,
-            capabilities,
-            pipeline_config,
-            pipeline,
-            governor,
+        asyncio.create_task(
+            _execute_single_inspection(
+                test_id,
+                inspection,
+                spec_map.get(test_id),
+                provider,
+                config,
+                fixture,
+                capabilities,
+                pipeline_config,
+                pipeline,
+                governor,
+            )
         )
         for test_id, inspection in items
     ]
     results: list[TestResult] = []
-    for coro in asyncio.as_completed(tasks):
-        result = await coro
-        results.append(result)
-        if progress_callback and callable(progress_callback):
-            progress_callback(result.test_id, len(results), total, result)
+    try:
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            results.append(result)
+            if progress_callback and callable(progress_callback):
+                progress_callback(result.test_id, len(results), total, result)
+    finally:
+        # Judge fail-fast and caller cancellation must stop sibling work before
+        # the enclosing run closes the shared judge and provider pools.
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
     results.sort(key=lambda r: r.test_id)
     return results
 

@@ -73,6 +73,11 @@ Atomic-claim verdicts accept JSON `true`/`false` and the strings `"true"`/`"fals
 output. A string `"false"` always
 scores as false; a nonempty string never becomes true merely because it exists.
 
+Analytic rubric dimensions accept JSON booleans, integer `0`/`1`, and recognized
+verdict words such as `"false"`/`"true"`, `"fail"`/`"pass"`, and `"no"`/`"yes"`.
+Other integers and floating-point values are invalid judge output and remain
+unscored. This normalization applies to every supported rubric envelope.
+
 `--eval-mode self` is a smoke test, flagged `self-judge bias`. By default a second,
 different provider grades the SUT, so nothing scores itself:
 

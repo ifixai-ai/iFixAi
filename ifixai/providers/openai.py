@@ -104,6 +104,7 @@ class OpenAIProvider(ChatProvider):
                     details=f"Missing message in choice (finish_reason={finish_reason})",
                 )
             content = choice.message.content
+            raise_if_choice_errored("openai", endpoint, choice, content or "")
             if config.reject_truncated:
                 raise_if_truncated("openai", endpoint, finish_reason, content or "")
             if not content:
@@ -112,7 +113,6 @@ class OpenAIProvider(ChatProvider):
                     endpoint=endpoint,
                     details=f"Empty content in response (finish_reason={finish_reason})",
                 )
-            raise_if_choice_errored("openai", endpoint, choice, content)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
                 provider="openai",
@@ -125,14 +125,14 @@ class OpenAIProvider(ChatProvider):
                 endpoint=endpoint,
                 details=str(exc),
             ) from exc
-        except openai.APIConnectionError as exc:
-            raise ProviderConnectionError(
+        except openai.APITimeoutError as exc:
+            raise ProviderTimeoutError(
                 provider="openai",
                 endpoint=endpoint,
                 details=str(exc),
             ) from exc
-        except openai.APITimeoutError as exc:
-            raise ProviderTimeoutError(
+        except openai.APIConnectionError as exc:
+            raise ProviderConnectionError(
                 provider="openai",
                 endpoint=endpoint,
                 details=str(exc),

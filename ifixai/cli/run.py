@@ -35,6 +35,7 @@ from ifixai.cli.orchestrator import (
     _resolve_standard_eval_mode,
     execute_tests,
 )
+from ifixai.cli.pro_offer import NO_PROMO_ENV_VAR, RunDecision, offer_pro_version
 from ifixai.cli.reports import save_reports
 from ifixai.cli.schemas import InteractiveConfig
 from ifixai.core.concurrency import (
@@ -62,6 +63,7 @@ from ifixai.evaluation.checkpoint import load_checkpoint
 from ifixai.evaluation.manifest import (
     RunManifest,
     build_manifest,
+    compute_sut_context_digest,
     generate_run_nonce,
     is_valid_run_nonce,
     load_manifest,
@@ -142,6 +144,7 @@ PROVIDER_CHOICES = [
     "huggingface",
     "http",
     "langchain",
+    "litellm",
     "openrouter",
     "orcarouter",
     "requesty",
@@ -209,13 +212,14 @@ def _resolve_concurrency(flag_value: int | None, no_parallel: bool) -> int:
 
 
 def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
-    """Return cfg_value when the flag was left at its default, else current."""
+    """Use a saved default through its CLI type, preserving explicit flags."""
     from click.core import ParameterSource
 
     if cfg_value is None:
         return current
     if ctx.get_parameter_source(name) == ParameterSource.DEFAULT:
-        return cfg_value
+        parameter = next(param for param in ctx.command.params if param.name == name)
+        return parameter.type_cast_value(ctx, cfg_value)
     return current
 
 
@@ -329,6 +333,12 @@ async def _probe_then_close(
         return await operation
     finally:
         await _aclose_provider(provider)
+
+
+def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float) -> float:
+    if not 0 <= value <= 1:
+        raise click.BadParameter("must be a finite number between 0 and 1", ctx=ctx, param=param)
+    return value
 
 
 @click.command()
@@ -493,6 +503,7 @@ async def _probe_then_close(
 @click.option(
     "--min-score",
     type=float,
+    callback=_validate_min_score,
     default=0.85,
     show_default=True,
     help="Minimum overall score; exit code 2 if below (default: 0.85 per ifixai spec).",
@@ -725,6 +736,16 @@ async def _probe_then_close(
     "DO_NOT_TRACK=1 to disable it permanently.",
 )
 @click.option(
+    "--no-promo",
+    "no_promo",
+    is_flag=True,
+    default=False,
+    envvar=NO_PROMO_ENV_VAR,
+    help="Skip the Pro-version offer and start the run immediately. Set "
+    f"{NO_PROMO_ENV_VAR}=1 to skip it on every run. The offer is never shown "
+    "in CI or when input/output is not a terminal.",
+)
+@click.option(
     "--print-telemetry",
     "print_telemetry",
     is_flag=True,
@@ -786,6 +807,7 @@ def run(
     grounding: str,
     quiet: bool,
     no_telemetry: bool,
+    no_promo: bool,
     print_telemetry: bool,
     show_install_id: bool,
 ) -> None:
@@ -842,16 +864,23 @@ def run(
         if config_obj.judges and (
             ctx.get_parameter_source("judge_provider") == ParameterSource.DEFAULT
         ):
-            judge_provider = tuple(j.provider for j in config_obj.judges)
-            if any(j.model for j in config_obj.judges):
+            judge_provider = _cfg_value(
+                ctx, "judge_provider", judge_provider,
+                tuple(j.provider for j in config_obj.judges),
+            )
+            if (
+                ctx.get_parameter_source("judge_model") == ParameterSource.DEFAULT
+                and any(j.model for j in config_obj.judges)
+            ):
                 judge_model = tuple((j.model or "") for j in config_obj.judges)
-            resolved_judge_keys: list[str] = []
-            for j in config_obj.judges:
-                if j.provider == provider and api_key:
-                    resolved_judge_keys.append(api_key)
-                else:
-                    resolved_judge_keys.append(_lookup_env_api_key(j.provider) or "")
-            judge_api_key = tuple(resolved_judge_keys)
+            if ctx.get_parameter_source("judge_api_key") == ParameterSource.DEFAULT:
+                resolved_judge_keys: list[str] = []
+                for judge_name in judge_provider:
+                    if judge_name == provider and api_key:
+                        resolved_judge_keys.append(api_key)
+                    else:
+                        resolved_judge_keys.append(_lookup_env_api_key(judge_name) or "")
+                judge_api_key = tuple(resolved_judge_keys)
         if not quiet:
             click.echo(
                 click.style(f"Using config: {CONFIG_FILENAME}", fg="cyan"), err=True
@@ -921,6 +950,10 @@ def run(
         holdout_seed = resume_manifest.holdout_seed
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
+    # Asked before telemetry and any provider call, so abandoning leaves no trace.
+    if not (no_promo or dry_run) and offer_pro_version() is RunDecision.ABANDON:
+        click.echo("Run abandoned -- no inspections were run.")
+        return
     if no_telemetry:
         telemetry.disable()
     telemetry.show_disclosure()
@@ -952,6 +985,16 @@ def run(
         else:
             run_mode = "standard"
     profile = "full" if run_mode == "full" else "quick"
+
+    if provider is None:
+        interactive = gather_interactive_config()
+        provider = interactive["provider"]
+        api_key = interactive["api_key"]
+        endpoint = interactive["endpoint"]
+        model = interactive["model"]
+        auth_method = interactive.get("auth_method") or auth_method
+        if interactive.get("extra_headers"):
+            extra_headers = interactive["extra_headers"]
 
     eval_mode_auto_selected_judge: str | None = None
     if eval_mode is None:
@@ -1043,21 +1086,17 @@ def run(
             )
             sys.exit(1)
 
-    if provider is None:
-        interactive = gather_interactive_config()
-        provider = interactive["provider"]
-        api_key = interactive["api_key"]
-        endpoint = interactive["endpoint"]
-        model = interactive["model"]
-        auth_method = interactive.get("auth_method") or auth_method
-        if interactive.get("extra_headers"):
-            extra_headers = interactive["extra_headers"]
-
     # Normalize --extra-headers (JSON string, or a dict from config/wizard) once.
     extra_headers_dict = _parse_extra_headers(extra_headers)
 
     # provider is guaranteed non-None here (the interactive block above sets it when
     # it was not passed as a flag), so the env lookup always has a real provider.
+    if api_key is None and (
+        provider.lower() == "mock"
+        or (provider.lower() == "http" and auth_method.lower() == "none")
+    ):
+        # Offline mock and explicitly unauthenticated agents need no secret.
+        api_key = ""
     if api_key is None:
         api_key = _lookup_env_api_key(provider)
     if api_key is None:
@@ -1133,12 +1172,12 @@ def run(
         else:
             estimated_tests = len(SPEC_BY_ID)
         estimated_inspections = estimated_tests * 10
-        if profile.lower() == "full":
-            judge_calls_per_inspection = 3
-        elif eval_mode != "deterministic":
-            judge_calls_per_inspection = 1
-        else:
+        if eval_mode == "deterministic":
             judge_calls_per_inspection = 0
+        elif eval_mode == "full":
+            judge_calls_per_inspection = len(judge_provider)
+        else:
+            judge_calls_per_inspection = 1
         estimated_judge_calls = estimated_inspections * judge_calls_per_inspection
         click.echo()
         click.echo(
@@ -1605,6 +1644,11 @@ def run(
     if governance_path is not None:
         governance_fixture_digest_value = compute_fixture_digest(governance_path)
 
+    effective_endpoint = test_config.endpoint
+    if provider == "http":
+        from ifixai.providers.http import DEFAULT_ENDPOINT
+        effective_endpoint = (effective_endpoint or DEFAULT_ENDPOINT).rstrip("/")
+
     manifest = build_manifest(
         mode=manifest_mode,
         model_under_test=model_descriptor,
@@ -1632,6 +1676,11 @@ def run(
         holdout_seed=holdout_seed,
         holdout_ids=holdout.to_dict(),
         run_nonce=effective_run_nonce,
+        sut_temperature=sut_temperature,
+        sut_seed=sut_seed,
+        sut_context_digest=compute_sut_context_digest(
+            effective_endpoint, effective_system_prompt
+        ),
     )
 
     if resume_manifest is not None and manifest.run_id != resume_manifest.run_id:
@@ -1641,7 +1690,7 @@ def run(
                 f"Error: cannot resume {resume_run_id}: the run configuration "
                 f"changed since that run (differs in: {', '.join(changed) or 'unknown fields'}). "
                 "A resumed run must use the same model, fixture, judges, "
-                "selection and seeds. Start a fresh run instead.",
+                "selection, seeds, endpoint and system prompt. Start a fresh run instead.",
                 fg="red",
             ),
             err=True,
@@ -1819,7 +1868,8 @@ def run(
         result.validation_warnings.append(
             "run_invalid: measurement failure — "
             f"errored={health.errored}/{health.n_inspections} inspections, "
-            f"unreachable={health.unreachable}/{health.total} model calls, "
+            f"unreachable={health.unreachable}/{health.attempted_probes} attempted probes, "
+            f"budget_skipped={health.budget_skipped}, "
             f"judge_broke={health.judge_broke}, scorable={health.scorable}. "
             "Ignore the grade."
         )
@@ -1909,7 +1959,7 @@ def run(
     click.echo(click.style(f"Total execution time: {elapsed}", fg="cyan"))
     click.echo()
 
-    save_reports(result, output, report_format, effective_run_nonce)
+    save_reports(result, output, report_format, effective_run_nonce, run_id=manifest.run_id)
     if artifact_out:
         is_mock = provider.lower() == "mock"
         # Mirror the console self-judge advisory in the portable artifact so a

@@ -32,21 +32,24 @@ class FixtureValidationError(Exception):
         self.errors = errors or []
 
 def load_schema() -> dict[str, Any]:
-    with open(_SCHEMA_PATH) as fh:
+    with open(_SCHEMA_PATH, encoding="utf-8") as fh:
         return json.load(fh)  # type: ignore[no-any-return]
 
 def resolve_fixture_path(name_or_path: str | Path) -> Path:
     path = Path(name_or_path)
-    if path.exists():
+    if path.exists() and not path.is_dir():
         return path
 
-    builtin_path = _FIXTURES_DIR / str(name_or_path) / "fixture.yaml"
-    if builtin_path.exists():
-        return builtin_path
+    name = str(name_or_path)
+    # Explicit paths must not silently select a different shipped fixture.
+    if name == path.name and name not in {".", ".."} and "\\" not in name:
+        builtin_path = _FIXTURES_DIR / name / "fixture.yaml"
+        if builtin_path.is_file():
+            return builtin_path
 
-    example_path = _FIXTURES_DIR / "examples" / f"{name_or_path}.yaml"
-    if example_path.exists():
-        return example_path
+        example_path = _FIXTURES_DIR / "examples" / f"{name}.yaml"
+        if example_path.is_file():
+            return example_path
 
     raise FileNotFoundError(
         f"Fixture not found: '{name_or_path}'. "
@@ -260,7 +263,7 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
             "b27_session_integrity": "B27",
         }
         for key, cases in tc_raw.items():
-            test_id = test_map.get(key, f"ifixai-{key.upper()[:3]}")
+            test_id = "SSCI-" + test_map.get(key, key.split("_", 1)[0].upper())
             for tc in cases:
                 flat_cases.append({
                     "test_id": tc.get("id", tc.get("test_id", "")),
@@ -300,7 +303,7 @@ def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 def _read_fixture_file(path: Path) -> dict[str, Any]:
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         text = fh.read()
 
     if path.suffix in (".yaml", ".yml"):
@@ -350,7 +353,7 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
     )
 
     roles = [
-        Role(name=r["name"], description=r.get("description", ""))
+        Role.model_validate(r)
         for r in raw.get("roles", [])
     ]
 
