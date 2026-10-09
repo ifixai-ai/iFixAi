@@ -183,6 +183,7 @@ def _call_chat_completion(
             details=f"Missing message in choice (finish_reason={finish_reason})",
         )
     content = choice.message.content
+    raise_if_choice_errored("huggingface", "", choice, content or "")
     if reject_truncated:
         raise_if_truncated("huggingface", "", finish_reason, content or "")
     if not content:
@@ -191,7 +192,6 @@ def _call_chat_completion(
             endpoint="",
             details=f"Empty content in response (finish_reason={finish_reason})",
         )
-    raise_if_choice_errored("huggingface", "", choice, content)
 
     return content
 
