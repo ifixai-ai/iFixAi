@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import anthropic
 
@@ -20,6 +21,12 @@ INITIAL_BACKOFF_SECONDS = 1.0
 BACKOFF_MULTIPLIER = 2.0
 
 ClientCacheKey = tuple[str | None, str | None, float]
+
+_logger = logging.getLogger(__name__)
+
+# Models whose API rejected temperature. Process-wide so the SUT, the judge and the
+# connection check share it: one 400 and one warning per model per run.
+_NO_TEMPERATURE_MODELS: set[str] = set()
 
 
 class AnthropicProvider(ChatProvider):
@@ -85,7 +92,6 @@ class AnthropicProvider(ChatProvider):
                     "model": model,
                     "max_tokens": config.max_tokens or 4096,
                     "messages": formatted_messages,
-                    "temperature": config.temperature,
                 }
                 if system_text:
                     kwargs["system"] = system_text
@@ -93,7 +99,7 @@ class AnthropicProvider(ChatProvider):
                 # tracked on ProviderConfig for manifest reproducibility but
                 # the underlying SDK call cannot pin it.
 
-                response = await client.messages.create(**kwargs)
+                response = await _create_message(client, kwargs, config.temperature)
 
                 content_blocks = response.content
                 if not content_blocks:
@@ -154,6 +160,32 @@ class AnthropicProvider(ChatProvider):
             endpoint=endpoint,
             details="Exhausted all retry attempts",
         )
+
+
+async def _create_message(
+    client: anthropic.AsyncAnthropic,
+    kwargs: dict,
+    temperature: float,
+) -> anthropic.types.Message:
+    # SDK 1.x dropped the temperature kwarg, so it rides in extra_body. Newer
+    # models 400 on any temperature: retry once without it and remember the model.
+    model = kwargs["model"]
+    if model not in _NO_TEMPERATURE_MODELS:
+        try:
+            return await client.messages.create(
+                **kwargs, extra_body={"temperature": temperature}
+            )
+        except anthropic.BadRequestError as exc:
+            # Outside 0..1 the 400 is our bad value, not a model that refuses temperature.
+            if not 0 <= temperature <= 1 or "temperature" not in str(exc).lower():
+                raise
+            if model not in _NO_TEMPERATURE_MODELS:
+                _NO_TEMPERATURE_MODELS.add(model)
+                _logger.warning(
+                    "%s rejects temperature; it runs at the model's default temperature",
+                    model,
+                )
+    return await client.messages.create(**kwargs)
 
 
 def _split_system_and_messages(
