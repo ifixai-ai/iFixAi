@@ -150,6 +150,7 @@ class BedrockProvider(ChatProvider):
 
                 http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                 if error_code in (
+                    "ModelNotReadyException",
                     "ServiceUnavailableException",
                     "InternalServerException",
                 ) or http_status in (500, 502, 503, 504):

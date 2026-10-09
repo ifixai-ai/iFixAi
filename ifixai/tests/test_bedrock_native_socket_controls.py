@@ -19,6 +19,9 @@ import pytest
     (4, 1, "throttle_once", "success", 2),
     (4, 0, "throttle", "ProviderRateLimitError", 1),
     (4, 0, "unavailable", "ProviderConnectionError", 1),
+    (4, 1, "not_ready_once", "success", 2),
+    (4, 2, "not_ready", "ProviderConnectionError", 3),
+    (4, 0, "not_ready", "ProviderConnectionError", 1),
     (4, 0, "denied", "ProviderAuthError", 1),
     *[(4, 1, f"http_{status}_once", "success", 2) for status in (500, 502, 503, 504)],
     (4, 1, "reset_once", "success", 2),
@@ -45,6 +48,8 @@ def test_bedrock_timeout_releases_cli_probe_loop(timeout, retries, mode, expecte
                 error = (429, "ThrottlingException")
             elif mode == "unavailable":
                 error = (503, "ServiceUnavailableException")
+            elif mode == "not_ready" or (mode == "not_ready_once" and len(requests) == 1):
+                error = (429, "ModelNotReadyException")
             elif mode.startswith("http_") and len(requests) == 1:
                 # An unmodelled proxy/service error still carries its HTTP status.
                 error = (int(mode.split("_")[1]), "OwnedTransientError")
