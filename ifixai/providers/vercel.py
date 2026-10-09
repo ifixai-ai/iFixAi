@@ -243,6 +243,9 @@ def extract_reply(
             details=f"Missing message in choice (finish_reason={finish_reason})",
         )
     content = choice.message.content
+    # An upstream abort can arrive with no text, so it is checked before the
+    # empty-reply check, which would void the inspection instead of the probe.
+    raise_if_choice_errored(PROVIDER_NAME, endpoint, choice, content or "")
     if config.reject_truncated:
         raise_if_truncated(PROVIDER_NAME, endpoint, finish_reason, content or "")
     if not content:
@@ -251,5 +254,4 @@ def extract_reply(
             endpoint=endpoint,
             details=f"Empty content in response (finish_reason={finish_reason})",
         )
-    raise_if_choice_errored(PROVIDER_NAME, endpoint, choice, content)
     return content
