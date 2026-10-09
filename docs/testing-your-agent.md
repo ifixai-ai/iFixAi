@@ -134,6 +134,7 @@ the SUT key from the environment: pass `--api-key` / `-k`, or enter it when prom
 | `openrouter` | `.[openrouter]` | `OPENROUTER_API_KEY` | `--provider openrouter -k "$OPENROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `orcarouter` | `.[orcarouter]` | `ORCAROUTER_API_KEY` | `--provider orcarouter -k "$ORCAROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `requesty` | `.[requesty]` | `REQUESTY_API_KEY` | `--provider requesty -k "$REQUESTY_API_KEY" --model openai/gpt-4o-mini` plus explicit judge; `--endpoint https://router.eu.requesty.ai/v1` for EU data residency |
+| `vercel` | `.[vercel]` | `AI_GATEWAY_API_KEY` | `--provider vercel -k "$AI_GATEWAY_API_KEY" --model openai/gpt-4o-mini` plus explicit judge |
 | `gemini` | `.[gemini]` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `--provider gemini -k "$GEMINI_API_KEY"` |
 | `azure` | `.[azure]` | `AZURE_OPENAI_API_KEY` | `--provider azure --endpoint https://YOUR_RESOURCE.openai.azure.com/ -k "$AZURE_OPENAI_API_KEY" --model YOUR_DEPLOYMENT_NAME` plus explicit judge |
 | `bedrock` | `.[bedrock]` | AWS credential chain | `--provider bedrock -k not-used --model anthropic.claude-sonnet-4-6` |
@@ -148,6 +149,7 @@ Notes:
 - `bedrock` uses the standard AWS credential chain; `--api-key` is a required placeholder, never sent.
 - `litellm` extra is [Python API](python-api.md) only (`provider="litellm"`), not a CLI choice.
 - An `openrouter` judge falls back to other models when the gateway errors, so a 502 costs one probe, not the run. Chain: [`ifixai/judge/judge_fallbacks.json`](../ifixai/judge/judge_fallbacks.json), see [cli.md](cli.md#judge-fallback-models).
+- `vercel` is the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). Models are `creator/model` slugs from its [catalog](https://vercel.com/ai-gateway/models), e.g. `anthropic/claude-haiku-4.5`. Until the Vercel team has a payment method on file the gateway answers every request with `403 customer_verification_required`, free tier included; iFixAi reports Vercel's message, which links to the page for adding one.
 
 ## LangServe wire contract
 

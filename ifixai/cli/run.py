@@ -148,6 +148,7 @@ PROVIDER_CHOICES = [
     "openrouter",
     "orcarouter",
     "requesty",
+    "vercel",
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]
