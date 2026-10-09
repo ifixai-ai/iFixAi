@@ -6,7 +6,7 @@ from ifixai.harness.validator import LayoutValidationError, validate_layout
 
 
 @click.command()
-@click.argument("path", type=click.Path(exists=True), required=False)
+@click.argument("path", required=False)
 def validate(path: str | None) -> None:
     if path is None:
         try:

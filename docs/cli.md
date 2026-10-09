@@ -21,10 +21,10 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 
 | Flag | Default | Does |
 |---|---|---|
-| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `orcarouter`, `requesty`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
+| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `orcarouter`, `requesty`, `cloudflare`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
 | `--api-key`, `-k` | none | SUT API key. Always passed explicitly, never read from the environment. |
 | `--model`, `-m` | provider default | Model identifier override. |
-| `--endpoint`, `-e` | none | Endpoint URL (required for `http` and `azure`). |
+| `--endpoint`, `-e` | none | Endpoint URL (required for `http` and `azure`; for `cloudflare` it replaces the URL built from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_GATEWAY_ID`). |
 | `--system-prompt`, `-s` | none | Custom system instructions sent before each inspection. |
 | `--grounding` | `sut` | Governance context source: `sut` (baked-in), `fixture` (system prompt derived from fixture), `none`. |
 | `--sut-temperature` | `0.0` | SUT sampling temperature. B22 needs `0` or `--sut-seed`. |

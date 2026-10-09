@@ -18,6 +18,7 @@ ADAPTERS = [
     ("openrouter", "OpenRouterProvider", "openai"),
     ("orcarouter", "OrcaRouterProvider", "openai"),
     ("requesty", "RequestyProvider", "openai"),
+    ("cloudflare", "CloudflareAIGatewayProvider", "openai"),
     ("vercel", "VercelAIGatewayProvider", "openai"),
     ("anthropic", "AnthropicProvider", "anthropic"),
 ]
@@ -109,3 +110,60 @@ def test_connection_close_remains_a_connection_error(adapter):
 
         asyncio.run(exercise())
         assert received.is_set()
+
+
+@pytest.mark.parametrize("spec", [*ADAPTERS[:-1],
+    ("huggingface", "HuggingFaceProvider", "huggingface_hub"),
+], ids=lambda spec: spec[1])
+@pytest.mark.parametrize("text", ["", "partial reply"])
+@pytest.mark.parametrize("code", [429, 503])
+def test_native_sdk_embedded_completion_errors_keep_their_identity(monkeypatch, spec, text, code):
+    import json
+
+    from ifixai.providers.base import (
+        ProviderOverloadedError,
+        ProviderRateLimitError,
+        is_fatal_provider_error,
+    )
+
+    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    adapter, _sdk = sdk_adapter(spec)
+    seen = []
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            seen.append(self.path)
+            data = {"id": "owned-response", "object": "chat.completion", "created": 1, "model": "gpt-4o",
+                    "choices": [{"index": 0, "finish_reason": "error", "error": {"code": code, "message": "rate limit exceeded" if code == 429 else "owned gateway unavailable"},
+                                 "message": {"role": "assistant", "content": text}}]}
+            body = json.dumps(data).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    async def exercise():
+        provider = adapter()
+        config = ProviderConfig(provider=spec[0], api_key="owned-key", model="gpt-4o",
+                                endpoint=f"http://127.0.0.1:{server.server_port}/v1", max_retries=0)
+        try:
+            expected = ProviderRateLimitError if code == 429 else ProviderOverloadedError
+            with pytest.raises(expected) as caught:
+                await provider.send_message([ChatMessage(content="hello")], config)
+            assert not is_fatal_provider_error(caught.value)
+            assert caught.value.provider == spec[0]
+        finally:
+            await provider.aclose()
+    try:
+        asyncio.run(exercise())
+        assert len(seen) == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)

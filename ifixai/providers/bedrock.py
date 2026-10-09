@@ -2,6 +2,7 @@ import asyncio
 
 import boto3
 import botocore.exceptions
+from botocore.config import Config
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
@@ -12,6 +13,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.schemas import ConversePayload
 
@@ -55,7 +57,24 @@ class BedrockProvider(ChatProvider):
 
         session = boto3.Session(**session_kwargs)
 
-        client_kwargs: dict = {"service_name": "bedrock-runtime"}
+        # The adapter owns this client and its retry loop. Configure the native
+        # socket limits too: cancelling to_thread cannot stop a blocking read.
+        # Nonpositive values retain the native defaults: wait_for reports the
+        # existing immediate timeout without starting a request.
+        socket_limits = (
+            {
+                "connect_timeout": float(config.timeout),
+                "read_timeout": float(config.timeout),
+            }
+            if config.timeout > 0 else {}
+        )
+        client_kwargs: dict = {
+            "service_name": "bedrock-runtime",
+            "config": Config(
+                retries={"total_max_attempts": 1},
+                **socket_limits,
+            ),
+        }
         if config.endpoint:
             client_kwargs["endpoint_url"] = config.endpoint
 
@@ -84,6 +103,7 @@ class BedrockProvider(ChatProvider):
                         system_prompts,
                         converse_messages,
                         inference_config,
+                        config.reject_truncated,
                     ),
                     timeout=float(config.timeout),
                 )
@@ -130,10 +150,16 @@ class BedrockProvider(ChatProvider):
                         details=str(exc),
                     ) from exc
 
+                http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                 if error_code in (
+                    "ModelNotReadyException",
                     "ServiceUnavailableException",
                     "InternalServerException",
-                ):
+                ) or http_status in (500, 502, 503, 504):
+                    if attempt < attempts - 1:
+                        await asyncio.sleep(backoff)
+                        backoff *= BACKOFF_MULTIPLIER
+                        continue
                     raise ProviderConnectionError(
                         provider="bedrock",
                         endpoint=endpoint,
@@ -149,6 +175,10 @@ class BedrockProvider(ChatProvider):
                 botocore.exceptions.EndpointConnectionError,
                 botocore.exceptions.ConnectionClosedError,
             ) as exc:
+                if attempt < attempts - 1:
+                    await asyncio.sleep(backoff)
+                    backoff *= BACKOFF_MULTIPLIER
+                    continue
                 raise ProviderConnectionError(
                     provider="bedrock",
                     endpoint=endpoint,
@@ -170,6 +200,7 @@ def _invoke_converse(
     system_prompts: list[dict],
     messages: list[dict],
     inference_config: dict,
+    reject_truncated: bool = False,
 ) -> str:
     converse_kwargs: dict = {
         "modelId": model_id,
@@ -184,6 +215,11 @@ def _invoke_converse(
     output = response.get("output", {})
     message = output.get("message", {})
     content_blocks = message.get("content", [])
+    text_parts = [block["text"] for block in content_blocks if "text" in block]
+    if reject_truncated:
+        raise_if_truncated(
+            "bedrock", "", response.get("stopReason", ""), "\n".join(text_parts)
+        )
 
     if not content_blocks:
         raise ProviderEmptyContentError(
@@ -192,7 +228,6 @@ def _invoke_converse(
             details="Empty content in Bedrock converse response",
         )
 
-    text_parts = [block["text"] for block in content_blocks if "text" in block]
     if not text_parts:
         raise ProviderResponseError(
             provider="bedrock",
