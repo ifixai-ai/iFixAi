@@ -12,7 +12,11 @@ from ifixai._version import VERSION as IFIXAI_VERSION
 from ifixai.cli import ui
 from ifixai.cli._branding import print_startup_banner
 from ifixai.cli.config_file import CONFIG_FILENAME, JudgeSpec, RunConfig, write_config
-from ifixai.cli.init import PROVIDER_ENV_KEYS, detect_available_providers
+from ifixai.cli.init import (
+    PROVIDER_COMPANION_ENV_KEYS,
+    PROVIDER_ENV_KEYS,
+    detect_available_providers,
+)
 from ifixai.cli.model_catalog import default_model, suggestions
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
 from ifixai.harness.suites import suite_catalog
@@ -22,6 +26,7 @@ _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key → many models (OpenAI, Anthropic, Google, Llama…)",
     "orcarouter": "OpenAI-compatible gateway — many models, one key",
     "requesty": "Requesty gateway — one key → 400+ models (OpenAI, Anthropic, Google…)",
+    "cloudflare": "Cloudflare AI Gateway — one token → Workers AI plus OpenAI, Anthropic, Google…",
     "openai": "OpenAI API — GPT-4o / o-series",
     "anthropic": "Anthropic API — Claude family",
     "gemini": "Google Gemini",
@@ -50,6 +55,7 @@ _ALL_PROVIDERS = [
     "openrouter",
     "orcarouter",
     "requesty",
+    "cloudflare",
     "openai",
     "anthropic",
     "gemini",
@@ -112,14 +118,16 @@ def _pick_model(provider: str, *, role: str) -> str | None:
 def _missing_keys(selected: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
     """For each (role, provider) chosen, return (role, provider, env_var) whose key
     is not set in the environment. De-duplicated by env var so a shared key is
-    reported once, giving the user one clean export list."""
+    reported once, giving the user one clean export list. A provider's companion
+    settings (e.g. the Cloudflare account ID) are listed right after its key."""
     missing: list[tuple[str, str, str]] = []
     seen: set[str] = set()
     for role, prov in selected:
-        env = PROVIDER_ENV_KEYS.get(prov)
-        if env and env not in seen and not os.environ.get(env):
-            seen.add(env)
-            missing.append((role, prov, env))
+        required = (PROVIDER_ENV_KEYS.get(prov), *PROVIDER_COMPANION_ENV_KEYS.get(prov, ()))
+        for env in required:
+            if env and env not in seen and not os.environ.get(env):
+                seen.add(env)
+                missing.append((role, prov, env))
     return missing
 
 

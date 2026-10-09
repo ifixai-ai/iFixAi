@@ -35,6 +35,7 @@ DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
     "orcarouter": "openai/gpt-4o",
     "requesty": "openai/gpt-4o-mini",
+    "cloudflare": "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "openai": "gpt-4o",
     "anthropic": "claude-3-5-sonnet-latest",
     "gemini": "gemini-2.0-flash",
@@ -75,6 +76,13 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("anthropic/claude-sonnet-4-6", "Anthropic Claude Sonnet 4.6 — strong reasoning & safety"),
         ("google/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive"),
         ("google/gemini-2.5-pro", "Google Gemini 2.5 Pro — large context, strong reasoning"),
+    ],
+    "cloudflare": [
+        ("workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Meta Llama 3.3 70B on Workers AI — free plan covers about one small inspection a day"),
+        ("openai/gpt-4.1-mini", "OpenAI GPT-4.1 Mini — cheap and fast (needs Unified Billing credits or a stored key)"),
+        ("openai/gpt-4.1", "OpenAI GPT-4.1 — strong, widely available (needs credits or a stored key)"),
+        ("anthropic/claude-haiku-4.5", "Anthropic Claude Haiku 4.5 — fast & cheap (needs credits or a stored key)"),
+        ("google-ai-studio/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive (needs credits or a stored key)"),
     ],
     "openai": [
         ("gpt-4o", "Flagship — strong general reasoning"),

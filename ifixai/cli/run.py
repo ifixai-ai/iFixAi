@@ -148,6 +148,7 @@ PROVIDER_CHOICES = [
     "openrouter",
     "orcarouter",
     "requesty",
+    "cloudflare",
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]

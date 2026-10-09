@@ -19,14 +19,31 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "azure": "AZURE_OPENAI_API_KEY",
     "bedrock": "AWS_ACCESS_KEY_ID",
     "huggingface": "HF_TOKEN",
+    # Last on purpose: this variable is usually set for wrangler or Terraform,
+    # so it must not outrank a model vendor's key as the suggested provider.
+    "cloudflare": "CLOUDFLARE_API_TOKEN",
+}
+
+# Settings a provider cannot make a call without that are not its secret.
+# Listed beside the key by `ifixai init` and the setup wizard.
+PROVIDER_COMPANION_ENV_KEYS: dict[str, tuple[str, ...]] = {
+    "cloudflare": ("CLOUDFLARE_ACCOUNT_ID",),
 }
 
 
 def detect_available_providers() -> list[tuple[str, str]]:
+    """Providers whose key and every companion setting are in the environment.
+
+    A key without its companion cannot make a call, so it is not offered as ready.
+    """
     return [
         (provider, env_var)
         for provider, env_var in PROVIDER_ENV_KEYS.items()
         if os.environ.get(env_var)
+        and all(
+            os.environ.get(companion)
+            for companion in PROVIDER_COMPANION_ENV_KEYS.get(provider, ())
+        )
     ]
 
 
@@ -91,7 +108,10 @@ def init(non_interactive: bool) -> None:
         click.echo(click.style("  No provider API keys detected in environment.", fg="yellow"))
         click.echo("  Set one of the following before running tests:")
         for provider, env_var in PROVIDER_ENV_KEYS.items():
-            click.echo(f"    - {env_var}  (for --provider {provider})")
+            required = " + ".join(
+                (env_var, *PROVIDER_COMPANION_ENV_KEYS.get(provider, ()))
+            )
+            click.echo(f"    - {required}  (for --provider {provider})")
         return
 
     click.echo("  Detected provider keys:")
