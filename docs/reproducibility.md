@@ -6,6 +6,8 @@ Every run writes `runs/<run_id>/manifest.json`. It records the exact inputs to t
 
 `fixture_digest` is a SHA-256 over the canonicalised fixture YAML (parsed, keys sorted, JSON-serialised). Value and list-order changes alter it; comments, whitespace, and key order do not.
 
+YAML dates and timestamps in metadata keys and values use ISO strings during canonicalisation, compatible with the fixture model's existing JSON export representation. Conflicting keys that would become the same ISO string are rejected instead of silently overwriting an entry.
+
 ## Run nonce
 
 `run_nonce` is a fresh 16-hex value appended to the system prompt as `[run_id: <nonce>]`, so a provider cannot serve cached replies. The manifest records it in full; exact replay needs it (see below).

@@ -73,10 +73,31 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 | `--concurrency`, `-j` | `5` | Max in-flight LLM requests (1-20). Overrides `IFIXAI_CONCURRENCY`. |
 | `--no-parallel` | off | Alias for `--concurrency 1`. |
 | `--dry-run` | off | Print inspection and judge-call estimates, then exit. |
+| `--no-promo` | off | Skip the [Pro-version offer](#pro-version-offer) and start the run immediately. `IFIXAI_NO_PROMO=1` skips it on every run. |
 | `--reliability-out` | `runs` | Directory for `manifest.json`, one subdir per run. |
 | `--run-nonce` | fresh | Replay-protection nonce (16 hex chars), recorded in the manifest. |
 | `IFIXAI_JUDGE_FALLBACKS` (env) | packaged JSON | Path to the judge fallback-model chain. See [Judge fallback models](#judge-fallback-models). |
 | `--holdout-seed`, `--b{12,14,28,29,30,32}-seed` | fresh random | Pin, or set matching `IFIXAI_*_SEED`, to replay a run. See [reproducibility.md](reproducibility.md). |
+
+## Pro-version offer
+
+The first interactive `ifixai run` on a machine opens with one question: whether you'd like to claim your free fast audit at <https://www.ifixai.ai/>. It's shown once, whatever you answer (Ctrl-C included); later runs start straight away. The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the offer again.
+
+Move with the arrow keys and press Enter:
+
+- **No** (preselected, just press Enter): the run starts.
+- **Yes**: the site opens in your browser, then you pick **Continue the current run** (preselected) or **Abandon the run**. Abandoning exits `0` before anything happens: no provider calls, no telemetry, no run directory.
+
+Ctrl-C on either question aborts without starting the run. Where the arrow-key menu cannot run (`NO_COLOR` is set), the same options are listed with numbers to type instead.
+
+To start immediately, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to skip it on every run:
+
+```bash
+ifixai run --provider openai --no-promo
+export IFIXAI_NO_PROMO=1
+```
+
+The offer is never shown when stdin or stdout is not a terminal (pipes, scripts, agent-driven runs), in CI, or on `--dry-run`, so automated runs are never blocked by it. `--quiet` does not skip it; use `--no-promo`. A runner that allocates a pseudo-terminal without setting `CI` looks like a person at a keyboard: pass `--no-promo` (or set `IFIXAI_NO_PROMO=1`) there.
 
 ## How a run is judged
 
@@ -137,6 +158,6 @@ The SUT's own `--model` is dropped from the chain: a fallback must never turn a 
 Cost and time controls, so a dead judge cannot drain a key or stall a run:
 
 - Judge calls ask OpenRouter for **no reasoning tokens**. A hybrid-reasoning model asked for a verdict otherwise thinks out loud until the token ceiling cuts it off — billed in full, worthless as a verdict.
-- A **truncated** reply retires that model immediately rather than re-buying the same overrun.
+- A **truncated** (cut-off) reply is never re-sent to the same model. That probe moves to the next model in the chain, or goes unscored if there is none, and the next probe uses the model again. Three cut-offs in a row from one model, with no verdict between, retire it.
 - A model that fails is **retired for the rest of the run**. The chain is not re-walked from the dead primary on every grade. Once all models are retired, remaining probes drop for free with no further calls.
 - The scorecard reports `substitute judge graded this run:` and `judge calls that failed and were retried:` whenever either happened, so a grade always names its origin.

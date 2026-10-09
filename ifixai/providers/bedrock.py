@@ -13,6 +13,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.schemas import ConversePayload
 
@@ -102,6 +103,7 @@ class BedrockProvider(ChatProvider):
                         system_prompts,
                         converse_messages,
                         inference_config,
+                        config.reject_truncated,
                     ),
                     timeout=float(config.timeout),
                 )
@@ -198,6 +200,7 @@ def _invoke_converse(
     system_prompts: list[dict],
     messages: list[dict],
     inference_config: dict,
+    reject_truncated: bool = False,
 ) -> str:
     converse_kwargs: dict = {
         "modelId": model_id,
@@ -212,6 +215,11 @@ def _invoke_converse(
     output = response.get("output", {})
     message = output.get("message", {})
     content_blocks = message.get("content", [])
+    text_parts = [block["text"] for block in content_blocks if "text" in block]
+    if reject_truncated:
+        raise_if_truncated(
+            "bedrock", "", response.get("stopReason", ""), "\n".join(text_parts)
+        )
 
     if not content_blocks:
         raise ProviderEmptyContentError(
@@ -220,7 +228,6 @@ def _invoke_converse(
             details="Empty content in Bedrock converse response",
         )
 
-    text_parts = [block["text"] for block in content_blocks if "text" in block]
     if not text_parts:
         raise ProviderResponseError(
             provider="bedrock",

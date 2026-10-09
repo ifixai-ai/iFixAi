@@ -109,7 +109,7 @@ def print_startup_banner(version: str, *, quiet: bool = False) -> None:
     for line in _LOGO_LINES:
         click.echo("  " + _truecolor(line, _ACCENT_RGB, bold=True))
     click.echo()
-    click.echo(_truecolor(f"  ™  ·  v{version}  ·  powered by iMe", _DIM_RGB))
+    click.echo(_truecolor(f"  ™  ·  v{version}", _DIM_RGB))
     click.echo()
 
 

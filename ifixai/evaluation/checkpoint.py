@@ -38,7 +38,7 @@ def load_checkpoint(runs_root: Path, run_id: str) -> dict[str, TestResult]:
         return {}
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         _logger.warning("checkpoint unreadable (%s) — starting fresh", exc)
         return {}
     if not isinstance(raw, dict):

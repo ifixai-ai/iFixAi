@@ -1,30 +1,39 @@
 <p align="center">
-  <img src="docs/assets/ifixai-banner.png" alt="iFixAi" width="200" />
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=masthead">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/ifixai-masthead-dark.svg" />
+      <img src="docs/assets/brand/ifixai-masthead-light.svg" alt="iFixAi: Independent auditing for AI agents" width="440" />
+    </picture>
+  </a>
 </p>
-
-<h1 align="center">iFixAi</h1>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
 </p>
 
-<p align="center"><strong> Independent Auditing of AI Agents </strong></p>
 <p align="center">Catch your agent's mistakes and blind spots before the shit hits the fan.</p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><img alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="300" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" /></a>
+  <a href="https://www.producthunt.com/products/ifixai?embed=true&utm_source=badge-top-post-badge&utm_medium=badge&utm_campaign=badge-ifixai" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" width="250" height="54" /><img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1252633&theme=neutral&period=daily&t=1790752077394" alt="iFixAi - Independent auditing of AI agents to uncover misalignment | Product Hunt" width="48.5%" /></picture></a>
+  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/repositories/29638" width="250" height="55" /><img src="https://trendshift.io/api/badge/repositories/29638" alt="iFixAi on GitHub Trending | Trendshift" width="48.5%" /></picture></a>
+  <br />
+  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Python repository of the day on Trendshift" width="48.5%" /></picture></a>
+  <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="48.5%" /></picture></a>
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/29638" alt="ifixai-ai/iFixAi | Trendshift" width="300" /></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=hero">
+    <picture>
+      <source media="(max-width: 600px)" srcset="docs/assets/brand/hero-audit-phone.svg" width="100%" />
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/hero-audit-dark.svg" />
+      <img src="docs/assets/brand/hero-audit-light.svg" alt="A customer support agent's refund ticket as its evals see it, every check green, then through an iFixAi audit: it hid a fraud flag, paid a refund a manager had declined and changed a payout account without authorisation, while closing the ticket was handled correctly. Illustrative scenario." width="728" />
+    </picture>
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/29638" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — #1 Python repository of the week on Trendshift" width="300" /></a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="ifixai-ai/iFixAi | Trendshift" width="300" /></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=button"><picture><source media="(max-width: 600px)" srcset="docs/assets/brand/button-site.svg" width="48.5%" /><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-site-dark.svg" /><img src="docs/assets/brand/button-site-light.svg" alt="Visit ifixai.ai" height="76" /></picture></a>
+  <a href="https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro#pricing"><picture><source media="(max-width: 600px)" srcset="docs/assets/brand/button-pro.svg" width="45.3%" /><source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/button-pro-dark.svg" /><img src="docs/assets/brand/button-pro-light.svg" alt="iFixAi Pro" height="76" /></picture></a>
 </p>
 
 <p align="center">
@@ -37,17 +46,13 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="license: Apache 2.0" /></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="python 3.10+" /></a>
+  <a href="https://pypi.org/project/ifixai/"><img src="https://img.shields.io/pypi/v/ifixai?logo=pypi&logoColor=white&color=6366f1" alt="PyPI version" /></a>
+  <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
+  <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?style=flat&logo=github&color=6366f1" alt="GitHub stars" /></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-6366f1?logo=python&logoColor=white" alt="Python 3.10+" /></a>
+  <a href="#plugin-claude-code-and-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/inspections-60-orange.svg" alt="60 inspections" />
-  <a href="https://github.com/ifixai-ai/iFixAi/issues?q=is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/github/issues/ifixai-ai/iFixAi/good%20first%20issue?label=good%20first%20issues&color=7057ff" alt="good first issues" /></a>
-</p>
-
-<p align="center">
-  <img src="docs/assets/scorecard-screenshot.png" alt="iFixAi CLI scorecard" width="900" />
-  <br/>
-  <em>One <code>ifixai run</code>, end to end: guided setup picks the system, judge, and suite; the run verifies the connection and saves your config; 32 inspections execute across five pillars; and the result lands as an A–F grade with a scored core-pillar scorecard.</em>
 </p>
 
 ---
@@ -305,6 +310,25 @@ well-governed agent scores materially higher (see [Test your own agent](#test-yo
 Full math and weights: **[docs/scoring.md](docs/scoring.md)**. The full `B01`–`B32` → pillar
 mapping and every premium category: **[docs/inspections.md](docs/inspections.md#categories)**.
 
+## iFixAi Pro
+
+Everything in this repo is our open-source engine. It stays free, with 60 inspections you can run
+on your own infrastructure using your own model keys.
+
+[iFixAi Pro](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=pro-section#pricing) is our independent auditing service for AI agents, with up to 400
+inspections.
+
+Misalignment is complex. It goes beyond cybersecurity, governance, or getting the job done. Our
+multifaceted audit combines AI red teaming, governance, operational assurance, and philosophical,
+ethical, and sociological perspectives to uncover misalignment in your agent’s business context.
+
+You receive two reports: Operational Assurance and Regulatory Compliance. They bring business
+explanations, gap analysis, and technical evidence together, so business, risk, and engineering
+teams can understand the findings, their consequences, and what needs fixing.
+
+Pro also includes the audit dashboard. From the Growth package up, you receive the *Audited by
+iFixAi* badge.
+
 ## Documentation
 
 Docs are sorted by what you came to do. Start in **[docs/](docs/)**:
@@ -337,7 +361,8 @@ Issues and PRs welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)**. Good first i
 ## Contact
 
 Bug reports, features, questions: open a [GitHub issue](https://github.com/ifixai-ai/iFixAi/issues).
-Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **info@ime.life**.
+Security-sensitive reports: **[SECURITY.md](SECURITY.md)**. Anything else: **info@ime.life**, or
+**[ifixai.ai](https://www.ifixai.ai/?utm_source=github&utm_medium=readme&utm_content=contact)**.
 
 ## License
 
