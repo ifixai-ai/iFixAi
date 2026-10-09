@@ -66,6 +66,11 @@ except ImportError:
     CloudflareAIGatewayProvider = None  # type: ignore[assignment,misc]
 
 try:
+    from ifixai.providers.vercel import VercelAIGatewayProvider
+except ImportError:
+    VercelAIGatewayProvider = None  # type: ignore[assignment,misc]
+
+try:
     from ifixai.providers.litellm import LiteLLMProvider
 except ImportError:
     LiteLLMProvider = None
@@ -81,6 +86,7 @@ REGISTERED_PROVIDERS: tuple[str, ...] = (
     "orcarouter",
     "requesty",
     "cloudflare",
+    "vercel",
     "anthropic",
     "gemini",
     "azure",
@@ -104,6 +110,7 @@ _PROVIDER_MAP: dict[str, type] = {
         "orcarouter": OrcaRouterProvider,
         "requesty": RequestyProvider,
         "cloudflare": CloudflareAIGatewayProvider,
+        "vercel": VercelAIGatewayProvider,
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
         "azure": AzureOpenAIProvider,
@@ -185,6 +192,7 @@ _PROVIDER_CREDENTIAL_ENV_VARS: dict[str, tuple[str, ...]] = {
     "orcarouter": ("ORCAROUTER_API_KEY",),
     "requesty": ("REQUESTY_API_KEY",),
     "cloudflare": ("CLOUDFLARE_API_TOKEN",),
+    "vercel": ("AI_GATEWAY_API_KEY",),
     "litellm": ("LITELLM_API_KEY",),
 }
 

@@ -149,6 +149,7 @@ PROVIDER_CHOICES = [
     "orcarouter",
     "requesty",
     "cloudflare",
+    "vercel",
 ]
 
 FORMAT_CHOICES = ["json", "markdown", "both"]

@@ -285,10 +285,10 @@ def b32_not_applicable_warning(
 # Providers that front many vendors behind one name. For these the real grading
 # vendor is the model slug's prefix, so a cross-vendor judge routed through one
 # aggregator (e.g. a Gemini SUT graded by a Claude judge, both via OpenRouter,
-# Requesty or Cloudflare AI Gateway) is recognized as independent instead of
-# mislabeled "self-judge".
+# Requesty, Cloudflare AI Gateway or Vercel AI Gateway) is recognized as
+# independent instead of mislabeled "self-judge".
 _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"openrouter", "orcarouter", "requesty", "cloudflare", "atlascloud", "litellm", "http", "langchain"}
+    {"openrouter", "orcarouter", "requesty", "cloudflare", "vercel", "atlascloud", "litellm", "http", "langchain"}
 )
 
 # Namespaces that sit in front of the author, as in the Workers AI ids

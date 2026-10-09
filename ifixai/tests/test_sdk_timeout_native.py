@@ -19,6 +19,7 @@ ADAPTERS = [
     ("orcarouter", "OrcaRouterProvider", "openai"),
     ("requesty", "RequestyProvider", "openai"),
     ("cloudflare", "CloudflareAIGatewayProvider", "openai"),
+    ("vercel", "VercelAIGatewayProvider", "openai"),
     ("anthropic", "AnthropicProvider", "anthropic"),
 ]
 

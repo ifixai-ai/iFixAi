@@ -21,7 +21,7 @@ ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
 
 | Flag | Default | Does |
 |---|---|---|
-| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `orcarouter`, `requesty`, `cloudflare`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
+| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `orcarouter`, `requesty`, `cloudflare`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
 | `--api-key`, `-k` | none | SUT API key. Always passed explicitly, never read from the environment. |
 | `--model`, `-m` | provider default | Model identifier override. |
 | `--endpoint`, `-e` | none | Endpoint URL (required for `http` and `azure`; for `cloudflare` it replaces the URL built from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_GATEWAY_ID`). |
