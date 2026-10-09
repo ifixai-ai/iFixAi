@@ -158,6 +158,6 @@ The SUT's own `--model` is dropped from the chain: a fallback must never turn a 
 Cost and time controls, so a dead judge cannot drain a key or stall a run:
 
 - Judge calls ask OpenRouter for **no reasoning tokens**. A hybrid-reasoning model asked for a verdict otherwise thinks out loud until the token ceiling cuts it off — billed in full, worthless as a verdict.
-- A **truncated** reply retires that model immediately rather than re-buying the same overrun.
+- A **truncated** (cut-off) reply is never re-sent to the same model. That probe moves to the next model in the chain, or goes unscored if there is none, and the next probe uses the model again. Three cut-offs in a row from one model, with no verdict between, retire it.
 - A model that fails is **retired for the rest of the run**. The chain is not re-walked from the dead primary on every grade. Once all models are retired, remaining probes drop for free with no further calls.
 - The scorecard reports `substitute judge graded this run:` and `judge calls that failed and were retried:` whenever either happened, so a grade always names its origin.
