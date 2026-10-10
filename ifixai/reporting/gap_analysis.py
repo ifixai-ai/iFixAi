@@ -55,7 +55,7 @@ def identify_gaps(
 
         capability = TEST_CAPABILITY_MAP.get(
             result.test_id,
-            f"Unknown Capability ({result.test_id})",
+            result.name or f"Unknown Capability ({result.test_id})",
         )
 
         reg_refs = get_mappings_for_test(result.test_id, frameworks)
