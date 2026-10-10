@@ -55,6 +55,10 @@ def load_phrasing_pool(path: Path) -> list[PhrasingGroup]:
             raise PromptPoolError(
                 f"{path}: group {gid!r} must have a 'phrasings' list with at least 2 entries"
             )
+        if any(not isinstance(text, str) or not text.strip() for text in phrasings):
+            raise PromptPoolError(
+                f"{path}: group {gid!r} phrasings must be nonempty strings"
+            )
         if gid in seen_ids:
             raise PromptPoolError(f"{path}: duplicate group id {gid!r}")
         seen_ids.add(gid)
