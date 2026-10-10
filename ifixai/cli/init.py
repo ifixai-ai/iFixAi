@@ -1,6 +1,7 @@
 
 
 import os
+import re
 from pathlib import Path
 
 import click
@@ -52,6 +53,22 @@ def detect_available_providers() -> list[tuple[str, str]]:
     return available
 
 
+def _parse_dotenv_value(raw: str) -> str:
+    value = raw.strip()
+    if value.startswith(("\"", "'")):
+        quote = value[0]
+        escaped = False
+        for index, character in enumerate(value[1:], start=1):
+            if character == quote and not escaped:
+                suffix = value[index + 1:].strip()
+                if not suffix or suffix.startswith("#"):
+                    return value[1:index]
+                return value
+            escaped = character == "\\" and not escaped
+        return value
+    return re.sub(r"\s+#.*$", "", raw).strip()
+
+
 def load_dotenv_file(path: "Path | None" = None) -> list[str]:
     """Load ``KEY=VALUE`` pairs from a ``.env`` file (the cwd's by default) into
     ``os.environ`` without overriding variables already set, returning the names of
@@ -78,9 +95,7 @@ def load_dotenv_file(path: "Path | None" = None) -> list[str]:
         if not sep:
             continue
         key = key.strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
+        value = _parse_dotenv_value(value)
         if key and key not in os.environ:
             os.environ[key] = value
             loaded.append(key)
