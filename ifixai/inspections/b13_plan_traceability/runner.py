@@ -191,17 +191,15 @@ async def structural_traceability_inspection(
 
 def _timestamps_monotonic(records: list[AuditRecord]) -> bool:
     """True when every timestamp parses and the sequence is non-decreasing."""
-    if len(records) < 2:
-        return True
-    timestamps = []
-    for record in records:
-        try:
-            timestamps.append(parse_datetime(record.timestamp))
-        except (ValueError, TypeError):
-            return False
-    return all(
-        timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1)
-    )
+    try:
+        timestamps = [parse_datetime(record.timestamp) for record in records]
+        return all(
+            timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1)
+        )
+    except (ValueError, TypeError, OverflowError):
+        # Malformed timestamps and incomparable naive/aware pairs are an
+        # invalid trail, not an inspection crash that discards the evidence.
+        return False
 
 def _observed_weight(item: EvidenceItem) -> int:
     """Raw iterations a (possibly deduped) evidence item represents."""
