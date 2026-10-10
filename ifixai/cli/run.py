@@ -464,12 +464,14 @@ def _validate_min_score(ctx: click.Context, param: click.Parameter, value: float
 @click.option(
     "--output",
     "-o",
+    type=click.Path(file_okay=False, readable=False),
     default="./ifixai-results/",
     show_default=True,
     help="Directory to save reports.",
 )
 @click.option(
     "--artifact-out",
+    type=click.Path(dir_okay=False, readable=False),
     default=None,
     help="Also write the self-contained interactive HTML scorecard to this path.",
 )
