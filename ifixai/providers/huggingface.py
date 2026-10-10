@@ -6,10 +6,12 @@ if TYPE_CHECKING:
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
+    RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
     ProviderAuthError,
     ProviderConnectionError,
     ProviderEmptyContentError,
+    ProviderOverloadedError,
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
@@ -40,6 +42,25 @@ except ImportError:
 else:
     _TRANSPORT_TIMEOUTS += (TimeoutException,)
     _TRANSPORT_CONNECTION_ERRORS += (NetworkError, ProxyError, RemoteProtocolError)
+# huggingface_hub 2.x uses the separately packaged httpx2 transport.
+try:
+    from httpx2 import (
+        NetworkError as NetworkError2,
+    )
+    from httpx2 import (
+        ProxyError as ProxyError2,
+    )
+    from httpx2 import (
+        RemoteProtocolError as RemoteProtocolError2,
+    )
+    from httpx2 import (
+        TimeoutException as TimeoutException2,
+    )
+except ImportError:
+    pass
+else:
+    _TRANSPORT_TIMEOUTS += (TimeoutException2,)
+    _TRANSPORT_CONNECTION_ERRORS += (NetworkError2, ProxyError2, RemoteProtocolError2)
 try:
     from requests.exceptions import ConnectionError as RequestsConnectionError
     from requests.exceptions import Timeout as RequestsTimeout
@@ -120,6 +141,13 @@ class HuggingFaceProvider(ChatProvider):
 
                 if status_code == 503:
                     raise ProviderConnectionError(
+                        provider="huggingface",
+                        endpoint=endpoint,
+                        details=str(exc),
+                    ) from exc
+
+                if status_code in RETRYABLE_HTTP_STATUS_CODES:
+                    raise ProviderOverloadedError(
                         provider="huggingface",
                         endpoint=endpoint,
                         details=str(exc),
