@@ -1,3 +1,5 @@
+import asyncio
+
 from ifixai.core.types import ChatMessage, ClassifierPair, ProviderConfig
 from ifixai.judge.config import JudgeConfig, JudgeProviderSpec
 from ifixai.providers.base import ChatProvider
@@ -153,8 +155,13 @@ class EnsembleJudgeEvaluator:
         }
 
     async def aclose(self) -> None:
-        for evaluator in self._evaluators:
-            await evaluator.aclose()
+        outcomes = await asyncio.gather(
+            *(evaluator.aclose() for evaluator in self._evaluators),
+            return_exceptions=True,
+        )
+        for outcome in outcomes:
+            if isinstance(outcome, BaseException):
+                raise outcome
 
 
 def merge_counts(
