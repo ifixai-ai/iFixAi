@@ -475,7 +475,9 @@ def setup(ctx: click.Context) -> None:
                 )
             )
         click.echo()
-        subprocess.run(cmd)
+        result = subprocess.run(cmd)
+        if result.returncode:
+            raise SystemExit(result.returncode)
     else:
         click.echo(click.style("When you're ready:", bold=True))
         click.echo(click.style("  ifixai run", fg="cyan"))
