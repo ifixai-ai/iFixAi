@@ -15,6 +15,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    is_fatal_provider_error,
 )
 from ifixai.providers.secrets import scrub_secrets
 
@@ -262,6 +263,8 @@ class MiniMaxProvider(ChatProvider):
                 ProviderRateLimitError,
                 ProviderTimeoutError,
             ) as exc:
+                if is_fatal_provider_error(exc):
+                    raise
                 last_error = exc
                 if attempt == config.max_retries:
                     raise
@@ -299,7 +302,7 @@ class MiniMaxProvider(ChatProvider):
                     raise ProviderRateLimitError(
                         provider="minimax",
                         endpoint=endpoint,
-                        details="HTTP 429: rate limited",
+                        details=f"HTTP 429: {scrub_secrets(body[:500])}",
                     )
                 if response.status in RETRYABLE_HTTP_STATUS_CODES:
                     raise ProviderOverloadedError(
