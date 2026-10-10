@@ -36,10 +36,15 @@ async def bounded_gather(
 ) -> list[T]:
     """Run independent cells concurrently under a width cap; results in input order.
 
+    A non-positive width is rejected and never-started cell coroutines are closed.
+
     `gather` schedules every coroutine as a task up front, so nothing is left un-awaited on
     failure; the semaphore only staggers when each body runs. A CANCELLED sweep is the
     exception, and `close_unstarted` handles it.
     """
+    if limit <= 0:
+        close_unstarted(calls)
+        raise ValueError("limit must be positive")
     semaphore = asyncio.Semaphore(limit)
     try:
         outcomes = await asyncio.gather(
