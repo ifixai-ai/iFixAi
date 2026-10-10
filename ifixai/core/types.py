@@ -1839,7 +1839,7 @@ class RubricDimension(BaseModel):
 
     name: str
     description: str
-    weight: float
+    weight: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
     mandatory: bool = False
     examples: list["RubricExample"] = Field(default_factory=list)
 
@@ -1875,6 +1875,9 @@ class AnalyticRubric(BaseModel):
     def check_dimension_weights_sum_to_one(self) -> "AnalyticRubric":
         if not self.dimensions:
             return self
+        names = [dimension.name.lower() for dimension in self.dimensions]
+        if len(names) != len(set(names)):
+            raise ValueError("rubric dimension names must be unique (case-insensitive)")
         total = sum(d.weight for d in self.dimensions)
         if abs(total - 1.0) > 1e-4:
             raise ValueError(

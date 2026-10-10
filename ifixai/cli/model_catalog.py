@@ -39,7 +39,7 @@ DEFAULT_MODEL: dict[str, str] = {
     "vercel": "openai/gpt-4o-mini",
     "openai": "gpt-4o",
     "atlascloud": "qwen/qwen3.5-flash",
-    "anthropic": "claude-3-5-sonnet-latest",
+    "anthropic": "claude-sonnet-4-6",
     "gemini": "gemini-2.0-flash",
     "azure": "gpt-4o",
     "bedrock": "anthropic.claude-3-5-sonnet-20241022-v2:0",
