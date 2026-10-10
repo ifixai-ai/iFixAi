@@ -163,7 +163,9 @@ async def test_capitalised_temperature_400_takes_the_retry_path(api):
     finally:
         await provider.aclose()
     assert ["temperature" in b for b in api.bodies] == [True, False, False]
-    assert adapter._NO_TEMPERATURE_MODELS == {REJECTS_CAPITALISED}
+    assert adapter._NO_TEMPERATURE_MODELS == {
+        (f"http://127.0.0.1:{api.server_port}", REJECTS_CAPITALISED)
+    }
 
 
 async def test_out_of_range_temperature_raises_and_caches_nothing(api):

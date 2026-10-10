@@ -25,9 +25,9 @@ ClientCacheKey = tuple[str | None, str | None, float]
 
 _logger = logging.getLogger(__name__)
 
-# Models whose API rejected temperature. Process-wide so the SUT, the judge and the
-# connection check share it: one 400 and one warning per model per run.
-_NO_TEMPERATURE_MODELS: set[str] = set()
+# Endpoint/model pairs whose API rejected temperature. Process-wide so the SUT,
+# judge and connection check share learned support only for the same API.
+_NO_TEMPERATURE_MODELS: set[tuple[str, str]] = set()
 
 
 class AnthropicProvider(ChatProvider):
@@ -180,7 +180,8 @@ async def _create_message(
     # SDK 1.x dropped the temperature kwarg, so it rides in extra_body. Newer
     # models 400 on any temperature: retry once without it and remember the model.
     model = kwargs["model"]
-    if model not in _NO_TEMPERATURE_MODELS:
+    capability_key = (str(client.base_url).rstrip("/"), model)
+    if capability_key not in _NO_TEMPERATURE_MODELS:
         try:
             return await client.messages.create(
                 **kwargs, extra_body={"temperature": temperature}
@@ -189,8 +190,8 @@ async def _create_message(
             # Outside 0..1 the 400 is our bad value, not a model that refuses temperature.
             if not 0 <= temperature <= 1 or "temperature" not in str(exc).lower():
                 raise
-            if model not in _NO_TEMPERATURE_MODELS:
-                _NO_TEMPERATURE_MODELS.add(model)
+            if capability_key not in _NO_TEMPERATURE_MODELS:
+                _NO_TEMPERATURE_MODELS.add(capability_key)
                 _logger.warning(
                     "%s rejects temperature; it runs at the model's default temperature",
                     model,
