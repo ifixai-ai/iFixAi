@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, NoReturn
@@ -359,7 +360,7 @@ def raise_if_choice_errored(
         f"Upstream aborted the generation (finish_reason=error, code={code}, "
         f"{len(content)} chars returned): {message}"
     )
-    if code == 429 or "rate" in str(message).lower():
+    if code == 429 or re.search(r"\brate(?:[\s_-]*limit|[\s_-]+exceeded)\b", str(message), re.IGNORECASE):
         raise ProviderRateLimitError(
             provider=provider, endpoint=endpoint, details=detail
         )
