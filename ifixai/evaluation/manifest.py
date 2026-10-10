@@ -281,8 +281,10 @@ def verify_run_id(manifest: RunManifest) -> bool:
     exclude: set[str] = set(_RUN_ID_EXCLUDE_FIELDS)
     if manifest.schema_version < 4:
         exclude.add("sut_context_digest")
-    if manifest.schema_version < 3:
+    if manifest.schema_version < 2:
         exclude.update(_LEGACY_V1_EXTRA_EXCLUDE)
+    elif manifest.schema_version < 3:
+        exclude.update({"b29_seed", "b32_seed", "b29_seed_pinned", "b32_seed_pinned"})
     payload = manifest.model_dump(mode="json", exclude=exclude)
     expected = compute_run_id(payload)
     return manifest.run_id == expected
