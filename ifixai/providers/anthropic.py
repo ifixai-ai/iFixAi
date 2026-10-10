@@ -122,7 +122,7 @@ class AnthropicProvider(ChatProvider):
                         details="Empty content in response",
                     )
 
-                if not text_parts:
+                if not any(text_parts):
                     raise ProviderEmptyContentError(
                         provider="anthropic",
                         endpoint=endpoint,
