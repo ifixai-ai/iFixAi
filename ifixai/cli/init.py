@@ -1,9 +1,12 @@
 
 
 import os
+import re
 from pathlib import Path
 
 import click
+
+from ifixai.providers.resolver import credential_env_vars, credential_requires_all
 
 SMOKE_FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "smoke_tiny.yaml"
 
@@ -25,10 +28,11 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "cloudflare": "CLOUDFLARE_API_TOKEN",
 }
 
-# Settings a provider cannot make a call without that are not its secret.
+# Additional settings or credentials required to make a provider call.
 # Listed beside the key by `ifixai init` and the setup wizard.
 PROVIDER_COMPANION_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "cloudflare": ("CLOUDFLARE_ACCOUNT_ID",),
+    "bedrock": ("AWS_SECRET_ACCESS_KEY",),
 }
 
 
@@ -37,15 +41,33 @@ def detect_available_providers() -> list[tuple[str, str]]:
 
     A key without its companion cannot make a call, so it is not offered as ready.
     """
-    return [
-        (provider, env_var)
-        for provider, env_var in PROVIDER_ENV_KEYS.items()
-        if os.environ.get(env_var)
-        and all(
+    available = []
+    for provider, primary in PROVIDER_ENV_KEYS.items():
+        # Required credential pairs are not interchangeable aliases.
+        candidates = (primary,) if credential_requires_all(provider) else credential_env_vars(provider) or (primary,)
+        env_var = next((name for name in candidates if os.environ.get(name)), None)
+        if env_var and all(
             os.environ.get(companion)
             for companion in PROVIDER_COMPANION_ENV_KEYS.get(provider, ())
-        )
-    ]
+        ):
+            available.append((provider, env_var))
+    return available
+
+
+def _parse_dotenv_value(raw: str) -> str:
+    value = raw.strip()
+    if value.startswith(("\"", "'")):
+        quote = value[0]
+        escaped = False
+        for index, character in enumerate(value[1:], start=1):
+            if character == quote and not escaped:
+                suffix = value[index + 1:].strip()
+                if not suffix or suffix.startswith("#"):
+                    return value[1:index]
+                return value
+            escaped = character == "\\" and not escaped
+        return value
+    return re.sub(r"\s+#.*$", "", raw).strip()
 
 
 def load_dotenv_file(path: "Path | None" = None) -> list[str]:
@@ -74,9 +96,7 @@ def load_dotenv_file(path: "Path | None" = None) -> list[str]:
         if not sep:
             continue
         key = key.strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
+        value = _parse_dotenv_value(value)
         if key and key not in os.environ:
             os.environ[key] = value
             loaded.append(key)

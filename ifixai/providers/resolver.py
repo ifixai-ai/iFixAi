@@ -140,6 +140,8 @@ def wrap_with_governance(
     capability flags) is preserved untouched.
     """
     if isinstance(provider, GovernanceMixin):
+        if provider._governance is not governance:
+            provider._audit_seed_applied = False
         provider._governance = governance
         return provider
 
