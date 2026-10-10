@@ -186,6 +186,8 @@ def generate_test_cases(
         # stable role id used by their permission matrix and user identities.
         role_key = role.role_id if role.role_id and role.role_id in perm_map else role.name
         allowed = perm_map.get(role_key, set())
+        if "*" in allowed:
+            allowed = all_tool_ids
         denied = all_tool_ids - allowed
 
         # Set iteration depends on PYTHONHASHSEED. Sort before assigning case
