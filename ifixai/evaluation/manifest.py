@@ -19,7 +19,7 @@ _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 _ZERO_SHA256 = "0" * 64
 _RUN_NONCE_RE = re.compile(r"^[0-9a-f]{16}$")
 _EMPTY_RUN_NONCE = ""
-CURRENT_MANIFEST_SCHEMA_VERSION = 4
+CURRENT_MANIFEST_SCHEMA_VERSION = 5
 LEGACY_MANIFEST_SCHEMA_VERSION = 1
 
 _logger = logging.getLogger(__name__)
@@ -69,6 +69,8 @@ class RunManifest(BaseModel):
     schema_version: int = Field(default=CURRENT_MANIFEST_SCHEMA_VERSION, ge=1)
     run_nonce: str = Field(default=_EMPTY_RUN_NONCE)
     sut_context_digest: str | None = None
+    evaluation_mode: str | None = None
+    judge_budget: int = Field(default=0, ge=0)
     mode: RunMode
     model_under_test: ModelDescriptor
     judge_models: list[ModelDescriptor] = Field(default_factory=list)
@@ -185,6 +187,8 @@ def build_manifest(
     b29_seed_pinned: bool = False,
     b32_seed_pinned: bool = False,
     sut_context_digest: str | None = None,
+    evaluation_mode: str | None = None,
+    judge_budget: int = 0,
 ) -> RunManifest:
     if judge_models and model_under_test.model_id in {j.model_id for j in judge_models}:
         raise ValueError(
@@ -200,6 +204,8 @@ def build_manifest(
         "schema_version": CURRENT_MANIFEST_SCHEMA_VERSION,
         "run_nonce": effective_run_nonce,
         "sut_context_digest": sut_context_digest,
+        "evaluation_mode": evaluation_mode,
+        "judge_budget": judge_budget,
         "mode": mode.value,
         "model_under_test": model_under_test.model_dump(),
         "judge_models": [j.model_dump() for j in judge_models],
@@ -241,6 +247,8 @@ def build_manifest(
         schema_version=CURRENT_MANIFEST_SCHEMA_VERSION,
         run_nonce=effective_run_nonce,
         sut_context_digest=sut_context_digest,
+        evaluation_mode=evaluation_mode,
+        judge_budget=judge_budget,
         holdout_seed=holdout_seed,
         holdout_ids=holdout_ids or {},
         b29_seed=b29_seed,
@@ -279,6 +287,8 @@ def build_manifest(
 
 def verify_run_id(manifest: RunManifest) -> bool:
     exclude: set[str] = set(_RUN_ID_EXCLUDE_FIELDS)
+    if manifest.schema_version < 5:
+        exclude.update({"evaluation_mode", "judge_budget"})
     if manifest.schema_version < 4:
         exclude.add("sut_context_digest")
     if manifest.schema_version < 3:

@@ -1,0 +1,34 @@
+{
+  "mode": "standard",
+  "model_under_test": {
+    "provider": "mock",
+    "model_id": "owned",
+    "version": "1",
+    "family": null
+  },
+  "judge_models": [],
+  "judge_temperature": 0.0,
+  "judge_identity": null,
+  "normalizer_version": "1",
+  "test_versions": {
+    "B07": "1"
+  },
+  "rubric_hashes": {},
+  "fixture_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "governance_fixture_digest": null,
+  "governance_source": null,
+  "seed": null,
+  "mode_filter": [],
+  "strict_structured": false,
+  "b12_seed": 20260422,
+  "b14_seed": 20260422,
+  "b28_seed": 20260422,
+  "b30_seed": 20260422,
+  "sut_temperature": 0.0,
+  "sut_seed": null,
+  "effective_sut_temperature": 0.0,
+  "effective_sut_seed": null,
+  "seed_supported_by_provider": true,
+  "run_id": "efef57047e38b9c0",
+  "timestamp": "2026-10-01T00:00:00Z"
+}

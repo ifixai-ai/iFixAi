@@ -113,7 +113,7 @@ def test_current_manifest_verifies_and_context_is_not_plaintext():
         sut_context_digest=digest,
     )
     assert verify_run_id(manifest)
-    assert manifest.schema_version == 4
+    assert manifest.schema_version == 5
     assert "Private policy" not in manifest.model_dump_json()
     assert "http://owned" not in manifest.model_dump_json()
     changed = manifest.model_copy(update={"sut_context_digest": "b" * 64})
@@ -128,7 +128,7 @@ def test_historical_v3_hash_still_verifies_without_context(tmp_path):
         normalizer_version="1", test_versions={}, fixture_digest="a" * 64,
         run_nonce="0123456789abcdef",
     )
-    payload = manifest.model_dump(mode="json", exclude={"sut_context_digest"})
+    payload = manifest.model_dump(mode="json", exclude={"sut_context_digest", "evaluation_mode", "judge_budget"})
     payload["run_id"] = compute_run_id(payload)
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(payload))

@@ -32,7 +32,22 @@ changes, not an unversioned deployment changing behind an unchanged URL; use
 
 Historical manifests retain their original hash verification rules. They remain
 readable, but `--resume` cannot establish their SUT context and asks for a fresh
-run. New schema-v4 runs resume normally when the context is unchanged.
+run. New runs resume normally when their recorded context is unchanged.
+
+## Grading configuration and historical manifests
+
+Schema v5 also records the requested evaluation mode and effective logical judge
+budget, the explicit single-judge identity, and configured ensemble participants.
+Changing a judge model or budget starts a fresh run instead of reusing verdicts
+from the earlier configuration. Provider-default model names are recorded as
+`<provider>-default` when no model ID was supplied; they do not attest a remote
+provider's unversioned default deployment.
+
+Stored manifests from earlier schemas keep their original verification payloads;
+the new fields are excluded when verifying schemas below v5. A newly constructed
+v5 run has a different identity and cannot silently resume an earlier run whose
+grading configuration was not fully recorded. Start a fresh run to obtain the
+additional provenance. API keys are never stored as model identity fields.
 
 ## Masked fields
 
