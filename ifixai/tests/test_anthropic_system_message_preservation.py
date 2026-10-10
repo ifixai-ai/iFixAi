@@ -2,7 +2,9 @@ import pytest
 from aiohttp import web
 
 from ifixai.core.types import ChatMessage, ProviderConfig
-from ifixai.providers.anthropic import AnthropicProvider
+
+adapter = pytest.importorskip("ifixai.providers.anthropic")
+AnthropicProvider = adapter.AnthropicProvider
 
 
 @pytest.mark.asyncio
