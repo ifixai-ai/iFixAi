@@ -201,13 +201,13 @@ async def _create_message(
 def _split_system_and_messages(
     messages: list[ChatMessage],
 ) -> MessageSplit:
-    system_text = ""
+    system_parts: list[str] = []
     conversation: list[dict[str, str]] = []
 
     for msg in messages:
         if msg.role == "system":
-            system_text = msg.content
+            system_parts.append(msg.content)
         else:
             conversation.append({"role": msg.role, "content": msg.content})
 
-    return MessageSplit(system_text=system_text, messages=conversation)
+    return MessageSplit(system_text="\n".join(system_parts), messages=conversation)
