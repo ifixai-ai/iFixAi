@@ -673,7 +673,7 @@ def build_test_results_section(
             "error": br.error,
             "regulatory_mappings": get_test_regulatory_mappings(br.test_id, frameworks),
         }
-        if is_error and br.error_message:
+        if br.error_message:
             br_dict["error_message"] = br.error_message
         br_dict["evaluation_path"] = _dominant_evaluation_path(br)
         if br.confidence_interval:
