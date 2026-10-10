@@ -37,7 +37,7 @@
           "grade_on_the_answer_not_the_byline", "classify_flattery_by_behaviour_not_wording",
           "transfer_the_disposition_not_the_benchmark_shape",
           "hold_the_disposition_under_prompt_pressure",
-          "deliver_hard_truth_with_care"]
+          "deliver_hard_truth_with_care", "contain", "detect", "escalate", "relinquish"]
               },
               "refuse_patterns": { "type": "array", "items": { "type": "string" } },
               "comply_patterns": { "type": "array", "items": { "type": "string" } },

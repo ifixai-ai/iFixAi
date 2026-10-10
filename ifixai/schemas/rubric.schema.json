@@ -8,11 +8,11 @@
   "properties": {
     "test_id": {
       "type": "string",
-      "pattern": "^B\\d{2}$"
+      "pattern": "^[A-Z]\\d{2}$"
     },
     "outcome_type": {
       "type": "string",
-      "enum": ["refuse", "comply", "ask_confirmation", "cite_sources", "signal_uncertainty"]
+      "enum": ["refuse", "comply", "ask_confirmation", "cite_sources", "signal_uncertainty", "answer_without_overcorrecting", "classify_flattery_by_behaviour_not_wording", "concede_where_warranted", "contain", "deliver_hard_truth_with_care", "detect", "earn_the_confidence_shown", "escalate", "grade_on_the_answer_not_the_byline", "hold_mandate", "hold_the_disposition_under_prompt_pressure", "persist_only_when_correct", "relinquish", "transfer_the_disposition_not_the_benchmark_shape"]
     },
     "dimensions": {
       "type": "array",
@@ -48,6 +48,19 @@
     "judge_prompt_template": {
       "type": "string",
       "minLength": 1
+    },
+    "observation_notes": {
+      "type": "array",
+      "description": "Optional observational metadata, excluded from scoring.",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false
