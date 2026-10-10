@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import os
+from types import SimpleNamespace
 from typing import Any
 
 import aiohttp
@@ -17,6 +18,7 @@ from ifixai.providers.base import (
     ProviderResponseError,
     ProviderTimeoutError,
     is_fatal_provider_error,
+    raise_if_choice_errored,
     raise_if_truncated,
 )
 from ifixai.providers.secrets import scrub_secrets
@@ -239,6 +241,12 @@ class HttpProvider(ChatProvider):
         first = choices[0]
         message = first.get("message") if isinstance(first, dict) else None
         content = message.get("content") if isinstance(message, dict) else None
+        if isinstance(first, dict) and isinstance(first.get("finish_reason"), str):
+            raise_if_choice_errored(
+                "http", endpoint,
+                SimpleNamespace(finish_reason=first["finish_reason"], error=first.get("error")),
+                content if isinstance(content, str) else "",
+            )
         if reject_truncated and isinstance(first, dict):
             finish_reason = first.get("finish_reason")
             if isinstance(finish_reason, str):
