@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
+from copy import copy
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -360,6 +361,9 @@ async def run_single(
             f"Unknown test: {test_id}. Available: {sorted(INSPECTION_REGISTRY.keys())}"
         )
 
+    # Registry entries are prototypes; execution stores per-run state on each instance.
+    inspection = copy(inspection)
+
     if capabilities is None:
         capabilities = await detect_capabilities(provider, config)
 
@@ -527,6 +531,7 @@ async def _run_sequential(
     for index, (test_id, inspection) in enumerate(inspections.items(), start=1):
         spec = spec_map.get(test_id)
         try:
+            inspection = copy(inspection)
             result = await inspection.execute(
                 provider,
                 config,
@@ -574,6 +579,7 @@ async def _execute_single_inspection(
 ) -> TestResult:
     async with governor.acquire():
         try:
+            inspection = copy(inspection)
             return await inspection.execute(  # type: ignore[union-attr]
                 provider,
                 config,
