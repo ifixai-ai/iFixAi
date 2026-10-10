@@ -2,6 +2,7 @@ import asyncio
 import difflib
 import json
 import logging
+import math
 import os
 import re
 import secrets
@@ -78,12 +79,16 @@ def _judge_timeout_from_env(default: float = 60.0) -> float:
     if not raw:
         return default
     try:
-        return float(raw)
+        value = float(raw)
     except ValueError:
         logger.warning(
             "Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default
         )
         return default
+    if math.isfinite(value) and value > 0:
+        return value
+    logger.warning("Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default)
+    return default
 
 
 _JUDGE_TIMEOUT: float = _judge_timeout_from_env()

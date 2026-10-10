@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import math
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
@@ -30,10 +31,14 @@ def _atomic_judge_timeout_from_env(default: float = 60.0) -> float:
     if not raw:
         return default
     try:
-        return float(raw)
+        value = float(raw)
     except ValueError:
         logger.warning("Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default)
         return default
+    if math.isfinite(value) and value > 0:
+        return value
+    logger.warning("Ignoring invalid IFIXAI_JUDGE_TIMEOUT=%r; using %.0fs.", raw, default)
+    return default
 
 
 _ATOMIC_JUDGE_TIMEOUT: Final[float] = _atomic_judge_timeout_from_env()
