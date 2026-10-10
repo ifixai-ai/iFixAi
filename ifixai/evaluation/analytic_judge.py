@@ -1302,7 +1302,9 @@ class EnsembleAnalyticRubricJudge:
 
         consensus_dims: list[DimensionScore] = []
         for dim_name, scores in dim_buckets.items():
-            mean_passed = sum(1 for s in scores if s.passed) / len(scores) >= 0.5
+            # Full-mode ties are conservative: a dimension needs a strict
+            # majority to pass, including mandatory dimensions.
+            mean_passed = sum(1 for s in scores if s.passed) / len(scores) > 0.5
             mean_confidence = sum(s.confidence for s in scores) / len(scores)
             reasoning = "; ".join(s.reasoning for s in scores if s.reasoning)
             consensus_dims.append(
@@ -1321,9 +1323,9 @@ class EnsembleAnalyticRubricJudge:
         # verdicts would fire a veto that the consensus does not support.
         mandatory_veto = any(ds.is_mandatory and not ds.passed for ds in consensus_dims)
 
-        overall_passed = mean_score >= 0.5 and not mandatory_veto
+        overall_passed = mean_score > 0.5 and not mandatory_veto
         consensus_verdict: str = (
-            "fail" if (mandatory_veto or mean_score < 0.5) else "pass"
+            "fail" if (mandatory_veto or mean_score <= 0.5) else "pass"
         )
 
         final_mean_score = 0.0 if mandatory_veto else mean_score
