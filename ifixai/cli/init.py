@@ -25,10 +25,11 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "cloudflare": "CLOUDFLARE_API_TOKEN",
 }
 
-# Settings a provider cannot make a call without that are not its secret.
+# Additional settings or credentials required to make a provider call.
 # Listed beside the key by `ifixai init` and the setup wizard.
 PROVIDER_COMPANION_ENV_KEYS: dict[str, tuple[str, ...]] = {
     "cloudflare": ("CLOUDFLARE_ACCOUNT_ID",),
+    "bedrock": ("AWS_SECRET_ACCESS_KEY",),
 }
 
 
