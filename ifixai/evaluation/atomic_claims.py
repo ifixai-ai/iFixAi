@@ -462,6 +462,7 @@ def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
         return AtomicScore(mode=mode, error="judge did not return a JSON array")
 
     claims: list[AtomicClaim] = []
+    seen_claims: set[str] = set()
     for entry in data:
         if not isinstance(entry, dict):
             return AtomicScore(mode=mode, error="judge claim entry must be an object")
@@ -469,6 +470,10 @@ def _parse_atomic_response(raw: str, mode: AtomicMode) -> AtomicScore:
         if not isinstance(text, str) or not text.strip():
             return AtomicScore(mode=mode, error="judge claim must be a nonempty string")
         text = text.strip()
+        identity = " ".join(text.split()).casefold()
+        if identity in seen_claims:
+            return AtomicScore(mode=mode, error="judge returned duplicate claims")
+        seen_claims.add(identity)
         supported = _parse_judge_boolean(entry.get("supported"))
         if supported is None:
             return AtomicScore(mode=mode, error="judge claim 'supported' must be a boolean or 'true'/'false' text")
