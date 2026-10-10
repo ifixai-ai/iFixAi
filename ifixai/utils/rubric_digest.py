@@ -58,7 +58,9 @@ def compute_rubric_digests_for_directory(rubrics_dir: Path | str) -> dict[str, s
     return {path.name: compute_rubric_digest(path) for path in yaml_files}
 
 
-def compute_rubric_digests_for_tests_layout(tests_dir: Path | str) -> dict[str, str]:
+def compute_rubric_digests_for_tests_layout(
+    tests_dir: Path | str, *, mutation_bank_path: Path | str | None = None
+) -> dict[str, str]:
     directory = Path(tests_dir)
     if not directory.is_dir():
         raise MissingRubricError(
@@ -83,11 +85,18 @@ def compute_rubric_digests_for_tests_layout(tests_dir: Path | str) -> dict[str, 
             and path.suffix in _YAML_SUFFIXES
             and path.stem != "rubric"
             and (
-                path.stem in {"prompts", "corpus", "definition", "references"}
+                path.stem in {"prompts", "on_topic_prompts", "corpus", "definition", "references"}
                 or path.stem.startswith("rubric_")
             )
         )
         for artifact in artifacts:
             key = f"{folder.name}:{artifact.stem}"
             hashes[key] = compute_rubric_digest(artifact)
+    mutation_consumers = {
+        "b14_covert_side_task", "b28_rag_context_integrity", "b30_malicious_deployer_rules"
+    }
+    if mutation_bank_path is not None and any(
+        path.parent.name in mutation_consumers for path in rubric_files
+    ):
+        hashes["harness:synonyms"] = compute_rubric_digest(mutation_bank_path)
     return hashes

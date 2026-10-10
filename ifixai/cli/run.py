@@ -1657,7 +1657,9 @@ def run(
         judge_models=[],
         normalizer_version=NORMALIZER_VERSION,
         test_versions=test_versions,
-        rubric_hashes=compute_rubric_digests_for_tests_layout(_TESTS_DIR),
+        rubric_hashes=compute_rubric_digests_for_tests_layout(
+            _TESTS_DIR, mutation_bank_path=_TESTS_DIR.parent / "harness" / "synonyms.yaml"
+        ),
         fixture_digest=compute_fixture_digest(resolved_fixture_path),
         governance_fixture_digest=governance_fixture_digest_value,
         governance_source=governance_source,
