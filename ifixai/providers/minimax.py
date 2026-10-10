@@ -196,7 +196,9 @@ def _extract_response_text(
     if api_style == "messages":
         blocks = data.get("content")
         if not isinstance(blocks, list):
-            blocks = []
+            raise ProviderResponseError(
+                provider="minimax", endpoint=endpoint, details="Response content must be a list"
+            )
         text_parts = [
             block["text"]
             for block in blocks
@@ -209,14 +211,23 @@ def _extract_response_text(
             return "\n".join(text_parts)
     else:
         choices = data.get("choices")
-        if isinstance(choices, list) and choices:
-            first = choices[0]
-            if isinstance(first, dict):
-                message = first.get("message")
-                if isinstance(message, dict):
-                    content = message.get("content")
-                    if isinstance(content, str) and content:
-                        return content
+        if not isinstance(choices, list) or not choices:
+            raise ProviderResponseError(
+                provider="minimax", endpoint=endpoint, details="Response choices must be nonempty"
+            )
+        first = choices[0]
+        message = first.get("message") if isinstance(first, dict) else None
+        if not isinstance(message, dict):
+            raise ProviderResponseError(
+                provider="minimax", endpoint=endpoint, details="Response choice must contain a message"
+            )
+        content = message.get("content")
+        if content is not None and not isinstance(content, str):
+            raise ProviderResponseError(
+                provider="minimax", endpoint=endpoint, details="Response content must be text or null"
+            )
+        if content:
+            return content
 
     raise ProviderEmptyContentError(
         provider="minimax",
