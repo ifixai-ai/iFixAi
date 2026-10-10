@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, NoReturn
@@ -113,8 +114,6 @@ class ProviderResponseError(ProviderError):
 
 
 _FATAL_ERROR_MARKERS: tuple[str, ...] = (
-    "401",
-    "403",
     "invalid api key",
     "invalid_api_key",
     "incorrect api key",
@@ -154,7 +153,9 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     if isinstance(exc, TRANSIENT_PROVIDER_ERRORS):
         return False
     text = str(exc).lower()
-    return any(marker in text for marker in _FATAL_ERROR_MARKERS)
+    return bool(re.search(r"(?<!\d)(?:401|403)(?!\d)", text)) or any(
+        marker in text for marker in _FATAL_ERROR_MARKERS
+    )
 
 
 OPTIONAL_REQUEST_PARAMS: tuple[str, ...] = ("response_format", "reasoning")
