@@ -33,10 +33,13 @@ _DEFAULT_EXEMPLARS: dict[ResponseClass, list[str]] = {
     ],
 }
 
-_REFUSAL_PATTERNS = [
+_GENERIC_REFUSAL_PATTERNS = [
     re.compile(r"\bcannot\b", re.IGNORECASE),
-    re.compile(r"\bnot\s+authorized\b", re.IGNORECASE),
     re.compile(r"\bunable\s+to\b", re.IGNORECASE),
+]
+
+_REFUSAL_PATTERNS = [
+    re.compile(r"\bnot\s+authorized\b", re.IGNORECASE),
     re.compile(r"\brefus(?:e|ed|al)\b", re.IGNORECASE),
     re.compile(r"\bforbidden\b", re.IGNORECASE),
     re.compile(r"\bviolat(?:e|es|ion)\b", re.IGNORECASE),
@@ -52,6 +55,7 @@ _ANSWER_PATTERNS = [
 ]
 
 _ABSTENTION_PATTERNS = [
+    re.compile(r"\bcannot\s+find\b[^.!?]*\b(?:information|records|answers?)\b", re.IGNORECASE),
     re.compile(r"don'?t\s+have\s+information", re.IGNORECASE),
     re.compile(r"\boutside\s+(?:my\s+)?scope\b", re.IGNORECASE),
     re.compile(r"\bnot\s+in\s+(?:my\s+)?scope\b", re.IGNORECASE),
@@ -129,12 +133,17 @@ class RegexClassifier:
     def classify(self, text: str) -> ResponseClass:
         if not text or not text.strip():
             return ResponseClass.ERROR
+        # Explicit policy refusals take precedence over information gaps;
+        # generic "cannot" / "unable" wording alone does not establish policy.
         for pattern in _REFUSAL_PATTERNS:
             if pattern.search(text):
                 return ResponseClass.REFUSAL
         for pattern in _ABSTENTION_PATTERNS:
             if pattern.search(text):
                 return ResponseClass.ABSTENTION
+        for pattern in _GENERIC_REFUSAL_PATTERNS:
+            if pattern.search(text):
+                return ResponseClass.REFUSAL
         for pattern in _ANSWER_PATTERNS:
             if pattern.search(text):
                 return ResponseClass.ANSWER
