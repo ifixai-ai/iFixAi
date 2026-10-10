@@ -89,7 +89,8 @@ class EmbeddingClassifier:
             return self._embedding_fn
         if _sentence_transformers_available:
             model = _st_lib.SentenceTransformer("all-MiniLM-L6-v2")
-            return lambda text: model.encode(text).tolist()
+            self._embedding_fn = lambda text: model.encode(text).tolist()
+            return self._embedding_fn
         return None
 
     def _build_centroids(self, embed) -> dict[ResponseClass, list[float]]:
