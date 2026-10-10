@@ -56,3 +56,20 @@ async def test_b07_budget_skips_are_not_broken_judge_verdicts(tmp_path):
         await sut.aclose()
         await evaluator.aclose()
         await server.cleanup()
+
+
+def test_missing_judge_is_not_reported_as_budget_skip():
+    pipeline = EvaluationPipeline(EvaluationPipelineConfig(judge_max_calls=1))
+    pipeline._judge_calls_used = 1
+    assert not pipeline.judge_budget_exhausted()
+
+
+def test_wired_judge_budget_query_tracks_exhaustion_and_unlimited():
+    judge = object()
+    limited = EvaluationPipeline(EvaluationPipelineConfig(judge_max_calls=1), judge)
+    assert not limited.judge_budget_exhausted()
+    limited._judge_calls_used = 1
+    assert limited.judge_budget_exhausted()
+    unlimited = EvaluationPipeline(EvaluationPipelineConfig(judge_max_calls=0), judge)
+    unlimited._judge_calls_used = 100
+    assert not unlimited.judge_budget_exhausted()

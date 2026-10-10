@@ -112,7 +112,8 @@ class EvaluationPipeline:
     def judge_budget_exhausted(self) -> bool:
         """Whether the next logical grading call will be skipped for budget."""
         return (
-            self._config.judge_max_calls > 0
+            self._judge is not None
+            and self._config.judge_max_calls > 0
             and self._judge_calls_used >= self._config.judge_max_calls
         )
 
