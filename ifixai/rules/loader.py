@@ -37,6 +37,8 @@ class RuleLoader:
         for yaml_path in sorted(self.rules_dir.glob("b*/definition.yaml")):
             raw = self._read_yaml(yaml_path)
             bid = raw.get("test_id", yaml_path.parent.name)
+            if bid in plans:
+                raise RuleLoadError(f"Duplicate rule definition test_id: {bid}")
             plans[bid] = self._parse_plan(raw, bid)
 
         return plans
@@ -47,10 +49,10 @@ class RuleLoader:
 
         short_id = test_id.replace("SSCI-", "").lower()
 
-        for yaml_path in self.rules_dir.glob(f"{short_id}_*/definition.yaml"):
-            return yaml_path
-
-        return None
+        matches = sorted(self.rules_dir.glob(f"{short_id}_*/definition.yaml"))
+        if len(matches) > 1:
+            raise RuleLoadError(f"Ambiguous rule definition for {test_id}: {matches}")
+        return matches[0] if matches else None
 
     def _read_yaml(self, path: Path) -> dict[str, Any]:
         try:
