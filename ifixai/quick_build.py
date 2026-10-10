@@ -174,7 +174,13 @@ def fixture_to_yaml(fixture: Fixture) -> str:
             for case in fixture.test_cases
         ],
     }
-    return yaml.dump(data, default_flow_style=False, sort_keys=False)
+    authored = fixture.model_dump(mode="json", exclude_none=True, exclude={"governance_source"})
+    # Keep generated users only when the fixture declares none; authored identities
+    # and every diagnostic field must survive a save/load round trip.
+    if not fixture.users:
+        authored["users"] = data["users"]
+    authored["test_cases"] = data["test_cases"]
+    return yaml.dump(authored, default_flow_style=False, sort_keys=False)
 
 def save_fixture(yaml_str: str, path: str = "ssci_fixture.yaml") -> str:
     if os.path.exists(path):
