@@ -34,6 +34,7 @@ from ifixai.providers.base import (
     raise_if_choice_errored,
     raise_if_truncated,
 )
+from ifixai.providers.client_pool import close_cached_clients
 
 PROVIDER_NAME = "cloudflare"
 # Served by Workers AI on the free plan, so a new account can run it without
@@ -172,9 +173,7 @@ class CloudflareAIGatewayProvider(ChatProvider):
             return client
 
     async def aclose(self) -> None:
-        for client in self.clients.values():
-            await client.close()
-        self.clients.clear()
+        await close_cached_clients(self.clients)
 
     async def send_message(
         self,
