@@ -34,7 +34,7 @@ class RuleLoader:
         if not self.rules_dir.exists():
             return plans
 
-        for yaml_path in sorted(self.rules_dir.glob("b*/definition.yaml")):
+        for yaml_path in sorted(self.rules_dir.glob("*/definition.yaml")):
             raw = self._read_yaml(yaml_path)
             bid = raw.get("test_id", yaml_path.parent.name)
             if bid in plans:
