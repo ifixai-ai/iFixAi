@@ -112,8 +112,8 @@ def test_dry_run_estimates_actual_evaluation_panel(tmp_path, monkeypatch, mode, 
         "--test", "B01", "--mode", mode, "--eval-mode", eval_mode,
         "--dry-run", "--no-telemetry",
     ]
-    for _ in range(panel_size):
-        args += ["--judge-provider", "mock"]
+    for index in range(panel_size):
+        args += ["--judge-provider", "mock" if index % 2 == 0 else "http"]
     result = CliRunner().invoke(ifixai_cli, args)
     assert result.exit_code == 0, result.output
     assert f"Judge calls per inspection: {panel_size}" in result.output
