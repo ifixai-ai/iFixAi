@@ -1,4 +1,6 @@
 import asyncio
+from contextlib import closing
+from traceback import clear_frames
 
 import boto3
 import botocore.exceptions
@@ -78,8 +80,6 @@ class BedrockProvider(ChatProvider):
         if config.endpoint:
             client_kwargs["endpoint_url"] = config.endpoint
 
-        bedrock_client = session.client(**client_kwargs)
-
         converse_payload = _format_for_converse(messages)
         system_prompts = converse_payload["system_prompts"]
         converse_messages = converse_payload["messages"]
@@ -97,8 +97,9 @@ class BedrockProvider(ChatProvider):
             try:
                 response = await asyncio.wait_for(
                     asyncio.to_thread(
-                        _invoke_converse,
-                        bedrock_client,
+                        _invoke_owned_converse,
+                        session,
+                        client_kwargs,
                         config.model,
                         system_prompts,
                         converse_messages,
@@ -192,6 +193,31 @@ class BedrockProvider(ChatProvider):
             endpoint=endpoint,
             details="Exhausted all retry attempts",
         )
+
+
+
+def _invoke_owned_converse(
+    session: boto3.Session,
+    client_kwargs: dict,
+    model_id: str,
+    system_prompts: list[dict],
+    messages: list[dict],
+    inference_config: dict,
+    reject_truncated: bool = False,
+) -> str:
+    # The blocking worker owns the client: an asyncio timeout or cancellation
+    # cannot stop its socket operation, so only this worker may close it.
+    try:
+        with closing(session.client(**client_kwargs)) as client:
+            return _invoke_converse(
+                client, model_id, system_prompts, messages, inference_config,
+                reject_truncated,
+            )
+    except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as exc:
+        # Completed SDK frames retain response/pool objects through the error.
+        # Release those locals, retaining the native error and traceback sites.
+        clear_frames(exc.__traceback__)
+        raise
 
 
 def _invoke_converse(
