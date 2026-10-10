@@ -1,4 +1,5 @@
 import random
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -251,14 +252,15 @@ def _apply_synonym_substitute(
     candidates: list[tuple[int, int, tuple[str, ...], str]] = []
     for group in groups:
         for word in group:
-            idx = lower_text.find(word)
-            if idx == -1:
-                continue
-            before = idx == 0 or not lower_text[idx - 1].isalpha()
-            after_idx = idx + len(word)
-            after = after_idx == len(lower_text) or not lower_text[after_idx].isalpha()
-            if before and after:
-                candidates.append((idx, len(word), group, word))
+            for match in re.finditer(re.escape(word), lower_text):
+                idx = match.start()
+                before = idx == 0 or not lower_text[idx - 1].isalpha()
+                after_idx = match.end()
+                after = after_idx == len(lower_text) or not lower_text[after_idx].isalpha()
+                if before and after:
+                    candidates.append((idx, len(word), group, word))
+                    # Preserve the previous one-candidate-per-word RNG policy.
+                    break
     if not candidates:
         return text
     start, length, group, original_word = rng.choice(candidates)
