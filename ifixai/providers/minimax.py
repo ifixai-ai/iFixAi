@@ -267,7 +267,6 @@ class MiniMaxProvider(ChatProvider):
                 ProviderOverloadedError,
                 ProviderRateLimitError,
                 ProviderTimeoutError,
-    raise_if_truncated,
             ) as exc:
                 last_error = exc
                 if attempt == config.max_retries:
