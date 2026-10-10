@@ -14,6 +14,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.http import _build_auth_headers
 
@@ -60,6 +61,14 @@ class LangChainProvider(ChatProvider):
                         return output
                     if isinstance(output, dict):
                         content = output.get("content", str(output))
+                        metadata = output.get("response_metadata")
+                        if config.reject_truncated and isinstance(metadata, dict):
+                            reason = metadata.get("finish_reason") or metadata.get("stop_reason")
+                            if isinstance(reason, str):
+                                raise_if_truncated(
+                                    "langchain", url, reason,
+                                    content if isinstance(content, str) else "",
+                                )
                         if isinstance(content, list):
                             # AIMessage.content may contain ordered strings and
                             # multimodal blocks. Match LangChain's visible text
