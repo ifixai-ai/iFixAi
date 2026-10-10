@@ -15,7 +15,13 @@ def _canonicalise(obj: Any) -> Any:
     if isinstance(obj, dict):
         canonical = {}
         for key, value in obj.items():
-            canonical_key = key.isoformat() if isinstance(key, (date, datetime)) else key
+            if isinstance(key, (date, datetime)):
+                canonical_key = key.isoformat()
+            elif isinstance(key, str):
+                canonical_key = key
+            else:
+                # Use the same key spelling as JSON export, including booleans/null.
+                canonical_key = next(iter(json.loads(json.dumps({key: None}))))
             if canonical_key in canonical:
                 raise ValueError(f"duplicate canonical fixture key: {canonical_key!r}")
             canonical[canonical_key] = _canonicalise(value)
