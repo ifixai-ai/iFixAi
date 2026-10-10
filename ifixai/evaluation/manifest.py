@@ -47,7 +47,7 @@ _LEGACY_V1_EXTRA_EXCLUDE: frozenset[str] = frozenset(
 
 def is_valid_run_nonce(value: str) -> bool:
     """Return True if `value` is exactly 16 lowercase hex characters."""
-    return bool(_RUN_NONCE_RE.match(value))
+    return bool(_RUN_NONCE_RE.fullmatch(value))
 
 
 def generate_run_nonce() -> str:
@@ -108,7 +108,7 @@ class RunManifest(BaseModel):
     def _validate_run_nonce(cls, value: str) -> str:
         if value == _EMPTY_RUN_NONCE:
             return value
-        if not _RUN_NONCE_RE.match(value):
+        if not _RUN_NONCE_RE.fullmatch(value):
             raise ValueError(
                 f"run_nonce must be 16 lowercase hex chars or empty (legacy v1); got {value!r}"
             )
@@ -117,7 +117,7 @@ class RunManifest(BaseModel):
     @field_validator("fixture_digest")
     @classmethod
     def _validate_fixture_digest(cls, value: str) -> str:
-        if not _SHA256_HEX_RE.match(value):
+        if not _SHA256_HEX_RE.fullmatch(value):
             raise ValueError(
                 f"fixture_digest must be a 64-char lowercase sha256 hex string; got {value!r}"
             )

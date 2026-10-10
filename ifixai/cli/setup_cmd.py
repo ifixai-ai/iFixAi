@@ -21,6 +21,7 @@ from ifixai.cli.model_catalog import default_model, suggestions
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
 from ifixai.harness.suites import suite_catalog
 from ifixai.providers.minimax import DEFAULT_BASE_URL, REGIONAL_ENDPOINTS
+from ifixai.providers.resolver import resolve_credential
 
 _PROVIDER_DESCRIPTIONS: dict[str, str] = {
     "openrouter": "One key → many models (OpenAI, Anthropic, Google, Llama…)",
@@ -125,7 +126,8 @@ def _missing_keys(selected: list[tuple[str, str]]) -> list[tuple[str, str, str]]
     missing: list[tuple[str, str, str]] = []
     seen: set[str] = set()
     for role, prov in selected:
-        required = (PROVIDER_ENV_KEYS.get(prov), *PROVIDER_COMPANION_ENV_KEYS.get(prov, ()))
+        primary = None if resolve_credential(prov, os.environ) else PROVIDER_ENV_KEYS.get(prov)
+        required = (primary, *PROVIDER_COMPANION_ENV_KEYS.get(prov, ()))
         for env in required:
             if env and env not in seen and not os.environ.get(env):
                 seen.add(env)
@@ -186,7 +188,10 @@ def setup(ctx: click.Context) -> None:
         default="http",
         descriptions=provider_desc,
     )
-    api_key_env = PROVIDER_ENV_KEYS.get(provider)
+    api_key_env = next(
+        (env_var for name, env_var in available if name == provider),
+        PROVIDER_ENV_KEYS.get(provider),
+    )
 
     model = _pick_model(provider, role="system under test")
 
@@ -463,7 +468,7 @@ def setup(ctx: click.Context) -> None:
     click.echo()
 
     if ui.confirm("Run iFixAi now?", default=not missing):
-        cmd = [sys.argv[0], "run"]
+        cmd = [sys.executable, "-m", "ifixai.cli.main", "run"]
         if provider == "mock":
             cmd += ["-k", "unused"]
         if missing:
@@ -475,7 +480,9 @@ def setup(ctx: click.Context) -> None:
                 )
             )
         click.echo()
-        subprocess.run(cmd)
+        result = subprocess.run(cmd)
+        if result.returncode:
+            raise SystemExit(result.returncode)
     else:
         click.echo(click.style("When you're ready:", bold=True))
         click.echo(click.style("  ifixai run", fg="cyan"))

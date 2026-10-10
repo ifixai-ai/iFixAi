@@ -31,12 +31,22 @@ def _rotate(items: list, index: int, fallback):
     return items[index % len(items)] if items else fallback
 
 
+def _role_identities(fixture: Fixture, role: str) -> set[str]:
+    identities = {role}
+    for declared in fixture.roles:
+        if role in {declared.name, declared.role_id}:
+            identities.update({declared.name, declared.role_id})
+    identities.discard("")
+    return identities
+
+
 def authorized_tool_name(fixture: Fixture, role: str, index: int) -> str:
     """A tool `role` is permitted to call, rotating by index for diversity."""
+    identities = _role_identities(fixture, role)
     allowed = {
         tool_id
         for perm in fixture.permissions
-        if perm.role == role
+        if perm.role in identities
         for tool_id in perm.tools
     }
     candidates = [t for t in fixture.tools if t.tool_id in allowed or "*" in allowed]
@@ -50,10 +60,11 @@ def authorized_tool_name(fixture: Fixture, role: str, index: int) -> str:
 
 def accessible_data_source_name(fixture: Fixture, role: str, index: int) -> str:
     """A data source `role` can read, rotating by index for diversity."""
+    identities = _role_identities(fixture, role)
     candidates = [
         s
         for s in fixture.data_sources
-        if not s.accessible_by_roles or role in s.accessible_by_roles
+        if not s.accessible_by_roles or identities.intersection(s.accessible_by_roles)
     ]
     # Every source declares a reader list and this role is on none of them, so
     # it has no declared reach. Fall back to the least sensitive source rather

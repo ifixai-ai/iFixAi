@@ -49,6 +49,8 @@ def is_interactive() -> bool:
     return (
         supports_color()
         and _questionary_available()
+        and sys.stdin is not None
+        and sys.stdout is not None
         and sys.stdin.isatty()
         and sys.stdout.isatty()
     )

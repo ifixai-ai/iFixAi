@@ -15,6 +15,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    raise_if_truncated,
 )
 from ifixai.providers.secrets import scrub_secrets
 
@@ -192,6 +193,7 @@ def _extract_response_text(
     data: dict[str, Any],
     api_style: APIStyle,
     endpoint: str,
+    reject_truncated: bool = False,
 ) -> str:
     if api_style == "messages":
         blocks = data.get("content")
@@ -207,6 +209,8 @@ def _extract_response_text(
             and isinstance(block.get("text"), str)
             and block["text"]
         ]
+        if reject_truncated:
+            raise_if_truncated("minimax", endpoint, str(data.get("stop_reason") or ""), "\n".join(text_parts))
         if text_parts:
             return "\n".join(text_parts)
     else:
@@ -226,6 +230,8 @@ def _extract_response_text(
             raise ProviderResponseError(
                 provider="minimax", endpoint=endpoint, details="Response content must be text or null"
             )
+        if reject_truncated:
+            raise_if_truncated("minimax", endpoint, str(first.get("finish_reason") or ""), content or "")
         if content:
             return content
 
@@ -266,7 +272,7 @@ class MiniMaxProvider(ChatProvider):
 
         for attempt in range(config.max_retries + 1):
             try:
-                return await self._send_request(request, timeout)
+                return await self._send_request(request, timeout, config.reject_truncated)
             except (
                 ProviderConnectionError,
                 ProviderOverloadedError,
@@ -288,6 +294,7 @@ class MiniMaxProvider(ChatProvider):
         self,
         request: MiniMaxRequest,
         timeout: aiohttp.ClientTimeout,
+        reject_truncated: bool = False,
     ) -> str:
         endpoint = request["endpoint"]
         api_style = request["api_style"]
@@ -338,7 +345,7 @@ class MiniMaxProvider(ChatProvider):
                         endpoint=endpoint,
                         details="Response JSON was not an object",
                     )
-                return _extract_response_text(data, api_style, endpoint)
+                return _extract_response_text(data, api_style, endpoint, reject_truncated)
         except asyncio.TimeoutError as exc:
             raise ProviderTimeoutError(
                 provider="minimax",
