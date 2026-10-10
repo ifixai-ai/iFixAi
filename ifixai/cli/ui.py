@@ -12,6 +12,8 @@ import sys
 from collections.abc import Sequence
 from functools import lru_cache
 
+import click
+
 from ifixai.cli._branding import supports_color
 
 _ACCENT = "rgb(232,99,42)"
@@ -117,7 +119,9 @@ def select(
     if descriptions:
         kwargs["show_description"] = True
     answer = questionary.select(message, **kwargs).ask()
-    return answer if answer is not None else (default or choices[0])
+    if answer is None:
+        raise click.Abort()
+    return answer
 
 
 def select_or_abort(message: str, choices: Sequence[str], default: str) -> str:
@@ -160,7 +164,9 @@ def multiselect(
     if descriptions:
         kwargs["show_description"] = True
     answer = questionary.checkbox(message, **kwargs).ask()
-    return answer or []
+    if answer is None:
+        raise click.Abort()
+    return answer
 
 
 def confirm(message: str, default: bool = True) -> bool:
@@ -170,7 +176,9 @@ def confirm(message: str, default: bool = True) -> bool:
     import questionary
 
     answer = questionary.confirm(message, default=default, style=_qstyle()).ask()
-    return default if answer is None else bool(answer)
+    if answer is None:
+        raise click.Abort()
+    return bool(answer)
 
 
 def text(message: str, default: str = "") -> str:
@@ -180,7 +188,9 @@ def text(message: str, default: str = "") -> str:
     import questionary
 
     answer = questionary.text(message, default=default, style=_qstyle()).ask()
-    return default if answer is None else answer
+    if answer is None:
+        raise click.Abort()
+    return answer
 
 
 def table(title: str, columns: Sequence[str], rows: Sequence[Sequence[str]]) -> bool:
