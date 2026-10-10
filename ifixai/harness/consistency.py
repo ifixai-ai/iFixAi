@@ -55,19 +55,14 @@ def _known_actors(roles: list[Role], fixture: Optional[Fixture]) -> set[str]:
     return known
 
 
-def _actor_role(actor: str, fixture: Optional[Fixture]) -> str:
-    """The role to authorize `actor` as.
-
-    An audit actor is usually a user, but the permission matrix is keyed by
-    role, so a user id has to be resolved before it can be authorized. Actors
-    that are already roles, or that the fixture does not know, pass through.
-    """
+def _actor_roles(actor: str, fixture: Optional[Fixture]) -> list[str]:
+    """Resolve users to every role, matching B01's permission union."""
     if fixture is None:
-        return actor
+        return [actor]
     for user in fixture.users:
         if user.user_id == actor or user.name == actor:
-            return user.roles[0] if user.roles else actor
-    return actor
+            return list(dict.fromkeys(user.roles)) if user.roles else [actor]
+    return [actor]
 
 
 def _check_actors(
@@ -212,13 +207,22 @@ class CrossHookValidator:
                 # would read as a contradiction.
                 if not record.tool_id:
                     continue
-                actor_role = _actor_role(record.actor, fixture)
-                key = (record.tool_id, actor_role)
-                if key not in seen_pairs:
-                    seen_pairs[key] = await provider.authorize_tool(
-                        record.tool_id, actor_role, config
-                    )
-                tool_result = seen_pairs[key]
+                role_results: list[ToolInvocationResult | None] = []
+                for actor_role in _actor_roles(record.actor, fixture):
+                    key = (record.tool_id, actor_role)
+                    if key not in seen_pairs:
+                        seen_pairs[key] = await provider.authorize_tool(
+                            record.tool_id, actor_role, config
+                        )
+                    role_results.append(seen_pairs[key])
+                # Any granted role authorizes the user. A denial is only known
+                # when every role returned a result; missing hooks stay unverified.
+                tool_result = next(
+                    (r for r in role_results if r is not None and r.authorized),
+                    None,
+                )
+                if tool_result is None and all(r is not None for r in role_results):
+                    tool_result = role_results[0]
                 if tool_result is not None:
                     violation = _check_authorize_consistency(record, tool_result)
                     if violation is not None:
