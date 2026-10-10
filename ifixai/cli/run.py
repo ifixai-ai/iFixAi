@@ -1631,17 +1631,23 @@ def run(
     )
     resolved_fixture_path = resolve_fixture_path(fixture)
     judge_identity_descriptor: ModelDescriptor | None = None
-    if eval_mode_auto_selected_judge is not None:
-        judge_identity_descriptor = ModelDescriptor(
-            provider=eval_mode_auto_selected_judge,
-            model_id=(
-                judge_model[-1]
-                if judge_model
-                else f"{eval_mode_auto_selected_judge}-default"
-            ),
-            version="auto-paired",
-            family=eval_mode_auto_selected_judge,
-        )
+    judge_model_descriptors: list[ModelDescriptor] = []
+    if judge_config is not None:
+        if judge_config.providers is not None:
+            judge_model_descriptors = [
+                ModelDescriptor(
+                    provider=spec.provider, model_id=spec.model or f"{spec.provider}-default",
+                    version="configured", family=spec.provider,
+                )
+                for spec in judge_config.providers
+            ]
+        else:
+            judge_identity_descriptor = ModelDescriptor(
+                provider=judge_config.provider,
+                model_id=judge_config.model or f"{judge_config.provider}-default",
+                version="auto-paired" if eval_mode_auto_selected_judge is not None else "configured",
+                family=judge_config.provider,
+            )
     governance_fixture_digest_value: str | None = None
     if governance_path is not None:
         governance_fixture_digest_value = compute_fixture_digest(governance_path)
@@ -1654,7 +1660,9 @@ def run(
     manifest = build_manifest(
         mode=manifest_mode,
         model_under_test=model_descriptor,
-        judge_models=[],
+        judge_models=judge_model_descriptors,
+        evaluation_mode=eval_mode,
+        judge_budget=pipeline_config.judge_max_calls if pipeline_config is not None else 0,
         normalizer_version=NORMALIZER_VERSION,
         test_versions=test_versions,
         rubric_hashes=compute_rubric_digests_for_tests_layout(_TESTS_DIR),
