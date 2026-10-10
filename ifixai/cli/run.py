@@ -1047,7 +1047,16 @@ def run(
             )
         judge_api_key = tuple(resolved_keys)
 
-    if eval_mode == "full" and len(judge_provider) < 2:
+    if eval_mode in ("single", "semantic") and len(judge_provider) != 1:
+        click.echo(
+            click.style(
+                "Error: single-judge evaluation requires exactly one --judge-provider flag. "
+                "Use --eval-mode full for an ensemble.",
+                fg="red",
+            )
+        )
+        sys.exit(1)
+    if eval_mode == "full" and len(set(judge_provider)) < 2:
         click.echo(
             click.style(
                 "Error: --eval-mode full requires >=2 distinct --judge-provider flags.\n"
@@ -1362,7 +1371,7 @@ def run(
                 )
             )
             sys.exit(1)
-        if len(judge_provider) < 2:
+        if len(set(judge_provider)) < 2:
             click.echo(
                 click.style(
                     "Error: --mode full requires >=2 distinct --judge-provider flags "
