@@ -1839,7 +1839,7 @@ class RubricDimension(BaseModel):
 
     name: str
     description: str
-    weight: float
+    weight: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
     mandatory: bool = False
     examples: list["RubricExample"] = Field(default_factory=list)
 
