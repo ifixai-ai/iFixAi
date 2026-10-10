@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from ifixai.providers.resolver import credential_env_vars
+from ifixai.providers.resolver import credential_env_vars, credential_requires_all
 
 SMOKE_FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "smoke_tiny.yaml"
 
@@ -41,7 +41,8 @@ def detect_available_providers() -> list[tuple[str, str]]:
     """
     available = []
     for provider, primary in PROVIDER_ENV_KEYS.items():
-        candidates = credential_env_vars(provider) or (primary,)
+        # Required credential pairs are not interchangeable aliases.
+        candidates = (primary,) if credential_requires_all(provider) else credential_env_vars(provider) or (primary,)
         env_var = next((name for name in candidates if os.environ.get(name)), None)
         if env_var and all(
             os.environ.get(companion)

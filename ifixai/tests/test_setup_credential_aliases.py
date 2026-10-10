@@ -21,3 +21,9 @@ def test_setup_recognizes_and_saves_supported_credential_alias(monkeypatch, tmp_
     result = CliRunner().invoke(setup_cmd.setup)
     assert result.exit_code == 0, result.exception
     assert load_config(tmp_path).api_key_env == alias
+
+
+def test_required_aws_secret_is_not_an_alias_for_access_key_id(monkeypatch):
+    monkeypatch.delenv('AWS_ACCESS_KEY_ID', raising=False)
+    monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'owned-secret')
+    assert not any(provider == 'bedrock' for provider, _ in detect_available_providers())
