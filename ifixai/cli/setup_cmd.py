@@ -463,7 +463,7 @@ def setup(ctx: click.Context) -> None:
     click.echo()
 
     if ui.confirm("Run iFixAi now?", default=not missing):
-        cmd = [sys.argv[0], "run"]
+        cmd = [sys.executable, "-m", "ifixai.cli.main", "run"]
         if provider == "mock":
             cmd += ["-k", "unused"]
         if missing:
