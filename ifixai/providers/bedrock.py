@@ -6,6 +6,7 @@ from botocore.config import Config
 
 from ifixai.core.types import ChatMessage, ProviderConfig
 from ifixai.providers.base import (
+    RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
     ProviderAuthError,
     ProviderConnectionError,
@@ -155,7 +156,7 @@ class BedrockProvider(ChatProvider):
                     "ModelNotReadyException",
                     "ServiceUnavailableException",
                     "InternalServerException",
-                ) or http_status in (500, 502, 503, 504):
+                ) or http_status in RETRYABLE_HTTP_STATUS_CODES:
                     if attempt < attempts - 1:
                         await asyncio.sleep(backoff)
                         backoff *= BACKOFF_MULTIPLIER

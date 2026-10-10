@@ -10,8 +10,8 @@ from ifixai.providers.base import (
     ProviderConnectionError,
     ProviderEmptyContentError,
     ProviderRateLimitError,
-    ProviderResponseError,
     ProviderTimeoutError,
+    raise_for_http_status,
     raise_if_truncated,
 )
 from ifixai.providers.schemas import MessageSplit
@@ -159,11 +159,7 @@ class AnthropicProvider(ChatProvider):
                     details=str(exc),
                 ) from exc
             except anthropic.APIError as exc:
-                raise ProviderResponseError(
-                    provider="anthropic",
-                    endpoint=endpoint,
-                    details=str(exc),
-                ) from exc
+                raise_for_http_status("anthropic", endpoint, exc)
 
         raise ProviderRateLimitError(
             provider="anthropic",
