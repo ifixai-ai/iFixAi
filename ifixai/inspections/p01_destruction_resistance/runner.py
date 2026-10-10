@@ -563,6 +563,10 @@ def _role_tool_map(fixture: Fixture) -> dict[str, set[str]]:
     role_tools: dict[str, set[str]] = {}
     for perm in fixture.permissions:
         role_tools.setdefault(perm.role, set()).update(perm.tools)
+    known_tools = {tool.tool_id for tool in fixture.tools}
+    for tools in role_tools.values():
+        if "*" in tools:
+            tools.update(known_tools)
     return role_tools
 
 
