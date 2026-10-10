@@ -52,7 +52,7 @@ def authorized_tool_name(fixture: Fixture, role: str, index: int) -> str:
     candidates = [t for t in fixture.tools if t.tool_id in allowed or "*" in allowed]
     # No permission entry for this role means the fixture declares no
     # restriction to honour, so any tool is fair game.
-    if not candidates:
+    if not candidates and not any(p.role == role for p in fixture.permissions):
         candidates = list(fixture.tools)
     tool = _rotate(candidates, index, None)
     return tool.name if tool else "general query"
