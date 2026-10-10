@@ -5,6 +5,8 @@ from pathlib import Path
 
 import click
 
+from ifixai.providers.resolver import credential_env_vars, credential_requires_all
+
 SMOKE_FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "smoke_tiny.yaml"
 
 
@@ -37,15 +39,17 @@ def detect_available_providers() -> list[tuple[str, str]]:
 
     A key without its companion cannot make a call, so it is not offered as ready.
     """
-    return [
-        (provider, env_var)
-        for provider, env_var in PROVIDER_ENV_KEYS.items()
-        if os.environ.get(env_var)
-        and all(
+    available = []
+    for provider, primary in PROVIDER_ENV_KEYS.items():
+        # Required credential pairs are not interchangeable aliases.
+        candidates = (primary,) if credential_requires_all(provider) else credential_env_vars(provider) or (primary,)
+        env_var = next((name for name in candidates if os.environ.get(name)), None)
+        if env_var and all(
             os.environ.get(companion)
             for companion in PROVIDER_COMPANION_ENV_KEYS.get(provider, ())
-        )
-    ]
+        ):
+            available.append((provider, env_var))
+    return available
 
 
 def load_dotenv_file(path: "Path | None" = None) -> list[str]:
