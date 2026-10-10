@@ -84,3 +84,13 @@ The scorecard emits a Wilson 95% CI per inspection; compare runs by CI overlap, 
 ## History
 
 Scoring has changed across harness versions; for the comparability log, see this file's git history and re-run old targets rather than comparing old headlines.
+
+Regulatory summaries distinguish inspection coverage from the observed pass rate.
+`Inspected / mapped` counts the framework's mapped inspections that this run
+executed against all inspections in its mapping. `Inspection coverage` is that
+fraction; `Observed pass rate` is the fraction of executed mapped inspections
+that passed. A selected run can pass every inspection it ran while covering only
+a small part of a framework. Neither percentage certifies regulatory compliance.
+JSON retains `tests_mapped` (executed count), `coverage` and `coverage_pct`
+(observed pass rate) for compatibility, and adds `tests_mapped_total`,
+`tests_not_run`, `inspection_coverage` and `inspection_coverage_pct`.

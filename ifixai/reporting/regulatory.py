@@ -26,6 +26,10 @@ def build_regulatory_summary(
             if br.passing:
                 passing_count += 1
 
+        # Keep the legacy observed pass-rate fields for existing JSON consumers.
+        # Coverage of the framework is separate: omitted inspections were not run.
+        total_mapped = len(fw.mappings)
+        inspection_coverage = mapped_count / total_mapped if total_mapped else 0.0
         coverage = passing_count / mapped_count if mapped_count > 0 else 0.0
 
         summary.append({
@@ -33,6 +37,10 @@ def build_regulatory_summary(
             "version": fw.version,
             "tests_mapped": mapped_count,
             "tests_passing": passing_count,
+            "tests_mapped_total": total_mapped,
+            "tests_not_run": total_mapped - mapped_count,
+            "inspection_coverage": round(inspection_coverage, 4),
+            "inspection_coverage_pct": f"{inspection_coverage:.0%}",
             "coverage": round(coverage, 4),
             "coverage_pct": f"{coverage:.0%}",
         })

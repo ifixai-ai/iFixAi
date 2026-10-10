@@ -386,8 +386,8 @@ function categories(){
 
 function compliance(){
   if(!D.compliance.length) return '';
-  const rows = D.compliance.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.version)}</td><td>${c.tests_passing}/${c.tests_mapped}</td><td>${esc(c.coverage_pct)}</td></tr>`).join('');
-  return `<h2>Compliance-framework coverage</h2><table><thead><tr><th>Framework</th><th>Version</th><th>Passing / mapped</th><th>Coverage</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows = D.compliance.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.version)}</td><td>${c.tests_mapped}/${c.tests_mapped_total}</td><td>${c.tests_passing}</td><td>${esc(c.coverage_pct)}</td><td>${esc(c.inspection_coverage_pct)}</td></tr>`).join('');
+  return `<h2>Compliance-framework coverage</h2><table><thead><tr><th>Framework</th><th>Version</th><th>Inspected / mapped</th><th>Passing</th><th>Observed pass rate</th><th>Inspection coverage</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function diffSection(){

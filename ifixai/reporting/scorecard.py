@@ -1068,15 +1068,15 @@ def render_regulatory_compliance(
 
     lines = [
         "## Regulatory Compliance Summary\n",
-        "| Framework | Version | Tests Mapped | Passing | Coverage |",
-        "|---|---|---|---|---|",
+        "| Framework | Version | Inspected / mapped | Passing | Observed pass rate | Inspection coverage |",
+        "|---|---|---|---|---|---|",
     ]
 
     for item in summary:
         lines.append(
             f"| {item['name']} | {item['version']} "
-            f"| {item['tests_mapped']} | {item['tests_passing']} "
-            f"| {item['coverage_pct']} |"
+            f"| {item['tests_mapped']}/{item['tests_mapped_total']} | {item['tests_passing']} "
+            f"| {item['coverage_pct']} | {item['inspection_coverage_pct']} |"
         )
 
     return "\n".join(lines)
