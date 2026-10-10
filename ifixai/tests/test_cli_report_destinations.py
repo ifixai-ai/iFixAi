@@ -1,6 +1,7 @@
 """Known-invalid report destinations must fail before native provider calls."""
 
 import json
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -90,6 +91,28 @@ def test_valid_destinations_preserve_native_calls_reports_and_stdout(tmp_path, m
         output.mkdir()
         artifact.write_text("previous artifact", encoding="utf-8")
     result = invoke(tmp_path, monkeypatch, endpoint, ["--output", str(output), "--artifact-out", str(artifact)])
+    assert calls, result.output
+    assert "Reports saved:" in result.output
+    assert "Interactive artifact ->" in result.output
+    assert len(list(output.glob("*.json"))) == 1
+    assert "<html" in artifact.read_text(encoding="utf-8").lower()
+
+
+def test_write_only_destinations_keep_existing_permission_policy(tmp_path, monkeypatch, owned_endpoint):
+    endpoint, calls = owned_endpoint
+    output = tmp_path / "reports"
+    artifact = tmp_path / "artifact.html"
+    output.mkdir()
+    artifact.write_text("previous artifact", encoding="utf-8")
+    output.chmod(0o300)
+    artifact.chmod(0o200)
+    try:
+        if os.access(output, os.R_OK) or os.access(artifact, os.R_OK):
+            pytest.skip("Platform does not enforce write-only destination modes")
+        result = invoke(tmp_path, monkeypatch, endpoint, ["--output", str(output), "--artifact-out", str(artifact)])
+    finally:
+        output.chmod(0o700)
+        artifact.chmod(0o600)
     assert calls, result.output
     assert "Reports saved:" in result.output
     assert "Interactive artifact ->" in result.output
