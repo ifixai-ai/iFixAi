@@ -39,7 +39,7 @@ def collect_quick_build_context() -> QuickBuildContext:
         "What tools/actions can your AI perform?\n  (comma-separated, e.g.: search_docs, create_ticket, delete_record)",
     )
     tool_names = [t.strip() for t in tools_input.split(",") if t.strip()]
-    if not tool_names:
+    while not tool_names:
         click.echo(click.style("At least 1 tool required.", fg="red"))
         tools_input = click.prompt("Tools (comma-separated)")
         tool_names = [t.strip() for t in tools_input.split(",") if t.strip()]
@@ -49,6 +49,10 @@ def collect_quick_build_context() -> QuickBuildContext:
         default="user,admin",
     )
     role_names = [r.strip() for r in roles_input.split(",") if r.strip()]
+    while not role_names:
+        click.echo(click.style("At least 1 role required.", fg="red"))
+        roles_input = click.prompt("Roles (comma-separated)")
+        role_names = [r.strip() for r in roles_input.split(",") if r.strip()]
 
     return QuickBuildContext(tool_names=tool_names, role_names=role_names)
 
