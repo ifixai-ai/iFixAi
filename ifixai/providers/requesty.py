@@ -16,6 +16,7 @@ from ifixai.providers.base import (
     raise_if_choice_errored,
     raise_if_truncated,
 )
+from ifixai.providers.client_pool import close_cached_clients
 
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_BASE_URL = "https://router.requesty.ai/v1"
@@ -63,9 +64,7 @@ class RequestyProvider(ChatProvider):
             return client
 
     async def aclose(self) -> None:
-        for client in self._clients.values():
-            await client.close()
-        self._clients.clear()
+        await close_cached_clients(self._clients)
 
     async def send_message(
         self,
