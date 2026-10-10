@@ -5,11 +5,11 @@ import unicodedata
 
 from pydantic import BaseModel, Field
 
-NORMALIZER_VERSION = "1.0.0"
+NORMALIZER_VERSION = "1.0.1"
 
 _CODE_FENCE_RE = re.compile(r"```[a-zA-Z0-9_+-]*\n?(.*?)```", re.DOTALL)
 _REASONING_TAG_RE = re.compile(
-    r"<(?:thinking|reasoning|scratchpad)>.*?</(?:thinking|reasoning|scratchpad)>",
+    r"<(thinking|reasoning|scratchpad)>.*?</\1>",
     re.DOTALL | re.IGNORECASE,
 )
 _REASONING_PREFIX_RE = re.compile(
