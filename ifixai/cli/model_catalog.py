@@ -38,6 +38,7 @@ DEFAULT_MODEL: dict[str, str] = {
     "cloudflare": "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "vercel": "openai/gpt-4o-mini",
     "openai": "gpt-4o",
+    "atlascloud": "qwen/qwen3.5-flash",
     "anthropic": "claude-3-5-sonnet-latest",
     "gemini": "gemini-2.0-flash",
     "azure": "gpt-4o",
