@@ -235,6 +235,13 @@ def _invoke_converse(
             details="No text blocks in Bedrock converse response",
         )
 
+    if not any(text_parts):
+        raise ProviderEmptyContentError(
+            provider="bedrock",
+            endpoint="",
+            details="Empty text blocks in Bedrock converse response",
+        )
+
     return "\n".join(text_parts)
 
 
