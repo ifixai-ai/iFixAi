@@ -6,6 +6,7 @@ from typing import Any
 
 import jsonschema
 import yaml
+from pydantic import ValidationError
 
 from ifixai.core.types import (
     DataSource,
@@ -96,7 +97,16 @@ def validate_fixture(path: str | Path) -> list[str]:
 
     schema = load_schema()
     validator = jsonschema.Draft7Validator(schema)
-    return [error.message for error in validator.iter_errors(raw)]
+    errors = [error.message for error in validator.iter_errors(raw)]
+    if errors:
+        return errors
+    # Schema validation is only the structural half of the loading contract.
+    # Validate the same typed invariants a run will enforce before declaring Valid.
+    try:
+        _parse_fixture(raw)
+    except (ValidationError, KeyError, TypeError, ValueError) as exc:
+        return [f"Invalid fixture fields: {exc}"]
+    return []
 
 def list_test_coverage(fixture: Fixture) -> dict[str, int]:
     coverage: dict[str, int] = {}
