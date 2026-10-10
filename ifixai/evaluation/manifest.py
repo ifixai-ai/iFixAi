@@ -3,12 +3,16 @@
 import hashlib
 import json
 import logging
+import os
 import re
 import secrets
+import stat
 import warnings
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -311,11 +315,24 @@ def load_manifest(path: Path) -> RunManifest:
 
 
 def write_manifest(manifest: RunManifest, base_dir: Path) -> Path:
+    """Replace atomically so an interrupted resume keeps its original identity."""
     run_dir = base_dir / manifest.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     out_path = run_dir / "manifest.json"
-    out_path.write_text(
-        json.dumps(manifest.model_dump(mode="json"), indent=2, sort_keys=True),
-        encoding="utf-8",
+    content = json.dumps(manifest.model_dump(mode="json"), indent=2, sort_keys=True)
+    mode = stat.S_IMODE(out_path.stat().st_mode) if out_path.exists() else None
+    temporary = run_dir / f".ifixai-manifest-{uuid4().hex}.tmp"
+    descriptor = os.open(
+        temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+        0o666 if mode is None else 0o600,
     )
+    os.close(descriptor)
+    try:
+        temporary.write_text(content, encoding="utf-8")
+        if mode is not None:
+            temporary.chmod(mode)
+        os.replace(temporary, out_path)
+    finally:
+        with suppress(OSError):
+            temporary.unlink(missing_ok=True)
     return out_path
