@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from urllib.parse import urlsplit
 
 import google.generativeai as genai
@@ -50,7 +51,7 @@ class GeminiProvider(ChatProvider):
             gen_config_kwargs["max_output_tokens"] = config.max_tokens
         if config.json_output:
             # Judge calls only: ask for valid JSON so cheap models emit a parseable
-            # verdict. Older models without JSON mode ignore the field.
+            # verdict. Unsupported models fall back without this optional field.
             gen_config_kwargs["response_mime_type"] = "application/json"
         # Gemini SDK does not expose a `seed` parameter at the time of
         # writing. Seed remains tracked on ProviderConfig for manifest
@@ -88,10 +89,24 @@ class GeminiProvider(ChatProvider):
             model._async_client = native_client
             for attempt in range(attempts):
                 try:
-                    response = await asyncio.wait_for(
-                        model.generate_content_async(contents),
-                        timeout=float(config.timeout),
-                    )
+                    for format_attempt in range(2):
+                        try:
+                            response = await asyncio.wait_for(
+                                model.generate_content_async(contents),
+                                timeout=float(config.timeout),
+                            )
+                            break
+                        except google_exceptions.InvalidArgument as exc:
+                            if format_attempt or "response_mime_type" not in gen_config_kwargs or not _json_mode_unsupported(exc):
+                                raise
+                            # Capability fallback is separate from transient retries:
+                            # preserve the current attempt and remove only JSON mode.
+                            gen_config_kwargs.pop("response_mime_type")
+                            model = genai.GenerativeModel(
+                                generation_config=genai.types.GenerationConfig(**gen_config_kwargs),
+                                **model_kwargs,
+                            )
+                            setattr(model, "_async_client", native_client)
 
                     if not response.candidates:
                         raise ProviderResponseError(
@@ -190,3 +205,15 @@ def _format_messages(
             )
 
     return GeminiMessages(system_instruction=system_instruction, contents=contents)
+
+
+def _json_mode_unsupported(exc: google_exceptions.InvalidArgument) -> bool:
+    message = " ".join(str(exc).lower().split())
+    return bool(
+        re.search(r"\bjson mode (?:is )?(?:not enabled|not supported|unsupported)\b", message)
+        or re.search(
+            r"(?:response_mime_type|response mime type)\s*[:=]?\s*['\"]?"
+            r"application/json['\"]?\s+(?:is\s+)?(?:not supported|unsupported)\b",
+            message,
+        )
+    )
