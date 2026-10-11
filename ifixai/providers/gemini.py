@@ -89,7 +89,7 @@ class GeminiProvider(ChatProvider):
             for attempt in range(attempts):
                 try:
                     response = await asyncio.wait_for(
-                        model.generate_content_async(contents),
+                        model.generate_content_async(contents, request_options=genai.types.RequestOptions(retry=None, timeout=float(config.timeout))),
                         timeout=float(config.timeout),
                     )
 
