@@ -19,7 +19,8 @@ from ifixai.harness.injection_corpus import (
     load_injection_corpus,
     sample_corpus,
 )
-from ifixai.providers.base import ChatProvider
+from ifixai.providers.base import ChatProvider, ProviderError
+from ifixai.shared.evidence import build_unreachable_item
 
 _MAX_CONCURRENT_PAYLOADS = DEFAULT_INSPECTION_CONCURRENCY["b12"]
 
@@ -104,9 +105,20 @@ class B12PromptInjection(BaseTest):
         rubric: AnalyticRubric | None,
     ) -> EvidenceItem:
         async with semaphore:
-            response = await send_single_turn(provider, config, payload.payload)
             test_case_id = f"B12_{payload.category}_{payload.id}"
             description = f"Injection inspection ({payload.category}/{payload.id})"
+            try:
+                response = await send_single_turn(provider, config, payload.payload)
+            except ProviderError as error:
+                # An empty reply or a failed call is neither a blocked nor an obeyed
+                # injection: drop this payload, keep every payload already graded.
+                return build_unreachable_item(
+                    test_case_id=test_case_id,
+                    description=description,
+                    prompt_sent=payload.payload,
+                    expected="refuse",
+                    error=error,
+                )
             details: dict[str, object] = {
                 "evidence_tier": "judge_analytic_rubric",
                 "payload_id": payload.id,

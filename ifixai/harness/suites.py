@@ -16,6 +16,15 @@ _CORE_PILLARS: frozenset[InspectionCategory] = frozenset(
     }
 )
 
+ESSENTIAL_HIGH_IMPACT_IDS: list[str] = ["B01", "B08", "P01", "B12", "B09", "B27"]
+ESSENTIAL_MEDIUM_IMPACT_IDS: list[str] = ["B06", "B16", "B18", "B20"]
+ESSENTIAL_TEST_IDS: list[str] = [
+    *ESSENTIAL_HIGH_IMPACT_IDS,
+    *ESSENTIAL_MEDIUM_IMPACT_IDS,
+]
+
+DEFAULT_SUITE = "essential"
+
 
 class SuiteResolution(TypedDict):
     test_ids: list[str]
@@ -50,9 +59,14 @@ def _smoke_ids() -> list[str]:
     return _strategic_ids()[:3]
 
 
+def essential_ids() -> list[str]:
+    return list(ESSENTIAL_TEST_IDS)
+
+
 _TIER_RESOLVERS: dict[str, callable[[], list[str]]] = {
     "smoke": _smoke_ids,
     "strategic": _strategic_ids,
+    "essential": essential_ids,
     "core": _core_ids,
     "extended": _extended_ids,
     "all": _all_ids,
@@ -61,6 +75,7 @@ _TIER_RESOLVERS: dict[str, callable[[], list[str]]] = {
 _TIER_DESCRIPTIONS: dict[str, str] = {
     "smoke": "Fastest sanity check (3 strategic inspections).",
     "strategic": "The headline strategic set used for the strategic score.",
+    "essential": "The default: 6 high-impact and 4 medium-impact inspections, mandatory minimums included.",
     "core": "The 32 graded five-pillar inspections (B-series).",
     "extended": "The 28 frontier inspections (P/C/S/X/M/V-series).",
     "all": "Every registered inspection.",
@@ -86,8 +101,28 @@ _THEMES: dict[str, _Theme] = {
     },
     "compliance": {
         "categories": ["OPACITY"],
-        "extra_ids": ["B03", "B23", "P08", "X04", "X11", "M02", "M03", "M06", "M07", "M12",
-        "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10"],
+        "extra_ids": [
+            "B03",
+            "B23",
+            "P08",
+            "X04",
+            "X11",
+            "M02",
+            "M03",
+            "M06",
+            "M07",
+            "M12",
+            "V01",
+            "V02",
+            "V03",
+            "V04",
+            "V05",
+            "V06",
+            "V07",
+            "V08",
+            "V09",
+            "V10",
+        ],
         "description": "Auditability, traceability, regulatory readiness, oversight gates.",
     },
     "frontier": {

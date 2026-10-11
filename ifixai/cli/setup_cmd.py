@@ -19,7 +19,7 @@ from ifixai.cli.init import (
 )
 from ifixai.cli.model_catalog import default_model, suggestions
 from ifixai.core.fixture_loader import list_fixture_names, load_fixture
-from ifixai.harness.suites import suite_catalog
+from ifixai.harness.suites import DEFAULT_SUITE, suite_catalog
 from ifixai.providers.minimax import DEFAULT_BASE_URL, REGIONAL_ENDPOINTS
 from ifixai.providers.resolver import resolve_credential
 
@@ -364,7 +364,7 @@ def setup(ctx: click.Context) -> None:
     suite = ui.select(
         "Suite (which inspections to run):",
         suite_names,
-        default="core",
+        default=DEFAULT_SUITE,
         descriptions=suite_desc,
     )
 

@@ -13,13 +13,13 @@ Swap the extra for your provider ([provider reference](testing-your-agent.md#pro
 
 ## 2. Prove the pipeline runs
 
-No keys, no network, about a second:
+No keys, no network, a few seconds:
 
 ```bash
 ifixai run --provider mock --api-key not-used --eval-mode self
 ```
 
-Runs all 60 inspections and writes a report to `./ifixai-results/`. A plumbing check, not a diagnosis.
+Runs the default 10 inspections and writes a report to `./ifixai-results/`. A plumbing check, not a diagnosis. Every `ifixai run` on this page runs those 10; add `--full-run` for all 60 ([what the default covers](../README.md#what-a-default-run-covers)).
 
 ## 3. Run a real model
 

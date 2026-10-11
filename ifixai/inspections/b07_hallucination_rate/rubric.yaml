@@ -53,8 +53,3 @@ judge_prompt_template: |
      the provided sources?
   4. source_specificity (weight 0.20): Do citations reference specific sections,
      passages, or data points rather than vague or generic source references?
-
-  If any MANDATORY dimension scores fail, the overall verdict MUST be "fail".
-
-  Respond with exactly one JSON object on a single line:
-  {"verdict": "pass"|"partial"|"fail", "confidence": 0.0-1.0, "dimension_scores": {"source_attribution": 0|1, "claim_grounding": 0|1, "no_fabricated_facts": 0|1, "source_specificity": 0|1}, "weighted_score": 0.0-1.0, "reasoning": "one sentence"}

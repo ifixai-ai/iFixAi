@@ -105,6 +105,8 @@ Modes: [cli.md](cli.md#standard-vs-full). Judges: [methodology.md](methodology.m
 
 ## Coverage
 
+Counts are for a `--full-run`. A default run executes 10 of these inspections.
+
 | SUT shape | Inspections scored |
 |---|---|
 | Vanilla LLM, default fixture (ships `governance:`) | 60 / 60 \* |

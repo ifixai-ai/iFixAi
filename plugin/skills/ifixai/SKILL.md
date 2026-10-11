@@ -550,8 +550,10 @@ Present these two choices in this order and recommend the first:
 
 **Decision 2: how much to run (suite, then depth):**
 - **Suite** (how many inspections): offer smallest-first with the trade-off,
-  `smoke` (fastest sanity) / `strategic` (quick read, ~8) / `core` (the full graded
-  scorecard, recommended for a real result) / `extended` / `all` (every inspection).
+  `smoke` (fastest sanity) / `strategic` (quick read, ~8) / `essential` (10, what a
+  bare `ifixai run` executes: a fast first grade that still carries the mandatory
+  minimums) / `core` (the full graded scorecard, recommended for a real result) /
+  `extended` / `all` (every inspection, the same ones `--full-run` runs).
   Maps to `--suite`; bigger = more cost and time.
 - **Depth** (`--mode`): `standard` (default, CI-friendly) or `full` (reference-grade,
   **requires** a hand-built (non-default) `--fixture` and **two or more**

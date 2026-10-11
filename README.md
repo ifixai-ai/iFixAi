@@ -78,7 +78,7 @@ All three run the same diagnostic underneath. The difference is how you configur
 | **What you test** | any provider, or your agent's real endpoint | same | same |
 | **Who grades it** | self, one independent vendor, or a multi-judge ensemble | same | same |
 | **Output** | JSON + Markdown reports + rich terminal scorecard | same | interactive results artifact (+ JSON source of truth; static-report fallback) |
-| **Suite** | pick with arrow keys in the wizard | `--suite smoke\|strategic\|core\|extended\|all` | the agent picks `--mode`/`--suite`, same engine as the CLI |
+| **Suite** | pick with arrow keys in the wizard | 10 inspections by default; `--full-run` for all 60, or `--suite smoke\|strategic\|essential\|core\|extended\|all` | the agent picks `--mode`/`--suite`, same engine as the CLI |
 | **Works in** | any terminal | any terminal / CI | Claude Code, Cursor, Codex, VS Code, Windsurf, Cline, Continue, Gemini, Zed |
 
 ## Quick start
@@ -158,10 +158,10 @@ Code plugin's `/ifixai`; pass `--name ifixai` for the bare name.
 # 1. Install the CLI + the extra for the provider you'll test
 pip install "ifixai[anthropic]"
 
-# 2. Prove the pipeline runs: built-in mock, no keys, no network, ~1s.
-#    Expect a FAILING scorecard (15/60) — the bundled default fixture ships
-#    seeded defects on purpose so you see what failures look like.
-#    Defect map: ifixai/fixtures/default/README.md
+# 2. Prove the pipeline runs: built-in mock, no keys, no network, a few seconds.
+#    Runs the default 10 inspections. Expect a FAILING scorecard (B01 and P01
+#    fail) — the bundled default fixture ships seeded defects on purpose so you
+#    see what failures look like. Defect map: ifixai/fixtures/default/README.md
 ifixai run --provider mock --api-key not-used --eval-mode self
 
 # 3. Get a citable grade: your model graded by a *different* vendor's judge.
@@ -218,15 +218,59 @@ judge calls a full run makes (the suite generates far more probes than its 50-te
 figure is fairly stable across fixtures). The agent under test is billed separately. Full mode
 needs a hand-built fixture: **[docs/fixture_authoring.md](docs/fixture_authoring.md)**.
 
+These are full-suite figures (`--full-run`). The default 10-inspection run makes about a sixth of
+the calls, so expect roughly a sixth of the cost and time.
+
+### What a default run covers
+
+`ifixai run` runs **10 inspections** unless you ask for more. They are the `essential` suite: six
+high-impact checks plus four medium-impact ones, picked so a first run is quick and still ends in
+a grade. Add **`--full-run`** to run all 60.
+
+| Impact | ID | Checks that your agent… |
+|---|---|---|
+| High | `B01` | only lets a role use the tools it is allowed to use · *mandatory minimum* |
+| High | `B08` | cannot be talked into more access than the user has · *mandatory minimum* |
+| High | `P01` | never runs a destructive action for someone not allowed to · *mandatory minimum* |
+| High | `B12` | resists prompt injection |
+| High | `B09` | spots and blocks requests that break your policies |
+| High | `B27` | does not hand one user's private data to another |
+| Medium | `B06` | says when it is unsure instead of guessing with confidence |
+| Medium | `B16` | reports a failure instead of pretending it worked |
+| Medium | `B18` | sticks to the task it was given |
+| Medium | `B20` | follows exact instructions on format, length, and content |
+
+- **It still produces a grade.** The three mandatory minimums are always included (a run without
+  them has its overall score withheld), and the ten cover all five graded pillars.
+- **It runs on any agent.** Eight of the ten only need your agent to answer chat messages. B01
+  and P01 read its tool-authorization layer instead; what they report when none is exposed:
+  [docs/scoring.md](docs/scoring.md#mandatory-minimums).
+- **About 6x less work.** On the bundled default fixture a default run makes about 850 calls to
+  your agent and about 820 judge calls; `--full-run` makes about 5,500 and 4,700.
+
+```bash
+ifixai run --provider openai                 # the default: 10 inspections
+ifixai run --provider openai --full-run      # all 60: slower, costs more
+```
+
+`--full-run` is the old default behaviour, unchanged. It cannot be combined with `--suite`,
+`--test`, `--category`, or `--strategic`, and it has nothing to do with `--mode full`, which sets
+how a run is judged. A `suite:` saved in `ifixai.yaml` replaces the default; `--full-run` on the
+command line overrides that. `ifixai setup` preselects the same 10-inspection suite. `--resume`
+continues an interrupted full run as a full run, with or without `--full-run`.
+
 ### Suite options
+
+To pick a different set, name a suite:
 
 | Suite | Tests | Use when |
 |---|---|---|
 | `smoke` | 3 | just checking the pipeline works |
 | `strategic` | 8 | quick read on the riskiest spots |
+| `essential` | 10 | a fast first grade (**the default**) |
 | `core` | 32 | the graded five-pillar scorecard |
 | `extended` | 28 | frontier risk signal, scored outside the grade |
-| `all` | 60 | everything (the default when you pass no `--suite`) |
+| `all` | 60 | everything; the same inspections as `--full-run` |
 
 Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `--suite` values; run `ifixai list suites` to browse them all.
 
