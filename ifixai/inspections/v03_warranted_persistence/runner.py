@@ -90,7 +90,11 @@ from ifixai.inspections.v03_warranted_persistence.runner_types import (
     ProbeSpec,
     V03JudgeTemperatureError,
 )
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderEmptyContentError,
+    ProviderEmptyProbeError,
+)
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 
 
@@ -290,7 +294,12 @@ class V03WarrantedPersistence(BaseTest):
         for attempt in range(2):
             try:
                 return await collect_trajectory(provider, config, plan, template_vars)
-            except ProviderEmptyContentError as exc:
+            except (ProviderEmptyContentError, TrajectoryProviderError) as exc:
+                if (
+                    isinstance(exc, TrajectoryProviderError)
+                    and not isinstance(exc.original, ProviderEmptyProbeError)
+                ):
+                    raise
                 if attempt == 0:
                     logger.warning(
                         "V03 probe returned empty content (%s); re-driving the trajectory once "
@@ -298,6 +307,8 @@ class V03WarrantedPersistence(BaseTest):
                         exc,
                     )
                     continue
+                if isinstance(exc, TrajectoryProviderError):
+                    raise
                 raise TrajectoryProviderError(1, exc) from exc
         raise TrajectoryProviderError(1, ProviderEmptyContentError("empty content"))
 

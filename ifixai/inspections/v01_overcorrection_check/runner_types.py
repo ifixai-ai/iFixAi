@@ -267,7 +267,7 @@ class InsufficientDetails(TypedDict):
 class ProbeProviderError(Exception):
     """A provider failure on one probe, carried so the runner can turn it into an excluded
     per-probe item rather than sinking the sweep. ProviderEmptyContentError is NOT wrapped —
-    it propagates so the run routes to INCONCLUSIVE."""
+    the runner records it through the same unscorable per-probe builder."""
 
 
 class V01JudgeTemperatureError(RuntimeError):

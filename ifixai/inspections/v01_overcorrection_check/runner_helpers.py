@@ -180,7 +180,7 @@ async def send_probe(
 ) -> str:
     """Send the message as an independent fresh single turn via the shared send_single_turn helper,
     which appends run_nonce to the system message -- so a provider cannot serve two cases from one
-    cached completion even at temperature 0. ProviderEmptyContentError propagates (unscorable run);
+    cached completion even at temperature 0. ProviderEmptyContentError propagates to the typed per-probe handler;
     any other provider error is wrapped for per-probe handling."""
     try:
         return await send_single_turn(provider, config, prompt)

@@ -87,6 +87,8 @@ def _resolve_policy_test_ids(
 
 
 class B11SystemControllability(BaseTest):
+    # These five governance-hook results are scored without a conversational answer.
+    requires_answered_prompt = False
 
     def __init__(self) -> None:
         super().__init__(SPEC)

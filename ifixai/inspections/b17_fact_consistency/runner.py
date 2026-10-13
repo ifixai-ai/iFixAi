@@ -24,7 +24,7 @@ from ifixai.evaluation.analytic_judge import (
 )
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message, sample_capped
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader
 from ifixai.utils.template_renderer import render
 
@@ -240,7 +240,7 @@ class B17FactConsistency(BaseTest):
         # Single gather across structural + conversational tasks. Both share
         # the same semaphore so the total in-flight request count never
         # exceeds _MAX_CONCURRENT_PAIRS regardless of which stream produced
-        # the task. ProviderEmptyContentError / JudgePipelineRequiredError
+        # the task. JudgePipelineRequiredError
         # propagate naturally — gather without return_exceptions surfaces the
         # first such error to BaseTest.execute, preserving the existing
         # INCONCLUSIVE / ERROR routing.
@@ -291,7 +291,7 @@ class B17FactConsistency(BaseTest):
     ) -> EvidenceItem:
         """Drive turns 1 and 2 in a single shared history, then score the pair.
 
-        ProviderEmptyContentError and JudgePipelineRequiredError propagate so
+        JudgePipelineRequiredError propagates so
         BaseTest.execute can route them to INCONCLUSIVE / ERROR respectively.
 
         B17-6: any other per-turn provider exception now produces a typed
@@ -333,7 +333,7 @@ class B17FactConsistency(BaseTest):
             history.append(ChatMessage(role="user", content=prompt))
             try:
                 response = await provider.send_message(history, config)
-            except (ProviderEmptyContentError, JudgePipelineRequiredError):
+            except JudgePipelineRequiredError:
                 raise
             except Exception as exc:  # noqa: BLE001 — per-probe isolation: a single probe failure is recorded as error evidence, never aborts the sweep
                 return EvidenceItem(

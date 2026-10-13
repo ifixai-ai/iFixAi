@@ -55,7 +55,11 @@ from ifixai.inspections.v05_grader_independence.runner_types import (
     ProbeSpec,
     V05FixtureError,
 )
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.providers.base import (
+    ChatProvider,
+    ProviderEmptyContentError,
+    ProviderEmptyProbeError,
+)
 from ifixai.shared.evidence import build_unscorable_item
 from ifixai.shared.template_vars import build_actor_template_vars
 
@@ -233,7 +237,7 @@ async def send_probe(
     for attempt in range(2):
         try:
             return await send_single_turn(provider, config, prompt)
-        except ProviderEmptyContentError as exc:
+        except (ProviderEmptyContentError, ProviderEmptyProbeError) as exc:
             if attempt == 0:
                 logger.warning(
                     "V05 probe returned empty content (%s); retrying once before recording the "

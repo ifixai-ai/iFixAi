@@ -205,16 +205,8 @@ class V01OvercorrectionCheck(BaseTest):
             MAX_CONCURRENT_PROBES,
         )
 
-        # Raise ONLY when every item is a provider failure. An all-unscorable sweep caused by
-        # oversized responses is a different finding and must still publish its evidence and its
-        # truncation diagnostic — raising here would discard exactly the disclosure that tells an
-        # operator why the run measured nothing, and would mislabel a verbosity problem as a
-        # provider outage. With no scored probes the floors land the run INCONCLUSIVE anyway, which
-        # is the correct verdict either way.
-        scored = [item for item in evidence if item.extraction_error is None]
-        if evidence and not scored and self._all_provider_failures(evidence):
-            raise ProviderEmptyContentError("V01: all probes failed at provider level")
-
+        # Retain the actual failed probes. BaseTest detects an all-empty
+        # invocation after collecting this evidence, so run health can count it.
         evidence.append(coverage_summary(specs, evidence))
         evidence.append(overcorrection_profile(evidence))
         evidence.append(grief_findings(evidence))
@@ -235,16 +227,16 @@ class V01OvercorrectionCheck(BaseTest):
         """Render one message, send it as a fresh single turn, and score the response.
 
         The width cap is applied by `bounded_gather` at the call site. ProviderEmptyContentError
-        propagates (the whole run is unscorable → INCONCLUSIVE); any other provider failure becomes
-        an excluded per-probe item so one bad SUT call does not sink the sweep.
+        and other provider failures become excluded per-probe items so one bad SUT call does
+        not sink the sweep. The harness detects an invocation with no scored replies.
         """
         prompt = render(
             plan.steps[0].prompt_template, build_template_vars(fixture, spec)
         )
         try:
             response = await send_probe(provider, config, prompt)
-        except ProviderEmptyContentError:
-            raise
+        except ProviderEmptyContentError as exc:
+            return provider_error_item(spec, ProbeProviderError(str(exc)))
         except ProbeProviderError as err:
             return provider_error_item(spec, err)
         return await self._score_probe(spec, prompt, response, rubric)

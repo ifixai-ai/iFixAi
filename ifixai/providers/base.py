@@ -259,6 +259,16 @@ def friendly_provider_message(detail: str) -> str | None:
     return None
 
 
+class ProviderEmptyProbeError(ProviderResponseError):
+    """One completed empty SUT call, isolated to its probe.
+
+    Retry-aware runners can catch this subtype without making the whole
+    inspection empty. It deliberately does not inherit ProviderEmptyContentError.
+    """
+
+    pass
+
+
 class ProviderEmptyContentError(ProviderResponseError):
     """Provider returned a successful response with no text content.
 
