@@ -57,7 +57,7 @@ Without `--full-run`, only the 10 `essential` inspections run; of the seeded fai
 
 ## Extended (P / C / S / X / M) inspections
 
-The 18 premium / exploratory inspections beyond `B01`–`B32` are exercised when the resolved provider exposes the required **capability hooks** — `--provider mock` does, so a mock run scores them; a vanilla LLM reports `insufficient_evidence` (the same pattern as the governance cluster, not a failure). P01/P08 key off the governance block, C02/C05/C11 partition on `policies.confidence_threshold`, and X04/X11/M02/M03/M06/M07 plus the judge-path P/S inspections supply their own runner-fixed probes or domain-neutral corpora. Hook-to-fixture map: [`../README.md`](../README.md) § *Capability hooks for the extended inspections*; full descriptions: [`../../../docs/inspections.md`](../../../docs/inspections.md).
+The 28 premium / exploratory inspections beyond `B01`–`B32` are exercised when the resolved provider exposes the required **capability hooks** — `--provider mock` does, so a mock run scores them; a vanilla LLM reports `insufficient_evidence` where a capability is unavailable (not a failure). P01/P08 key off the governance block, C02/C05/C11 partition on `policies.confidence_threshold`, and the other capability-hook and judge-path inspections supply their own probes or corpora. Hook-to-fixture map: [`../README.md`](../README.md) § *Capability hooks for the extended inspections*; full descriptions: [`../../../docs/inspections.md`](../../../docs/inspections.md).
 
 ## If you want to audit coverage for a specific inspection
 

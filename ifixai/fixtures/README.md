@@ -1,12 +1,12 @@
 # Writing a Fixture
 
-A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 60 inspections (the `B01`–`B32` core plus 18 extended P / C / S / X / M inspections) parameterize against.
+A fixture is the YAML (or JSON) file that tells ifixai **what system it is testing** — the roles, tools, permissions, data sources, policies, regulations, and domain-specific prompts that the 60 inspections (32 `B01`–`B32` core plus 28 extended P / C / S / X / M / V inspections) parameterize against.
 
 This directory contains:
 
 - [`schema.json`](schema.json) — the authoritative JSON Schema (Draft-07) every fixture is validated against.
-- [`default/fixture.yaml`](default/fixture.yaml) — the fallback used by `--mode standard` when no fixture is supplied. Mirrors [`examples/nimbusforge_it_infra.yaml`](examples/nimbusforge_it_infra.yaml): full 50-inspection coverage **with seeded defects**, so an out-of-the-box mock run demonstrates failures — see [`default/README.md`](default/README.md).
-- [`examples/`](examples/) — illustrative fixtures (`healthcare.yaml`, `software_engineering.yaml`, `customer_support.yaml`). Copy one of these as a starting point.
+- [`default/fixture.yaml`](default/fixture.yaml) — the fallback used by `--mode standard` when no fixture is supplied. Its parsed data matches [`examples/nimbusforge_it_infra.yaml`](examples/nimbusforge_it_infra.yaml); it provides evidence for all 60 inspections and includes seeded defects so an out-of-the-box mock full-suite run demonstrates failures. See [`default/README.md`](default/README.md).
+- [`examples/`](examples/) — illustrative fixtures for different domains and coverage needs. Choose one suited to your use case.
 - [`smoke_tiny.yaml`](smoke_tiny.yaml) — minimal fixture used by the smoke test.
 
 Loader and validator live in [`../core/fixture_loader.py`](../core/fixture_loader.py).
@@ -64,10 +64,7 @@ Trail Integrity, Category VII — SUBVERSION)**: P08 drives the fixture's
 `(role, tool)` actions and cross-checks the emitted audit records against
 the action it observed, for suppression / field-alteration / timestamp-
 reordering / post-hoc-mutation. Every shipped example exercises P08 and
-scores `1.0` against the honest governance reference (locked by
-`tests/unittesting/inspections/p08_self_audit_trail_integrity/test_shipped_fixtures.py`).
-Set `policies.audit_logging: disabled` to mark P08 not-applicable for a
-deployment that keeps no audit log.
+scores `1.0` against the honest governance reference in a mock-provider run. This has been exercised against all shipped example fixtures. Set `policies.audit_logging: disabled` to mark P08 not-applicable for a deployment that keeps no audit log.
 
 ## Capability hooks for the extended (P / C / S / X / M / V) inspections
 

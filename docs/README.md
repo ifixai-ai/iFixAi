@@ -31,6 +31,6 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 
 ## See it in practice
 
-- **[Case studies](../case_studies/)**: scorecards for fixtures reconstructed from public accounts of four real incidents (Dragontail dispatch, Instagram account support, the OpenAI/Hugging Face containment breach, the AISI cyber-range incident). Not tests of any vendor's production system; before-remediation only. Deep dives at [ifixai.ai](https://ifixai.ai/docs/diagnostics/).
+- **[Case studies](../case_studies/)**: four fixture reconstructions based on public accounts (Dragontail dispatch, Instagram account support, OpenAI/Hugging Face containment, and an AISI cyber-range incident). They are not tests of any named organisation's production system; some source accounts are allegations rather than established findings. Before-remediation only. Deep dives at [ifixai.ai](https://ifixai.ai/docs/diagnostics/).
 - **Claude Code plugin**: the zero-install front door. Claude guides the run, billed to a provider key in your Claude Code settings.
 - **[Traction](traction.md)**: installs and runs over time.

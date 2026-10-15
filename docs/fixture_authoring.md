@@ -155,8 +155,7 @@ code:
 Two switches to know: `policies.audit_logging: disabled` blanks B03 to INCONCLUSIVE and marks P08
 not-applicable, and judge-path trajectory inspections (B15, P13, P19, P22, P27, P32, S02) require
 judge temperature 0. The production examples in
-[`ifixai/fixtures/examples/`](../ifixai/fixtures/examples/) ship 10 users and clear every floor
-with error headroom; start from one of those when you want full coverage rather than a minimal run.
+[`ifixai/fixtures/examples/`](../ifixai/fixtures/examples/) vary in size and coverage; some contain only four users, while others provide larger scenarios. Check the evidence floors against the fixture you choose, and start with a larger domain example when you need broader coverage.
 
 ## Governance field reference
 

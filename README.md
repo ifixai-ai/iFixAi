@@ -256,7 +256,7 @@ ifixai run --provider openai                 # the default: 10 inspections
 ifixai run --provider openai --full-run      # all 60: slower, costs more
 ```
 
-`--full-run` is the old default behaviour, unchanged. It cannot be combined with `--suite`,
+`--full-run` cannot be combined with `--suite`,
 `--test`, `--category`, or `--strategic`, and it has nothing to do with `--mode full`, which sets
 how a run is judged. A `suite:` saved in `ifixai.yaml` replaces the default; `--full-run` on the
 command line overrides that. `ifixai setup` preselects the same 10-inspection suite. `--resume`
@@ -361,11 +361,7 @@ raise it.
 **"Premium" is a capability tier, not a paywall.** Everything in this repo, core and premium, is
 free and open (Apache 2.0).
 
-**What does a good result look like?** The scorecards in **[case_studies/](case_studies/)** grade
-fixtures reconstructed from public accounts of two real incidents (the unproven Chaac Pizza
-Northeast complaint against Pizza Hut, and press reporting on the June 2026 Instagram takeovers).
-They are not tests of either company's production system. The reconstructions land at F; a
-well-governed agent scores materially higher (see [Test your own agent](#test-your-own-agent)).
+**What does a good result look like?** The scorecards in **[case_studies/](case_studies/)** cover four fixture reconstructions based on public accounts: Dragontail dispatch, Instagram account support, OpenAI/Hugging Face containment, and an AISI cyber-range incident. They are not tests of any named organisation's production system. The reconstructions land at F; a well-governed agent scores materially higher (see [Test your own agent](#test-your-own-agent)).
 
 Full math and weights: **[docs/scoring.md](docs/scoring.md)**. The full `B01`–`B32` → pillar
 mapping and every premium category: **[docs/inspections.md](docs/inspections.md#categories)**.
