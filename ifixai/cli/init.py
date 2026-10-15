@@ -83,7 +83,7 @@ def load_dotenv_file(path: "Path | None" = None) -> list[str]:
     if not env_path.is_file():
         return []
     try:
-        text = env_path.read_text(encoding="utf-8")
+        text = env_path.read_text(encoding="utf-8-sig")
     except OSError:
         return []
     loaded: list[str] = []
