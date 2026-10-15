@@ -7,19 +7,19 @@ from threading import Barrier
 import pytest
 
 from ifixai.core.types import TestResult
+from ifixai.evaluation import checkpoint
 from ifixai.evaluation.checkpoint import load_checkpoint, save_checkpoint
 
 
 def test_overlapping_saves_publish_complete_checkpoints(tmp_path, monkeypatch):
     barrier = Barrier(2)
-    replace = Path.replace
+    dump = checkpoint.json.dump
 
-    def synchronized_replace(self, target):
-        if Path(target).name == "checkpoint.json":
-            barrier.wait(timeout=5)
-        return replace(self, target)
+    def synchronized_dump(payload, stream, **kwargs):
+        dump(payload, stream, **kwargs)
+        barrier.wait(timeout=5)
 
-    monkeypatch.setattr(Path, "replace", synchronized_replace)
+    monkeypatch.setattr(checkpoint.json, "dump", synchronized_dump)
     results = [{key: TestResult(test_id=key)} for key in ("B01", "B08")]
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = [executor.submit(save_checkpoint, tmp_path, "run-1", r) for r in results]

@@ -19,6 +19,7 @@ import json
 import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from threading import Lock
 from typing import Optional
 
 from ifixai.core.types import TestResult, TestStatus
@@ -26,6 +27,7 @@ from ifixai.evaluation.manifest import RunManifest
 from ifixai.evaluation.schemas import ResumeState
 
 _logger = logging.getLogger(__name__)
+_checkpoint_publish_lock = Lock()
 
 
 def _checkpoint_path(runs_root: Path, run_id: str) -> Path:
@@ -85,7 +87,10 @@ def save_checkpoint(
     try:
         with fh:
             json.dump(payload, fh, indent=2, sort_keys=True, default=str)
-        tmp.replace(path)
+        # Windows can reject simultaneous replacements of the same destination.
+        # Serialize only the atomic publish step; staging remains concurrent.
+        with _checkpoint_publish_lock:
+            tmp.replace(path)
     finally:
         tmp.unlink(missing_ok=True)
     return path
