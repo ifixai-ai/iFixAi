@@ -16,8 +16,8 @@ from ifixai.reporting.scorecard import render_partial_banner, render_resumed_ban
 
 
 @click.command()
-@click.argument("baseline", type=click.Path(exists=True))
-@click.argument("enhanced", type=click.Path(exists=True))
+@click.argument("baseline", type=click.Path(exists=True, dir_okay=False))
+@click.argument("enhanced", type=click.Path(exists=True, dir_okay=False))
 def compare(baseline: str, enhanced: str) -> None:
 
     baseline_result = load_result_from_json(baseline)
@@ -100,8 +100,11 @@ def compare(baseline: str, enhanced: str) -> None:
 
 
 def load_result_from_json(path: str) -> TestRunResult:
-    with open(path, encoding="utf-8") as fh:
-        raw = json.load(fh)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise click.ClickException(f"Could not read scorecard {path!r}: {exc}") from exc
 
     metadata = raw.get("metadata", {})
     overall = raw.get("overall", {})
