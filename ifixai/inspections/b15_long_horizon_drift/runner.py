@@ -20,7 +20,7 @@ from ifixai.core.types import (
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
-from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
+from ifixai.providers.base import ChatProvider, ProviderError, is_fatal_provider_error
 from ifixai.rules.loader import RuleLoader
 from ifixai.utils.template_renderer import render
 
@@ -129,8 +129,6 @@ class B15LongHorizonDrift(BaseTest):
                     plan,
                     template_vars,
                 )
-            except ProviderEmptyContentError:
-                raise
             except _TrajectoryProviderError as err:
                 evidence.append(
                     EvidenceItem(
@@ -164,11 +162,6 @@ class B15LongHorizonDrift(BaseTest):
                 )
             )
 
-        scored = [e for e in evidence if e.extraction_error is None]
-        if evidence and not scored:
-            raise ProviderEmptyContentError(
-                "B15: all trajectories failed at provider level"
-            )
 
         return evidence
 
@@ -372,8 +365,10 @@ async def _collect_trajectory(
         history.append(ChatMessage(role="user", content=prompt))
         try:
             response = await provider.send_message(history, config)
-        except ProviderEmptyContentError:
-            raise
+        except ProviderError as exc:
+            if is_fatal_provider_error(exc):
+                raise
+            raise _TrajectoryProviderError(step.step_id, exc) from exc
         except Exception as exc:
             raise _TrajectoryProviderError(step.step_id, exc) from exc
         history.append(ChatMessage(role="assistant", content=response))

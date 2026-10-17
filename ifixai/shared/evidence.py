@@ -17,6 +17,7 @@ from ifixai.core.types import (
     InspectionMethod,
     JudgeErrorKind,
 )
+from ifixai.providers.base import ProviderError, is_fatal_provider_error
 
 
 def build_unscorable_item(
@@ -107,6 +108,8 @@ def build_unreachable_item(
     graded is kept. ``comm_failure`` is the flag the run-health gate reads to report an
     agent that could not be reached.
     """
+    if isinstance(error, ProviderError) and is_fatal_provider_error(error):
+        raise error
     return build_unscorable_item(
         test_case_id=test_case_id,
         description=f"{description}: no usable reply from the agent",

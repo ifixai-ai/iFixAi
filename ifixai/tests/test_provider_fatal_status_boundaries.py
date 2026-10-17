@@ -17,6 +17,17 @@ def test_real_auth_failure_markers_remain_fatal(detail):
     assert is_fatal_provider_error(ProviderResponseError(details=detail))
 
 
+@pytest.mark.parametrize("endpoint", [
+    "http://127.0.0.1/billing-assistant",
+    "http://127.0.0.1/credit-advisor",
+    "http://127.0.0.1/quota-monitor",
+    "http://127.0.0.1/authentication-help",
+])
+def test_endpoint_names_do_not_make_a_malformed_reply_fatal(endpoint):
+    error = ProviderResponseError(provider="http", endpoint=endpoint, details="Malformed reply")
+    assert not is_fatal_provider_error(error)
+
+
 @pytest.mark.parametrize("detail", ["HTTP 400: request id 9c3a401e", "judge at http://127.0.0.1:8401 failed", "request returned 403 characters"])
 def test_status_digits_in_request_identity_do_not_reject_key_or_show_auth_banner(detail):
     assert not is_fatal_provider_error(ProviderResponseError(details=detail))

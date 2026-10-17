@@ -159,7 +159,7 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     # off at 403 characters reads as HTTP 403 and aborts the whole run.
     if isinstance(exc, TRANSIENT_PROVIDER_ERRORS):
         return False
-    text = str(exc).lower()
+    text = (exc.details if isinstance(exc, ProviderError) else str(exc)).lower()
     return _auth_status_code(text) is not None or any(
         marker in text for marker in _FATAL_ERROR_MARKERS
     )
