@@ -32,9 +32,9 @@ DEFAULT_MODEL: dict[str, str] = {
     "openai": "gpt-4o",
     "atlascloud": "qwen/qwen3.5-flash",
     "anthropic": "claude-sonnet-4-6",
-    "gemini": "gemini-2.0-flash",
+    "gemini": "gemini-3.6-flash",
     "azure": "gpt-4o",
-    "bedrock": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "bedrock": "global.anthropic.claude-sonnet-4-6",
     "huggingface": "meta-llama/Llama-3.3-70B-Instruct",
     "minimax": MINIMAX_DEFAULT_MODEL,
 }
@@ -99,7 +99,7 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("claude-3-5-haiku-latest", "Fastest & cheapest Claude"),
     ],
     "gemini": [
-        ("gemini-2.0-flash", "Fast and inexpensive"),
+        ("gemini-3.6-flash", "Fast and inexpensive"),
         ("gemini-1.5-pro", "Larger context, stronger reasoning"),
     ],
     "azure": [
@@ -107,7 +107,7 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("gpt-4o-mini", "Cheaper/faster deployment"),
     ],
     "bedrock": [
-        ("anthropic.claude-3-5-sonnet-20241022-v2:0", "Claude 3.5 Sonnet on Bedrock"),
+        ("global.anthropic.claude-sonnet-4-6", "Claude Sonnet 4.6 on Bedrock"),
         ("anthropic.claude-3-5-haiku-20241022-v1:0", "Claude 3.5 Haiku on Bedrock"),
     ],
     "huggingface": [

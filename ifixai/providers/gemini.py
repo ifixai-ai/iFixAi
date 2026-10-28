@@ -23,7 +23,7 @@ from ifixai.providers.base import (
 )
 from ifixai.providers.schemas import GeminiMessages
 
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 
 INITIAL_BACKOFF_SECONDS = 1.0
 BACKOFF_MULTIPLIER = 2.0
