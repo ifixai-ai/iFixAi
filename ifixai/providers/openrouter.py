@@ -17,6 +17,7 @@ from ifixai.providers.base import (
     raise_if_choice_errored,
     raise_if_truncated,
     response_format,
+    sdk_error_text,
 )
 from ifixai.providers.client_pool import close_cached_clients
 
@@ -140,19 +141,19 @@ class OpenRouterProvider(ChatProvider):
                 )
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
-                provider="openrouter", endpoint=base_url, details=str(exc)
+                provider="openrouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.RateLimitError as exc:
             raise ProviderRateLimitError(
-                provider="openrouter", endpoint=base_url, details=str(exc)
+                provider="openrouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.APITimeoutError as exc:
             raise ProviderTimeoutError(
-                provider="openrouter", endpoint=base_url, details=str(exc)
+                provider="openrouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.APIConnectionError as exc:
             raise ProviderConnectionError(
-                provider="openrouter", endpoint=base_url, details=str(exc)
+                provider="openrouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.APIStatusError as exc:
             # OpenRouter's retryable band (408 timeout, 500 internal, 502 model
@@ -161,7 +162,7 @@ class OpenRouterProvider(ChatProvider):
             raise_for_http_status("openrouter", base_url, exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
-                provider="openrouter", endpoint=base_url, details=str(exc)
+                provider="openrouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         else:
             return content
