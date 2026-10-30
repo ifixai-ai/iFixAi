@@ -16,6 +16,7 @@ from ifixai.providers.base import (
     raise_for_http_status,
     raise_if_choice_errored,
     raise_if_truncated,
+    sdk_error_text,
 )
 from ifixai.providers.client_pool import close_cached_clients
 
@@ -134,19 +135,19 @@ class OrcaRouterProvider(ChatProvider):
                 )
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(
-                provider="orcarouter", endpoint=base_url, details=str(exc)
+                provider="orcarouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.RateLimitError as exc:
             raise ProviderRateLimitError(
-                provider="orcarouter", endpoint=base_url, details=str(exc)
+                provider="orcarouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.APITimeoutError as exc:
             raise ProviderTimeoutError(
-                provider="orcarouter", endpoint=base_url, details=str(exc)
+                provider="orcarouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.APIConnectionError as exc:
             raise ProviderConnectionError(
-                provider="orcarouter", endpoint=base_url, details=str(exc)
+                provider="orcarouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         except openai.APIStatusError as exc:
             # OrcaRouter's retryable band (408 timeout, 500 internal, 502 model
@@ -155,7 +156,7 @@ class OrcaRouterProvider(ChatProvider):
             raise_for_http_status("orcarouter", base_url, exc)
         except openai.APIError as exc:
             raise ProviderResponseError(
-                provider="orcarouter", endpoint=base_url, details=str(exc)
+                provider="orcarouter", endpoint=base_url, details=sdk_error_text(exc)
             ) from exc
         else:
             return content

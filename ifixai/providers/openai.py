@@ -17,6 +17,7 @@ from ifixai.providers.base import (
     raise_if_choice_errored,
     raise_if_truncated,
     response_format,
+    sdk_error_text,
 )
 from ifixai.providers.client_pool import close_cached_clients
 
@@ -119,25 +120,25 @@ class OpenAIProvider(ChatProvider):
             raise ProviderAuthError(
                 provider="openai",
                 endpoint=endpoint,
-                details=str(exc),
+                details=sdk_error_text(exc),
             ) from exc
         except openai.RateLimitError as exc:
             raise ProviderRateLimitError(
                 provider="openai",
                 endpoint=endpoint,
-                details=str(exc),
+                details=sdk_error_text(exc),
             ) from exc
         except openai.APITimeoutError as exc:
             raise ProviderTimeoutError(
                 provider="openai",
                 endpoint=endpoint,
-                details=str(exc),
+                details=sdk_error_text(exc),
             ) from exc
         except openai.APIConnectionError as exc:
             raise ProviderConnectionError(
                 provider="openai",
                 endpoint=endpoint,
-                details=str(exc),
+                details=sdk_error_text(exc),
             ) from exc
         except openai.APIStatusError as exc:
             # 408/5xx is the gateway having a moment, not a dead provider.
@@ -146,7 +147,7 @@ class OpenAIProvider(ChatProvider):
             raise ProviderResponseError(
                 provider="openai",
                 endpoint=endpoint,
-                details=str(exc),
+                details=sdk_error_text(exc),
             ) from exc
         else:
             return content
