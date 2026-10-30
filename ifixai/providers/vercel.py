@@ -28,6 +28,7 @@ from ifixai.providers.base import (
     raise_for_http_status,
     raise_if_choice_errored,
     raise_if_truncated,
+    sdk_error_text,
 )
 from ifixai.providers.client_pool import close_cached_clients
 
@@ -196,11 +197,11 @@ def raise_for_sdk_error(endpoint: str, exc: openai.APIError) -> NoReturn:
     for sdk_error, provider_error in SDK_ERROR_TRANSLATIONS.items():
         if isinstance(exc, sdk_error):
             raise provider_error(
-                provider=PROVIDER_NAME, endpoint=endpoint, details=str(exc)
+                provider=PROVIDER_NAME, endpoint=endpoint, details=sdk_error_text(exc)
             ) from exc
     if not isinstance(exc, openai.APIStatusError):
         raise ProviderResponseError(
-            provider=PROVIDER_NAME, endpoint=endpoint, details=str(exc)
+            provider=PROVIDER_NAME, endpoint=endpoint, details=sdk_error_text(exc)
         ) from exc
     if exc.status_code == HTTPStatus.PAYMENT_REQUIRED:
         raise_for_payment_required(endpoint, exc)
@@ -220,7 +221,7 @@ def raise_for_payment_required(endpoint: str, exc: openai.APIStatusError) -> NoR
     raise ProviderResponseError(
         provider=PROVIDER_NAME,
         endpoint=endpoint,
-        details=f"HTTP {status.value} {status.phrase}: {exc}",
+        details=f"HTTP {status.value} {status.phrase}: {sdk_error_text(exc)}",
     ) from exc
 
 

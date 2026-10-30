@@ -328,9 +328,10 @@ async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> An
     ) as exc:
         # A model the provider doesn't know is refused whatever the format, so that 400 is no
         # verdict on the schema.
-        if kwargs.get("response_format", {}).get("type") == "json_schema" and not names_unknown_model(str(exc)):
-            raise ProviderSchemaRejectedError(details=f"strict schema refused: {exc}") from exc
-        if not drop_rejected_optional_params(kwargs, str(exc)):
+        text = sdk_error_text(exc)
+        if kwargs.get("response_format", {}).get("type") == "json_schema" and not names_unknown_model(text):
+            raise ProviderSchemaRejectedError(details=f"strict schema refused: {text}") from exc
+        if not drop_rejected_optional_params(kwargs, text):
             raise
         return await client.chat.completions.create(**kwargs)
 
@@ -540,6 +541,20 @@ def raise_if_choice_errored(
     raise ProviderResponseError(provider=provider, endpoint=endpoint, details=detail)
 
 
+def sdk_error_text(exc: BaseException) -> str:
+    """An SDK error's text with the provider's whole reply body in it.
+
+    openai 3.38+ puts only ``body["error"]["message"]`` in the text; the error code,
+    type and gateway fields the matchers in this module read are left on ``exc.body``.
+    Older SDKs already include the body, so their text is returned unchanged.
+    """
+    text = str(exc)
+    body = getattr(exc, "body", None)
+    if body is None or body == "" or str(body) in text:
+        return text
+    return f"{text} - {body}"
+
+
 def raise_for_http_status(provider: str, endpoint: str, exc: Exception) -> NoReturn:
     """Translate an OpenAI-SDK HTTP error into the matching provider exception.
 
@@ -549,7 +564,8 @@ def raise_for_http_status(provider: str, endpoint: str, exc: Exception) -> NoRet
     and aborting the run. Always raises.
     """
     status = getattr(exc, "status_code", None)
-    details = f"HTTP {status}: {exc}" if status is not None else str(exc)
+    text = sdk_error_text(exc)
+    details = f"HTTP {status}: {text}" if status is not None else text
     if status in RETRYABLE_HTTP_STATUS_CODES or (provider == "anthropic" and status == 529):
         raise ProviderOverloadedError(
             provider=provider, endpoint=endpoint, details=details
