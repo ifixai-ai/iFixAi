@@ -100,7 +100,7 @@ class InspectionOutcome:
     @property
     def is_blind_spot(self) -> bool:
         """Expected to catch this defect and did not."""
-        return self.expected and self.outcome in (
+        return self.expected and self.clean_score is not None and self.outcome in (
             Outcome.MISSED.value,
             Outcome.UNUSABLE.value,
         )
