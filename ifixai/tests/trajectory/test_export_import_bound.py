@@ -9,7 +9,7 @@ def test_oversized_native_export_refused_before_creating_evidence(tmp_path, monk
     capture = TraceRecorder("tenant", "collector", label="é" * 500, clock_ns=lambda: 10).seal()
     destination = tmp_path / "capture.jsonl"
     monkeypatch.setattr(importers, "MAX_BYTES", 1000)
-    with pytest.raises(ValueError, match="import.*limit"):
+    with pytest.raises(ValueError, match=r"import.*limit"):
         write_capture_jsonl(capture, destination)
     assert not destination.exists()
     assert not list(tmp_path.iterdir())
