@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import re
 from collections.abc import Callable
+from concurrent.futures import Future
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -64,7 +65,7 @@ def _sync_callable(function: Any) -> bool:
 
 
 def _immediate(value: Any) -> Any:
-    if inspect.isawaitable(value) or inspect.isgenerator(value) or inspect.isasyncgen(value):
+    if isinstance(value, Future) or inspect.isawaitable(value) or inspect.isgenerator(value) or inspect.isasyncgen(value):
         if inspect.iscoroutine(value) or inspect.isgenerator(value):
             value.close()
         raise TypeError("deferred callable results are not supported")
