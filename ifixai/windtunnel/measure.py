@@ -346,6 +346,14 @@ async def measure(
     clean_by_id = {r.test_id: r for r in clean_run.test_results}
     defective_by_id = {r.test_id: r for r in defective_run.test_results}
 
+    for side, by_id in (("clean", clean_by_id), ("defective", defective_by_id)):
+        missing = selected - set(by_id)
+        if missing:
+            raise ValueError(
+                f"{side} wind-tunnel run is missing selected inspections: "
+                f"{', '.join(sorted(missing))}; no complete paired measurement"
+            )
+
     outcomes = tuple(
         _classify(
             clean_by_id[test_id],
@@ -353,7 +361,6 @@ async def measure(
             expected=test_id in profile.expected_detectors,
         )
         for test_id in sorted(clean_by_id)
-        if test_id in defective_by_id
     )
     return WindTunnelReport(profile_name=profile.name, outcomes=outcomes)
 
