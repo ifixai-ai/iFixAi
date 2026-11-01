@@ -177,10 +177,14 @@ def write_capture_jsonl(capture: TraceCapture, path: str | Path) -> None:
     capture = TraceCapture.model_validate(capture.model_dump(mode="json"))
     if capture.source_format != "native" or capture.import_warnings:
         raise ValueError("JSONL recorder export accepts only native captures without import warnings")
+    from .importers import MAX_BYTES
+
     destination = Path(path)
     header = capture.model_dump(mode="json", exclude={"events", "import_warnings"})
     header["source_format"] = "jsonl"
     data = "\n".join([json.dumps(header, ensure_ascii=False), *(event.model_dump_json() for event in capture.events)]) + "\n"
+    if len(data.encode("utf-8")) > MAX_BYTES:
+        raise ValueError("capture exceeds the JSONL import byte limit")
     temporary = destination.with_name(destination.name + "." + secrets.token_hex(8) + ".tmp")
     descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     try:
