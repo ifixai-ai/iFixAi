@@ -35,3 +35,18 @@ def test_ordinary_scope_metadata_does_not_create_a_gap(native_example, tmp_path)
     imported = load_otlp_capture(path)
     assert not imported.import_warnings
     assert audit_trajectory(imported, native_example.demo_policy()).decision == "CLEAR"
+
+
+def test_unselected_trace_scope_loss_is_intentionally_excluded(native_example, tmp_path):
+    selected, _, _ = native_example.record_scenario()
+    other, _, _ = native_example.record_scenario()
+    raw = native_example.otlp_export(selected)
+    unselected = native_example.otlp_export(other)
+    unselected["resourceSpans"][0]["scopeSpans"][0]["scope"] = {"droppedAttributesCount": 1}
+    raw["resourceSpans"].extend(unselected["resourceSpans"])
+    path = tmp_path / "trace.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    imported = load_otlp_capture(path, trace_id=selected.trace_id)
+    assert imported.events == selected.events
+    assert not imported.import_warnings
+    assert audit_trajectory(imported, native_example.demo_policy()).decision == "CLEAR"
