@@ -7,11 +7,14 @@ import os
 from pathlib import Path
 from typing import Any
 
+from ifixai.policy_lab.integrity import validate_exploration_bundle
 from ifixai.policy_lab.models import ExplorationBundle, Witness
 from ifixai.policy_lab.repair import RepairReport
 
 
 def compare_policies(original: ExplorationBundle, candidate: ExplorationBundle) -> dict[str, Any]:
+    original = validate_exploration_bundle(original)
+    candidate = validate_exploration_bundle(candidate)
     if original.report.model_digest != candidate.report.model_digest:
         raise ValueError("policy comparison requires the exact same business model")
     if original.report.config_digest != candidate.report.config_digest:
@@ -106,6 +109,9 @@ def render_policy_lab_markdown(bundle: ExplorationBundle) -> str:
 
 
 def write_policy_lab_reports(bundle: ExplorationBundle, output: str | Path, *, comparison: dict[str, Any] | None = None, repair: RepairReport | None = None, metadata: dict[str, Any] | None = None) -> Path:
+    # Frozen Pydantic models still contain mutable dictionaries. Recompute the
+    # retained evidence before making a durable report or creating its directory.
+    bundle = validate_exploration_bundle(bundle)
     destination = Path(output)
     destination.mkdir(mode=0o700, exist_ok=False)
     files = {"bundle.json": _json(bundle.model_dump(mode="json")), "report.json": _json(bundle.report.model_dump(mode="json")),
