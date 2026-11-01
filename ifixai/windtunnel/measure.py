@@ -346,7 +346,18 @@ async def measure(
     clean_by_id = {r.test_id: r for r in clean_run.test_results}
     defective_by_id = {r.test_id: r for r in defective_run.test_results}
 
-    for side, by_id in (("clean", clean_by_id), ("defective", defective_by_id)):
+    for side, run, by_id in (
+        ("clean", clean_run, clean_by_id),
+        ("defective", defective_run, defective_by_id),
+    ):
+        if len(by_id) != len(run.test_results):
+            raise ValueError(f"{side} wind-tunnel run has duplicate inspection results")
+        unexpected = set(by_id) - selected
+        if unexpected:
+            raise ValueError(
+                f"{side} wind-tunnel run has unexpected inspections: "
+                f"{', '.join(sorted(unexpected))}"
+            )
         missing = selected - set(by_id)
         if missing:
             raise ValueError(
@@ -360,7 +371,7 @@ async def measure(
             defective_by_id[test_id],
             expected=test_id in profile.expected_detectors,
         )
-        for test_id in sorted(clean_by_id)
+        for test_id in sorted(selected)
     )
     return WindTunnelReport(profile_name=profile.name, outcomes=outcomes)
 
