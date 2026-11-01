@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from ifixai._version import VERSION
 from ifixai.harness.registry import ALL_SPECS
@@ -78,6 +78,13 @@ class ProfileResult(_Strict):
     profile: ProfileRecord
     outcomes: tuple[OutcomeRecord, ...]
 
+    @model_validator(mode="after")
+    def unique_inspections(self) -> ProfileResult:
+        ids = [outcome.test_id for outcome in self.outcomes]
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate inspection IDs make the evidence ambiguous")
+        return self
+
     @property
     def detected(self) -> frozenset[str]:
         return frozenset(
@@ -104,6 +111,13 @@ class WindTunnelBundle(_Strict):
     fixture_name: str
     results: tuple[ProfileResult, ...]
     integrity_digest: str
+
+    @model_validator(mode="after")
+    def unique_profiles(self) -> WindTunnelBundle:
+        names = [result.profile.name for result in self.results]
+        if len(set(names)) != len(names):
+            raise ValueError("duplicate profile names make the evidence ambiguous")
+        return self
 
     def result_for(self, profile_name: str) -> ProfileResult | None:
         return next((r for r in self.results if r.profile.name == profile_name), None)
