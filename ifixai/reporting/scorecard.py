@@ -818,7 +818,7 @@ def build_test_results_section(
             br_dict["error_message"] = br.error_message
         br_dict["evaluation_path"] = _dominant_evaluation_path(br)
         # An interval around a score is a score; a findings-only result withholds it, as the HTML does.
-        if br.confidence_interval and not br.findings_only:
+        if br.confidence_interval and not br.findings_only and not unscored:
             br_dict["ci_lower"] = round(br.confidence_interval.lower, 4)
             br_dict["ci_upper"] = round(br.confidence_interval.upper, 4)
             br_dict["confidence_interval"] = {
