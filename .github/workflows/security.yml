@@ -1,0 +1,72 @@
+name: Security
+
+on:
+  push:
+  pull_request:
+    branches: [main, "fix/**", "feat/**"]
+  # Nightly too, so a new advisory against a dependency shows up without a push.
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # The release binary, not the gitleaks Action (needs a licence key for org
+      # repos). Keep the version in step with .pre-commit-config.yaml.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.21.2
+          # From that release's checksums file, for the linux_x64 tarball.
+          GITLEAKS_SHA256: 5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba
+        run: |
+          set -euo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL --retry 3 --max-time 120 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
+
+      # --redact: CI logs on a public repo are public, so never print a found key.
+      - name: Scan for leaked keys
+        run: gitleaks dir . --redact --verbose
+
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install every provider SDK and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[all]" "pip-audit==2.10.1"
+
+      # litellm caps filelock below 4; remove these when it lifts the cap.
+      - name: Audit installed packages for known vulnerabilities
+        run: |
+          pip-audit \
+            --ignore-vuln CVE-2026-112907 \
+            --ignore-vuln CVE-2026-112908 \
+            --ignore-vuln CVE-2026-112909 \
+            --ignore-vuln CVE-2026-112910 \
+            --ignore-vuln CVE-2026-112911 \
+            --ignore-vuln CVE-2026-112912 \
+            --ignore-vuln CVE-2026-112913 \
+            --ignore-vuln CVE-2026-112915 \
+            --ignore-vuln CVE-2026-112935 \
+            --ignore-vuln CVE-2026-112936 \
+            --ignore-vuln CVE-2026-112938 \
+            --ignore-vuln CVE-2026-112939 \
+            --ignore-vuln CVE-2026-112940
