@@ -77,3 +77,23 @@ jobs:
           test "$broken" -eq 0 || exit 1
           echo "docs index links resolve"
 
+  # litellm caps openai below 3 and huggingface-hub below 2, so `.[all]` above
+  # tests older SDKs than users of those extras get. This job leaves litellm out.
+  newest-sdks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies (every provider SDK except litellm)
+        run: |
+          python -m pip install -e ".[dev,openai,gemini,anthropic,bedrock,huggingface]"
+          python -m pip show openai huggingface-hub | grep -E '^(Name|Version)'
+
+      - name: Tests
+        run: pytest ifixai -m "not acceptance" -q -n auto --dist loadfile
+
