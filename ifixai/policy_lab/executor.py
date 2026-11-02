@@ -108,6 +108,10 @@ def execute_witness(bundle: ExplorationBundle, witness: Witness, bindings: dict[
         return result("INCONCLUSIVE", "WITNESS_NOT_RETAINED")
     if type(max_steps) is not int or not 1 <= max_steps <= 64 or len(witness.steps) > max_steps:
         return result("INCONCLUSIVE", "STEP_BUDGET_INVALID_OR_EXCEEDED")
+    # Callbacks may retain and mutate the caller's mapping during replay. Admit
+    # and execute one detached set of bindings, not later replacements.
+    if isinstance(bindings, dict):
+        bindings = dict(bindings)
     if not isinstance(bindings, dict) or not _sync_callable(reset) or not _sync_callable(observe_state) or any(step.action_id not in bindings or not _sync_callable(bindings[step.action_id]) for step in witness.steps):
         return result("INCONCLUSIVE", "MISSING_OR_DEFERRED_BINDING")
     names = set(bundle.model.initial_facts)
