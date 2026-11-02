@@ -109,6 +109,28 @@ def load_result_from_json(path: str) -> TestRunResult:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise click.ClickException(f"Could not read scorecard {path!r}: {exc}") from exc
 
+    try:
+        return _parse_result(raw)
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise click.ClickException(
+            f"Invalid scorecard {path!r}: expected scorecard sections and unique inspection IDs"
+        ) from exc
+
+
+def _parse_result(raw: dict) -> TestRunResult:
+    if not isinstance(raw, dict):
+        raise TypeError("scorecard must be an object")
+    for section in ("metadata", "overall"):
+        if not isinstance(raw.get(section, {}), dict):
+            raise TypeError(f"{section} must be an object")
+    for section in ("test_results", "category_scores"):
+        rows = raw.get(section, [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise TypeError(f"{section} must be a list of objects")
+    ids = [row["test_id"] for row in raw.get("test_results", [])]
+    if any(not isinstance(tid, str) or not tid for tid in ids) or len(ids) != len(set(ids)):
+        raise ValueError("inspection IDs must be nonempty and unique")
+
     metadata = raw.get("metadata", {})
     overall = raw.get("overall", {})
     minimums = raw.get("mandatory_minimums", {})
