@@ -118,16 +118,17 @@ def _attributes(container: dict[str, Any], allowed: dict[str, str], warnings: li
 def load_otlp_capture(path: str | Path, *, trace_id: str | None = None) -> TraceCapture:
     """Ordinary span names never infer permissions, approvals or action outcomes."""
     raw = _object(strict_json(read_input(path)))
-    spans: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    spans: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = []
     for resource_span in _array(raw.get("resourceSpans", [])):
         resource_span = _object(resource_span)
         resource = _object(resource_span.get("resource", {}))
         for scope_span in _array(resource_span.get("scopeSpans", [])):
-            for span in _array(_object(scope_span).get("spans", [])):
-                spans.append((_object(span), resource))
+            scope_span = _object(scope_span)
+            for span in _array(scope_span.get("spans", [])):
+                spans.append((_object(span), resource, scope_span))
                 if len(spans) > MAX_EVENTS:
                     raise ValueError("OTLP exceeds the 100000 span limit")
-    traces = {_identifier(span.get("traceId"), 32) for span, _ in spans}
+    traces = {_identifier(span.get("traceId"), 32) for span, _, _ in spans}
     if trace_id is None:
         if len(traces) != 1:
             raise ValueError("OTLP requires one trace or explicit --trace-id selection")
@@ -140,9 +141,12 @@ def load_otlp_capture(path: str | Path, *, trace_id: str | None = None) -> Trace
     events: list[TraceEvent] = []
     metadata: list[dict[str, Any]] = []
     physical_parents: list[tuple[str, str]] = []
-    for span, resource in spans:
+    for span, resource, scope_span in spans:
         if _identifier(span.get("traceId"), 32) != selected:
             continue
+        # Scope attributes are not canonical event facts, but dropped metadata
+        # or unknown reserved instrumentation still makes coverage uncertain.
+        _attributes(_object(scope_span.get("scope", {})), {}, warnings)
         span_id = _identifier(span.get("spanId"), 16)
         if "kind" in span and (type(span["kind"]) is not int or not 0 <= span["kind"] <= 5):
             raise ValueError("OTLP span kind must be a numeric enum")
