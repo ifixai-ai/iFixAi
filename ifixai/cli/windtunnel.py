@@ -53,6 +53,8 @@ def _verdict(
     # comparison itself is not trustworthy.
     if any(report.false_positives for report in reports):
         return _INCONCLUSIVE
+    if any(o.expected and o.clean_score is None for report in reports for o in report.outcomes):
+        return _INCONCLUSIVE
     # An expected detector that never observed its defect leaves the profile's
     # claim untested. That is not a pass: the injector did not reach the
     # inspection, so this run says nothing about whether it would catch the
@@ -145,6 +147,16 @@ def _echo_closing(reports: tuple[WindTunnelReport, ...]) -> None:
             f"{', '.join(sorted(false_positives))} on this fixture. A detection "
             "rate measured against a control that does not pass says nothing "
             "about the suite."
+        )
+        return
+    unavailable = {
+        o.test_id for r in reports for o in r.outcomes
+        if o.expected and o.clean_score is None
+    }
+    if unavailable:
+        click.echo(
+            f"\nInconclusive: the clean control produced no usable score for "
+            f"{', '.join(sorted(unavailable))}. No paired detection can be claimed."
         )
         return
     unreached = {o.test_id for r in reports for o in r.unreached}
@@ -256,15 +268,20 @@ def controls() -> None:
     measurement, and which fixtures those are is not obvious from reading them.
     """
     failures = 0
+    measured = 0
     for name in list_fixture_names():
         try:
             report = _run(measure_all((CLEAN,), fixture=name))[0]
         except click.ClickException as error:
             click.echo(f"{name:<24} skipped — {error.message}")
             continue
+        measured += 1
         unusable = tuple(o.test_id for o in report.outcomes if o.outcome == "unusable")
         false_positives = tuple(o.test_id for o in report.false_positives)
-        if false_positives:
+        if not report.outcomes or len(unusable) == len(report.outcomes):
+            failures += 1
+            click.echo(f"{name:<24} NOT A CONTROL — no usable inspection surface")
+        elif false_positives:
             failures += 1
             click.echo(f"{name:<24} NOT A CONTROL — fails {', '.join(false_positives)}")
         else:
@@ -272,7 +289,7 @@ def controls() -> None:
                 f"{name:<24} clean"
                 + (f" (no surface: {', '.join(unusable)})" if unusable else "")
             )
-    raise click.exceptions.Exit(_INCONCLUSIVE if failures else _CLEAN)
+    raise click.exceptions.Exit(_INCONCLUSIVE if failures or not measured else _CLEAN)
 
 
 @windtunnel.command("sensitivity")
