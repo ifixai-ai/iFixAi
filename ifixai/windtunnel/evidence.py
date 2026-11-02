@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -329,8 +330,15 @@ def write_bundle(bundle: WindTunnelBundle, path: str | Path) -> Path:
         separators=(",", ":"),
         allow_nan=False,
     )
-    destination.write_text(payload, encoding="utf-8")
-    destination.chmod(0o600)
+    try:
+        descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        raise ValueError(
+            f"{destination} already exists; evidence is never overwritten in "
+            "place, so pass a new path"
+        ) from None
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        stream.write(payload)
     return destination
 
 
