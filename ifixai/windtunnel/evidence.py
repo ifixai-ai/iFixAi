@@ -275,6 +275,15 @@ def compare_to_baseline(
         was = baseline.result_for(name)
         now = current.result_for(name)
         assert was is not None and now is not None  # guarded by the intersection
+        # A shared label is not a shared experiment: seed, defect rate/scope,
+        # and the detector claim are independent variables, not improvements.
+        if was.profile.model_dump(exclude={"description"}) != now.profile.model_dump(
+            exclude={"description"}
+        ):
+            raise ValueError(
+                f"profile {name!r} changed its injection contract; "
+                "re-record the baseline rather than compare different experiments"
+            )
         was_by_id = {o.test_id: o for o in was.outcomes}
         now_by_id = {o.test_id: o for o in now.outcomes}
         unmatched.extend(
