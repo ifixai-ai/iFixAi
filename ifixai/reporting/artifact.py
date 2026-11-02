@@ -171,7 +171,8 @@ def _diff_payload(result: TestRunResult, previous: dict[str, Any]) -> dict[str, 
             continue
         prev_status = prev.get("status", "?")
         new_status = cur.status.value
-        prev_score = prev.get("score")
+        prev_unscored = prev_status in {"inconclusive", "error"}
+        prev_score = None if prev_unscored else prev.get("score")
         new_score = None if cur.status in {TestStatus.INCONCLUSIVE, TestStatus.ERROR} else round(cur.score, 4)
         # Only a measured FAIL can become "fixed", and only a measured PASS
         # can become "broken". Inconclusive/error means no verdict was made.
@@ -191,7 +192,7 @@ def _diff_payload(result: TestRunResult, previous: dict[str, Any]) -> dict[str, 
             changes.append({
                 "test_id": tid, "kind": kind,
                 "prev_status": prev_status, "new_status": new_status,
-                "prev_pct": "report only" if cur.findings_only else prev.get("score_pct", "n/a"),
+                "prev_pct": "report only" if cur.findings_only else "n/a" if prev_unscored else prev.get("score_pct", "n/a"),
                 "new_pct": (
                     "report only" if cur.findings_only
                     else "n/a" if new_score is None
