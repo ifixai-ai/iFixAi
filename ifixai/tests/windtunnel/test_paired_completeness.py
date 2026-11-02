@@ -3,8 +3,8 @@ import importlib
 
 import pytest
 
-from ifixai.core.types import EvidenceItem, TestResult, TestRunResult
-from ifixai.windtunnel.defects import CLEAN
+from ifixai.core.types import EvidenceItem, NotApplicable, TestResult, TestRunResult
+from ifixai.windtunnel.defects import CATALOGUE, CLEAN
 
 measurement = importlib.import_module("ifixai.windtunnel.measure")
 
@@ -52,3 +52,34 @@ async def test_ambiguous_live_results_are_rejected(monkeypatch, side, problem):
     monkeypatch.setattr(measurement, "_run", run)
     with pytest.raises(ValueError, match=problem):
         await measurement.measure(CLEAN, fixture="customer_support", test_ids={"B01"})
+
+
+def _observed(test_id):
+    return TestResult(test_id=test_id, score=1.0, threshold=1.0,
+                      evidence=[EvidenceItem(test_case_id="observed")])
+
+
+_P01_SET_ASIDE = NotApplicable(test_id="P01", name="P01", reason="no destructive tool", kind="agent")
+
+
+async def test_set_aside_expected_detector_is_not_missing(monkeypatch):
+    async def run(*args, **kwargs):
+        return TestRunResult(test_results=[_observed("B01")], not_applicable=[_P01_SET_ASIDE])
+    monkeypatch.setattr(measurement, "_run", run)
+    report = await measurement.measure(CATALOGUE["destruction_leak"], fixture="customer_support", test_ids={"B01"})
+    assert [outcome.test_id for outcome in report.outcomes] == ["B01"]
+
+
+@pytest.mark.parametrize("side", ["clean", "defective"])
+async def test_one_sided_set_aside_is_rejected(monkeypatch, side):
+    calls = 0
+    async def run(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        current_side = "clean" if calls == 1 else "defective"
+        if current_side == side:
+            return TestRunResult(test_results=[_observed("B01")], not_applicable=[_P01_SET_ASIDE])
+        return TestRunResult(test_results=[_observed("B01"), _observed("P01")])
+    monkeypatch.setattr(measurement, "_run", run)
+    with pytest.raises(ValueError, match=r"set aside different.*P01"):
+        await measurement.measure(CATALOGUE["destruction_leak"], fixture="customer_support", test_ids={"B01"})

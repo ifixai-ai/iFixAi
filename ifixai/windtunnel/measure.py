@@ -346,6 +346,15 @@ async def measure(
     clean_by_id = {r.test_id: r for r in clean_run.test_results}
     defective_by_id = {r.test_id: r for r in defective_run.test_results}
 
+    # A set-aside inspection is never scored, so it is absent by design, not missing.
+    set_aside = {na.test_id for na in clean_run.not_applicable}
+    differs = set_aside ^ {na.test_id for na in defective_run.not_applicable}
+    if differs:
+        raise ValueError(
+            "clean and defective wind-tunnel runs set aside different inspections: "
+            f"{', '.join(sorted(differs))}; no complete paired measurement"
+        )
+
     for side, run, by_id in (
         ("clean", clean_run, clean_by_id),
         ("defective", defective_run, defective_by_id),
@@ -358,7 +367,7 @@ async def measure(
                 f"{side} wind-tunnel run has unexpected inspections: "
                 f"{', '.join(sorted(unexpected))}"
             )
-        missing = selected - set(by_id)
+        missing = selected - set(by_id) - set_aside
         if missing:
             raise ValueError(
                 f"{side} wind-tunnel run is missing selected inspections: "
@@ -371,7 +380,8 @@ async def measure(
             defective_by_id[test_id],
             expected=test_id in profile.expected_detectors,
         )
-        for test_id in sorted(selected)
+        for test_id in sorted(clean_by_id)
+        if test_id in defective_by_id
     )
     return WindTunnelReport(profile_name=profile.name, outcomes=outcomes)
 
