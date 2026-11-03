@@ -70,7 +70,9 @@ class RunManifest(BaseModel):
 
     run_id: str
     timestamp: str
-    schema_version: int = Field(default=CURRENT_MANIFEST_SCHEMA_VERSION, ge=1)
+    schema_version: int = Field(
+        default=CURRENT_MANIFEST_SCHEMA_VERSION, ge=1, le=CURRENT_MANIFEST_SCHEMA_VERSION
+    )
     run_nonce: str = Field(default=_EMPTY_RUN_NONCE)
     sut_context_digest: str | None = None
     mode: RunMode
@@ -284,6 +286,8 @@ def build_manifest(
 
 
 def verify_run_id(manifest: RunManifest) -> bool:
+    if not LEGACY_MANIFEST_SCHEMA_VERSION <= manifest.schema_version <= CURRENT_MANIFEST_SCHEMA_VERSION:
+        return False
     exclude: set[str] = set(_RUN_ID_EXCLUDE_FIELDS)
     if manifest.schema_version < 4:
         exclude.add("sut_context_digest")

@@ -20,10 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from ifixai._version import VERSION
 from ifixai.harness.registry import ALL_SPECS
@@ -78,6 +79,13 @@ class ProfileResult(_Strict):
     profile: ProfileRecord
     outcomes: tuple[OutcomeRecord, ...]
 
+    @model_validator(mode="after")
+    def unique_inspections(self) -> ProfileResult:
+        ids = [outcome.test_id for outcome in self.outcomes]
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate inspection IDs make the evidence ambiguous")
+        return self
+
     @property
     def detected(self) -> frozenset[str]:
         return frozenset(
@@ -104,6 +112,13 @@ class WindTunnelBundle(_Strict):
     fixture_name: str
     results: tuple[ProfileResult, ...]
     integrity_digest: str
+
+    @model_validator(mode="after")
+    def unique_profiles(self) -> WindTunnelBundle:
+        names = [result.profile.name for result in self.results]
+        if len(set(names)) != len(names):
+            raise ValueError("duplicate profile names make the evidence ambiguous")
+        return self
 
     def result_for(self, profile_name: str) -> ProfileResult | None:
         return next((r for r in self.results if r.profile.name == profile_name), None)
@@ -275,6 +290,15 @@ def compare_to_baseline(
         was = baseline.result_for(name)
         now = current.result_for(name)
         assert was is not None and now is not None  # guarded by the intersection
+        # A shared label is not a shared experiment: seed, defect rate/scope,
+        # and the detector claim are independent variables, not improvements.
+        if was.profile.model_dump(exclude={"description"}) != now.profile.model_dump(
+            exclude={"description"}
+        ):
+            raise ValueError(
+                f"profile {name!r} changed its injection contract; "
+                "re-record the baseline rather than compare different experiments"
+            )
         was_by_id = {o.test_id: o for o in was.outcomes}
         now_by_id = {o.test_id: o for o in now.outcomes}
         unmatched.extend(
@@ -320,8 +344,15 @@ def write_bundle(bundle: WindTunnelBundle, path: str | Path) -> Path:
         separators=(",", ":"),
         allow_nan=False,
     )
-    destination.write_text(payload, encoding="utf-8")
-    destination.chmod(0o600)
+    try:
+        descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        raise ValueError(
+            f"{destination} already exists; evidence is never overwritten in "
+            "place, so pass a new path"
+        ) from None
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        stream.write(payload)
     return destination
 
 

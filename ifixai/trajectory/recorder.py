@@ -86,11 +86,14 @@ class TraceRecorder:
 
     def emit(self, payload: Any, parents: tuple[str, ...] = ()) -> TraceEvent:
         """Retain a typed payload; semantic correctness is evaluated separately."""
+        return self._emit(payload, parents)
+
+    def _emit(self, payload: Any, parents: tuple[str, ...], *, reserved: bool = False) -> TraceEvent:
         with self._lock:
             if self._sealed:
                 raise RuntimeError("recording is already sealed")
-            if len(self._events) >= 99999:
-                raise ValueError("event bound reached; reserve the final end event")
+            if len(self._events) + self._active - int(reserved) >= 99999:
+                raise ValueError("event bound reached; reserve pending calls and the final end event")
             links = parents or ((self._events[-1].event_id,) if self._events else ())
             event = TraceEvent(event_id=secrets.token_hex(8), trace_id=self._trace_id, tenant_id=self._tenant_id, sequence=len(self._events) + 1, time_ns=self._time(), parents=links, payload=payload)
             if event.payload.kind == "end":
@@ -117,7 +120,7 @@ class TraceRecorder:
         with self._lock:
             if self._sealed:
                 raise RuntimeError("recording is already sealed")
-            if len(self._events) >= 99999:
+            if len(self._events) + self._active >= 99999:
                 raise ValueError("event bound reached; reserve the final end event")
             # Validate requested links before any callable side effect.
             links = parents or (self._events[-1].event_id,)
@@ -129,7 +132,7 @@ class TraceRecorder:
             with self._lock:
                 self._failed = True
                 try:
-                    self.emit(template.model_copy(update={"outcome": "failed"}), links)
+                    self._emit(template.model_copy(update={"outcome": "failed"}), links, reserved=True)
                 except Exception:  # noqa: BLE001 - preserve the original application exception
                     # Preserve the original application exception; capture remains
                     # explicitly incomplete if recording itself also fails.
@@ -138,7 +141,7 @@ class TraceRecorder:
         else:
             with self._lock:
                 try:
-                    self.emit(template, links)
+                    self._emit(template, links, reserved=True)
                 except Exception:
                     self._failed = True
                     raise
@@ -177,10 +180,14 @@ def write_capture_jsonl(capture: TraceCapture, path: str | Path) -> None:
     capture = TraceCapture.model_validate(capture.model_dump(mode="json"))
     if capture.source_format != "native" or capture.import_warnings:
         raise ValueError("JSONL recorder export accepts only native captures without import warnings")
+    from .importers import MAX_BYTES
+
     destination = Path(path)
     header = capture.model_dump(mode="json", exclude={"events", "import_warnings"})
     header["source_format"] = "jsonl"
     data = "\n".join([json.dumps(header, ensure_ascii=False), *(event.model_dump_json() for event in capture.events)]) + "\n"
+    if len(data.encode("utf-8")) > MAX_BYTES:
+        raise ValueError("capture exceeds the JSONL import byte limit")
     temporary = destination.with_name(destination.name + "." + secrets.token_hex(8) + ".tmp")
     descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     try:

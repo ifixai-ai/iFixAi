@@ -7,11 +7,14 @@ import os
 from pathlib import Path
 from typing import Any
 
+from ifixai.policy_lab.integrity import validate_exploration_bundle
 from ifixai.policy_lab.models import ExplorationBundle, Witness
 from ifixai.policy_lab.repair import RepairReport
 
 
 def compare_policies(original: ExplorationBundle, candidate: ExplorationBundle) -> dict[str, Any]:
+    original = validate_exploration_bundle(original)
+    candidate = validate_exploration_bundle(candidate)
     if original.report.model_digest != candidate.report.model_digest:
         raise ValueError("policy comparison requires the exact same business model")
     if original.report.config_digest != candidate.report.config_digest:
@@ -81,14 +84,15 @@ def render_policy_lab_html(bundle: ExplorationBundle, *, comparison: dict[str, A
 <section><h2>Portable evidence and boundaries</h2><pre>Bundle SHA-256: {bundle.integrity_digest}\nModel SHA-256: {report.model_digest}\nPolicy SHA-256: {report.policy_digest}</pre><ul>{''.join('<li>'+escape(limit)+'</li>' for limit in report.limitations)}</ul><p>Effects, costs and actors are explicit declarations. A checksum provides integrity, not truth or completeness of the business model.</p></section></main><script>const search=document.getElementById('search');const paths=Array.from(document.querySelectorAll('.witness'));search.addEventListener('input',()=>{{const q=search.value.toLowerCase();paths.forEach(path=>path.hidden=!path.textContent.toLowerCase().includes(q));}});function revealWitness(hash){{const target=document.getElementById(hash.slice(1));if(target&&target.classList.contains('witness')){{target.hidden=false;target.scrollIntoView();}}}}window.addEventListener('hashchange',()=>revealWitness(location.hash));document.querySelectorAll('a[href^="#witness-"]').forEach(link=>link.addEventListener('click',()=>revealWitness(link.getAttribute('href'))));revealWitness(location.hash);</script></body></html>'''
 
 
-def render_policy_lab_markdown(bundle: ExplorationBundle) -> str:
+def render_policy_lab_markdown(bundle: ExplorationBundle, *, comparison: dict[str, Any] | None = None, repair: RepairReport | None = None) -> str:
     def safe(value: str) -> str:
         for char in ("\\", "`", "*", "_", "[", "]", "<", ">", "|", "#"):
             value = value.replace(char, "\\" + char)
         return value.replace("\n", " ").replace("\r", " ")
 
     report = bundle.report
-    lines = ["# Business Policy Lab", "", f"Decision: **{report.decision}**", "",
+    decision_label = "Baseline decision" if repair is not None else "Decision"
+    lines = ["# Business Policy Lab", "", f"{decision_label}: **{report.decision}**", "",
              f"Model: {safe(bundle.model.name)}. Policy: {safe(bundle.policy.name)}.", "",
              f"States: {report.states_discovered}. Examinations: {report.transitions_examined}. Complete frontier: {report.frontier_exhausted}.", "",
              "## Safety and completion", ""]
@@ -99,6 +103,28 @@ def render_policy_lab_markdown(bundle: ExplorationBundle) -> str:
         lines.extend(f"{step.index}. {safe(step.actor_id)} → {safe(step.action_id)} ({safe(step.tool)})." for step in witness.steps)
         if not witness.steps:
             lines.append("Initial state already matches the objective.")
+    if repair is not None:
+        lines.extend(["", "## Goal-preserving permission repair", "", f"Repair: **{repair.status}**", "",
+                      f"Minimum removal cardinality proven: {str(repair.minimality_proven).lower()}.",
+                      f"Search allowance: {repair.max_removals} removals, {repair.max_candidates} candidates, {repair.transition_budget} transition examinations.",
+                      f"Transition examinations used: {repair.transitions_examined}.", ""])
+        for candidate in repair.candidates:
+            lines.append(f"- Removed original rule indices {candidate.removed_rule_indices}: {candidate.report.decision}; frontier exhausted: {str(candidate.report.frontier_exhausted).lower()}.")
+        if repair.selected_bundle is not None:
+            selected = repair.selected_bundle
+            lines.extend(["", f"Selected policy decision: **{selected.report.decision}**", ""])
+            lines.extend(f"- Goal {safe(key)}: {status}" for key, status in selected.report.goal_status.items())
+            lines.extend(["", f"Selected evidence: `selected-bundle.json` (SHA-256: `{selected.integrity_digest}`)."])
+        lines.extend(f"- Search cutoff: {safe(reason)}" for reason in repair.cutoff_reasons)
+        lines.extend(["", "No deployed permissions have been changed."])
+    if comparison is not None:
+        lines.extend(["", "## Policy comparison", "",
+                      f"{safe(str(comparison['original_decision']))} → {safe(str(comparison['candidate_decision']))}",
+                      f"Original bundle SHA-256: {safe(str(comparison['original_bundle_digest']))}", ""])
+        for family in ("properties", "goals"):
+            for key, change in comparison[family].items():
+                lines.append(f"- {safe(key)}: {safe(str(change['before']))} → {safe(str(change['after']))}")
+        lines.extend(["", safe(str(comparison["limitation"]))])
     lines.extend(["", "## Boundaries", ""])
     lines.extend(f"- {safe(limit)}" for limit in report.limitations)
     lines.extend(["", f"Bundle SHA-256: `{bundle.integrity_digest}`", ""])
@@ -106,11 +132,14 @@ def render_policy_lab_markdown(bundle: ExplorationBundle) -> str:
 
 
 def write_policy_lab_reports(bundle: ExplorationBundle, output: str | Path, *, comparison: dict[str, Any] | None = None, repair: RepairReport | None = None, metadata: dict[str, Any] | None = None) -> Path:
+    # Frozen Pydantic models still contain mutable dictionaries. Recompute the
+    # retained evidence before making a durable report or creating its directory.
+    bundle = validate_exploration_bundle(bundle)
     destination = Path(output)
     destination.mkdir(mode=0o700, exist_ok=False)
     files = {"bundle.json": _json(bundle.model_dump(mode="json")), "report.json": _json(bundle.report.model_dump(mode="json")),
              "report.html": render_policy_lab_html(bundle, comparison=comparison, repair=repair),
-             "report.md": render_policy_lab_markdown(bundle)}
+             "report.md": render_policy_lab_markdown(bundle, comparison=comparison, repair=repair)}
     if comparison is not None:
         files["comparison.json"] = _json(comparison)
     if repair is not None:
