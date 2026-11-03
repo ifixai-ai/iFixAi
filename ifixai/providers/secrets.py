@@ -21,7 +21,7 @@ _SECRET_PATTERNS: Final[tuple[Pattern[str], ...]] = (
 
 _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
     (
-        re.compile(r"sk-cp-[A-Za-z0-9_-]+"),
+        re.compile(r"(?<![A-Za-z0-9_-])sk-cp-[A-Za-z0-9_-]+"),
         "***REDACTED_MINIMAX_KEY***",
     ),
     (
@@ -32,11 +32,11 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
         "***REDACTED_JWT***",
     ),
     (
-        re.compile(r"sk-or-[A-Za-z0-9_-]{20,}"),
+        re.compile(r"(?<![A-Za-z0-9_-])sk-or-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_OPENROUTER_KEY***",
     ),
     (
-        re.compile(r"sk-orca-[A-Za-z0-9_-]{20,}"),
+        re.compile(r"(?<![A-Za-z0-9_-])sk-orca-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_ORCAROUTER_KEY***",
     ),
     (
@@ -56,7 +56,7 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
         "***REDACTED_ATLASCLOUD_KEY***",
     ),
     (
-        re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}"),
+        re.compile(r"(?<![A-Za-z0-9_-])sk-ant-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_ANTHROPIC_KEY***",
     ),
     (
@@ -64,7 +64,7 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
         "***REDACTED_ANTHROPIC_KEY***",
     ),
     (
-        re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+        re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,}"),
         "***REDACTED_OPENAI_KEY***",
     ),
     (
