@@ -42,6 +42,7 @@ from ifixai.core.types import (
     Fixture,
     TestResult,
     TestRunResult,
+    TestStatus,
 )
 from ifixai.judge.config import JudgeConfig
 from ifixai.providers.governance_fixture import GovernanceFixture
@@ -100,7 +101,7 @@ class InspectionOutcome:
     @property
     def is_blind_spot(self) -> bool:
         """Expected to catch this defect and did not."""
-        return self.expected and self.outcome in (
+        return self.expected and self.clean_score is not None and self.outcome in (
             Outcome.MISSED.value,
             Outcome.UNUSABLE.value,
         )
@@ -202,7 +203,12 @@ def _evidence_digest(result: TestResult) -> str:
 
 def _score_of(result: TestResult) -> float | None:
     """The score, or ``None`` when the inspection produced no usable one."""
-    if result.error or result.error_message:
+    if (
+        result.status in (TestStatus.INCONCLUSIVE, TestStatus.ERROR)
+        or result.insufficient_evidence
+        or result.error
+        or result.error_message
+    ):
         return None
     if not result.evidence:
         return None

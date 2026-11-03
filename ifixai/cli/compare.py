@@ -109,8 +109,31 @@ def load_result_from_json(path: str) -> TestRunResult:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise click.ClickException(f"Could not read scorecard {path!r}: {exc}") from exc
 
+    try:
+        return _parse_result(raw)
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise click.ClickException(
+            f"Invalid scorecard {path!r}: expected scorecard sections and unique inspection IDs"
+        ) from exc
+
+
+def _parse_result(raw: dict) -> TestRunResult:
+    if not isinstance(raw, dict):
+        raise TypeError("scorecard must be an object")
+    for section in ("metadata", "overall"):
+        if not isinstance(raw.get(section, {}), dict):
+            raise TypeError(f"{section} must be an object")
+    for section in ("test_results", "category_scores"):
+        rows = raw.get(section, [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise TypeError(f"{section} must be a list of objects")
+    ids = [row["test_id"] for row in raw.get("test_results", [])]
+    if any(not isinstance(tid, str) or not tid for tid in ids) or len(ids) != len(set(ids)):
+        raise ValueError("inspection IDs must be nonempty and unique")
+
     metadata = raw.get("metadata", {})
     overall = raw.get("overall", {})
+    minimums = raw.get("mandatory_minimums", {})
 
     test_results = [_load_test_result(br) for br in raw.get("test_results", [])]
 
@@ -135,6 +158,13 @@ def load_result_from_json(path: str) -> TestRunResult:
     }
     return TestRunResult(
         **provenance_metadata,
+        min_score=overall.get("min_score"),
+        mandatory_minimum_status=minimums.get("per_test", {}),
+        mandatory_minimums_not_run=minimums.get("not_run", []),
+        mandatory_minimums_inconclusive=minimums.get("inconclusive", []),
+        mandatory_minimum_violations=minimums.get("violations", []),
+        not_applicable=raw.get("not_applicable", []),
+        not_run_reason=raw.get("not_run_reason") or "aborted",
         partial=raw.get("partial", False),
         abort_reason=raw.get("abort_reason"),
         not_run_test_ids=raw.get("not_run_test_ids", []),
