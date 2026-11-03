@@ -31,3 +31,23 @@ def test_artifact_scrubs_known_credentials_in_all_embedded_text(field):
     assert TOKEN not in render_artifact(result, **kwargs)
     # Rendering does not mutate the original evidence object.
     assert TOKEN in result.model_dump_json()
+
+
+KWARGS = dict(live=True, transport="http", sut_model=None,
+              judge_model=None, honesty_note="", previous=None)
+# Synthetic only; one per "sk-" key family the scrubber knows.
+SK_KEYS = [f"sk-{family}{TOKEN[3:]}" for family in ("", "proj-", "or-v1-", "orca-", "ant-api03-", "cp-")]
+
+
+@pytest.mark.parametrize("name", ["helpdesk-assistant-production", "risk-assessment-assistant-eu"])
+def test_artifact_keeps_agent_names_that_contain_sk(name):
+    result = TestRunResult(system_name=name, test_results=[TestResult(test_id="B19")])
+    assert _build_payload(result, **KWARGS)["meta"]["system_name"] == name
+    assert "REDACTED" not in render_artifact(result, **KWARGS)
+
+
+@pytest.mark.parametrize("key", SK_KEYS)
+@pytest.mark.parametrize("before", ["", "helpdesk ", "key=", "'", '"', "Bearer "])
+def test_artifact_scrubs_sk_keys_after_a_separator(key, before):
+    result = TestRunResult(system_name=f"{before}{key}", test_results=[TestResult(test_id="B19")])
+    assert TOKEN[3:] not in render_artifact(result, **KWARGS)
