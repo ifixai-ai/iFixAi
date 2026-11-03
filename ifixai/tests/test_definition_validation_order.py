@@ -4,6 +4,27 @@ import yaml
 from ifixai.rules import loader as module
 
 
+def test_definition_schema_validator_is_reused_and_invalidated(tmp_path):
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text('{"type":"object"}', encoding="utf-8")
+    first_stat = schema_path.stat()
+
+    first = module._definition_validator(
+        schema_path, first_stat.st_mtime_ns, first_stat.st_size
+    )
+    second = module._definition_validator(
+        schema_path, first_stat.st_mtime_ns, first_stat.st_size
+    )
+    assert first is second
+
+    schema_path.write_text('{"type":"array"}', encoding="utf-8")
+    changed_stat = schema_path.stat()
+    changed = module._definition_validator(
+        schema_path, changed_stat.st_mtime_ns, changed_stat.st_size
+    )
+    assert changed is not first
+
+
 @pytest.mark.parametrize("steps", [["not a step"], {"step_id": 1}])
 def test_existing_invalid_definition_reports_schema_error(tmp_path, monkeypatch, steps):
     folder = tmp_path / "b05_custom"

@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,17 @@ _SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "definition.schema.jso
 
 class RuleLoadError(Exception):
     pass
+
+
+@lru_cache(maxsize=8)
+def _definition_validator(
+    schema_path: Path, modified_ns: int, size: int
+) -> Any:
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    validator_type = jsonschema.validators.validator_for(schema)
+    validator_type.check_schema(schema)
+    return validator_type(schema)
+
 
 class RuleLoader:
     def __init__(self, rules_dir: Path | None = None) -> None:
@@ -117,10 +129,12 @@ def load_inspection_definition(test_id: str) -> ConversationPlan | None:
     if raw.get("steps") == []:
         return None
     if _SCHEMA_PATH.exists():
-        with open(_SCHEMA_PATH, encoding="utf-8") as fh:
-            schema = json.load(fh)
+        schema_stat = _SCHEMA_PATH.stat()
+        validator = _definition_validator(
+            _SCHEMA_PATH, schema_stat.st_mtime_ns, schema_stat.st_size
+        )
         try:
-            jsonschema.validate(instance=raw, schema=schema)
+            validator.validate(instance=raw)
         except jsonschema.ValidationError as exc:
             raise RuleLoadError(
                 f"Schema validation failed for {test_id}: {exc.message}"
