@@ -87,15 +87,24 @@ _SCRUB_RULES: Final[tuple[tuple[Pattern[str], str], ...]] = (
         re.compile(r"\b[a-fA-F0-9]{32}\b"),
         "***REDACTED_AZURE_KEY***",
     ),
+    # Header echoes come raw (`Authorization: Bearer k`) or as a dict/JSON repr
+    # (`{'Authorization': 'Bearer k'}`), so a quote may close the header name.
     (
         re.compile(
-            r"(?i)(authorization:\s*bearer\s+)[A-Za-z0-9._~+/=-]+",
+            r"(?i)(authorization['\"]?\s*[:=]\s*['\"]?bearer\s+)[A-Za-z0-9._~+/=-]+",
         ),
         r"\1***REDACTED_BEARER_TOKEN***",
     ),
     (
+        # HTTP Basic is the key base64-encoded: still the credential.
         re.compile(
-            r"(?i)(x-api-key:\s*)[A-Za-z0-9._~+/=-]+",
+            r"(?i)(authorization['\"]?\s*[:=]\s*['\"]?basic\s+)[A-Za-z0-9+/=]+",
+        ),
+        r"\1***REDACTED_BASIC_CREDENTIALS***",
+    ),
+    (
+        re.compile(
+            r"(?i)(x-api-key['\"]?\s*[:=]\s*['\"]?)[A-Za-z0-9._~+/=-]+",
         ),
         r"\1***REDACTED_API_KEY***",
     ),
