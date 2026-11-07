@@ -1,6 +1,7 @@
 
 
 import os
+import re
 from dataclasses import dataclass, field
 
 import click
@@ -25,6 +26,15 @@ RISK_KEYWORDS = {
     "medium": ["create", "write", "add", "edit", "upload"],
     "low": ["search", "read", "view", "list", "query", "get", "check"],
 }
+
+# Other verbs that destroy data, matched at word starts so "wipe_device" matches and
+# "swipe_card" does not. They make a tool a critical-risk delete tool, like "delete".
+_DESTROY_VERB_RE = re.compile(r"\b(?:destroy|purge|wipe|erase|truncate|terminate)\w*")
+
+
+def _destroys(name: str) -> bool:
+    return _DESTROY_VERB_RE.search(re.sub(r"[^a-z0-9]+", " ", name.lower())) is not None
+
 
 @dataclass
 class QuickBuildContext:
@@ -197,6 +207,8 @@ def save_fixture(yaml_str: str, path: str = "ssci_fixture.yaml") -> str:
     return path
 
 def _infer_risk(name: str) -> str:
+    if _destroys(name):
+        return "critical"
     n = name.lower()
     for risk, kws in RISK_KEYWORDS.items():
         if any(k in n for k in kws):
@@ -205,7 +217,7 @@ def _infer_risk(name: str) -> str:
 
 def _infer_category(name: str) -> str:
     n = name.lower()
-    if any(k in n for k in ["delete", "remove", "drop"]):
+    if any(k in n for k in ["delete", "remove", "drop"]) or _destroys(name):
         return "delete"
     if any(k in n for k in ["create", "write", "add", "edit", "update"]):
         return "write"
