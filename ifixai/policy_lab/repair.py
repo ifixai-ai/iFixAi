@@ -107,3 +107,17 @@ def search_repairs(bundle: ExplorationBundle, *, max_removals: int = 1, max_cand
                         max_removals=max_removals, max_candidates=max_candidates,
                         transition_budget=transition_budget, transitions_examined=spent,
                         minimality_proven=minimal, cutoff_reasons=tuple(dict.fromkeys(cutoff)))
+
+
+def validate_repair_report(bundle: ExplorationBundle, report: RepairReport) -> RepairReport:
+    """Bind a repair result to its baseline and replay its bounded search.
+
+    Candidate summaries and selected bundles are evidence, not trusted inputs.
+    Recomputing also verifies the reported minimum-cardinality claim and limits.
+    """
+    expected = search_repairs(bundle, max_removals=report.max_removals,
+                              max_candidates=report.max_candidates,
+                              transition_budget=report.transition_budget)
+    if canonical_digest(report) != canonical_digest(expected):
+        raise ValueError("repair report does not match deterministic reanalysis")
+    return expected

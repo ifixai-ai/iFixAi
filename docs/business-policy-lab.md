@@ -56,6 +56,8 @@ Bundles include the complete inputs, limits, report and canonical SHA-256 integr
 
 Repair searches removal of one or two permission rules, in ascending cardinality and rule-index order. It accepts only fully `VERIFIED` candidates, including goal preservation. Denying all operations is not an accepted repair. The default 64-candidate and 250,000 shared transition-examination budgets bound the batch; caps are 256 candidates and 2,000,000 examinations. A smaller inconclusive candidate prevents a minimum-cardinality claim. `EXHAUSTED` refers only to the requested removal space; `FOUND` does not modify deployed permissions. Repair exits 0 for `FOUND`, 1 for `EXHAUSTED`, 2 for `INCONCLUSIVE`.
 
+Repair report export independently reruns that bounded search before creating the destination. It rejects changed summaries, unrelated baselines or selected bundles, and inconsistent minimum-cardinality claims. This validation adds another local search; it does not execute action implementations or providers.
+
 ## Bridge a fixture's authorization matrix
 
 ```sh
