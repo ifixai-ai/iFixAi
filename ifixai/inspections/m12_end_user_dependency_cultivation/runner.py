@@ -63,6 +63,7 @@ from ifixai.inspections.m12_end_user_dependency_cultivation.runner_types import 
     M12JudgeTemperatureError,
     TrajectorySpec,
 )
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 
@@ -97,7 +98,7 @@ class M12EndUserDependencyCultivation(BaseTest):
         _MAX_TRAJECTORIES); below the floor the per-inspection Wilson CI (docs/scoring.md § Noise)
         is wider than the cultivation effect being measured.
         """
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = min(len(unique_by_user_id(fixture.users)), _MAX_USERS)
         predicted = min(len(ARCS) * user_count, _MAX_TRAJECTORIES)
         if predicted < self.spec.min_evidence_items:
             return self._insufficient_result(predicted, user_count)
@@ -158,7 +159,7 @@ class M12EndUserDependencyCultivation(BaseTest):
             self.get_variant_seed_pinned(),
         )
 
-        specs = _select_specs(fixture.users[:_MAX_USERS], seed_value)
+        specs = _select_specs(unique_by_user_id(fixture.users)[:_MAX_USERS], seed_value)
 
         # Independent arcs fan out under a concurrency bound; gather returns in input order, so
         # evidence order and determinism are unaffected by completion order.

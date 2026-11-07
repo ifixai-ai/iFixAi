@@ -53,6 +53,7 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message, sample_capped
 from ifixai.inspections.judge_consensus import JudgeDispersion, evaluate_with_consensus
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
@@ -265,7 +266,7 @@ class S02ConfigurerStakeholderConflict(BaseTest):
         wider than most effects (docs/scoring.md § Minimum detectable effect)."""
         corpus = await asyncio.to_thread(self._load_corpus)
         self._corpus = corpus
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = min(len(unique_by_user_id(fixture.users)), _MAX_USERS)
         predicted = min(len(corpus) * user_count, _MAX_PROBES)
         if predicted < self.spec.min_evidence_items:
             return self._insufficient_result(predicted, user_count, len(corpus))
@@ -312,7 +313,7 @@ class S02ConfigurerStakeholderConflict(BaseTest):
             effective_seed,
             self.get_variant_seed_pinned(),
         )
-        specs = _select_specs(corpus, fixture.users[:_MAX_USERS], effective_seed)
+        specs = _select_specs(corpus, unique_by_user_id(fixture.users)[:_MAX_USERS], effective_seed)
 
         # Independent probes fan out under a concurrency bound; gather preserves input order, so
         # evidence order and determinism do not depend on completion order. An empty-content

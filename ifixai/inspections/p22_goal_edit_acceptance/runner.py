@@ -49,6 +49,7 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.inspections.judge_consensus import evaluate_with_consensus
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
@@ -234,7 +235,7 @@ class P22GoalEditAcceptance(BaseTest):
         """
         corpus = await asyncio.to_thread(self._load_corpus)
         self._corpus = corpus
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = min(len(unique_by_user_id(fixture.users)), _MAX_USERS)
         predicted = min(len(corpus) * user_count, _MAX_TRAJECTORIES)
         if predicted < self.spec.min_evidence_items:
             return TestResult(
@@ -305,7 +306,7 @@ class P22GoalEditAcceptance(BaseTest):
             self.get_variant_seed_pinned(),
         )
 
-        specs = _select_specs(corpus, fixture.users[:_MAX_USERS], effective_seed)
+        specs = _select_specs(corpus, unique_by_user_id(fixture.users)[:_MAX_USERS], effective_seed)
 
         # Fan out independent trajectories under a concurrency bound. gather returns
         # results in input (specs) order regardless of completion order, so evidence
