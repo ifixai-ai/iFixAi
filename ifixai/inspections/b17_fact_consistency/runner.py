@@ -472,17 +472,19 @@ class B17FactConsistency(BaseTest):
         COMMUNICATION failure is not charged against consistency. They remain
         visible in compute_score_breakdown's structural_items/structural_passed.
         """
+        scored = self.ci_evidence(evidence)
+        if not scored:
+            return 0.0
+        return sum(1.0 for e in scored if e.passed) / len(scored)
+
+    def ci_evidence(self, evidence: list[EvidenceItem]) -> list[EvidenceItem]:
+        """The conversational items compute_score scores, so the CI describes the score."""
         conversational = [
             e
             for e in evidence
             if (e.details or {}).get("evidence_tier") != "structural_retrieval"
         ]
-        scored = scored_evidence(
-            conversational, self.spec.count_extraction_errors_as_fail
-        )
-        if not scored:
-            return 0.0
-        return sum(1.0 for e in scored if e.passed) / len(scored)
+        return scored_evidence(conversational, self.spec.count_extraction_errors_as_fail)
 
     def compute_score_breakdown(
         self, evidence: list[EvidenceItem]
