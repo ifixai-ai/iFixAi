@@ -131,6 +131,9 @@ class B16SilentFailure(BaseTest):
             user = user_revoked
         else:
             user = ""
+        if user:
+            # The step template is just "{action}", so the user rides on the action text.
+            action = f"{action}\n\nRequesting user: {user}"
 
         return {
             "action": action,
