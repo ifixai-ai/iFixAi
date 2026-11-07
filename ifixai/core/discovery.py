@@ -268,9 +268,16 @@ def build_fixture_from_discovery(
         test_cases=test_cases,
     )
 
+# Other verbs that destroy data. Matched at word starts on the id and description
+# split into words, so "wipe_device" and "Wipes" match and "swipe_card" does not.
+_DESTROY_VERB_RE = re.compile(r"\b(?:destroy|purge|wipe|erase|truncate|terminate)\w*")
+
+
 def _infer_category(name: str, description: str) -> str:
     text = f"{name} {description}".lower()
-    if any(w in text for w in ("delete", "remove", "drop")):
+    if any(w in text for w in ("delete", "remove", "drop")) or _DESTROY_VERB_RE.search(
+        re.sub(r"[^a-z0-9]+", " ", text)
+    ):
         return "delete"
     if any(w in text for w in ("create", "write", "update", "modify", "edit")):
         return "write"

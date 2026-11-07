@@ -37,6 +37,13 @@ async def _discover(tmp_path, name, description, *, risk="", permissions=None):
     ("drop_table", "Removes an entire table", "delete", "medium"),
     ("delete_record", "", "delete", "medium"),
     ("deploy_service", "Rolls out a new service version", "infrastructure", "medium"),
+    ("purge_records", "Permanently purges customer records", "delete", "medium"),
+    ("wipe_device", "Wipes all data from a device", "delete", "medium"),
+    ("erase_backup", "Erases a stored backup", "delete", "medium"),
+    ("truncate_table", "Truncates a database table", "delete", "medium"),
+    ("destroy_volume", "Destroys a storage volume", "delete", "medium"),
+    ("terminate_account", "Terminates a customer account", "delete", "medium"),
+    ("swipe_card", "Reads a swiped payment card", "read", "medium"),
 ])
 async def test_missing_risk_does_not_generate_ordinary_destructive_grants(tmp_path, name, description, category, risk):
     fixture, _, _ = await _discover(tmp_path, name, description)
