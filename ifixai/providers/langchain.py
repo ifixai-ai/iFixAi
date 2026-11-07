@@ -1,8 +1,10 @@
 import asyncio
+import json
 
 import aiohttp
 
 from ifixai.core.types import ChatMessage, ProviderConfig
+from ifixai.evaluation.run_stop import count_request
 from ifixai.providers.base import (
     RETRYABLE_HTTP_STATUS_CODES,
     ChatProvider,
@@ -14,6 +16,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    is_fatal_provider_error,
     raise_if_truncated,
 )
 from ifixai.providers.http import _build_auth_headers
@@ -23,6 +26,25 @@ DEFAULT_ENDPOINT = "http://localhost:8000"
 
 class LangChainProvider(ChatProvider):
     async def send_message(
+        self,
+        messages: list[ChatMessage],
+        config: ProviderConfig,
+    ) -> str:
+        """Send with the same retry policy as the HTTP adapter."""
+        for attempt in range(config.max_retries + 1):
+            count_request()
+            try:
+                return await self._send_once(messages, config)
+            except ProviderRateLimitError as exc:
+                if is_fatal_provider_error(exc) or attempt == config.max_retries:
+                    raise
+            except (ProviderConnectionError, ProviderTimeoutError, ProviderOverloadedError):
+                if attempt == config.max_retries:
+                    raise
+            await asyncio.sleep(2**attempt)
+        raise AssertionError("unreachable: the last attempt returns or raises")
+
+    async def _send_once(
         self,
         messages: list[ChatMessage],
         config: ProviderConfig,
@@ -107,6 +129,12 @@ class LangChainProvider(ChatProvider):
                 provider="langchain",
                 endpoint=url,
                 details=f"HTTP {exc.status}: {exc.message}",
+            ) from exc
+        except json.JSONDecodeError as exc:
+            raise ProviderResponseError(
+                provider="langchain",
+                endpoint=url,
+                details=f"Response was not valid JSON: {exc.msg}",
             ) from exc
         except asyncio.TimeoutError as exc:
             raise ProviderTimeoutError(
