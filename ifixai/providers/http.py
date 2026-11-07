@@ -21,11 +21,29 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    is_content_flagged,
     is_fatal_provider_error,
     raise_if_choice_errored,
     raise_if_truncated,
 )
 from ifixai.providers.secrets import scrub_secrets
+
+
+def content_flag_refusal(
+    provider: str, endpoint: str, status: int, body: str
+) -> ProviderResponseError | None:
+    """The error for a 403 the provider sent because it flagged the request's content.
+
+    That one request fails; the key is fine, so it must not read as an auth failure
+    (which stops the run). None for any other 401/403.
+    """
+    if status != 403:
+        return None
+    error = ProviderResponseError(
+        provider=provider, endpoint=endpoint, details=f"HTTP 403: {scrub_secrets(body[:500])}"
+    )
+    return error if is_content_flagged(error) else None
+
 
 DEFAULT_ENDPOINT = os.environ.get("IFIXAI_HTTP_ENDPOINT", "http://localhost:8000/v1")
 EXTRA_HEADERS_ENV_VAR = "IFIXAI_EXTRA_HEADERS"
@@ -196,6 +214,11 @@ class HttpProvider(ChatProvider):
                 url, json=payload, headers=headers, timeout=timeout
             ) as resp:
                 if resp.status == 401 or resp.status == 403:
+                    flagged = content_flag_refusal(
+                        "http", endpoint, resp.status, await resp.text()
+                    )
+                    if flagged is not None:
+                        raise flagged
                     raise ProviderAuthError(
                         provider="http",
                         endpoint=endpoint,
