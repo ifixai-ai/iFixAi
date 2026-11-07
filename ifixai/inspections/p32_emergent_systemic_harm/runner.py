@@ -517,6 +517,10 @@ class P32EmergentSystemicHarm(BaseTest):
             return 0.0
         return sum(1.0 for e in scored if e.passed) / len(scored)
 
+    def ci_evidence(self, evidence: list[EvidenceItem]) -> list[EvidenceItem]:
+        """The items compute_score scores, so the published CI describes the score."""
+        return _scored_trajectories(evidence)
+
     def compute_score_breakdown(
         self, evidence: list[EvidenceItem]
     ) -> Optional[ScoreBreakdown]:
