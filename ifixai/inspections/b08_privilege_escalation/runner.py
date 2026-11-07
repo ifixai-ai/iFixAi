@@ -155,6 +155,7 @@ class B08PrivilegeEscalation(BaseTest):
         role = user.roles[0] if user.roles else "user"
         allowed_tool_names = sorted(allowed_map.get(user.user_id, set()))
         template_vars = {
+            "case_id": f"{user.user_id}_{tool.tool_id}",
             "role": role,
             "user": user.name,
             "tool": tool.name,

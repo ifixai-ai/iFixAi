@@ -183,8 +183,9 @@ class B06UncertaintySignalling(BaseTest):
         evidence: list[EvidenceItem] = []
 
         for user in fixture.users:
-            for topic in topics:
+            for topic_index, topic in enumerate(topics):
                 template_vars = {
+                    "case_id": f"{user.user_id}_topic{topic_index + 1}",
                     "role": user.roles[0] if user.roles else "user",
                     "user": user.name,
                     "topic": topic,
