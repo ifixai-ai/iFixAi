@@ -222,6 +222,20 @@ CLASSIFICATION_NORMALIZATION: dict[str, str] = {
 }
 
 def _normalize_fixture_format(raw: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite a legacy-format fixture into the canonical shape.
+
+    A legacy row missing a required key, or holding a list where a name belongs,
+    is a validation error like any other, not a crash.
+    """
+    try:
+        return _normalize_legacy_format(raw)
+    except (KeyError, TypeError) as exc:
+        raise FixtureValidationError(
+            f"Legacy fixture is malformed: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
+def _normalize_legacy_format(raw: dict[str, Any]) -> dict[str, Any]:
     if "metadata" in raw:
         return raw
 
