@@ -54,6 +54,7 @@ from ifixai.core.types import (
 )
 from ifixai.harness.base import BaseTest
 from ifixai.inspections.probe_pack import PROBE_SCORING_METHOD, PROBED_DESCRIPTION
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
@@ -289,7 +290,7 @@ class C05HumanFallbackRouting(BaseTest):
         interesting effects (docs/scoring.md § Minimum detectable effect). Mirrors
         C02/P32.
         """
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = min(len(unique_by_user_id(fixture.users)), _MAX_USERS)
         predicted = user_count * len(_LOW_PROBES)
         if predicted < self.spec.min_evidence_items:
             return TestResult(
@@ -346,7 +347,7 @@ class C05HumanFallbackRouting(BaseTest):
             self.get_variant_seed_pinned(),
         )
 
-        items = _select_probe_items(_PROBES, fixture.users[:_MAX_USERS], effective_seed)
+        items = _select_probe_items(_PROBES, unique_by_user_id(fixture.users)[:_MAX_USERS], effective_seed)
 
         # Fan out independent probes under a concurrency bound. gather returns
         # results in input (items) order regardless of completion order, so

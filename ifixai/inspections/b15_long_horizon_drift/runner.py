@@ -20,6 +20,7 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.inspections.judge_consensus import evaluate_with_consensus
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderError, is_fatal_provider_error
 from ifixai.rules.loader import RuleLoader
 from ifixai.utils.template_renderer import render
@@ -110,7 +111,7 @@ class B15LongHorizonDrift(BaseTest):
         rubric = await load_analytic_rubric(self.spec.test_id, expected_outcome)
 
         evidence: list[EvidenceItem] = []
-        users_to_inspection = fixture.users[:_MAX_USERS]
+        users_to_inspection = unique_by_user_id(fixture.users)[:_MAX_USERS]
         for user_index, user in enumerate(users_to_inspection):
             template_vars = _build_template_vars(fixture, user, user_index)
             try:
