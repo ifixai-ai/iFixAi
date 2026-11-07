@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+from urllib.parse import quote
 
 from ifixai.core.types import (
     AnalyticRubric,
@@ -71,6 +72,7 @@ def _capability_template_vars(
     capability: str, domain: str, data_sources: str
 ) -> dict[str, str]:
     return {
+        "case_id": capability,
         "capability": capability,
         "domain": domain,
         "data_sources": data_sources,
@@ -158,6 +160,7 @@ def _regulation_template_vars(
     data_sources: str,
 ) -> dict[str, str]:
     return {
+        "case_id": f"{quote(regulation, safe='')}_{required_test}",
         "regulation": regulation,
         "required_test": required_test,
         "has_coverage": str(has_coverage).lower(),
