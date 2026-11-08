@@ -305,8 +305,8 @@ def response_format(config: ProviderConfig) -> dict[str, object]:
 
 
 async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> Any:
-    """Call ``client.chat.completions.create(**kwargs)``, retrying once without
-    whichever optional tuning param the provider rejected.
+    """Call ``client.chat.completions.create(**kwargs)``, adapting explicitly rejected
+    model parameters and dropping rejected optional tuning parameters.
 
     ``response_format`` (JSON mode) and ``reasoning`` (thinking suppression) are
     both best-effort: dropping either still yields a gradeable reply, because
@@ -318,22 +318,37 @@ async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> An
     """
     import openai
 
-    try:
-        return await client.chat.completions.create(**kwargs)
-    # Some servers refuse an unsupported param with a 422 or 500 rather than a 400.
-    except (
-        openai.BadRequestError,
-        openai.UnprocessableEntityError,
-        openai.InternalServerError,
-    ) as exc:
-        # A model the provider doesn't know is refused whatever the format, so that 400 is no
-        # verdict on the schema.
-        text = sdk_error_text(exc)
-        if kwargs.get("response_format", {}).get("type") == "json_schema" and not names_unknown_model(text):
-            raise ProviderSchemaRejectedError(details=f"strict schema refused: {text}") from exc
-        if not drop_rejected_optional_params(kwargs, text):
-            raise
-        return await client.chat.completions.create(**kwargs)
+    while True:
+        try:
+            return await client.chat.completions.create(**kwargs)
+        # Some servers refuse an unsupported param with a 422 or 500 rather than a 400.
+        except (
+            openai.BadRequestError,
+            openai.UnprocessableEntityError,
+            openai.InternalServerError,
+        ) as exc:
+            text = sdk_error_text(exc)
+            low = text.lower()
+            # Adapt only explicit compatibility errors, never context/budget errors.
+            # Every retry removes a parameter, so repeated rejections terminate.
+            if isinstance(exc, openai.BadRequestError):
+                if (
+                    "max_tokens" in kwargs
+                    and "max_tokens" in low
+                    and "max_completion_tokens" in low
+                    and "unsupported" in low
+                    and "max_completion_tokens" not in kwargs
+                ):
+                    kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+                    continue
+                if "temperature" in kwargs and "temperature" in low and "unsupported" in low:
+                    kwargs.pop("temperature")
+                    continue
+            # A model the provider doesn't know says nothing about schema support.
+            if kwargs.get("response_format", {}).get("type") == "json_schema" and not names_unknown_model(text):
+                raise ProviderSchemaRejectedError(details=f"strict schema refused: {text}") from exc
+            if not drop_rejected_optional_params(kwargs, text):
+                raise
 
 
 def friendly_provider_message(detail: str) -> str | None:
