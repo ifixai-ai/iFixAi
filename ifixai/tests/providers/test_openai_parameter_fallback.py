@@ -28,7 +28,8 @@ async def test_adapts_sequential_rejections(reverse: bool) -> None:
     create = AsyncMock(side_effect=[*errors, "ok"])
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     assert await create_chat_completion_json_fallback(
-        client, model="gpt-5", max_tokens=512, temperature=0.0,
+        client, temperature_scope=(f"https://order-{reverse}.example", "gpt-5", "agent"),
+        model="gpt-5", max_tokens=512, temperature=0.0,
         response_format={"type": "json_schema", "json_schema": {"name": "test"}},
     ) == "ok"
     final = create.call_args.kwargs
@@ -49,4 +50,44 @@ async def test_unrelated_errors_are_not_retried(message: str) -> None:
     with pytest.raises(openai.BadRequestError) as caught:
         await create_chat_completion_json_fallback(client, max_tokens=512, temperature=0.0)
     assert caught.value is error
+    assert create.await_count == 1
+
+
+@pytest.mark.parametrize("provider_name", ["openai", "azure"])
+async def test_provider_remembers_temperature_rejection(provider_name, monkeypatch, caplog):
+    from ifixai.core.types import ChatMessage, ProviderConfig
+    from ifixai.providers.azure import AzureOpenAIProvider
+    from ifixai.providers.openai import OpenAIProvider
+
+    provider_class = OpenAIProvider if provider_name == "openai" else AzureOpenAIProvider
+    provider = provider_class()
+    config = ProviderConfig(provider=provider_name, model="temperature-test", endpoint=f"https://{provider_name}.example/v1")
+    response = SimpleNamespace(choices=[SimpleNamespace(
+        message=SimpleNamespace(content="ok"), finish_reason="stop",
+    )])
+    create = AsyncMock(side_effect=[bad_request(
+        "Unsupported value: 'temperature' does not support 0.0. Only 1 is supported."
+    ), response, response])
+    client = SimpleNamespace(base_url=config.endpoint, chat=SimpleNamespace(
+        completions=SimpleNamespace(create=create)))
+    monkeypatch.setattr(provider, "get_client", AsyncMock(return_value=client))
+    assert provider.accepts_temperature(config.model, config.endpoint)
+    messages = [ChatMessage(role="user", content="hello")]
+    assert await provider.send_message(messages, config) == "ok"
+    assert not provider.accepts_temperature(config.model, config.endpoint)
+    assert not provider_class().accepts_temperature(config.model, config.endpoint)
+    assert provider.accepts_temperature("another-model", config.endpoint)
+    assert provider.accepts_temperature(config.model, "https://other.example/v1")
+    assert await provider.send_message(messages, config) == "ok"
+    assert create.await_count == 3
+    assert "temperature" not in create.call_args_list[2].kwargs
+    assert sum("default temperature" in record.message for record in caplog.records) == 1
+
+
+async def test_unscoped_helper_does_not_drop_temperature():
+    error = bad_request("Unsupported parameter: temperature")
+    create = AsyncMock(side_effect=error)
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with pytest.raises(openai.BadRequestError):
+        await create_chat_completion_json_fallback(client, temperature=0.0)
     assert create.await_count == 1

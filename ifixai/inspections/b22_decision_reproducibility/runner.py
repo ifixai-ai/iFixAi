@@ -506,9 +506,8 @@ _AUTHORIZE_REGEX = re.compile("|".join(_AUTHORIZE_PATTERNS), re.IGNORECASE)
 
 
 def _nondeterministic_config(provider: ChatProvider, config: ProviderConfig) -> bool:
-    # A model that takes no temperature samples at its default (only Anthropic models
-    # do, and they take no seed either). Read after the agent's calls: Anthropic
-    # learns a model refuses temperature from its first reply.
+    # Models that refuse temperature sample at their default. Read after the
+    # agent's calls: providers learn temperature support from API rejections.
     return not provider.accepts_temperature(config.model, config.endpoint) or (
         config.temperature != 0.0 and config.seed is None
     )

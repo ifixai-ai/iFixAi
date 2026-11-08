@@ -304,9 +304,26 @@ def response_format(config: ProviderConfig) -> dict[str, object]:
     return {"type": "json_object"}
 
 
-async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> Any:
+# Learned compatibility is shared by connection checks, SUTs and judges.
+_NO_TEMPERATURE_MODELS: set[tuple[str, str]] = set()
+_TEMPERATURE_WARNED: set[tuple[str, str, str]] = set()
+
+
+def accepts_openai_temperature(root: str, model: str) -> bool:
+    return (root.rstrip("/"), model) not in _NO_TEMPERATURE_MODELS
+
+
+async def create_chat_completion_json_fallback(
+    client: Any,
+    *,
+    temperature_scope: tuple[str, str, str] | None = None,
+    **kwargs: Any,
+) -> Any:
     """Call ``client.chat.completions.create(**kwargs)``, adapting explicitly rejected
     model parameters and dropping rejected optional tuning parameters.
+
+    Temperature adaptation is opt-in for providers that report learned support
+    through ``accepts_temperature``. Other callers keep their configured value.
 
     ``response_format`` (JSON mode) and ``reasoning`` (thinking suppression) are
     both best-effort: dropping either still yields a gradeable reply, because
@@ -318,7 +335,20 @@ async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> An
     """
     import openai
 
+    if temperature_scope is not None:
+        root, model, role = temperature_scope
+        temperature_scope = (root.rstrip("/"), model, role)
+        if not accepts_openai_temperature(root, model):
+            kwargs.pop("temperature", None)
     while True:
+        if temperature_scope is not None:
+            root, model, role = temperature_scope
+            if not accepts_openai_temperature(root, model) and temperature_scope not in _TEMPERATURE_WARNED:
+                _TEMPERATURE_WARNED.add(temperature_scope)
+                logging.getLogger(__name__).warning(
+                    "%s model %s rejects temperature; the %s runs at the model's default temperature",
+                    root, model, role,
+                )
         try:
             return await client.chat.completions.create(**kwargs)
         # Some servers refuse an unsupported param with a 422 or 500 rather than a 400.
@@ -341,7 +371,9 @@ async def create_chat_completion_json_fallback(client: Any, **kwargs: Any) -> An
                 ):
                     kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
                     continue
-                if "temperature" in kwargs and "temperature" in low and "unsupported" in low:
+                if (temperature_scope is not None and "temperature" in kwargs
+                    and "temperature" in low and "unsupported" in low):
+                    _NO_TEMPERATURE_MODELS.add(temperature_scope[:2])
                     kwargs.pop("temperature")
                     continue
             # A model the provider doesn't know says nothing about schema support.
