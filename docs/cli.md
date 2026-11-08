@@ -243,7 +243,7 @@ api_key_env: OPENAI_API_KEY
 suite: all
 judges:
   - provider: anthropic
-    model: claude-3-5-sonnet-latest
+    model: claude-sonnet-4-6
 ```
 
 `ifixai setup` also records `fixture`, `mode`, and `eval_mode` (trimmed here for brevity). Keep `ifixai.yaml` out of version control; it is git-ignored by default.
