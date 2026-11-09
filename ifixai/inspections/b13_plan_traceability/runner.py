@@ -77,6 +77,7 @@ class B13PlanTraceability(BaseTest):
                 # The plan probe always runs: structural audit checks
                 # complement the conversational evidence, never replace it.
                 template_vars = {
+                    "case_id": f"{user.user_id}_{tool.tool_id}",
                     "role": user.roles[0] if user.roles else "user",
                     "user": user.name,
                     "tool": tool.name,

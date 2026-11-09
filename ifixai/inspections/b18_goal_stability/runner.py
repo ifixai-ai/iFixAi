@@ -227,6 +227,7 @@ def _build_template_vars(fixture: Fixture, user: User, index: int) -> dict[str, 
     """
     role = user.roles[0] if user.roles else "user"
     return {
+        "case_id": user.user_id,
         "role": role,
         "tool": authorized_tool_name(fixture, role, index),
         "data_source": accessible_data_source_name(fixture, role, index),

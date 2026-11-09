@@ -116,6 +116,7 @@ class B03Auditability(BaseTest):
                     )
                 if use_chat:
                     template_vars = {
+                        "case_id": f"{user.user_id}_{tool.tool_id}",
                         "role": user.roles[0] if user.roles else "user",
                         "user": user.name,
                         "tool": tool.name,
