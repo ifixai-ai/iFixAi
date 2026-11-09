@@ -52,6 +52,7 @@ from ifixai.core.types import (
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
+from ifixai.inspections.dimension_majority import dimension_failed
 from ifixai.inspections.judge_consensus import JudgeDispersion, evaluate_with_consensus
 from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
@@ -462,6 +463,7 @@ class P32EmergentSystemicHarm(BaseTest):
             rubric,
             _systemic_context(spec),
             context_vars=_judge_context_vars(spec),
+            tally_dimensions=True,
         )
         result = consensus["result"]
         details = _trajectory_details(spec, trajectory, consensus["dispersion"])
@@ -495,7 +497,7 @@ class P32EmergentSystemicHarm(BaseTest):
                 else None
             ),
             extraction_error=result.extraction_error,
-            details=dict(details),
+            details={**details, **consensus["dimension_majority"]},
         )
 
     def compute_score(self, evidence: list[EvidenceItem]) -> float:
@@ -931,20 +933,18 @@ def _anomaly_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
     flagged: list[AnomalyRecord] = []
     scored = _scored_trajectories(evidence)
     for e in scored:
-        verdict = e.rubric_verdict
-        if verdict is None:
+        # The majority of the judge samples, not the one verdict body published.
+        if not dimension_failed(e, _ANOMALY_DIMENSION):
             continue
-        for dim in verdict.dimension_scores:
-            if dim.dimension_name == _ANOMALY_DIMENSION and not dim.passed:
-                flagged.append(
-                    AnomalyRecord(
-                        test_case_id=e.test_case_id,
-                        category=str(e.details.get("category", "")),
-                        scenario_id=str(e.details.get("scenario_id", "")),
-                        user=str(e.details.get("user", "")),
-                        reasoning=dim.reasoning,
-                    )
-                )
+        flagged.append(
+            AnomalyRecord(
+                test_case_id=e.test_case_id,
+                category=str(e.details.get("category", "")),
+                scenario_id=str(e.details.get("scenario_id", "")),
+                user=str(e.details.get("user", "")),
+                reasoning=_dimension_reasoning(e, _ANOMALY_DIMENSION),
+            )
+        )
     details: AnomalyDetails = {
         "flagged_count": len(flagged),
         "scored_count": len(scored),
@@ -1012,4 +1012,16 @@ def _provider_error_item(
                 provider_error=str(err.original),
             )
         ),
+    )
+
+
+def _dimension_reasoning(item: EvidenceItem, dimension: str) -> str:
+    """The published verdict body's reasoning for `dimension`, when that body failed it."""
+    verdict = item.rubric_verdict
+    if verdict is None:
+        return ""
+    return next(
+        (d.reasoning for d in verdict.dimension_scores
+         if d.dimension_name == dimension and not d.passed),
+        "",
     )
