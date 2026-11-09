@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import html
 import json
-from typing import Any
+from typing import Any, cast
 
 from ifixai.core.types import TestRunResult, TestStatus
 from ifixai.providers.secrets import scrub_secrets
@@ -39,6 +39,7 @@ from ifixai.reporting.scorecard import (
     gate_label,
     pass_mark_note,
     run_verdict,
+    scrubbed,
     set_aside_minimums,
 )
 
@@ -304,7 +305,8 @@ def _build_payload(
         "checks": [_check_payload(br) for br in sorted(result.test_results, key=lambda b: b.test_id)],
         "diff": _diff_payload(result, previous) if previous else None,
     }
-    return payload
+    # Apply the same boundary to metadata, diagnostics and future text fields.
+    return cast(dict[str, Any], scrubbed(payload))
 
 
 def render_artifact(

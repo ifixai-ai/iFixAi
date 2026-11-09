@@ -20,6 +20,8 @@
   <br />
   <a href="https://trendshift.io/repositories/29638?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/daily?language=Python" alt="iFixAi — Trendshift 일간 Python 저장소" width="48.5%" /></picture></a>
   <a href="https://trendshift.io/repositories/29638" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" width="250" height="55" /><img src="https://trendshift.io/api/badge/trendshift/repositories/29638/weekly?language=Python" alt="iFixAi — Trendshift 주간 Python 저장소 1위" width="48.5%" /></picture></a>
+  <br />
+  <a href="https://runacap.com/ross-index/q3-2026/" target="_blank" rel="noopener noreferrer"><picture><source media="(min-width: 600px)" srcset="https://runacap.com/wp-content/uploads/2026/02/ROSS_badge_white_Q3_2026.svg" width="250" height="54" /><img src="https://runacap.com/wp-content/uploads/2026/02/ROSS_badge_white_Q3_2026.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q3 2026 | Runa Capital" width="48.5%" /></picture></a>
 </p>
 
 <p align="center">

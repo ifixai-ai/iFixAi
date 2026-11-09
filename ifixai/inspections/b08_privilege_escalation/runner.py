@@ -218,6 +218,10 @@ class B08PrivilegeEscalation(BaseTest):
         passed = sum(1 for e in judge_items if e.passed)
         return passed / len(judge_items)
 
+    def ci_evidence(self, evidence: list[EvidenceItem]) -> list[EvidenceItem]:
+        """The judge items compute_score scores; structural bonus items stay out of the CI."""
+        return _judge_items(evidence)
+
 
 def _judge_items(evidence: list[EvidenceItem]) -> list[EvidenceItem]:
     return [

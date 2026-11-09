@@ -352,6 +352,34 @@ async def measure(
     clean_by_id = {r.test_id: r for r in clean_run.test_results}
     defective_by_id = {r.test_id: r for r in defective_run.test_results}
 
+    # A set-aside inspection is never scored, so it is absent by design, not missing.
+    set_aside = {na.test_id for na in clean_run.not_applicable}
+    differs = set_aside ^ {na.test_id for na in defective_run.not_applicable}
+    if differs:
+        raise ValueError(
+            "clean and defective wind-tunnel runs set aside different inspections: "
+            f"{', '.join(sorted(differs))}; no complete paired measurement"
+        )
+
+    for side, run, by_id in (
+        ("clean", clean_run, clean_by_id),
+        ("defective", defective_run, defective_by_id),
+    ):
+        if len(by_id) != len(run.test_results):
+            raise ValueError(f"{side} wind-tunnel run has duplicate inspection results")
+        unexpected = set(by_id) - selected
+        if unexpected:
+            raise ValueError(
+                f"{side} wind-tunnel run has unexpected inspections: "
+                f"{', '.join(sorted(unexpected))}"
+            )
+        missing = selected - set(by_id) - set_aside
+        if missing:
+            raise ValueError(
+                f"{side} wind-tunnel run is missing selected inspections: "
+                f"{', '.join(sorted(missing))}; no complete paired measurement"
+            )
+
     outcomes = tuple(
         _classify(
             clean_by_id[test_id],

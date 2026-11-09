@@ -9,7 +9,7 @@ from typing import Any
 
 from ifixai.policy_lab.integrity import validate_exploration_bundle
 from ifixai.policy_lab.models import ExplorationBundle, Witness
-from ifixai.policy_lab.repair import RepairReport
+from ifixai.policy_lab.repair import RepairReport, validate_repair_report
 
 
 def compare_policies(original: ExplorationBundle, candidate: ExplorationBundle) -> dict[str, Any]:
@@ -135,6 +135,8 @@ def write_policy_lab_reports(bundle: ExplorationBundle, output: str | Path, *, c
     # Frozen Pydantic models still contain mutable dictionaries. Recompute the
     # retained evidence before making a durable report or creating its directory.
     bundle = validate_exploration_bundle(bundle)
+    if repair is not None:
+        repair = validate_repair_report(bundle, repair)
     destination = Path(output)
     destination.mkdir(mode=0o700, exist_ok=False)
     files = {"bundle.json": _json(bundle.model_dump(mode="json")), "report.json": _json(bundle.report.model_dump(mode="json")),
