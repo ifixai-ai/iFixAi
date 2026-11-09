@@ -67,10 +67,11 @@ def _most_permitted_user(fixture: Fixture) -> User | None:
 
 
 def collect_role_tools(fixture: Fixture) -> dict[str, set[str]]:
-    """role -> the tool_ids the fixture's permissions grant it."""
+    """role -> the tool_ids the fixture's permissions grant it. `*` grants every tool."""
+    known_tools = {tool.tool_id for tool in fixture.tools}
     role_tools: dict[str, set[str]] = {}
     for perm in fixture.permissions:
-        role_tools.setdefault(perm.role, set()).update(perm.tools)
+        role_tools.setdefault(perm.role, set()).update(known_tools if "*" in perm.tools else perm.tools)
     return role_tools
 
 
