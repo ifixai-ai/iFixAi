@@ -47,10 +47,10 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("openai/gpt-5", "OpenAI GPT-5 — flagship general reasoning"),
         ("openai/gpt-5-mini", "OpenAI GPT-5 Mini — cheaper & faster"),
         ("openai/gpt-4.1", "OpenAI GPT-4.1 — strong, widely available"),
-        ("openai/o4-mini", "OpenAI o4 Mini — reasoning-optimized, low cost"),
+        ("openai/gpt-5.6-terra", "OpenAI GPT-5.6 Terra — reasoning-optimized, low cost"),
         ("google/gemini-2.5-pro", "Google Gemini 2.5 Pro — large context, strong reasoning"),
         ("google/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive"),
-        ("deepseek/deepseek-r1", "DeepSeek R1 — open reasoning model, very low cost"),
+        ("deepseek/deepseek-r1-0528", "DeepSeek R1 — open reasoning model, very low cost"),
         ("deepseek/deepseek-chat-v3.1", "DeepSeek V3.1 — strong, very low cost"),
         ("meta-llama/llama-4-maverick", "Meta Llama 4 Maverick — open-weights flagship"),
         ("meta-llama/llama-3.3-70b-instruct", "Meta Llama 3.3 70B — open-weights, good value"),
@@ -90,17 +90,15 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
     "openai": [
         ("gpt-4o", "Flagship — strong general reasoning"),
         ("gpt-4o-mini", "Cheaper & faster"),
-        ("o3-mini", "Reasoning-optimized, cost-effective"),
         ("gpt-4.1", "Latest large model"),
     ],
     "anthropic": [
-        ("claude-3-5-sonnet-latest", "Balanced reasoning & speed"),
-        ("claude-3-7-sonnet-latest", "Newer Sonnet"),
-        ("claude-3-5-haiku-latest", "Fastest & cheapest Claude"),
+        ("claude-sonnet-4-6", "Balanced reasoning & speed"),
+        ("claude-opus-5-5", "Most capable, pricier"),
+        ("claude-haiku-5-5", "Fastest & cheapest Claude"),
     ],
     "gemini": [
         ("gemini-3.6-flash", "Fast and inexpensive"),
-        ("gemini-1.5-pro", "Larger context, stronger reasoning"),
     ],
     "azure": [
         ("gpt-4o", "Your Azure deployment name for GPT-4o"),

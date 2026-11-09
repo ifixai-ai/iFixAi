@@ -26,3 +26,26 @@ def test_gemini_and_bedrock_catalog_defaults_are_not_retired() -> None:
 def test_gemini_and_bedrock_suggestions_are_not_retired() -> None:
     for provider in ("gemini", "bedrock"):
         assert not RETIRED_MODELS & {model for model, _ in suggestions(provider)}
+
+
+# Model ids the vendors have already retired or shut down (each checked
+# against the vendor's own deprecations page).
+SHUT_DOWN_MODELS = {
+    "o3-mini",
+    "o4-mini",
+    "o1",
+    "gpt-4-turbo",
+    "gpt-4",
+    "claude-3-5-sonnet-latest",
+    "claude-3-7-sonnet-latest",
+    "claude-3-5-haiku-latest",
+    "claude-opus-4-1",
+    "deepseek-r1",
+    "gemini-1.5-pro",
+}
+
+
+@pytest.mark.parametrize("provider", ["openai", "openrouter", "anthropic", "gemini"])
+def test_suggestions_do_not_offer_shut_down_models(provider: str) -> None:
+    offered = {model.split("/", 1)[-1] for model, _ in suggestions(provider)}
+    assert not SHUT_DOWN_MODELS & offered
