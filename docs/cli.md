@@ -35,7 +35,7 @@ no provider key; see [trajectory assurance](trajectory-assurance.md),
 
 | Flag | Default | Does |
 |---|---|---|
-| `--provider`, `-p` | none | `mock`, `openai`, `openrouter`, `orcarouter`, `requesty`, `cloudflare`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `http`, `langchain`. |
+| `--provider`, `-p` | none | `mock`, `openai`, `atlascloud`, `minimax`, `openrouter`, `orcarouter`, `requesty`, `cloudflare`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `litellm`, `http`, `langchain`. |
 | `--api-key`, `-k` | provider's env var | SUT API key. Without it, read from the provider's env var (e.g. `OPENAI_API_KEY`). Required for `http` unless `--auth-method none`. |
 | `--auth-method` | `bearer` | `http` only: `bearer`, `basic`, `api_key`, or `none`. |
 | `--model`, `-m` | provider default | Model identifier override. |
@@ -94,7 +94,7 @@ Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `
 | `--format` | `both` | `json`, `markdown`, or `both`. |
 | `--name`, `--version` | provider name, `1.0` | System name and version label in reports. |
 | `--min-score` | `0.85` | CI gate: exit `0` if the overall score is at or above it, `2` if below. A mandatory minimum (B01, B08, P01) that ran and failed exits `2` whatever the score. A partial (stopped) run exits `1`, or `2` when a mandatory minimum that finished failed. A run that finished but is flagged RUN INVALID exits `2` whatever its score. A run that leaves out B01, B08 or P01 (`-b`, `-c`, `--suite`, `--strategic`) has no overall score, so `--min-score` doesn't apply: it exits `0` only if it selected at least one inspection that can gate (report-only ones can't) and all of those passed, and `2` if any failed, errored or was inconclusive. It also exits `2` when a mandatory minimum it selected was set aside unchecked (for example, no judge). Any other run with no overall score exits `2`. The JSON report's `overall.passed` is true exactly when the exit code is `0`, and `overall.min_score` records the pass mark. |
-| `--quiet`, `-q` | off | Suppress banner and summary; stdout still carries scores. |
+| `--quiet`, `-q` | off | Suppress the startup banner; stdout still carries the summary and scores. |
 
 ### Execution and reliability
 
