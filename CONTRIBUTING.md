@@ -39,13 +39,13 @@ Each inspection lives in its own folder under `ifixai/inspections/bNN_short_name
 - `rubric.yaml` — analytic-judge dimensions and weights (default; loaded when no outcome-type-specific file exists)
 - `rubric_{outcome_type}.yaml` — optional outcome-type-specific rubric (e.g. `rubric_comply.yaml`); loaded in preference to `rubric.yaml` when the inspection requests that outcome type. Use this when a single inspection covers both `refuse` and `comply` cases that require different scoring dimensions.
 - `references.yaml` — reference responses used by atomic-claims grounding
-- `corpus.yaml` — adversarial seeds (only B12, B14, B28, B30)
+- `corpus.yaml` — adversarial seeds (only B12, B14, B28, B30, P13, P19, P22, P27, P32 and S02)
 
 The minimum contract:
 
-1. Declare the `SPEC`, an `InspectionSpec` instance with `test_id`, `name`, `category` (one of the five `InspectionCategory` values), `description`, `threshold`, `weight`, `scoring_method`, and optional `is_strategic` / `is_mandatory_minimum` flags. The canonical test → pillar list is [`docs/inspections.md`](docs/inspections.md#categories); update that table when you add or recategorise an inspection.
+1. Declare the `SPEC`, an `InspectionSpec` instance with `test_id`, `name`, `category` (an `InspectionCategory` value; only categories I–V, the five graded pillars, count toward the grade), `description`, `threshold`, `weight`, `scoring_method`, and optional `is_strategic` / `is_mandatory_minimum` flags. The canonical test → pillar list is [`docs/inspections.md`](docs/inspections.md#categories); update that table when you add or recategorise an inspection.
 2. Implement a subclass of `BaseTest` (from `ifixai.harness.base`). Override `run()` to produce a list of `EvidenceItem`s. Use `self.pipeline.evaluate(...)` to get a pass/fail from the configured judge.
-3. Declare `required_fixture_keys: frozenset[str]` on the subclass listing every fixture key the inspection's templates reference. The fixture loader validates this at load time; inspections that reference keys the fixture doesn't provide fail fast with an actionable error.
+3. If the inspection asks its questions through a probe pack (`probes.yaml`), list every placeholder its templates use under `required_fixture_keys` there. The pack loader (`ifixai/inspections/probe_pack.py`) rejects a template placeholder that is not listed, and a listed key no template uses.
 4. Render every prompt through `ifixai.utils.template_renderer.render(template, context)`. Direct `str.format(...)` or f-string interpolation on fixture values is forbidden — it silently leaks `{placeholder}` literals to the model when a key is missing.
 5. Register the inspection in `ifixai/harness/registry.py` (import the class and `SPEC` from `ifixai.inspections.bNN_short_name.runner` + add to `ALL_SPECS` + `create_inspection` switch).
 6. Update `ifixai/scoring/category_weights.py` only if the inspection belongs to the strategic set.
@@ -55,18 +55,16 @@ The minimum contract:
 
 Run `ifixai validate` (no args) after authoring or editing an inspection. The layout validator checks:
 
-- the per-test folder contains every required artifact (`runner.py`, `definition.yaml`, `rubric.yaml`, `references.yaml`, plus `corpus.yaml` for B12/B14/B28/B30); optional `rubric_{outcome_type}.yaml` files are not validated for presence but must pass schema checks if present;
+- the per-test folder contains every required artifact (`runner.py`, `definition.yaml`, `rubric.yaml`, `references.yaml`, plus `corpus.yaml` for the ten inspections listed above); optional `rubric_{outcome_type}.yaml` files are not validated for presence but must pass schema checks if present;
 - the folder name agrees with the YAML `test_id`;
 - `SPEC` invariants (id, category, threshold, weight, strategic flags) match the registry;
 - the runner registers cleanly with `harness/registry.py`.
 
 ## Authoring a fixture
 
-Fixtures are YAML files under `ifixai/fixtures/`. Validate against `ifixai/fixtures/schema.json`. A fixture MUST supply every key listed in the union of every registered inspection's `required_fixture_keys`.
+Fixtures are YAML files under `ifixai/fixtures/`. Validate against `ifixai/fixtures/schema.json`, or run `ifixai validate <fixture>`.
 
-The `x-placeholders` section of the schema (lint-only) enumerates the placeholder keys any inspection may reference. Keep it in sync when you add an inspection that references a new key.
-
-Three example fixtures live under `ifixai/fixtures/examples/`. Copy one as a starting point.
+Example fixtures live under `ifixai/fixtures/examples/`. Copy one as a starting point.
 
 ## Registering a new provider
 

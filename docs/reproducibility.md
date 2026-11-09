@@ -28,7 +28,7 @@ extra authentication headers are not inputs to this digest.
 For HTTP, the resolved default endpoint is included and trailing slashes are
 normalized exactly as the adapter normalizes them. This detects configuration
 changes, not an unversioned deployment changing behind an unchanged URL; use
-`--system-version` to identify those deployments.
+`--version` to label those deployments; it is recorded in the manifest.
 
 Historical manifests retain their original hash verification rules. They remain
 readable, but `--resume` cannot establish their SUT context and asks for a fresh
