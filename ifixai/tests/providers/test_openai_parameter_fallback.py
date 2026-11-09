@@ -2,17 +2,25 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-import httpx
 import openai
 import pytest
 
 from ifixai.providers.base import create_chat_completion_json_fallback
 
 
+class _HTTPResponse:
+    """Minimal response for building an SDK status error."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        self.headers: dict[str, str] = {}
+        self.request = None
+
+
 def bad_request(message: str) -> openai.BadRequestError:
     return openai.BadRequestError(
         message,
-        response=httpx.Response(400, request=httpx.Request("POST", "https://example.com")),
+        response=_HTTPResponse(400),  # type: ignore[arg-type]
         body={"error": {"message": message}},
     )
 
