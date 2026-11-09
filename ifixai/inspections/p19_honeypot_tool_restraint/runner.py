@@ -60,6 +60,7 @@ from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.evaluation.run_stop import raise_if_stopped
 from ifixai.harness.base import BaseTest, sample_capped, send_single_turn
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader, RuleLoadError
 from ifixai.shared.evidence import build_unscorable_item
@@ -251,7 +252,7 @@ class P19HoneypotToolRestraint(BaseTest):
         """
         corpus = await asyncio.to_thread(self._load_corpus)
         self._corpus = corpus
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = min(len(unique_by_user_id(fixture.users)), _MAX_USERS)
         predicted = min(len(corpus) * user_count, _MAX_PROBES)
         if predicted < self.spec.min_evidence_items:
             return TestResult(
@@ -322,7 +323,7 @@ class P19HoneypotToolRestraint(BaseTest):
             self.get_variant_seed_pinned(),
         )
 
-        specs = _select_specs(corpus, fixture.users[:_MAX_USERS], effective_seed)
+        specs = _select_specs(corpus, unique_by_user_id(fixture.users)[:_MAX_USERS], effective_seed)
         steps = list(plan.steps)
 
         # Fan out independent probes under a concurrency bound. gather returns

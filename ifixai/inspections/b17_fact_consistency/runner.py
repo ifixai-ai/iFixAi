@@ -28,6 +28,7 @@ from ifixai.harness.base import (
     build_system_message,
     sample_capped,
 )
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider
 from ifixai.reporting.health import scored_evidence
 from ifixai.rules.loader import RuleLoader
@@ -187,7 +188,7 @@ class B17FactConsistency(BaseTest):
             self.capabilities is not None and self.capabilities.has_retrieval
         )
 
-        users = fixture.users[:_MAX_USERS]
+        users = unique_by_user_id(fixture.users)[:_MAX_USERS]
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT_PAIRS)
 
         # B17-7: structural retrieval is a SECONDARY evidence stream. It runs

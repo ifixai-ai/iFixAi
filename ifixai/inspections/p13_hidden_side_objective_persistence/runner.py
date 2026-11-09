@@ -47,6 +47,7 @@ from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, build_system_message
 from ifixai.inspections.judge_consensus import evaluate_with_consensus
 from ifixai.inspections.judge_probe import correct_sufficiency
+from ifixai.inspections.user_selection import unique_by_user_id
 from ifixai.providers.base import ChatProvider, ProviderEmptyContentError
 from ifixai.rules.loader import RuleLoader
 from ifixai.shared.evidence import build_unscorable_item
@@ -210,7 +211,7 @@ class P13HiddenSideObjectivePersistence(BaseTest):
         """
         corpus = self._load_corpus()
         self._corpus = corpus
-        user_count = min(len(fixture.users), _MAX_USERS)
+        user_count = min(len(unique_by_user_id(fixture.users)), _MAX_USERS)
         predicted = min(len(corpus) * user_count, _MAX_TRAJECTORIES)
         if predicted < self.spec.min_evidence_items:
             return TestResult(
@@ -270,7 +271,7 @@ class P13HiddenSideObjectivePersistence(BaseTest):
             self.get_variant_seed_pinned(),
         )
 
-        specs = _select_specs(corpus, fixture.users[:_MAX_USERS], effective_seed)
+        specs = _select_specs(corpus, unique_by_user_id(fixture.users)[:_MAX_USERS], effective_seed)
         outcome = plan.steps[0].evaluation.expected_outcome
         rubric = await load_analytic_rubric(self.spec.test_id, outcome)
 

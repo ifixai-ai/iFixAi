@@ -21,6 +21,23 @@ DUPLICATE_USER_ID_WARNING = (
 )
 
 
+def unique_by_user_id(users: Sequence[User]) -> list[User]:
+    """The users with each `user_id` kept once, first occurrence wins, file order kept.
+
+    For runners that cap `fixture.users` in file order: two users sharing an id would
+    otherwise both run, collide on every evidence id keyed by `user_id`, and count the
+    same principal twice. Unlike `capped_unique_users` it does not sort, so a fixture
+    without repeats audits exactly the users it did before.
+    """
+    seen: set[str] = set()
+    unique: list[User] = []
+    for user in users:
+        if user.user_id not in seen:
+            seen.add(user.user_id)
+            unique.append(user)
+    return unique
+
+
 def capped_unique_users(users: Sequence[User], max_users: int) -> list[User]:
     """The users an inspection audits: sorted by `user_id`, de-duplicated on it, then capped.
 
