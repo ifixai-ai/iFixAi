@@ -109,6 +109,7 @@ from ifixai.judge.preflight import (
     preflight_judges,
 )
 from ifixai.providers.base import ChatProvider
+from ifixai.providers.http import EXTRA_HEADERS_ENV_VAR
 from ifixai.providers.resolver import (
     credential_env_vars,
     governed_class,
@@ -261,11 +262,14 @@ def _cfg_value(ctx: click.Context, name: str, current, cfg_value):
     return current
 
 
-def _parse_extra_headers(value: "str | dict | None") -> dict[str, str]:
+def _parse_extra_headers(
+    value: "str | dict | None", source: str = "--extra-headers"
+) -> dict[str, str]:
     """Normalize --extra-headers (JSON string, or a dict from config/wizard) to a dict.
 
     Raises BadParameter on a non-object or malformed JSON so a real agent that
     needs custom/tenant headers fails clearly at parse time, not mid-run.
+    `source` names where the value came from in that error.
     """
     if not value:
         return {}
@@ -275,13 +279,13 @@ def _parse_extra_headers(value: "str | dict | None") -> dict[str, str]:
         parsed = json.loads(value)
     except json.JSONDecodeError as exc:
         raise click.BadParameter(
-            f"--extra-headers must be a JSON object: {exc}",
-            param_hint="--extra-headers",
+            f"{source} must be a JSON object: {exc}",
+            param_hint=source,
         ) from exc
     if not isinstance(parsed, dict):
         raise click.BadParameter(
-            '--extra-headers must be a JSON object (e.g. \'{"X-Tenant": "acme"}\').',
-            param_hint="--extra-headers",
+            f'{source} must be a JSON object (e.g. \'{{"X-Tenant": "acme"}}\').',
+            param_hint=source,
         )
     return {str(k): str(v) for k, v in parsed.items()}
 
@@ -1286,6 +1290,12 @@ def run(
 
     # Normalize --extra-headers (JSON string, or a dict from config/wizard) once.
     extra_headers_dict = _parse_extra_headers(extra_headers)
+    # The adapters that read IFIXAI_EXTRA_HEADERS skip a malformed value silently,
+    # so check it here and fail the same way --extra-headers does.
+    if (provider or "").lower() in ("http", "langchain"):
+        _parse_extra_headers(
+            os.environ.get(EXTRA_HEADERS_ENV_VAR), source=EXTRA_HEADERS_ENV_VAR
+        )
 
     # provider is guaranteed non-None here (the interactive block above sets it when
     # it was not passed as a flag), so the env lookup always has a real provider.
