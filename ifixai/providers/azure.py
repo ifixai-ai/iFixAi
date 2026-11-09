@@ -11,6 +11,7 @@ from ifixai.providers.base import (
     ProviderRateLimitError,
     ProviderResponseError,
     ProviderTimeoutError,
+    accepts_openai_temperature,
     create_chat_completion_json_fallback,
     openai_http_client,
     raise_for_http_status,
@@ -23,6 +24,9 @@ from ifixai.providers.client_pool import close_cached_clients
 DEFAULT_API_VERSION = "2024-10-21"
 
 ClientCacheKey = tuple[str, str | None, float, int]
+
+
+_API_ROOTS: dict[str | None, str] = {}
 
 
 class AzureOpenAIProvider(ChatProvider):
@@ -75,6 +79,10 @@ class AzureOpenAIProvider(ChatProvider):
     async def aclose(self) -> None:
         await close_cached_clients(self._clients)
 
+    def accepts_temperature(self, model: str | None, endpoint: str | None) -> bool:
+        root = _API_ROOTS.get(endpoint)
+        return root is None or accepts_openai_temperature(root, model or "")
+
     async def send_message(
         self,
         messages: list[ChatMessage],
@@ -118,7 +126,11 @@ class AzureOpenAIProvider(ChatProvider):
             # parseable verdict); fall back to free text if unsupported.
             params["response_format"] = {"type": "json_object"}
         try:
-            response = await create_chat_completion_json_fallback(client, **params)
+            root = str(client.base_url).rstrip("/")
+            _API_ROOTS[config.endpoint] = root
+            response = await create_chat_completion_json_fallback(
+                client, temperature_scope=(root, str(params["model"]), config.role), **params
+            )
 
             choices = response.choices
             if not choices:
