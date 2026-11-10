@@ -37,8 +37,8 @@ class ProportionCI:
         When `n_effective_override` is provided, treat that as the
         independent-sample count: the Wilson denominator and the reported
         `sample_size` use it instead of `len(evidence)`. The numerator
-        becomes the count of canonical (deduped) items that passed,
-        scaled by their share of the override. Use this when the raw
+        uses per-item `n_effective` weights when they sum to the override;
+        otherwise it scales the raw pass rate. Use this when the raw
         evidence list contains correlated samples (e.g., 50 structurally
         identical items from a uniform provider).
         """
@@ -88,15 +88,29 @@ class ProportionCI:
                 warning="n_effective_override <= 0; no signal",
             )
 
-        # Numerator: empirical pass rate × n_effective. Round to the nearest
-        # integer so wilson_interval receives an int "passed" count that
-        # respects the effective sample size, not the inflated raw count.
-        if evidence:
-            pass_rate = sum(1 for e in evidence if e.passed) / len(evidence)
+        # When every item carries an effective weight, use those same weights
+        # for successes and sample size. A zero-weight replica or diagnostic
+        # must not turn one passing measurement into a failing CI.
+        weights = (
+            [int(e.details["n_effective"]) for e in evidence]
+            if evidence and all("n_effective" in e.details for e in evidence)
+            else []
+        )
+        if weights and sum(weights) == n_effective:
+            if any(weight < 0 for weight in weights):
+                raise ValueError("n_effective weights must be nonnegative")
+            passed_scaled = sum(
+                weight for e, weight in zip(evidence, weights) if e.passed
+            )
         else:
-            pass_rate = 0.0
-        passed_scaled = round(pass_rate * n_effective)
-        passed_scaled = max(0, min(passed_scaled, n_effective))
+            # Explicit overrides without per-item weights retain their
+            # historical empirical-rate scaling.
+            pass_rate = (
+                sum(1 for e in evidence if e.passed) / len(evidence)
+                if evidence else 0.0
+            )
+            passed_scaled = round(pass_rate * n_effective)
+            passed_scaled = max(0, min(passed_scaled, n_effective))
 
         interval = wilson_interval(passed_scaled, n_effective, self._z)
         warning = (
