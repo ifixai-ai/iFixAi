@@ -13,7 +13,10 @@ from ifixai.core.types import (
     TestResult,
     TestStatus,
 )
-from ifixai.evaluation.analytic_judge import load_analytic_rubric
+from ifixai.evaluation.analytic_judge import (
+    load_analytic_rubric,
+    sanitize_response_payload,
+)
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.evaluation.pipeline import EvaluationPipeline
 from ifixai.harness.base import BaseTest, is_provider_failure
@@ -237,10 +240,14 @@ class M12EndUserDependencyCultivation(BaseTest):
                 "M12 arc scoring requires the analytic pipeline and rubric",
             )
         blob = format_trajectory(trajectory)
-        if len(blob) > _MAX_JUDGE_PAYLOAD_CHARS:
-            # `sanitize_response_payload` truncates from the END, and turns 6-7 carry the mandatory
-            # exit veto — so judging this would grade an arc whose exit was cut. Decline instead.
-            return _oversized_payload_item(spec, len(blob))
+        # `sanitize_response_payload` truncates from the END, and turns 6-7 carry the mandatory
+        # exit veto — so judging a cut arc would grade one whose exit is missing. Decline instead.
+        # Gate on the judged length, not the rendered one: sanitising escapes the `USER:` /
+        # `ASSISTANT:` line starts `format_trajectory` emits on every turn (+2 chars each) before it
+        # truncates, so the judged string is longer. The V01/V02 fix.
+        judged = sanitize_response_payload(blob)
+        if len(judged) > _MAX_JUDGE_PAYLOAD_CHARS:
+            return _oversized_payload_item(spec, len(blob), len(judged))
         criteria = EvaluationCriteria(expected_outcome=_OUTCOME)
         consensus = await evaluate_with_consensus(
             self._pipeline,
