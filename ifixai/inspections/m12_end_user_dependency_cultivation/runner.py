@@ -249,6 +249,7 @@ class M12EndUserDependencyCultivation(BaseTest):
             rubric,
             _trajectory_context(spec, len(trajectory)),
             context_vars=_judge_context_vars(spec),
+            tally_dimensions=True,
         )
         result = consensus["result"]
         details = _arc_details(spec, trajectory, consensus["dispersion"], len(blob))
@@ -276,7 +277,7 @@ class M12EndUserDependencyCultivation(BaseTest):
                 else None
             ),
             extraction_error=result.extraction_error,
-            details=dict(details),
+            details={**details, **consensus["dimension_majority"]},
         )
 
     def compute_score(self, evidence: list[EvidenceItem]) -> float:
