@@ -1,0 +1,174 @@
+name: iFixAi self-check
+description: >-
+  Run a free iFixAi self-check against your agent's test deployment, upload the
+  findings to code scanning, and comment the plain verdict on the pull request.
+  A self-check is not certified and never carries a badge.
+author: iFixAi
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  agent-url:
+    description: >-
+      The agent's OpenAI-shaped chat endpoint on a test deployment, e.g.
+      https://staging.example.com/v1. Put the agent's own key, if it needs one,
+      in the IFIXAI_AGENT_KEY environment variable, never in the URL.
+    required: true
+  confirm-sandboxed:
+    description: >-
+      Set 'true' to confirm agent-url is a test deployment with sandboxed
+      backends and no real data. The self-check refuses to start without it.
+    required: false
+    default: 'false'
+  suite:
+    description: Inspection suite (see `ifixai list suites`).
+    required: false
+    default: smoke
+  judge-provider:
+    description: >-
+      Judge provider. Empty pairs one from the provider keys in the job's
+      environment (your keys, your cost); with none, only structural checks run.
+    required: false
+    default: ''
+  fail-on:
+    description: >-
+      When the step fails: `any` failure, only a pinned `regressions` entry, or `never`.
+    required: false
+    default: any
+  fail-on-unavailable:
+    description: Whether the step fails when the self-check reaches no verdict at all.
+    required: false
+    default: 'true'
+  upload-sarif:
+    description: >-
+      Upload SARIF to code scanning. The job needs `security-events: write`.
+    required: false
+    default: 'true'
+  comment:
+    description: >-
+      On a pull request, post (or update) one comment with the plain verdict.
+      The job needs `pull-requests: write`.
+    required: false
+    default: 'false'
+  github-token:
+    description: Token for the pull-request comment.
+    required: false
+    default: ${{ github.token }}
+  version:
+    description: >-
+      Package spec to install. `ifixai audit` ships from the release after
+      4.3.0; pin exactly in production.
+    required: false
+    default: ifixai>4.3.0
+
+outputs:
+  verdict:
+    description: The self-check's one-sentence verdict.
+    value: ${{ steps.self-check.outputs.verdict }}
+  sarif-file:
+    description: Path of the SARIF file.
+    value: ${{ steps.self-check.outputs.sarif }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install iFixAi
+      shell: bash
+      env:
+        # Inputs reach scripts through the environment, never interpolated:
+        # GitHub expands expressions before bash parses the line.
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        python -m pip install --disable-pip-version-check --quiet "$INPUT_VERSION"
+        if ! ifixai audit --help >/dev/null 2>&1; then
+          installed=$(python -m pip show ifixai 2>/dev/null | awk '/^Version:/ {print $2}' || true)
+          echo "::error::iFixAi $installed has no 'ifixai audit' command; the 'version' input is '$INPUT_VERSION'."
+          exit 1
+        fi
+
+    - name: Self-check
+      id: self-check
+      shell: bash
+      env:
+        INPUT_AGENT_URL: ${{ inputs.agent-url }}
+        INPUT_CONFIRM_SANDBOXED: ${{ inputs.confirm-sandboxed }}
+        INPUT_SUITE: ${{ inputs.suite }}
+        INPUT_JUDGE_PROVIDER: ${{ inputs.judge-provider }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -euo pipefail
+        sarif="$RUNNER_TEMP/ifixai-self-check.sarif"
+        comment="$RUNNER_TEMP/ifixai-self-check-comment.md"
+        args=(audit "$INPUT_AGENT_URL" --suite "$INPUT_SUITE" --fail-on "$INPUT_FAIL_ON")
+        args+=(--sarif "$sarif" --comment "$comment")
+        if [ "$INPUT_CONFIRM_SANDBOXED" = "true" ]; then
+          args+=(--yes)
+        fi
+        if [ -n "$INPUT_JUDGE_PROVIDER" ]; then
+          args+=(--judge-provider "$INPUT_JUDGE_PROVIDER")
+        fi
+        # Record the exit code instead of failing here, so the SARIF upload and
+        # the comment still run; "Self-check result" applies it last.
+        status=0
+        ifixai "${args[@]}" < /dev/null || status=$?
+        if [ -f "$comment" ]; then
+          cat "$comment" >> "$GITHUB_STEP_SUMMARY"
+          verdict=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['verdict'])" .ifixai/self-check/self-check.json 2>/dev/null || true)
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+        fi
+        if [ -f "$sarif" ]; then
+          echo "sarif=$sarif" >> "$GITHUB_OUTPUT"
+        fi
+        echo "comment=$comment" >> "$GITHUB_OUTPUT"
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+
+    - name: Upload findings to code scanning
+      if: inputs.upload-sarif == 'true' && steps.self-check.outputs.sarif != ''
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.self-check.outputs.sarif }}
+        category: ifixai-self-check
+
+    - name: Comment the verdict on the pull request
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        COMMENT_FILE: ${{ steps.self-check.outputs.comment }}
+      run: |
+        set -euo pipefail
+        if [ ! -f "$COMMENT_FILE" ]; then
+          echo "No self-check comment to post."
+          exit 0
+        fi
+        # One comment per pull request, found by the marker its first line carries.
+        existing=$(gh api "repos/$GH_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
+          --jq '[.[] | select(.body | startswith("<!-- ifixai-self-check -->"))][0].id // empty')
+        if [ -n "$existing" ]; then
+          gh api --method PATCH "repos/$GH_REPOSITORY/issues/comments/$existing" -F body=@"$COMMENT_FILE" > /dev/null
+        else
+          gh api --method POST "repos/$GH_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@"$COMMENT_FILE" > /dev/null
+        fi
+
+    - name: Self-check result
+      shell: bash
+      env:
+        STATUS: ${{ steps.self-check.outputs.status }}
+        INPUT_FAIL_ON_UNAVAILABLE: ${{ inputs.fail-on-unavailable }}
+      run: |
+        set -euo pipefail
+        if [ "$STATUS" = "2" ] && [ "$INPUT_FAIL_ON_UNAVAILABLE" != "true" ]; then
+          echo "> The self-check reached no verdict, and \`fail-on-unavailable\` is false — passing without one." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        exit "${STATUS:-2}"

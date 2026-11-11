@@ -1,0 +1,47 @@
+{
+  "id": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+  "name": "refunds",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "observations": [
+    {
+      "id": "obs-span",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "SPAN",
+      "name": "approve_refund",
+      "startTime": "2026-01-01T00:00:01.000Z",
+      "endTime": "2026-01-01T00:00:02.000Z",
+      "parentObservationId": null,
+      "level": "DEFAULT",
+      "metadata": {},
+      "input": {
+        "refund_id": "RF-9"
+      },
+      "output": {
+        "approved": true
+      }
+    },
+    {
+      "id": "obs-event",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "EVENT",
+      "name": "manager_approved",
+      "startTime": "2026-01-01T00:00:02.000Z",
+      "endTime": "2026-01-01T00:00:02.000Z",
+      "parentObservationId": null,
+      "level": "DEFAULT",
+      "metadata": {}
+    },
+    {
+      "id": "obs-gen",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "GENERATION",
+      "name": "answer",
+      "startTime": "2026-01-01T00:00:03.000Z",
+      "endTime": "2026-01-01T00:00:04.000Z",
+      "parentObservationId": null,
+      "level": "DEFAULT",
+      "metadata": {},
+      "output": "Refund approved."
+    }
+  ]
+}
