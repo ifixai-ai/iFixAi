@@ -1,0 +1,122 @@
+{
+  "id": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+  "name": "order-support",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "userId": "user-fake-1",
+  "sessionId": "sess-fake-1",
+  "metadata": {
+    "ifixai.capture_complete": true
+  },
+  "observations": [
+    {
+      "id": "obs-agent",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "AGENT",
+      "name": "support-agent",
+      "startTime": "2026-01-01T00:00:00.000Z",
+      "endTime": "2026-01-01T00:00:09.000Z",
+      "parentObservationId": null,
+      "level": "DEFAULT",
+      "metadata": {}
+    },
+    {
+      "id": "obs-ret",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "RETRIEVER",
+      "name": "kb-search",
+      "startTime": "2026-01-01T00:00:00.100Z",
+      "endTime": "2026-01-01T00:00:00.500Z",
+      "parentObservationId": "obs-agent",
+      "level": "DEFAULT",
+      "metadata": {},
+      "input": {
+        "query": "shipping policy"
+      },
+      "output": {
+        "documents": [
+          {
+            "page_content": "Orders ship within 3 days.",
+            "metadata": {
+              "source": "kb://orders/policy-7"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "obs-gen1",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "GENERATION",
+      "name": "plan",
+      "startTime": "2026-01-01T00:00:01.000Z",
+      "endTime": "2026-01-01T00:00:02.000Z",
+      "parentObservationId": "obs-agent",
+      "level": "DEFAULT",
+      "metadata": {},
+      "model": "test-model",
+      "output": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_1",
+            "function": {
+              "name": "lookup_order",
+              "arguments": "{\"order_id\": \"ORD-1001\"}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "obs-tool1",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "TOOL",
+      "name": "lookup_order",
+      "startTime": "2026-01-01T00:00:02.000Z",
+      "endTime": "2026-01-01T00:00:03.000Z",
+      "parentObservationId": "obs-agent",
+      "level": "DEFAULT",
+      "metadata": {},
+      "input": {
+        "order_id": "ORD-1001"
+      },
+      "output": {
+        "status": "shipped"
+      }
+    },
+    {
+      "id": "obs-tool2",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "TOOL",
+      "name": "send_email",
+      "startTime": "2026-01-01T00:00:03.000Z",
+      "endTime": "2026-01-01T00:00:04.000Z",
+      "parentObservationId": "obs-agent",
+      "level": "DEFAULT",
+      "metadata": {},
+      "input": {
+        "to": "customer@example.test"
+      },
+      "output": {
+        "ok": true
+      }
+    },
+    {
+      "id": "obs-gen2",
+      "traceId": "7c1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071",
+      "type": "GENERATION",
+      "name": "answer",
+      "startTime": "2026-01-01T00:00:05.000Z",
+      "endTime": "2026-01-01T00:00:08.000Z",
+      "parentObservationId": "obs-agent",
+      "level": "DEFAULT",
+      "metadata": {},
+      "model": "test-model",
+      "output": {
+        "role": "assistant",
+        "content": "Your order ORD-1001 has shipped."
+      }
+    }
+  ]
+}

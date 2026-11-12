@@ -15,6 +15,8 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 - **[Business Policy Lab](business-policy-lab.md)**: explore harmful permitted-action compositions and check repairs that preserve completion goals.
 - **[Recorded trajectory assurance](trajectory-assurance.md)**: check a recorded sequence of agent actions against a business policy, then replay the findings offline.
 - **[Evaluator wind tunnel](wind-tunnel.md)**: inject a seeded governance defect and measure which inspections actually catch it.
+- **[Self-check in one command](self-check.md)**: `ifixai audit <agent-url>`, explain and pin findings, the local MCP server for Claude Code and Cursor, SARIF and the GitHub action, GitLab and pre-commit.
+- **[Import traces you already collect](trace-intake.md)**: OpenTelemetry, Langfuse, LangSmith, Arize and Braintrust exports into a trajectory capture.
 - **[File a misbehaviour report](register-contributing.md)**: find a behaviour nobody has filed, de-identify it locally, see exactly what would be published, and open the pull request.
 - **[Reproduce a run](reproducibility.md)**: the manifest, the digest algorithm, and verification helpers.
 

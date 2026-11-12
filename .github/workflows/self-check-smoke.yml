@@ -1,0 +1,72 @@
+name: Self-check smoke
+
+on:
+  pull_request:
+    branches: [main, "fix/**", "feat/**"]
+    paths:
+      - actions/self-check/**
+      - ifixai/selfcheck/**
+      - ifixai/cli/audit.py
+      - scripts/fake_agent.py
+      - .github/workflows/self-check-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The self-check action end to end: this checkout installed, a stand-in agent
+  # on localhost, the mock judge (no calls, no keys). Upload and comment are off
+  # because this job holds a read-only token.
+  self-check-end-to-end:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start a stand-in agent
+        run: |
+          set -euo pipefail
+          python3 scripts/fake_agent.py 8765 &
+          for _ in $(seq 1 20); do
+            curl -sf -X POST http://127.0.0.1:8765/v1/chat/completions -d '{}' > /dev/null && exit 0
+            sleep 0.5
+          done
+          echo "::error::the stand-in agent did not start"
+          exit 1
+
+      - name: Run the self-check action
+        id: selfcheck
+        uses: ./actions/self-check
+        with:
+          agent-url: http://127.0.0.1:8765/v1
+          confirm-sandboxed: 'true'
+          judge-provider: mock
+          upload-sarif: 'false'
+          version: .
+
+      - name: The result is labelled, and the SARIF is SARIF
+        env:
+          VERDICT: ${{ steps.selfcheck.outputs.verdict }}
+          SARIF: ${{ steps.selfcheck.outputs.sarif-file }}
+        run: |
+          set -euo pipefail
+          echo "verdict: $VERDICT"
+          case "$VERDICT" in
+            "Self-check, not certified:"*) ;;
+            *) echo "::error::verdict is not labelled a self-check"; exit 1 ;;
+          esac
+          python - "$SARIF" <<'PY'
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert doc["version"] == "2.1.0", doc["version"]
+          run = doc["runs"][0]
+          assert run["properties"]["certified"] is False
+          assert run["tool"]["driver"]["rules"], "no rules"
+          print("SARIF ok:", len(run["results"]), "results")
+          PY
+          python - <<'PY'
+          import json
+          doc = json.load(open(".ifixai/self-check/self-check.json", encoding="utf-8"))
+          assert doc["label"] == "self-check" and doc["certified"] is False and doc["badge"] is None
+          print("self-check.json ok")
+          PY

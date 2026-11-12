@@ -1,0 +1,72 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": {
+          "__otlp_attributes__": {
+            "service.name": {
+              "stringValue": "support-agent"
+            }
+          }
+        }
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "example.agent"
+          },
+          "spans": [
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "a1a1a1a1a1a1a1a1",
+              "name": "invoke_agent a",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600000000000",
+              "endTimeUnixNano": "1767225600100000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "invoke_agent"
+                  },
+                  "gen_ai.agent.name": {
+                    "stringValue": "support-agent"
+                  },
+                  "gen_ai.agent.id": {
+                    "stringValue": "agent-support-01"
+                  }
+                }
+              },
+              "status": {
+                "code": 0
+              }
+            },
+            {
+              "traceId": "0af7651916cd43dd8448eb211c80319c",
+              "spanId": "f6f6f6f6f6f6f6f6",
+              "name": "invoke_agent b",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600000000000",
+              "endTimeUnixNano": "1767225600100000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "invoke_agent"
+                  },
+                  "gen_ai.agent.name": {
+                    "stringValue": "support-agent"
+                  },
+                  "gen_ai.agent.id": {
+                    "stringValue": "agent-support-01"
+                  }
+                }
+              },
+              "status": {
+                "code": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

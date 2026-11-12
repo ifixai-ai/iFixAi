@@ -1,0 +1,125 @@
+[
+  {
+    "id": "0d1e2f30-0000-4000-8000-000000000001",
+    "trace_id": "9b2e0c1d-1a2b-4c3d-9e4f-5a6b7c8d9e0f",
+    "parent_run_id": null,
+    "name": "AgentExecutor",
+    "run_type": "chain",
+    "start_time": "2026-01-01T00:00:00.000000",
+    "end_time": "2026-01-01T00:00:09.000000",
+    "inputs": {},
+    "outputs": {},
+    "error": null,
+    "status": "success",
+    "extra": {
+      "metadata": {
+        "ifixai.actor_id": "agent-support-01"
+      }
+    }
+  },
+  {
+    "id": "0d1e2f30-0000-4000-8000-000000000002",
+    "trace_id": "9b2e0c1d-1a2b-4c3d-9e4f-5a6b7c8d9e0f",
+    "parent_run_id": "0d1e2f30-0000-4000-8000-000000000001",
+    "name": "kb_retriever",
+    "run_type": "retriever",
+    "start_time": "2026-01-01T00:00:00.100000",
+    "end_time": "2026-01-01T00:00:00.400000",
+    "inputs": {
+      "query": "shipping"
+    },
+    "outputs": {
+      "documents": [
+        {
+          "page_content": "Orders ship within 3 days.",
+          "metadata": {
+            "source": "kb://orders/policy-7"
+          }
+        }
+      ]
+    },
+    "error": null,
+    "status": "success",
+    "extra": {
+      "metadata": {}
+    }
+  },
+  {
+    "id": "0d1e2f30-0000-4000-8000-000000000003",
+    "trace_id": "9b2e0c1d-1a2b-4c3d-9e4f-5a6b7c8d9e0f",
+    "parent_run_id": "0d1e2f30-0000-4000-8000-000000000001",
+    "name": "ChatModel",
+    "run_type": "llm",
+    "start_time": "2026-01-01T00:00:01.000000",
+    "end_time": "2026-01-01T00:00:02.000000",
+    "inputs": {},
+    "outputs": {
+      "generations": [
+        [
+          {
+            "text": "",
+            "message": {
+              "kwargs": {
+                "content": "",
+                "tool_calls": [
+                  {
+                    "name": "lookup_order"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      ]
+    },
+    "error": null,
+    "status": "success",
+    "extra": {
+      "metadata": {}
+    }
+  },
+  {
+    "id": "0d1e2f30-0000-4000-8000-000000000004",
+    "trace_id": "9b2e0c1d-1a2b-4c3d-9e4f-5a6b7c8d9e0f",
+    "parent_run_id": "0d1e2f30-0000-4000-8000-000000000001",
+    "name": "lookup_order",
+    "run_type": "tool",
+    "start_time": "2026-01-01T00:00:02.000000",
+    "end_time": "2026-01-01T00:00:03.000000",
+    "inputs": {
+      "input": "ORD-1001"
+    },
+    "outputs": {
+      "output": "shipped"
+    },
+    "error": null,
+    "status": "success",
+    "extra": {
+      "metadata": {}
+    }
+  },
+  {
+    "id": "0d1e2f30-0000-4000-8000-000000000005",
+    "trace_id": "9b2e0c1d-1a2b-4c3d-9e4f-5a6b7c8d9e0f",
+    "parent_run_id": "0d1e2f30-0000-4000-8000-000000000001",
+    "name": "ChatModel",
+    "run_type": "llm",
+    "start_time": "2026-01-01T00:00:04.000000",
+    "end_time": "2026-01-01T00:00:08.000000",
+    "inputs": {},
+    "outputs": {
+      "generations": [
+        [
+          {
+            "text": "Your order ORD-1001 has shipped."
+          }
+        ]
+      ]
+    },
+    "error": null,
+    "status": "success",
+    "extra": {
+      "metadata": {}
+    }
+  }
+]
