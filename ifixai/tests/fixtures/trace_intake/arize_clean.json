@@ -1,0 +1,111 @@
+[
+  {
+    "name": "support-agent",
+    "context": {
+      "trace_id": "6e0c63257de34c92bf9efcd03927272e",
+      "span_id": "1111111111111111"
+    },
+    "parent_id": null,
+    "span_kind": "AGENT",
+    "start_time": "2026-01-01T00:00:00.000+00:00",
+    "end_time": "2026-01-01T00:00:09.000+00:00",
+    "status_code": "OK",
+    "status_message": "",
+    "attributes": {
+      "openinference": {
+        "span": {
+          "kind": "AGENT"
+        }
+      },
+      "agent": {
+        "name": "support-agent"
+      }
+    }
+  },
+  {
+    "name": "kb",
+    "context": {
+      "trace_id": "6e0c63257de34c92bf9efcd03927272e",
+      "span_id": "2222222222222222"
+    },
+    "parent_id": "1111111111111111",
+    "span_kind": "RETRIEVER",
+    "start_time": "2026-01-01T00:00:00.100+00:00",
+    "end_time": "2026-01-01T00:00:00.400+00:00",
+    "status_code": "OK",
+    "status_message": "",
+    "attributes": {
+      "openinference": {
+        "span": {
+          "kind": "RETRIEVER"
+        }
+      },
+      "retrieval": {
+        "documents": [
+          {
+            "document": {
+              "id": "kb://orders/policy-7",
+              "content": "Orders ship within 3 days."
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "lookup_order",
+    "context": {
+      "trace_id": "6e0c63257de34c92bf9efcd03927272e",
+      "span_id": "3333333333333333"
+    },
+    "parent_id": "1111111111111111",
+    "span_kind": "TOOL",
+    "start_time": "2026-01-01T00:00:01.000+00:00",
+    "end_time": "2026-01-01T00:00:02.000+00:00",
+    "status_code": "OK",
+    "status_message": "",
+    "attributes": {
+      "openinference": {
+        "span": {
+          "kind": "TOOL"
+        }
+      },
+      "tool": {
+        "name": "lookup_order"
+      },
+      "input": {
+        "value": "{\"order_id\": \"ORD-1001\"}"
+      }
+    }
+  },
+  {
+    "name": "ChatCompletion",
+    "context": {
+      "trace_id": "6e0c63257de34c92bf9efcd03927272e",
+      "span_id": "4444444444444444"
+    },
+    "parent_id": "1111111111111111",
+    "span_kind": "LLM",
+    "start_time": "2026-01-01T00:00:03.000+00:00",
+    "end_time": "2026-01-01T00:00:08.000+00:00",
+    "status_code": "OK",
+    "status_message": "",
+    "attributes": {
+      "openinference": {
+        "span": {
+          "kind": "LLM"
+        }
+      },
+      "llm": {
+        "output_messages": [
+          {
+            "message": {
+              "role": "assistant",
+              "content": "Your order ORD-1001 has shipped."
+            }
+          }
+        ]
+      }
+    }
+  }
+]

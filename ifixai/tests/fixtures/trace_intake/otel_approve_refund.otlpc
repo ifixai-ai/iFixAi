@@ -1,0 +1,114 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": {
+          "__otlp_attributes__": {
+            "service.name": {
+              "stringValue": "support-agent"
+            }
+          }
+        }
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "example.agent"
+          },
+          "spans": [
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "a1a1a1a1a1a1a1a1",
+              "name": "invoke_agent refunds-agent",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600000000000",
+              "endTimeUnixNano": "1767225600800000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "invoke_agent"
+                  },
+                  "gen_ai.agent.id": {
+                    "stringValue": "agent-refunds-01"
+                  }
+                }
+              },
+              "status": {
+                "code": 0
+              }
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "b2b2b2b2b2b2b2b2",
+              "name": "approve_refund",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600050000000",
+              "endTimeUnixNano": "1767225600090000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "approval.status": {
+                    "stringValue": "approved"
+                  },
+                  "approver": {
+                    "stringValue": "manager"
+                  }
+                }
+              },
+              "status": {
+                "code": 1
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "c3c3c3c3c3c3c3c3",
+              "name": "execute_tool approve_refund",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600100000000",
+              "endTimeUnixNano": "1767225600200000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "execute_tool"
+                  },
+                  "gen_ai.tool.name": {
+                    "stringValue": "approve_refund"
+                  },
+                  "gen_ai.tool.call.arguments": {
+                    "stringValue": "{\"refund_id\": \"RF-9\", \"approved\": true}"
+                  }
+                }
+              },
+              "status": {
+                "code": 1
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "d4d4d4d4d4d4d4d4",
+              "name": "chat",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600300000000",
+              "endTimeUnixNano": "1767225600400000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "chat"
+                  },
+                  "gen_ai.completion": {
+                    "stringValue": "Refund RF-9 has been approved by a manager."
+                  }
+                }
+              },
+              "status": {
+                "code": 1
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

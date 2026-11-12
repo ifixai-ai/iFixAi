@@ -1,0 +1,42 @@
+[
+  {
+    "id": "row-b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+    "span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+    "root_span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+    "span_parents": null,
+    "span_attributes": {
+      "name": "approve_refund",
+      "type": "task"
+    },
+    "input": null,
+    "output": null,
+    "error": null,
+    "metadata": {},
+    "metrics": {
+      "start": 1767225600,
+      "end": 1767225605
+    }
+  },
+  {
+    "id": "row-c1d2e3f4-0000-4000-8000-00000000000a",
+    "span_id": "c1d2e3f4-0000-4000-8000-00000000000a",
+    "root_span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+    "span_parents": [
+      "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d"
+    ],
+    "span_attributes": {
+      "name": "approve_refund",
+      "type": "function"
+    },
+    "input": null,
+    "output": {
+      "approved": true
+    },
+    "error": null,
+    "metadata": {},
+    "metrics": {
+      "start": 1767225601,
+      "end": 1767225602
+    }
+  }
+]

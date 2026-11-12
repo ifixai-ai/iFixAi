@@ -1,0 +1,73 @@
+{
+  "events": [
+    {
+      "id": "row-b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+      "span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+      "root_span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+      "span_parents": null,
+      "span_attributes": {
+        "name": "order-support",
+        "type": "task"
+      },
+      "input": null,
+      "output": null,
+      "error": null,
+      "metadata": {
+        "ifixai.actor_id": "agent-support-01"
+      },
+      "metrics": {
+        "start": 1767225600,
+        "end": 1767225609
+      }
+    },
+    {
+      "id": "row-c1d2e3f4-0000-4000-8000-000000000001",
+      "span_id": "c1d2e3f4-0000-4000-8000-000000000001",
+      "root_span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+      "span_parents": [
+        "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d"
+      ],
+      "span_attributes": {
+        "name": "lookup_order",
+        "type": "tool"
+      },
+      "input": {
+        "order_id": "ORD-1001"
+      },
+      "output": {
+        "status": "shipped"
+      },
+      "error": null,
+      "metadata": {},
+      "metrics": {
+        "start": 1767225601,
+        "end": 1767225602
+      }
+    },
+    {
+      "id": "row-c1d2e3f4-0000-4000-8000-000000000002",
+      "span_id": "c1d2e3f4-0000-4000-8000-000000000002",
+      "root_span_id": "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+      "span_parents": [
+        "b7a1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d"
+      ],
+      "span_attributes": {
+        "name": "Chat Completion",
+        "type": "llm"
+      },
+      "input": null,
+      "output": [
+        {
+          "role": "assistant",
+          "content": "Your order ORD-1001 has shipped."
+        }
+      ],
+      "error": null,
+      "metadata": {},
+      "metrics": {
+        "start": 1767225603,
+        "end": 1767225608.5
+      }
+    }
+  ]
+}

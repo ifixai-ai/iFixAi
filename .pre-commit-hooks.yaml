@@ -1,0 +1,24 @@
+# Hooks other repositories can use (`repo:` this repository in their
+# .pre-commit-config.yaml). Both need `ifixai` with the `audit` command.
+#
+# ifixai-regressions is fast and runs nothing: it only checks that
+# .ifixai/regressions.yaml is well formed, so it fits the commit stage.
+#
+# ifixai-self-check sends test prompts to your agent and takes about a minute,
+# so it runs on push. Give it your test deployment's URL and confirm it is
+# sandboxed, e.g. args: [https://staging.example.com/v1, --yes]. The result is a
+# self-check: not certified, no badge.
+- id: ifixai-regressions
+  name: iFixAi regressions file is well formed
+  entry: ifixai findings validate-regressions
+  language: python
+  files: ^\.ifixai/regressions\.yaml$
+  pass_filenames: true
+- id: ifixai-self-check
+  name: iFixAi self-check (not certified)
+  entry: ifixai audit
+  language: python
+  pass_filenames: false
+  always_run: true
+  stages: [pre-push]
+  args: []

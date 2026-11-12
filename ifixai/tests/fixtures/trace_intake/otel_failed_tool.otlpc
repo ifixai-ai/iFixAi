@@ -1,0 +1,73 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": {
+          "__otlp_attributes__": {
+            "service.name": {
+              "stringValue": "support-agent"
+            }
+          }
+        }
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "example.agent"
+          },
+          "spans": [
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "a1a1a1a1a1a1a1a1",
+              "name": "invoke_agent billing-agent",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600000000000",
+              "endTimeUnixNano": "1767225600500000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "invoke_agent"
+                  },
+                  "gen_ai.agent.id": {
+                    "stringValue": "agent-billing-01"
+                  }
+                }
+              },
+              "status": {
+                "code": 0
+              }
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "c3c3c3c3c3c3c3c3",
+              "name": "execute_tool charge_card",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600100000000",
+              "endTimeUnixNano": "1767225600300000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "execute_tool"
+                  },
+                  "gen_ai.tool.name": {
+                    "stringValue": "charge_card"
+                  },
+                  "gen_ai.tool.call.arguments": {
+                    "stringValue": "{\"invoice\": \"INV-42\", \"amount_cents\": 1200}"
+                  },
+                  "error.type": {
+                    "stringValue": "PaymentDeclined"
+                  }
+                }
+              },
+              "status": {
+                "code": 2
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

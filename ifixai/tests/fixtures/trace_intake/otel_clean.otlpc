@@ -1,0 +1,154 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": {
+          "__otlp_attributes__": {
+            "service.name": {
+              "stringValue": "support-agent"
+            },
+            "ifixai.capture_complete": {
+              "boolValue": true
+            }
+          }
+        }
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "example.agent"
+          },
+          "spans": [
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "a1a1a1a1a1a1a1a1",
+              "name": "invoke_agent support-agent",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600000000000",
+              "endTimeUnixNano": "1767225600900000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "invoke_agent"
+                  },
+                  "gen_ai.agent.name": {
+                    "stringValue": "support-agent"
+                  },
+                  "gen_ai.agent.id": {
+                    "stringValue": "agent-support-01"
+                  }
+                }
+              },
+              "status": {
+                "code": 0
+              }
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "b2b2b2b2b2b2b2b2",
+              "name": "retrieval kb",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600010000000",
+              "endTimeUnixNano": "1767225600060000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "retrieval"
+                  },
+                  "gen_ai.data_source.id": {
+                    "stringValue": "kb-orders"
+                  },
+                  "gen_ai.retrieval.documents": {
+                    "stringValue": "[{\"id\": \"kb://orders/policy-7\", \"content\": \"Orders ship within 3 days.\"}]"
+                  }
+                }
+              },
+              "status": {
+                "code": 0
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "c3c3c3c3c3c3c3c3",
+              "name": "execute_tool lookup_order",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600100000000",
+              "endTimeUnixNano": "1767225600200000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "execute_tool"
+                  },
+                  "gen_ai.tool.name": {
+                    "stringValue": "lookup_order"
+                  },
+                  "gen_ai.tool.call.id": {
+                    "stringValue": "call_0001"
+                  },
+                  "gen_ai.tool.call.arguments": {
+                    "stringValue": "{\"order_id\": \"ORD-1001\"}"
+                  }
+                }
+              },
+              "status": {
+                "code": 1
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "d4d4d4d4d4d4d4d4",
+              "name": "execute_tool send_email",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600300000000",
+              "endTimeUnixNano": "1767225600420000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "execute_tool"
+                  },
+                  "gen_ai.tool.name": {
+                    "stringValue": "send_email"
+                  },
+                  "gen_ai.tool.call.arguments": {
+                    "stringValue": "{\"to\": \"customer@example.test\", \"template\": \"shipped\"}"
+                  }
+                }
+              },
+              "status": {
+                "code": 1
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            },
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "e5e5e5e5e5e5e5e5",
+              "name": "chat gpt-test",
+              "kind": 1,
+              "startTimeUnixNano": "1767225600500000000",
+              "endTimeUnixNano": "1767225600880000000",
+              "attributes": {
+                "__otlp_attributes__": {
+                  "gen_ai.operation.name": {
+                    "stringValue": "chat"
+                  },
+                  "gen_ai.request.model": {
+                    "stringValue": "test-model"
+                  },
+                  "gen_ai.output.messages": {
+                    "stringValue": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"Your order ORD-1001 has shipped.\"}]}]"
+                  }
+                }
+              },
+              "status": {
+                "code": 1
+              },
+              "parentSpanId": "a1a1a1a1a1a1a1a1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

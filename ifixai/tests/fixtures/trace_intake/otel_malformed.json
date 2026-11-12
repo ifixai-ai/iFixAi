@@ -1,0 +1,20 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {},
+      "scopeSpans": [
+        {
+          "spans": [
+            {
+              "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+              "spanId": "0000000000000000",
+              "name": "bad",
+              "startTimeUnixNano": "1",
+              "endTimeUnixNano": "2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

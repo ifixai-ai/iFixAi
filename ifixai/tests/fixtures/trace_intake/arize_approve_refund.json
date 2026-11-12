@@ -1,0 +1,45 @@
+[
+  {
+    "name": "approve_refund",
+    "context": {
+      "trace_id": "6e0c63257de34c92bf9efcd03927272e",
+      "span_id": "1111111111111111"
+    },
+    "parent_id": null,
+    "span_kind": "CHAIN",
+    "start_time": "2026-01-01T00:00:00.000+00:00",
+    "end_time": "2026-01-01T00:00:05.000+00:00",
+    "status_code": "OK",
+    "status_message": "",
+    "attributes": {
+      "openinference": {
+        "span": {
+          "kind": "CHAIN"
+        }
+      }
+    }
+  },
+  {
+    "name": "approve_refund_guard",
+    "context": {
+      "trace_id": "6e0c63257de34c92bf9efcd03927272e",
+      "span_id": "2222222222222222"
+    },
+    "parent_id": "1111111111111111",
+    "span_kind": "GUARDRAIL",
+    "start_time": "2026-01-01T00:00:01.000+00:00",
+    "end_time": "2026-01-01T00:00:02.000+00:00",
+    "status_code": "OK",
+    "status_message": "",
+    "attributes": {
+      "openinference": {
+        "span": {
+          "kind": "GUARDRAIL"
+        }
+      },
+      "output": {
+        "value": "approved"
+      }
+    }
+  }
+]
