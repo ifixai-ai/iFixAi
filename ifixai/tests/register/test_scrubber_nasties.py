@@ -226,7 +226,7 @@ def test_the_shipped_examples_need_no_redaction(
 ) -> None:
     """The worked examples are already de-identified, so the scrubber must find nothing in them. A
     false positive here would mean the redactor mangles the register's own files — it used to turn
-    `IFX-2026-0101` into a phone number and a queue named "supervisor review" into a person."""
+    `AGENT-2026-0001` into a phone number and a queue named "supervisor review" into a person."""
     for report in (entry, candidate):
         result = _redact(report)
         assert result.findings == (), [str(finding) for finding in result.findings]

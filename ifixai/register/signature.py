@@ -21,6 +21,7 @@ import hashlib
 import json
 import re
 
+from ifixai.register import naming
 from ifixai.register.spec import SPEC_VERSION, BehaviourSignature, MisbehaviourReport
 
 _SEPARATORS = re.compile(r"[\s_\-./]+")
@@ -58,9 +59,11 @@ def same_behaviour(left: BehaviourSignature, right: BehaviourSignature) -> bool:
 
 
 def candidate_ref(report: MisbehaviourReport) -> str:
-    """The submitter's handle on their own draft: ``IFXC-<digest12>-<YYYYMMDD>``.
+    """The submitter's handle on their own draft: ``CAND-<digest12>-<YYYYMMDD>`` (`naming`).
 
     Derived from the signature and the creation date, so re-drafting the same behaviour on the same
     day gives the same reference and a resubmission does not look like a second finding.
     """
-    return f"IFXC-{digest(report.signature)}-{report.created_on.strftime('%Y%m%d')}"
+    return (
+        f"{naming.CANDIDATE_REF_PREFIX}-{digest(report.signature)}-{report.created_on.strftime('%Y%m%d')}"
+    )

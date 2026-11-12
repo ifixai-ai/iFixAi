@@ -13,9 +13,11 @@ writes the report; the person publishes it, or does not.
 ``ifixai/tests/register/test_human_gate.py`` asserts the import graph, the absence of a sending
 tool, and that every tool result carries the handoff.
 
-Transport is JSON-RPC 2.0 over stdio, hand-rolled on the standard library. No new dependency and
-no new toolchain: the project already ships a plugin for these editors (``plugin/``), and this is
-one more process they can launch.
+Transport is JSON-RPC 2.0 over stdio, hand-rolled on the standard library, matching the shape of
+the self-check server this project is adding in parallel (``ifixai/selfcheck/mcp_server.py``, PR
+#412): the same protocol-version negotiation, the same ``structuredContent`` tool results, the same
+rule that stdout carries protocol messages and nothing else. No new dependency and no new
+toolchain.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 import yaml
 
@@ -33,8 +35,11 @@ from ifixai._version import VERSION
 from ifixai.register import diff, proposal, scrub, signature, store, validator
 from ifixai.register.spec import SPEC_VERSION, MisbehaviourReport
 
-PROTOCOL_VERSION = "2024-11-05"
+#: Newest first. An unknown version from the client is answered with the newest we speak, as the
+#: spec allows and as `ifixai/selfcheck/mcp_server.py` does.
+PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 SERVER_NAME = "ifixai-register"
+SERVER_TITLE = "iFixAi misbehaviour register"
 
 #: Appended to every tool result. The agent is told, in the result it reads, that it cannot finish
 #: this job — so an agent following the result rather than the docs still stops here.
@@ -171,12 +176,13 @@ def tool_validate_report(arguments: dict[str, Any]) -> dict[str, Any]:
 @dataclass(frozen=True)
 class Tool:
     name: str
+    title: str
     description: str
     schema: dict[str, Any]
     handler: Callable[[dict[str, Any]], dict[str, Any]]
 
 
-REPORT_ARGUMENT = {
+REPORT_ARGUMENT: dict[str, Any] = {
     "type": ["object", "string"],
     "description": "The report, as a mapping or as a YAML/JSON string.",
 }
@@ -184,6 +190,7 @@ REPORT_ARGUMENT = {
 TOOLS: tuple[Tool, ...] = (
     Tool(
         name="register_describe_spec",
+        title="The report format",
         description=(
             "The misbehaviour report format: every required field, why it is required, and the JSON Schema. "
             "Read this before writing a report."
@@ -193,6 +200,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         name="register_compute_signature",
+        title="Is this behaviour already filed?",
         description=(
             "The behaviour signature for a (family, failure, trigger) triple, and whether the register "
             "already holds a report with it. Use it to tell a new behaviour from a known one."
@@ -211,12 +219,14 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         name="register_validate_report",
+        title="Check a report",
         description="Check a report against the spec and report every problem, changing nothing.",
         schema={"type": "object", "properties": {"report": REPORT_ARGUMENT}, "required": ["report"]},
         handler=tool_validate_report,
     ),
     Tool(
         name="register_prepare_submission",
+        title="Prepare a submission for a human to approve",
         description=(
             "De-identify a report locally, validate it, flag duplicates and save it for the human to "
             "review. This PREPARES ONLY. It cannot and will not send anything: the person at the keyboard "
@@ -246,15 +256,19 @@ BY_NAME = {tool.name: tool for tool in TOOLS}
 # -- the server loop ---------------------------------------------------------------------
 
 
-def handle(message: dict[str, Any]) -> Optional[dict[str, Any]]:
+def handle(message: dict[str, Any]) -> dict[str, Any] | None:
     """One JSON-RPC request in, one response out (or None for a notification)."""
     method = message.get("method")
     request_id = message.get("id")
+    if isinstance(method, str) and method.startswith("notifications/"):
+        return None
     if method == "initialize":
+        requested = (message.get("params") or {}).get("protocolVersion")
+        version = requested if requested in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0]
         body: dict[str, Any] = {
-            "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": {"tools": {}},
-            "serverInfo": {"name": SERVER_NAME, "version": VERSION},
+            "protocolVersion": version,
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": SERVER_NAME, "title": SERVER_TITLE, "version": VERSION},
             "instructions": (
                 "Tools for filing a reproducible AI-agent misbehaviour report. Everything here prepares; "
                 "nothing here publishes. Submission needs the person at the keyboard."
@@ -263,7 +277,13 @@ def handle(message: dict[str, Any]) -> Optional[dict[str, Any]]:
     elif method == "tools/list":
         body = {
             "tools": [
-                {"name": tool.name, "description": tool.description, "inputSchema": tool.schema} for tool in TOOLS
+                {
+                    "name": tool.name,
+                    "title": tool.title,
+                    "description": tool.description,
+                    "inputSchema": tool.schema,
+                }
+                for tool in TOOLS
             ]
         }
     elif method == "tools/call":
@@ -275,18 +295,25 @@ def handle(message: dict[str, Any]) -> Optional[dict[str, Any]]:
         try:
             body = tool.handler(params.get("arguments") or {})
         except ToolError as error:
-            return {"jsonrpc": "2.0", "id": request_id, "result": {"content": [{"type": "text", "text": str(error)}], "isError": True}}
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "content": [{"type": "text", "text": str(error)}],
+                    "structuredContent": {"error": str(error), "sent": False},
+                    "isError": True,
+                },
+            }
         except Exception as error:  # noqa: BLE001 - a tool crash is reported to the agent, never fatal
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
                     "content": [{"type": "text", "text": f"{type(error).__name__}: {error}"}],
+                    "structuredContent": {"error": f"{type(error).__name__}", "sent": False},
                     "isError": True,
                 },
             }
-    elif method in ("notifications/initialized", "notifications/cancelled"):
-        return None
     elif method == "ping":
         body = {}
     else:
@@ -300,7 +327,7 @@ def _error(request_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
 
 
-def serve(stdin: Optional[TextIO] = None, stdout: Optional[TextIO] = None) -> None:
+def serve(stdin: TextIO | None = None, stdout: TextIO | None = None) -> None:
     """Read newline-delimited JSON-RPC from stdin, write responses to stdout."""
     source = stdin if stdin is not None else sys.stdin
     sink = stdout if stdout is not None else sys.stdout

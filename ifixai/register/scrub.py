@@ -62,7 +62,7 @@ _PHONE = re.compile(r"(?<![\w-])\+?\d[\d\s().\-]{5,20}\d(?![\w-])")
 _PHONE_DIGITS = re.compile(r"\d")
 _PHONE_GROUPS = re.compile(r"\d+")
 #: Dates and year-numbered identifiers have as many digits as a phone number and are not one.
-#: ``2026-11-06`` and the ``2026-0101`` inside ``IFX-2026-0101`` both used to come out as phone
+#: ``2026-11-06`` and the ``2026-0101`` inside ``AGENT-2026-0101`` both used to come out as phone
 #: numbers, which is how a redactor ends up mangling the register's own citations.
 _DATE_LIKE = re.compile(r"^\d{4}[-/.]\d{1,4}([-/.]\d{1,4})?$")
 # Card-like and account-like digit runs. The spaced/hyphenated card form first, then bare runs.

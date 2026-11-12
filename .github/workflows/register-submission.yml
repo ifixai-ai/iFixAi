@@ -1,18 +1,21 @@
-name: Register submission
+name: Register spec and examples
 
-# Submissions to the public register are pull requests that add or change a file under register/.
-# This check is what stands between a submission and the register, so it runs on the pull request
-# and is the thing a reviewer reads before merging.
+# Submissions to the public register go to ifixai-ai/agent-misbehavior-registry, which has its own
+# CI (including the append-only enforcement on its ledger). This workflow is the tooling side: it
+# keeps the schema in step with the model it is generated from, and checks that the worked examples
+# in examples/register/ still pass the validator a submitter runs.
 #
 # It needs no secret and no network beyond the checkout: the report format is runtime-neutral, so a
 # report is checkable on a laptop with no API key, and so is checkable here.
 on:
   pull_request:
     paths:
-      - "register/**"
+      - "examples/register/**"
       - "ifixai/register/**"
       - "ifixai/schemas/misbehaviour-report-*.schema.json"
+      - "ifixai/cli/report.py"
       - "scripts/check_register_submission.py"
+      - "scripts/generate_register_schema.py"
       - ".github/workflows/register-submission.yml"
 
 permissions:
@@ -40,13 +43,13 @@ jobs:
         # drift, and the one submissions are checked against must be the one the library enforces.
         run: python scripts/generate_register_schema.py --check
 
-      - name: Register files that changed
+      - name: Example reports that changed
         id: changed
         run: |
           set -euo pipefail
           base="origin/${{ github.base_ref }}"
           git fetch --no-tags --depth=1 origin "${{ github.base_ref }}" || true
-          files="$(git diff --name-only --diff-filter=ACMR "$base"...HEAD -- 'register/**/*.yaml' || true)"
+          files="$(git diff --name-only --diff-filter=ACMR "$base"...HEAD -- 'examples/register/**/*.yaml' || true)"
           echo "files<<EOF" >> "$GITHUB_OUTPUT"
           echo "$files" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -56,11 +59,12 @@ jobs:
             echo "Checking:"; echo "$files"
           fi
 
-      - name: Check the submission
+      - name: Check the changed examples
         # Schema conformance, every cross-field rule, calibration present, de-identified and
         # rights-cleared for an audit-derived report, no leftover placeholders, correct placement,
-        # and duplicate behaviour signatures flagged against the whole register. A failure writes a
-        # readable reason naming the field, into the job summary as well as the log.
+        # and duplicate behaviour signatures. A failure writes a readable reason naming the field,
+        # into the job summary as well as the log. This is the same check a submitter gets, so the
+        # examples cannot drift out of being valid submissions.
         run: |
           set -euo pipefail
           files="${{ steps.changed.outputs.files }}"
@@ -69,20 +73,18 @@ jobs:
             exit 0
           fi
           # shellcheck disable=SC2086
-          python scripts/check_register_submission.py $files
+          python scripts/check_register_submission.py --register-root examples/register $files
 
-      - name: The whole register still validates
-        # A submission that passes on its own but breaks an invariant across the register (a
-        # duplicate file name, an unparseable neighbour) is caught here.
+      - name: Every example still validates
         run: |
           set -euo pipefail
           shopt -s nullglob
-          files=(register/entries/*.yaml register/candidates/*.yaml)
+          files=(examples/register/entries/*.yaml examples/register/candidates/*.yaml)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "The register is empty."
+            echo "No examples."
             exit 0
           fi
-          ifixai report validate "${files[@]}"
+          ifixai report validate --register-root examples/register "${files[@]}"
 
       - name: Register tests
         run: pytest ifixai/tests/register -q

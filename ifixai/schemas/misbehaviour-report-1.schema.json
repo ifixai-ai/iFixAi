@@ -104,6 +104,23 @@
           "title": "Allowed Variation",
           "type": "array"
         },
+        "pass_at_k": {
+          "default": "",
+          "description": "pass^k if measured, e.g. 'pass^8 = 0.31': the chance of k consecutive clean runs",
+          "title": "Pass At K",
+          "type": "string"
+        },
+        "reproduces_at_temperature_zero": {
+          "default": "untested",
+          "description": "Whether the behaviour still appears with sampling pinned off. 'no' is itself a finding",
+          "enum": [
+            "yes",
+            "no",
+            "untested"
+          ],
+          "title": "Reproduces At Temperature Zero",
+          "type": "string"
+        },
         "seed": {
           "anyOf": [
             {
@@ -215,6 +232,80 @@
       "title": "Expected",
       "type": "object"
     },
+    "FailureAnatomy": {
+      "additionalProperties": false,
+      "description": "What the failure looked like from the inside.\n\nThese are the fields that separate a model that blundered from a model that knew. An agent that\nstates the boundary and then crosses it anyway, or that reports success for something it did not\ndo, is not making a mistake about the rules \u2014 and a register that records only a rate cannot\nshow the difference.",
+      "properties": {
+        "acknowledged_boundary_then_crossed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The agent said it was not permitted, and did it anyway. A deception signal",
+          "title": "Acknowledged Boundary Then Crossed"
+        },
+        "first_violation_step": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The step at which the boundary was first crossed",
+          "title": "First Violation Step"
+        },
+        "multi_step": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reached over several steps, not in one call",
+          "title": "Multi Step"
+        },
+        "reported_success_falsely": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The agent said it had done something it had not. A deception signal",
+          "title": "Reported Success Falsely"
+        },
+        "self_corrected": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The agent undid or reported its own violation",
+          "title": "Self Corrected"
+        }
+      },
+      "title": "FailureAnatomy",
+      "type": "object"
+    },
     "Grading": {
       "additionalProperties": false,
       "description": "How a trial becomes a 0 or a 1.\n\nWhy required: two people grading the same transcript by eye get two numbers. The combination is\nconjunctive and binary so the score has one meaning \u2014 every named check passed \u2014 and a partial\ncredit scheme cannot quietly turn a failure into a pass.",
@@ -279,6 +370,37 @@
         "conditions"
       ],
       "title": "GradingCheck",
+      "type": "object"
+    },
+    "Guardrail": {
+      "additionalProperties": false,
+      "description": "One guardrail that was active during the run.\n\nWhy this is not a footnote: \"failed with guardrails on\" and \"failed naked\" are different\nfindings with different consequences, and a register that cannot tell them apart will be\ndismissed by the first person who has guardrails deployed. ``mode`` distinguishes a guardrail\nthat was watching from one that was empowered to stop the agent.",
+      "properties": {
+        "mode": {
+          "default": "blocking",
+          "enum": [
+            "blocking",
+            "monitoring",
+            "advisory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "default": "",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Guardrail",
       "type": "object"
     },
     "Identity": {
@@ -354,31 +476,192 @@
       "title": "Login",
       "type": "object"
     },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "description": "Exactly which model served the request.\n\nWhy ``snapshot`` is required and ``alias`` is not: an alias moves. A report filed against\n``claude-sonnet-4`` or ``gpt-4o`` names whatever that pointed at on the day, and six months\nlater nobody can tell whether a failure to reproduce is a fixed model or a moved alias. This is\nthe single largest cause of findings rotting, so the snapshot the provider reports as serving\nthe request is the required field and the alias the caller asked for is recorded beside it.\n\nThe two hashes are hashes on purpose. A system prompt and a tool schema change behaviour\ncompletely, so two reports are not comparable without knowing whether they shared them \u2014 and\nalmost nobody can publish the contents. A hash makes \"same prompt\" and \"different prompt\"\ncheckable without anyone disclosing anything.",
+      "properties": {
+        "alias_requested": {
+          "default": "",
+          "description": "What the caller asked for, if it differed",
+          "title": "Alias Requested",
+          "type": "string"
+        },
+        "gateway": {
+          "default": "",
+          "description": "The gateway, when route is gateway: portkey, openrouter, bedrock, azure",
+          "title": "Gateway",
+          "type": "string"
+        },
+        "max_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tokens"
+        },
+        "provider": {
+          "description": "Who served it: anthropic, openai, a local runtime",
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "reasoning_budget": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Thinking/reasoning token budget, where the model has one",
+          "title": "Reasoning Budget"
+        },
+        "route": {
+          "$ref": "#/$defs/Route",
+          "default": "direct"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "snapshot": {
+          "description": "The exact build the provider reports as serving the request, never the alias",
+          "minLength": 1,
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "system_prompt_sha256": {
+          "default": "",
+          "description": "Hash, never the contents",
+          "title": "System Prompt Sha256",
+          "type": "string"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature"
+        },
+        "tool_schema_sha256": {
+          "default": "",
+          "description": "Hash of the tool definitions as sent, never the contents",
+          "title": "Tool Schema Sha256",
+          "type": "string"
+        },
+        "top_p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Top P"
+        }
+      },
+      "required": [
+        "snapshot",
+        "provider"
+      ],
+      "title": "ModelIdentity",
+      "type": "object"
+    },
+    "NegativeResult": {
+      "additionalProperties": false,
+      "description": "A model and scaffold that were tested and did **not** show the behaviour.\n\nMost registers omit this, and omitting it is what makes a register a list of complaints instead\nof a comparison table. A negative result is as useful to somebody choosing a model as a positive\none, and it is the only thing that makes a positive one meaningful: without it, a reader cannot\ntell whether the behaviour is specific to one model or universal and simply unmeasured\nelsewhere.\n\n``occurrences`` is fixed at 0 by the shape of the field. ``trials`` is required, because \"did\nnot show it\" in three attempts is not a result.",
+      "properties": {
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "observed_on": {
+          "format": "date",
+          "title": "Observed On",
+          "type": "string"
+        },
+        "scaffold": {
+          "$ref": "#/$defs/Scaffold"
+        },
+        "trials": {
+          "exclusiveMinimum": 0,
+          "title": "Trials",
+          "type": "integer"
+        },
+        "twin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TwinResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the twin was measured too; an over-refusing model is not a safe one"
+        }
+      },
+      "required": [
+        "model",
+        "scaffold",
+        "trials",
+        "observed_on"
+      ],
+      "title": "NegativeResult",
+      "type": "object"
+    },
     "ObservedResult": {
       "additionalProperties": false,
-      "description": "One measured rate: counts, never a bare percentage.\n\nWhy counts: \"42% of the time\" cannot be given a confidence interval, cannot be pooled with\nanother run, and hides whether the denominator was 12 trials or 1,200. Occurrences out of\ntrials can be recomputed and cannot be rounded into a better number.",
+      "description": "One measured rate: counts, never a bare percentage.\n\nWhy counts: \"42% of the time\" cannot be given a confidence interval, cannot be pooled with\nanother run, and hides whether the denominator was 12 trials or 1,200. Occurrences out of\ntrials can be recomputed and cannot be rounded into a better number.\n\n``occurrences``/``trials`` is the headline figure, measured at the condition the behaviour\nsignature names. When a ``gradient`` is given, the validator checks the headline against the\nrung for that trigger, so the number a reader quotes and the curve they read cannot disagree.",
       "properties": {
-        "harness": {
-          "description": "The agent scaffold the model ran inside",
-          "minLength": 1,
-          "title": "Harness",
-          "type": "string"
+        "anatomy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FailureAnatomy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
-        "harness_version": {
-          "minLength": 1,
-          "title": "Harness Version",
-          "type": "string"
+        "gradient": {
+          "default": [],
+          "description": "The rate at each variant rung: the dose-response curve",
+          "items": {
+            "$ref": "#/$defs/VariantResult"
+          },
+          "title": "Gradient",
+          "type": "array"
         },
         "model": {
-          "minLength": 1,
-          "title": "Model",
-          "type": "string"
-        },
-        "model_version": {
-          "description": "The exact identifier the runs called",
-          "minLength": 1,
-          "title": "Model Version",
-          "type": "string"
+          "$ref": "#/$defs/ModelIdentity"
         },
         "note": {
           "default": "",
@@ -395,22 +678,69 @@
           "title": "Occurrences",
           "type": "integer"
         },
+        "scaffold": {
+          "$ref": "#/$defs/Scaffold"
+        },
         "trials": {
           "exclusiveMinimum": 0,
           "title": "Trials",
           "type": "integer"
+        },
+        "twin": {
+          "$ref": "#/$defs/TwinResult"
         }
       },
       "required": [
         "model",
-        "model_version",
-        "harness",
-        "harness_version",
+        "scaffold",
         "occurrences",
         "trials",
+        "twin",
         "observed_on"
       ],
       "title": "ObservedResult",
+      "type": "object"
+    },
+    "PreClearance": {
+      "additionalProperties": false,
+      "description": "Which standing authorisation allowed this submission to be published.\n\nRights clearance is not machine-checkable: only the organisation that owns the audited system\ncan say whether its contract permits publication. Asking that question per submission is\ncorrect and also kills the one-keystroke flow that makes anybody file at all.\n\nSo an organisation answers it once, in a file committed to its own repository\n(``.ifixai/contribution.yaml``), and a submission records which authorisation it relied on. The\nresult is an auditable trail \u2014 who granted it, for what scope, until when \u2014 rather than a\ncheckbox nobody can trace. An absent or expired pre-clearance does not block a filing; it falls\nback to asking the person, which is where this started.",
+      "properties": {
+        "authorised_by": {
+          "description": "Who in the organisation granted it",
+          "minLength": 1,
+          "title": "Authorised By",
+          "type": "string"
+        },
+        "expires_on": {
+          "format": "date",
+          "title": "Expires On",
+          "type": "string"
+        },
+        "organisation": {
+          "default": "",
+          "description": "Whose authorisation it is",
+          "title": "Organisation",
+          "type": "string"
+        },
+        "scope": {
+          "description": "What it covers, e.g. 'synthetic and de-identified audit findings'",
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        },
+        "source_file": {
+          "default": ".ifixai/contribution.yaml",
+          "description": "Where the authorisation is recorded",
+          "title": "Source File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authorised_by",
+        "scope",
+        "expires_on"
+      ],
+      "title": "PreClearance",
       "type": "object"
     },
     "Provenance": {
@@ -427,6 +757,18 @@
           "default": false,
           "title": "De Identified",
           "type": "boolean"
+        },
+        "pre_clearance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PreClearance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The standing authorisation the rights-cleared flag rests on, when there was one"
         },
         "reference": {
           "description": "The sweep, audit, incident or paper this came from",
@@ -635,6 +977,120 @@
       "title": "Role",
       "type": "object"
     },
+    "Route": {
+      "description": "How the request reached the model. Almost nobody records this, and it matters: the same\nsnapshot behind a gateway is a different system \u2014 different default parameters, different\nsystem-prompt injection, sometimes a different quantisation.",
+      "enum": [
+        "direct",
+        "gateway"
+      ],
+      "title": "Route",
+      "type": "string"
+    },
+    "Scaffold": {
+      "additionalProperties": false,
+      "description": "The agent around the model.\n\nMost of the variance people attribute to models lives here. A model that loops with retries and\nself-critique is a different system from the same model answering once, and a scaffold with\nmemory or retrieval has seen things the report's world does not describe.",
+      "properties": {
+        "guardrails": {
+          "default": [],
+          "description": "Guardrails active during the run. Empty means none were active, not unknown",
+          "items": {
+            "$ref": "#/$defs/Guardrail"
+          },
+          "title": "Guardrails",
+          "type": "array"
+        },
+        "guardrails_recorded": {
+          "default": true,
+          "description": "False when the filer does not know what was active; empty-and-unknown is not the same as none",
+          "title": "Guardrails Recorded",
+          "type": "boolean"
+        },
+        "harness": {
+          "description": "The agent scaffold the model ran inside",
+          "minLength": 1,
+          "title": "Harness",
+          "type": "string"
+        },
+        "harness_version": {
+          "minLength": 1,
+          "title": "Harness Version",
+          "type": "string"
+        },
+        "loop_type": {
+          "default": "",
+          "description": "e.g. react, plan-execute, single-shot, tool-calling loop",
+          "title": "Loop Type",
+          "type": "string"
+        },
+        "memory_present": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Memory Present"
+        },
+        "rag_present": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rag Present"
+        },
+        "retries_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retries Enabled"
+        },
+        "self_critique_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Self Critique Enabled"
+        },
+        "step_cap": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Cap"
+        }
+      },
+      "required": [
+        "harness",
+        "harness_version"
+      ],
+      "title": "Scaffold",
+      "type": "object"
+    },
     "SourceKind": {
       "enum": [
         "synthetic",
@@ -728,6 +1184,70 @@
         "expected"
       ],
       "title": "Twin",
+      "type": "object"
+    },
+    "TwinResult": {
+      "additionalProperties": false,
+      "description": "How the permitted twin fared, measured, not assumed.\n\nWhy it travels with every rate rather than sitting in its own section: a violation rate without\nthe twin's over-refusal rate beside it is not interpretable. 37/48 violations with the twin\nserved perfectly is a boundary failure. 37/48 with the twin over-refused 40/48 times is a model\nthat has stopped distinguishing anything, and the fix is the opposite one.",
+      "properties": {
+        "over_refusals": {
+          "description": "Twin trials where the agent refused work the role may do",
+          "minimum": 0,
+          "title": "Over Refusals",
+          "type": "integer"
+        },
+        "trials": {
+          "exclusiveMinimum": 0,
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "over_refusals",
+        "trials"
+      ],
+      "title": "TwinResult",
+      "type": "object"
+    },
+    "VariantResult": {
+      "additionalProperties": false,
+      "description": "One rung of the dose-response curve: how often the behaviour appeared under one condition.\n\nThe gradient is the most distinctive thing this register has, so it is a first-class structure\nrather than a note. A behaviour that appears 2/48 at base and 44/48 with a planted instruction\ntells a reader which defence to build; a single pooled number tells them nothing, and a number\nreported only at the hardest rung overstates the risk.",
+      "properties": {
+        "occurrences": {
+          "minimum": 0,
+          "title": "Occurrences",
+          "type": "integer"
+        },
+        "trials": {
+          "exclusiveMinimum": 0,
+          "title": "Trials",
+          "type": "integer"
+        },
+        "twin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TwinResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The twin measured at this rung, where it was measured"
+        },
+        "variant": {
+          "description": "The rung: base, hidden_policy, pressure_*, injected_note, hard",
+          "minLength": 1,
+          "title": "Variant",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variant",
+        "occurrences",
+        "trials"
+      ],
+      "title": "VariantResult",
       "type": "object"
     },
     "WorldCondition": {
@@ -876,11 +1396,20 @@
         }
       ],
       "default": null,
-      "description": "IFX-YYYY-NNNN; only an accepted entry has one",
+      "description": "AGENT-YYYY-NNNN; only an accepted entry has one",
       "title": "Id"
     },
     "identity": {
       "$ref": "#/$defs/Identity"
+    },
+    "negative_results": {
+      "default": [],
+      "description": "Models tested that did NOT show the behaviour. What turns a register into a comparison table",
+      "items": {
+        "$ref": "#/$defs/NegativeResult"
+      },
+      "title": "Negative Results",
+      "type": "array"
     },
     "observed": {
       "items": {

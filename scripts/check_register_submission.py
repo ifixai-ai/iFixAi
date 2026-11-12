@@ -38,7 +38,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from ifixai.register import store, validator  # noqa: E402
+from ifixai.register import naming, store, validator  # noqa: E402
 from ifixai.register.draft import unfinished  # noqa: E402
 from ifixai.register.spec import (  # noqa: E402
     SPEC_VERSION,
@@ -110,7 +110,7 @@ def check_file(path: Path, existing: Sequence) -> FileVerdict:
 
     if report.state is ReportState.candidate and report.id is not None:
         verdict.failures.append(
-            f"**claims an id** — `{report.id}`. Permanent `IFX-YYYY-NNNN` ids are issued by curation; a submission "
+            f"**claims an id** — `{report.id}`. Permanent `{naming.ID_EXAMPLE}` ids are issued by curation; a submission "
             "is a candidate and carries only its derived `candidate_ref`."
         )
 
@@ -161,15 +161,28 @@ def render(verdicts: Sequence[FileVerdict]) -> str:
 
 
 def main(argv: Sequence[str]) -> int:
-    paths = [Path(arg) for arg in argv if arg.endswith(".yaml") and Path(arg).exists()]
-    register = store.load_register(ROOT)
+    """``check_register_submission.py [--register-root DIR] FILE...``
+
+    ``--register-root`` is where ``entries/`` and ``candidates/`` live: the root of a clone of the
+    public register, or ``examples/register`` in this repository, where the worked examples double
+    as the fixture. Defaulting it to the working directory means the script needs no arguments at
+    all inside the register itself.
+    """
+    arguments = list(argv)
+    register_root = Path(".")
+    if "--register-root" in arguments:
+        index = arguments.index("--register-root")
+        register_root = Path(arguments[index + 1])
+        del arguments[index : index + 2]
+    paths = [Path(arg) for arg in arguments if arg.endswith(".yaml") and Path(arg).exists()]
+    register = store.load_register(register_root)
     # Exclude the files under review from the comparison set, so a submission is never reported as
     # a duplicate of itself (its own file is already on the branch by the time this runs).
     under_review = {str(path.resolve()) for path in paths}
     existing = [
         report
         for report in register.reports
-        if str((ROOT / store.path_for(report)).resolve()) not in under_review
+        if str((register_root / store.path_for(report)).resolve()) not in under_review
     ]
     verdicts = [check_file(path, existing) for path in paths]
     report_text = render(verdicts)

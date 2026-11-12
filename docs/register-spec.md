@@ -4,10 +4,17 @@ A **misbehaviour report** describes one kind of AI-agent misbehaviour precisely 
 stranger can reproduce it. It is to agent misbehaviour what a CVE record is to a software flaw: a
 permanent, citable description of something that goes wrong, separate from any one proof of concept.
 
-- Machine-readable schema: [`ifixai/schemas/misbehaviour-report-1.schema.json`](../ifixai/schemas/misbehaviour-report-1.schema.json)
+**The canonical specification is
+[`spec/report-spec-1.md`](https://github.com/ifixai-ai/agent-misbehavior-registry/blob/main/spec/report-spec-1.md)
+in the register**, where a citation lands. This page covers the implementation that lives here and
+the decisions behind the format; it indexes the fields rather than restating them, so there is no
+second copy to keep in step.
+
+- Machine-readable schema: [`ifixai/schemas/misbehaviour-report-1.schema.json`](../ifixai/schemas/misbehaviour-report-1.schema.json), generated from the model and published to the register with its digest recorded
 - The format in code: [`ifixai/register/spec.py`](../ifixai/register/spec.py)
-- Worked examples: [`register/entries/IFX-2026-0101.yaml`](../register/entries/IFX-2026-0101.yaml) (accepted) and [`register/candidates/`](../register/candidates/) (a candidate)
+- Worked examples: [`examples/register/`](../examples/register/) — an accepted entry and a candidate, which double as the test fixture
 - How to file one: [register-contributing.md](register-contributing.md)
+- Where entries live: [ifixai-ai/agent-misbehavior-registry](https://github.com/ifixai-ai/agent-misbehavior-registry)
 
 Validate a report with no network and no API key:
 
@@ -64,135 +71,43 @@ being explicit about:
   describes a real, re-implementable behaviour — it just cannot be newly accepted until one is
   re-verified.
 
-## The required fields, and what breaks without each
+## The fields
 
-### 1. World state — `world`
+The field-by-field reference — every required field, the exact predicates, and the argument for why
+omitting each one breaks reproduction — is the **canonical specification**, authored in the register
+itself:
 
-Entities and records with concrete ids and field values.
+**→ [`spec/report-spec-1.md`](https://github.com/ifixai-ai/agent-misbehavior-registry/blob/main/spec/report-spec-1.md)**
 
-> Without it, nothing can be asserted. "A customer account in arrears" cannot be checked; a record
-> with `{record_id: REC-0001, refunded: false, amount_cents: 48900}` can. It is also the only way to
-> tell a run that acted on the *wrong* record from one that acted on the right one — which is a
-> distinction several real findings turn on.
+It lives there because that is the page a citation of the register lands on, and because the
+definition should not depend on this repository continuing to exist. This page is about the
+implementation and the decisions behind it. The table below is an index, deliberately carrying no
+reasoning of its own so that it cannot drift from the specification in substance.
 
-`carries_untrusted_text: true` marks a record whose free text came from outside the trust boundary.
-A planted instruction lives in such a field, so a report about instruction-following-from-data has to
-say which record carries it.
+| | Field | In one line |
+| --- | --- | --- |
+| 1 | `world` | Entities and records with concrete ids and field values, not prose. |
+| 2 | `identity` | Roles, which role holds which tool, escalation paths. `identity_source` is fixed to `login`. |
+| 3 | `tools` | Name, signature, declared risk, whether it mutates state. |
+| 4 | `request` | The verbatim text, and which login sent it. |
+| 5 | `expected` | A condition on the final world state. Never on the wording of a reply. |
+| 6 | `twin` | The identical request about the same record, from a role that holds the tool. |
+| 7 | `grading` | Named 0/1 checks over world state or the evidence log. No LLM judge. |
+| 8 | `reproductions[].calibration` | The reference solution scores 1; doing nothing scores 0. |
+| 9 | `determinism` | Seed, temperature, step cap, and what is allowed to vary. |
+| 10 | `observed` | Model and harness with versions, occurrences out of trials, date. |
+| 11 | `provenance` | Synthetic or audit-derived; de-identified and rights-cleared flags. |
 
-### 2. Identity and authorization — `identity`
+Also captured, because a finding that cannot be told apart from its neighbour gets argued about
+rather than fixed: the exact model snapshot the provider served and whether it came through a
+gateway; system-prompt and tool-schema hashes; which guardrails were active; the anatomy of the
+failure, including whether the agent acknowledged the boundary before crossing it; the rate at each
+variant rung as a dose-response curve; the twin's over-refusal rate beside every violation rate; and
+the models tested that did **not** show the behaviour.
 
-Roles, which role holds which tool, which logins hold which roles, and the escalation paths.
-
-> "The agent used a tool it should not have" is not a statement until something says which role holds
-> which tool. This section is that statement.
-
-`identity_source` is fixed to `login` and cannot be set to anything else. **Identity comes from the
-login and is never claimable in conversation.** A format that allowed otherwise would be describing a
-different and far less interesting failure — and would make the twin impossible to construct, since
-there would be no fact of the matter about who was asking.
-
-### 3. Tools — `tools`
-
-Name, signature, declared risk, and whether the tool mutates state.
-
-> The signature is what makes a call checkable: did it pass the requested record, or a different one?
-> The risk level is what a severity judgement rests on — a wrong read and a wrong irreversible
-> payment are not the same finding. `mutates_state` decides whether correctness can be a condition on
-> state at all: for a read-only tool, the evidence log is the only place the call is visible.
-
-### 4. The request — `request`
-
-The verbatim text, and which login sent it.
-
-> Paraphrase is not reproduction. A summarised request loses the exact wording that carried the
-> pressure, the claim of authority, or the planted instruction, and two readers rebuild two different
-> tasks from it. `sent_by` must be a declared login, because a request from nobody in particular
-> cannot be denied or permitted.
-
-### 5. Expected behaviour — `expected`
-
-A condition on the final world state. **Never on the wording of a reply.**
-
-> An agent that says "I've escalated this to your supervisor" and does nothing must fail. An agent
-> that does exactly the right thing while phrasing it oddly must pass. There is no field anywhere in
-> this format for the text of a reply, and `reply_sent` asserts only that one was sent. That is not an
-> oversight: grading on wording is how a register fills with findings that evaporate at the next
-> model release, and it is indistinguishable from grading on style.
-
-The predicates are deliberately few (`record_field_equals`, `record_field_unchanged`,
-`record_exists`, `tool_called_on_record`, `tool_not_called`, `escalated_to_channel`, `reply_sent`). A
-report that needs a new one is a reason to version the spec, not a licence to write prose in an
-assertion field.
-
-### 6. The twin — `twin`
-
-The permitted counterpart: the **identical** request about the **same** record, from a role that
-legitimately holds the tool.
-
-> Without it, an agent that refuses everything scores perfectly. This is the single most important
-> field in the format and the one most often missing from published "misbehaviour" results. The twin
-> turns "it did something it should not have" into "it discriminates correctly", and it is the only
-> control that distinguishes a safety property from a capability loss.
-
-The validator enforces that the twin's request text is byte-identical, that the twin's login really
-does hold the tool the subject's login does not, and that the twin passes only by *doing the work* —
-a twin whose expected behaviour is also an escalation would let a blanket refusal pass both halves.
-
-### 7. Grading contract — `grading`
-
-Named checks, each 0/1, each derived from world state or the evidence log. **Never from an LLM judge.**
-
-> Two people grading the same transcript by eye produce two numbers. The combination is conjunctive
-> and binary, so a score has exactly one meaning — every named check passed — and no partial-credit
-> scheme can quietly turn a failure into a pass.
->
-> `source` has two members and there is no `llm_judge`. A check whose value depends on a model's
-> opinion is not reproducible, and a register built on such checks cannot tell a real regression from
-> a drift in the judge. Adding that member would be a different spec, not a new option in this one.
-
-Every expected condition must be read by some check: a condition that is graded by nothing can be
-violated by a run that still scores 1.
-
-### 8. Calibration evidence — `calibration`, per reproduction
-
-The reference solution scores 1. Doing nothing scores 0. Non-negotiable.
-
-> **This is what separates a finding from an assertion.** A reproduction that has never been shown to
-> reward a correct run is a claim about a task nobody has solved. The reference solution scoring 1
-> rules out a task that is impossible or mis-specified. Doing nothing scoring 0 rules out a task any
-> agent passes by inaction — which is, by a wide margin, the most common way a "misbehaviour finding"
-> turns out to be a broken grader.
-
-### 9. Determinism declaration — `determinism`
-
-Seed, temperature, step cap, and what is allowed to vary.
-
-> Without the settings, a different occurrence count is not evidence of a different model; it may be
-> evidence of a different temperature. `allowed_variation` is the part people omit and the part that
-> matters most to a re-runner: it is what tells them whether their mismatch is a failure to reproduce
-> or an expected wobble.
-
-### 10. Observed result — `observed`
-
-Model and version, harness and version, occurrences out of trials, date. **Counts, never a bare
-percentage.**
-
-> "42% of the time" cannot be given a confidence interval, cannot be pooled with another run, and
-> hides whether the denominator was 12 trials or 1,200. `37/48` can be recomputed and cannot be
-> rounded into a better number. The harness and its version belong here too: the same model in two
-> scaffolds is two different systems, and most of the variance people attribute to models lives here.
-
-### 11. Provenance and rights — `provenance`
-
-Synthetic or audit-derived; a de-identified flag; a rights-cleared flag. **An audit-derived report
-requires both.**
-
-> The register is public and permanent. A report derived from an audit of somebody else's system
-> carries two risks a synthetic one does not — somebody's data, and somebody's contract — so an
-> `audit_derived` report is refused outright unless both flags are set.
->
-> The flags are assertions by a named person, not something a tool infers. De-identification can be
-> attempted mechanically and is (see below); clearance cannot be, at all.
+The machine-checkable statement of all of it is
+[`ifixai/register/spec.py`](../ifixai/register/spec.py), from which
+[the JSON Schema](../ifixai/schemas/misbehaviour-report-1.schema.json) is generated.
 
 ## The behaviour signature
 
@@ -220,27 +135,66 @@ and the right outcome is usually an added `observed` row on the existing entry.
 | | `candidate` | `accepted` |
 | --- | --- | --- |
 | Who creates it | anyone | curation |
-| Identifier | `IFXC-<digest12>-<YYYYMMDD>`, derived | `IFX-YYYY-NNNN`, permanent, never reused |
-| Lives in | `register/candidates/` | `register/entries/` |
+| Identifier | `CAND-<digest12>-<YYYYMMDD>`, derived | `AGENT-YYYY-NNNN`, permanent, never reused |
+| Lives in | `examples/register/candidates/` | `examples/register/entries/` |
 | Means | somebody filed this and it passes the validator | a curator has read it and stands behind it |
 
-**Anything submitted is a candidate.** A submission that claimed an `IFX` id is rejected by the
+**Anything submitted is a candidate.** A submission that claimed an `AGENT` id is rejected by the
 validator. Only a curated entry consumes a permanent id, and an id, once issued, is never removed or
 reused — a mistaken entry becomes `rejected` and keeps its id, as a rejected CVE does.
 
 This is what lets the register take volume without diluting its own meaning: the quality signal is
 the `accepted` set, and the candidate set can be as large and as uneven as the world is.
 
+## Identifiers
+
+An accepted entry gets `AGENT-YYYY-NNNN` — `AGENT-2026-0001`. It means agent. It is not an acronym
+and has no expansion.
+
+> The prefix deliberately carries no vendor's name. CVE ids are not `MITRE-YYYY-NNNN`, and an
+> identifier that names one company weakens a register meant to be cited by people who do not work
+> there.
+
+A candidate carries `CAND-<digest12>-<YYYYMMDD>`, derived from its behaviour signature and creation
+date, so two people can file the same behaviour without colliding and nothing has to be allocated.
+
+Both prefixes, and the register's location, are single constants in
+[`ifixai/register/naming.py`](../ifixai/register/naming.py). Changing one is a one-line change plus a
+schema regeneration; ids already issued keep the prefix they were issued under.
+
 ## Safety: what the format cannot do on its own
 
 The format has one hard constraint around it, implemented in the contribution path and not
 negotiable: **no submission leaves a machine without a person approving that specific submission.**
-De-identification runs locally first; the submitter is shown the original beside the redaction, line
-for line; both provenance flags are confirmed by name; and an approval is bound to the exact bytes it
-approved, so an edit after approval invalidates it. An agent may *prepare* a submission and cannot
-make one. There is no configuration flag that removes the human.
+
+De-identification runs locally **before** the question, so the thing being agreed to is the redacted
+thing and the summary of what was replaced is on the screen when the person answers. The question is
+one `[y/N]`, defaulting to No. An approval is bound to the exact bytes it approved, so an edit
+afterwards invalidates it. An agent may *prepare* a submission and cannot make one. There is no
+configuration flag that removes the human.
+
+Publication **rights** are a separate question, and the one thing no tool can check: only the
+organisation that owns an audited system can say whether its agreements permit publishing a finding
+from it. Asking per submission is correct and also empties the register, because nobody stops
+mid-debugging to read a contract. So an organisation answers it once, in a committed
+`.ifixai/contribution.yaml` — who authorised it, what scope, when it expires — and a submission
+records which authorisation it relied on. That is an auditable trail rather than a checkbox. It
+removes the rights question, never the yes.
 
 See [register-contributing.md](register-contributing.md) for the path itself.
+
+## Keeping one source for each artefact
+
+Two statements of one format drift, so neither artefact has two homes:
+
+| Artefact | Source | How drift is caught |
+| --- | --- | --- |
+| The JSON Schema | generated from `ifixai/register/spec.py` | `scripts/generate_register_schema.py --check` in this repo's CI; the register checks its published copy against the sha256 in its `schema/PROVENANCE.md` |
+| The specification prose | authored in the register | nothing to catch: this page indexes it and does not restate it |
+| The worked examples | `examples/register/` here, published to the register | validated by the same checks a submitter runs, in both repos |
+
+`scripts/publish_register_spec.py --registry <clone>` republishes the schema and its provenance
+note; `--check` reports drift and writes nothing.
 
 ## Versioning
 

@@ -2,21 +2,25 @@
 
 The constraint this module enforces outranks every adoption goal in the project: **no submission
 leaves a machine without a person approving that specific submission.** Not a person who once
-approved submissions in general; not a flag set in a config file; not an agent acting on a
-standing instruction. The person who holds the data types the confirmation, having just been shown
-what would be published.
+approved submissions in general; not a flag in a config file; not an agent acting on a standing
+instruction.
+
+It is also, deliberately, **one** yes. The person has just been shown what would be published and a
+summary of what was redacted; asking them to type a magic word after that would not make them read
+it more carefully, it would train them to clear prompts. So the gate is a single ``[y/N]``
+defaulting to No, asked under the redaction summary, plus a second question about publication
+rights only when no standing clearance has already answered it
+(:mod:`ifixai.register.clearance`).
 
 How it is enforced, rather than merely intended:
 
 * An :class:`Approval` cannot be constructed without a :class:`HumanWitness`, and a
   ``HumanWitness`` cannot be constructed without :func:`confirm`, which reads typed answers from an
   interactive stream. There is no non-interactive branch and no environment variable that supplies
-  one.
+  one. A standing clearance can answer the *rights* question in advance; nothing can answer the yes.
 * An approval is bound to the exact bytes it approved (``payload_digest``). Approve a report, edit
   one character, and the approval no longer matches — :func:`ifixai.register.submit.submit` refuses
   it. So an approval cannot be harvested from one submission and replayed on another.
-* The two provenance flags are confirmed separately and by name. De-identification is something a
-  tool can attempt; rights clearance is not, so the person says both out loud.
 * ``ifixai/tests/register/test_human_gate.py`` asserts all of the above, and additionally greps
   this package for the shapes a future bypass would take (``--yes``, ``force``, an env var read in
   the submit path). A bypass added later fails that test.
@@ -28,14 +32,37 @@ import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional, TextIO
+from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING, Any, TextIO
 
-from ifixai.register.spec import MisbehaviourReport
+if TYPE_CHECKING:  # pragma: no cover - imported only for the annotation
+    from ifixai.register.clearance import Clearance
 
-#: What the person must type. Not "y": a one-letter answer is what someone types to make a prompt
-#: go away, and this prompt is the last thing standing between an audit fixture and 45,000 readers.
-CONFIRMATION_WORD = "publish"
+from ifixai.register.spec import MisbehaviourReport, PreClearance
+
+#: The one question. ``N`` is the default, and a decline is a normal answer: a prompt that defaults
+#: to yes is a prompt people clear without reading, and a prompt that treats "no" as a loss is a
+#: prompt that makes people distrust everything else the tool says it does quietly.
+CONTRIBUTE_PROMPT = "Contribute to the public catalogue? [y/N] "
+
+#: Asked only when there is no valid standing clearance (``ifixai.register.clearance``). Rights are
+#: not machine-checkable, so somebody has to answer this; an organisation that has answered it once
+#: in a committed file is not asked again.
+RIGHTS_PROMPT = (
+    "Are you entitled to publish this? (For a finding from an audited system: does your agreement "
+    "with that party permit it?) [y/N] "
+)
+
+#: Printed immediately above the question. Factual: the gap, and the consequence of closing it.
+#: Deliberately not persuasive — these are engineers running a security tool, and anything that
+#: reads as a pitch makes them wonder what else the tool does quietly. That suspicion would land on
+#: the de-identification promise, which cannot afford any.
+CONTEXT_LINES = (
+    "Agent failures like this aren't published anywhere today.",
+    "Contributing makes it reproducible, so every team can test for it.",
+)
+
+AFFIRMATIVE = ("y", "yes")
 
 
 class ApprovalRequired(RuntimeError):
@@ -43,7 +70,8 @@ class ApprovalRequired(RuntimeError):
 
 
 class ApprovalDeclined(RuntimeError):
-    """The person said no, or did not answer the confirmation exactly."""
+    """The person said no, or did not answer affirmatively. Not an error state: declining is the
+    default, and the caller reports it as a normal outcome."""
 
 
 def payload_digest(report: MisbehaviourReport) -> str:
@@ -81,6 +109,9 @@ class Approval:
     rights_cleared_confirmed: bool
     granted_by: str
     granted_at: datetime
+    #: The standing clearance the rights half rested on, when there was one. Recorded so the
+    #: submission can say who authorised it rather than only that somebody did.
+    pre_clearance: PreClearance | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.witness, HumanWitness):
@@ -99,58 +130,62 @@ class Approval:
         return self.payload_digest == payload_digest(report)
 
 
-PROMPTS = (
-    (
-        "de_identified",
-        "You have read the redacted column above. Does it contain no real person, customer, account, "
-        "hostname or secret from your systems? [y/N] ",
-    ),
-    (
-        "rights_cleared",
-        "Are you entitled to publish this? (For an audit-derived report: does your agreement with the "
-        "audited party permit it?) [y/N] ",
-    ),
-)
-
-
 def _ask(prompt: str, reader: Callable[[], str], writer: TextIO) -> str:
     writer.write(prompt)
     writer.flush()
     return reader().strip()
 
 
+def context_block() -> str:
+    return "\n".join(CONTEXT_LINES)
+
+
 def confirm(
     report: MisbehaviourReport,
     granted_by: str,
-    reader: Optional[Callable[[], str]] = None,
-    writer: Optional[TextIO] = None,
+    clearance: Clearance | None = None,
+    reader: Callable[[], str] | None = None,
+    writer: TextIO | None = None,
+    today: date | None = None,
 ) -> Approval:
-    """Ask the person, in front of the diff, and return an approval or raise.
+    """Ask the person, in front of the redaction, and return an approval or raise.
+
+    One question when a valid standing clearance has already answered the rights question; two when
+    it has not. Never fewer than one, and the one is never implied by a flag, a file or an agent:
+
+    * The de-identified half is carried by the single yes **because the redaction summary is on the
+      screen directly above it** — that is what the person is agreeing to, and an extra artificial
+      step after it would only train people to clear prompts.
+    * The rights half comes from the standing clearance where there is one, and is asked outright
+      where there is not.
 
     ``reader`` and ``writer`` exist so the test suite can drive the prompts; the default reads the
-    real console. They are parameters, not configuration: there is no way to pass a reader that
-    answers on its own from outside a test, because the only caller that supplies one is the test
-    suite, and an agent driving the CLI gets the real console and therefore a real person.
+    real console. They are parameters, not configuration: nothing outside a test supplies them, so
+    an agent driving the CLI gets the real console and therefore a real person.
     """
     import sys
 
     stream = writer if writer is not None else sys.stderr
     read = reader if reader is not None else input
+    day = today or date.today()
     answers: dict[str, str] = {}
-    for key, prompt in PROMPTS:
-        answer = _ask(prompt, read, stream)
-        answers[key] = answer
-        if answer.lower() not in ("y", "yes"):
-            raise ApprovalDeclined(f"not confirmed: {key}. Nothing has been sent.")
-    typed = _ask(
-        f"Type {CONFIRMATION_WORD!r} to open a public pull request with the redacted report, or anything "
-        "else to stop: ",
-        read,
-        stream,
-    )
-    answers["confirmation"] = typed
-    if typed != CONFIRMATION_WORD:
-        raise ApprovalDeclined("confirmation word not given. Nothing has been sent.")
+
+    stream.write(context_block() + "\n")
+    answer = _ask(CONTRIBUTE_PROMPT, read, stream)
+    answers["contribute"] = answer
+    if answer.lower() not in AFFIRMATIVE:
+        raise ApprovalDeclined("Not contributed. Nothing has been sent.")
+
+    pre_clearance = None
+    if clearance is not None and clearance.valid_on(day):
+        pre_clearance = clearance.as_record()
+        answers["rights"] = f"pre-cleared by {clearance.authorised_by} until {clearance.expires_on}"
+    else:
+        rights = _ask(RIGHTS_PROMPT, read, stream)
+        answers["rights"] = rights
+        if rights.lower() not in AFFIRMATIVE:
+            raise ApprovalDeclined("Rights not confirmed. Nothing has been sent.")
+
     digest = payload_digest(report)
     now = datetime.now(timezone.utc)
     witness = HumanWitness(digest=digest, answered_at=now, answers=answers)
@@ -161,10 +196,11 @@ def confirm(
         rights_cleared_confirmed=True,
         granted_by=granted_by,
         granted_at=now,
+        pre_clearance=pre_clearance,
     )
 
 
-def require(approval: Optional[Approval], report: MisbehaviourReport) -> Approval:
+def require(approval: Approval | None, report: MisbehaviourReport) -> Approval:
     """The check every sending path goes through. Call it before anything touches the network."""
     if approval is None:
         raise ApprovalRequired(
@@ -182,10 +218,18 @@ def require(approval: Optional[Approval], report: MisbehaviourReport) -> Approva
 def record(approval: Approval) -> dict[str, Any]:
     """What goes into the submission's audit trail. Never the answers themselves, which would be a
     transcript of somebody's console, and never a reusable token."""
-    return {
+    entry: dict[str, Any] = {
         "payload_digest": approval.payload_digest,
         "granted_by": approval.granted_by,
         "granted_at": approval.granted_at.isoformat(),
         "de_identified_confirmed": approval.de_identified_confirmed,
         "rights_cleared_confirmed": approval.rights_cleared_confirmed,
     }
+    if approval.pre_clearance is not None:
+        entry["pre_clearance"] = {
+            "authorised_by": approval.pre_clearance.authorised_by,
+            "organisation": approval.pre_clearance.organisation,
+            "expires_on": approval.pre_clearance.expires_on.isoformat(),
+            "source_file": approval.pre_clearance.source_file,
+        }
+    return entry

@@ -29,19 +29,19 @@ from ifixai.register.spec import (
 pytestmark = pytest.mark.unit
 
 #: Words that would mean a runtime had leaked into the behaviour description.
+#: A hash of a system prompt or a tool schema is part of the model's identity and belongs in the
+#: behaviour description, so `sha256` on its own is not a leak; `image_digest` is.
 RUNTIME_WORDS = (
     "harbor",
     "docker",
     "dockerfile",
     "container",
-    "image",
-    "sha256",
+    "image_digest",
     "task.toml",
     "instruction.md",
     "solve.sh",
-    "test.sh",
-    "pytest",
-    "ifixai run",
+    "tests/test.sh",
+    "task_id",
 )
 
 

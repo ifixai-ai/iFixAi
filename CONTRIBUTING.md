@@ -62,16 +62,37 @@ Run `ifixai validate` (no args) after authoring or editing an inspection. The la
 
 ## Filing a misbehaviour report
 
-Reports of reproducible AI-agent misbehaviour go to the public register in
-`register/`, as pull requests. They are a different kind of contribution from code
-and have their own guide: see [docs/register-contributing.md](docs/register-contributing.md)
-for the path, and [docs/register-spec.md](docs/register-spec.md) for the format and
-why each required field is required.
+AI agents are being put into real systems faster than anyone can verify they respect the boundaries
+around them. When one fails — uses a tool it shouldn't, acts without authorisation, follows an
+instruction planted in a record — that failure is found privately, fixed quietly, and rediscovered
+six months later by a different team who had no way of knowing.
+
+This register exists to end that. Every entry is a reproducible measurement rather than an anecdote:
+a permanent id, exact model and harness versions, how often it happened out of how many attempts,
+and a task anyone can run to see it for themselves.
+
+That gives three groups something they don't have today. Developers can test for known failures
+before they ship, the way CVEs let them test for known vulnerabilities. Model developers get signal
+from real deployments that no internal evaluation can produce, because production surfaces failures
+a lab never thinks to look for. Buyers and regulators get something they can cite, instead of taking
+a vendor's word for it.
+
+**What a contributor gets back**, kept to what is actually true today: early sight of entries
+affecting models you use, including the negative results that make the register a comparison table
+rather than a list of complaints; and a permanent, citable id for your own finding, which you can
+point at in your own security reviews and audits instead of re-explaining the problem each time.
+
+Reports of reproducible AI-agent misbehaviour go to a register of their own,
+[ifixai-ai/agent-misbehavior-registry](https://github.com/ifixai-ai/agent-misbehavior-registry),
+as pull requests. They are a different kind of contribution from code and have their
+own guide: see [docs/register-contributing.md](docs/register-contributing.md) for the
+path, and [docs/register-spec.md](docs/register-spec.md) for the format and why each
+required field is required.
 
 The short version is `ifixai report submit <file> --as "your name"`, which
-de-identifies locally, shows you exactly what would be published, and asks for your
-approval before opening the pull request. Submissions are checked by
-`.github/workflows/register-submission.yml`.
+de-identifies locally, shows you exactly what would be published, and asks you once
+before opening the pull request. The worked examples are in
+[examples/register/](examples/register/).
 
 ## Authoring a fixture
 

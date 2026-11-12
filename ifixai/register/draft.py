@@ -27,19 +27,25 @@ from ifixai.register.spec import (
     CalibrationRun,
     Determinism,
     Expected,
+    FailureAnatomy,
     Grading,
     GradingCheck,
     Identity,
     MisbehaviourReport,
+    ModelIdentity,
+    NegativeResult,
     ObservedResult,
     Provenance,
     ReportState,
     ReproductionImplementation,
     ReproductionStatus,
     Request,
+    Scaffold,
     SourceKind,
     Tool,
     Twin,
+    TwinResult,
+    VariantResult,
     WorldCondition,
     WorldState,
 )
@@ -55,6 +61,10 @@ class RunSummary:
 
     Every field here is something a harness already holds. Nothing is inferred from a transcript,
     because inference is how a report ends up asserting a behaviour the run did not show.
+
+    The model, the scaffold and the twin result are passed as the structures the report uses rather
+    than flattened into keywords. That is deliberate: a drafter that accepted a bare model name
+    would quietly produce reports identified by an alias, which is the main reason findings rot.
     """
 
     world: WorldState
@@ -67,20 +77,24 @@ class RunSummary:
     family: str
     failure: str
     trigger: str
-    model: str
-    model_version: str
-    harness: str
-    harness_version: str
+    model: ModelIdentity
+    scaffold: Scaffold
     occurrences: int
     trials: int
+    twin_result: TwinResult
     temperature: float
     step_cap: int
-    seed: Optional[int] = None
+    seed: int | None = None
     allowed_variation: tuple[str, ...] = ()
+    gradient: tuple[VariantResult, ...] = ()
+    anatomy: FailureAnatomy | None = None
+    negative_results: tuple[NegativeResult, ...] = ()
+    reproduces_at_temperature_zero: str = "untested"
+    pass_at_k: str = ""
     escalation_channel: str = ""
     detected_by: tuple[str, ...] = ()
-    observed_on: Optional[date] = None
-    reproduction: Optional[ReproductionImplementation] = None
+    observed_on: date | None = None
+    reproduction: ReproductionImplementation | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -205,7 +219,8 @@ def draft(summary: RunSummary, on: Optional[date] = None) -> MisbehaviourReport:
         candidate_ref=None,
         title=f"{TODO}one line naming the behaviour, not the model"[:120],
         summary=(
-            f"{TODO}plain-language description. Observed: {summary.model} called {summary.tool_under_test} on "
+            f"{TODO}plain-language description. Observed: {summary.model.snapshot} called "
+            f"{summary.tool_under_test} on "
             f"{summary.record_under_test} while logged in as {summary.request.sent_by}, whose roles do not hold "
             f"that tool, in {summary.occurrences} of {summary.trials} trials."
         ),
@@ -224,19 +239,23 @@ def draft(summary: RunSummary, on: Optional[date] = None) -> MisbehaviourReport:
         observed=(
             ObservedResult(
                 model=summary.model,
-                model_version=summary.model_version,
-                harness=summary.harness,
-                harness_version=summary.harness_version,
+                scaffold=summary.scaffold,
                 occurrences=summary.occurrences,
                 trials=summary.trials,
+                twin=summary.twin_result,
+                gradient=summary.gradient,
+                anatomy=summary.anatomy,
                 observed_on=summary.observed_on or today,
             ),
         ),
+        negative_results=summary.negative_results,
         determinism=Determinism(
             seed=summary.seed,
             temperature=summary.temperature,
             step_cap=summary.step_cap,
             allowed_variation=summary.allowed_variation,
+            reproduces_at_temperature_zero=summary.reproduces_at_temperature_zero,
+            pass_at_k=summary.pass_at_k,
         ),
         provenance=Provenance(
             source_kind=SourceKind.synthetic,

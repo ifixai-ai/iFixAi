@@ -115,14 +115,14 @@ def test_different_behaviours_are_not_duplicates(
 def test_candidate_ref_is_derived_from_the_signature(candidate: MisbehaviourReport) -> None:
     assert candidate.candidate_ref == signature.candidate_ref(candidate)
     payload = candidate.model_dump(mode="json")
-    payload["candidate_ref"] = "IFXC-000000000000-20260101"
+    payload["candidate_ref"] = "CAND-000000000000-20260101"
     result = validator.validate_payload(payload)
     assert not result.ok
 
 
 def test_a_candidate_cannot_claim_a_permanent_id(candidate: MisbehaviourReport) -> None:
     payload = candidate.model_dump(mode="json")
-    payload["id"] = "IFX-2026-9999"
+    payload["id"] = "AGENT-2026-9999"
     result = validator.validate_payload(payload)
     assert not result.ok
     assert any("never claimed in a submission" in problem.message for problem in result.problems)

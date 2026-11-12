@@ -18,7 +18,14 @@ from click.testing import CliRunner
 from ifixai.cli.report import report as report_cli
 from ifixai.register import proposal, signature, store
 from ifixai.register.draft import RunSummary, draft, unfinished
-from ifixai.register.spec import MisbehaviourReport, ReportState
+from ifixai.register.spec import (
+    MisbehaviourReport,
+    ModelIdentity,
+    ReportState,
+    Scaffold,
+    TwinResult,
+    VariantResult,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -35,12 +42,17 @@ def _summary(entry: MisbehaviourReport) -> RunSummary:
         family="authority_boundary",
         failure="authority.violation",
         trigger="pressure_approval",
-        model="mock-sonnet",
-        model_version="mock-sonnet-2026-05-01",
-        harness="ifixai",
-        harness_version="4.3.0",
+        model=ModelIdentity(
+            snapshot="mock-sonnet-2026-05-01", alias_requested="mock-sonnet", provider="ifixai-mock"
+        ),
+        scaffold=Scaffold(harness="ifixai", harness_version="4.3.0", guardrails_recorded=True),
         occurrences=37,
         trials=48,
+        twin_result=TwinResult(over_refusals=1, trials=48),
+        gradient=(
+            VariantResult(variant="base", occurrences=3, trials=48),
+            VariantResult(variant="pressure_approval", occurrences=37, trials=48),
+        ),
         temperature=0.0,
         step_cap=24,
         seed=1,
@@ -86,7 +98,9 @@ def test_an_unfinished_draft_cannot_be_submitted(entry: MisbehaviourReport, tmp_
     path = tmp_path / "draft.yaml"
     path.write_text(store.dump_yaml(drafted), encoding="utf-8")
     result = CliRunner().invoke(
-        report_cli, ["submit", str(path), "--as", "a person", "--checkout", str(tmp_path), "--dry-run"]
+        report_cli,
+        ["submit", str(path), "--as", "a person", "--checkout", str(tmp_path), "--dry-run"],
+        input="y\ny\n",
     )
     assert result.exit_code != 0
     assert "unfinished" in result.output
@@ -99,7 +113,12 @@ def test_validate_reports_ok_for_the_shipped_examples() -> None:
     runner = CliRunner()
     result = runner.invoke(
         report_cli,
-        ["validate", "register/entries/IFX-2026-0101.yaml", "--register-root", "."],
+        [
+            "validate",
+            "examples/register/entries/AGENT-2026-0001.yaml",
+            "--register-root",
+            "examples/register",
+        ],
     )
     assert result.exit_code == 0, result.output
     assert "ok " in result.output
@@ -130,10 +149,8 @@ def test_validate_json_output_is_machine_readable(tmp_path: Path, entry: Misbeha
 
 
 def test_validate_flags_a_duplicate_without_failing(entry: MisbehaviourReport, tmp_path: Path) -> None:
-    (tmp_path / "register" / "entries").mkdir(parents=True)
-    (tmp_path / "register" / "entries" / "IFX-2026-0101.yaml").write_text(
-        store.dump_yaml(entry), encoding="utf-8"
-    )
+    (tmp_path / "entries").mkdir(parents=True)
+    (tmp_path / "entries" / "AGENT-2026-0001.yaml").write_text(store.dump_yaml(entry), encoding="utf-8")
     twin_filing = entry.model_copy(
         update={"state": ReportState.candidate, "id": None, "candidate_ref": None}
     )
@@ -143,7 +160,7 @@ def test_validate_flags_a_duplicate_without_failing(entry: MisbehaviourReport, t
     result = CliRunner().invoke(report_cli, ["validate", str(path), "--register-root", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "possible duplicate" in result.output
-    assert "IFX-2026-0101" in result.output
+    assert "AGENT-2026-0001" in result.output
 
 
 # -- review shows the diff and sends nothing ---------------------------------------------
@@ -179,16 +196,18 @@ def _placed(report: MisbehaviourReport, tmp_path: Path) -> Path:
 
 
 def _place_payload(payload: dict, tmp_path: Path, name: str, directory: str) -> Path:
-    path = tmp_path / "register" / directory / name
+    path = tmp_path / directory / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return path
 
 
-def _check(root: Path, *paths: Path) -> subprocess.CompletedProcess:
-    script = Path(__file__).resolve().parents[3] / "scripts" / "check_register_submission.py"
+def _check(root: Path, *paths: Path, register_root: Path | None = None) -> subprocess.CompletedProcess:
+    repo = Path(__file__).resolve().parents[3]
+    script = repo / "scripts" / "check_register_submission.py"
+    where = register_root if register_root is not None else repo / "examples" / "register"
     return subprocess.run(
-        [sys.executable, str(script), *[str(path) for path in paths]],
+        [sys.executable, str(script), "--register-root", str(where), *[str(path) for path in paths]],
         cwd=str(root),
         capture_output=True,
         text=True,
@@ -198,10 +217,7 @@ def _check(root: Path, *paths: Path) -> subprocess.CompletedProcess:
 
 def test_ci_passes_the_shipped_examples() -> None:
     root = Path(__file__).resolve().parents[3]
-    done = _check(
-        root,
-        root / "register" / "entries" / "IFX-2026-0101.yaml",
-    )
+    done = _check(root, root / "examples" / "register" / "entries" / "AGENT-2026-0001.yaml")
     assert done.returncode == 0, done.stdout + done.stderr
     assert "pass" in done.stdout
 
@@ -210,7 +226,7 @@ def test_ci_rejects_an_audit_report_without_clearance(entry: MisbehaviourReport,
     payload = entry.model_dump(mode="json")
     payload["provenance"]["source_kind"] = "audit_derived"
     payload["provenance"]["rights_cleared"] = False
-    path = _place_payload(payload, tmp_path, "IFX-2026-0101.yaml", "entries")
+    path = _place_payload(payload, tmp_path, "AGENT-2026-0001.yaml", "entries")
     done = _check(Path(__file__).resolve().parents[3], path)
     assert done.returncode == 1
     assert "rights_cleared" in done.stdout
@@ -221,7 +237,7 @@ def test_ci_rejects_a_submission_with_no_calibration(entry: MisbehaviourReport, 
     for repro in payload["reproductions"]:
         repro["status"] = "rot"
         repro["rot_reason"] = "the runtime moved on"
-    path = _place_payload(payload, tmp_path, "IFX-2026-0101.yaml", "entries")
+    path = _place_payload(payload, tmp_path, "AGENT-2026-0001.yaml", "entries")
     done = _check(Path(__file__).resolve().parents[3], path)
     assert done.returncode == 1
     assert "no calibration" in done.stdout or "still describes a real behaviour" in done.stdout
@@ -237,7 +253,7 @@ def test_ci_rejects_an_unfinished_draft(entry: MisbehaviourReport, tmp_path: Pat
 
 def test_ci_rejects_a_candidate_claiming_an_id(candidate: MisbehaviourReport, tmp_path: Path) -> None:
     payload = candidate.model_dump(mode="json")
-    payload["id"] = "IFX-2026-0500"
+    payload["id"] = "AGENT-2026-0500"
     # The candidate file is in the right place; the id claim is the only thing wrong with it.
     path = _place_payload(payload, tmp_path, f"{candidate.candidate_ref}.yaml", "candidates")
     done = _check(Path(__file__).resolve().parents[3], path)
@@ -259,7 +275,7 @@ def test_ci_flags_a_duplicate_without_failing(candidate: MisbehaviourReport, tmp
 def test_ci_output_names_the_field_and_what_to_change(entry: MisbehaviourReport, tmp_path: Path) -> None:
     payload = entry.model_dump(mode="json")
     payload["twin"]["request_text"] = "a different request"
-    path = _place_payload(payload, tmp_path, "IFX-2026-0101.yaml", "entries")
+    path = _place_payload(payload, tmp_path, "AGENT-2026-0001.yaml", "entries")
     done = _check(Path(__file__).resolve().parents[3], path)
     assert done.returncode == 1
     assert "`twin.request_text`" in done.stdout
@@ -279,7 +295,7 @@ def test_a_report_round_trips_through_yaml(entry: MisbehaviourReport, tmp_path: 
 def test_a_report_goes_to_the_directory_its_state_belongs_in(
     entry: MisbehaviourReport, candidate: MisbehaviourReport
 ) -> None:
-    assert store.path_for(entry) == store.ENTRIES_DIR / "IFX-2026-0101.yaml"
+    assert store.path_for(entry) == store.ENTRIES_DIR / "AGENT-2026-0001.yaml"
     assert store.path_for(candidate) == store.CANDIDATES_DIR / f"{candidate.candidate_ref}.yaml"
 
 
@@ -290,17 +306,25 @@ def test_writing_never_overwrites(entry: MisbehaviourReport, tmp_path: Path) -> 
 
 
 def test_an_unreadable_file_is_reported_not_fatal(tmp_path: Path) -> None:
-    (tmp_path / "register" / "candidates").mkdir(parents=True)
-    (tmp_path / "register" / "candidates" / "broken.yaml").write_text("{not: [valid", encoding="utf-8")
+    (tmp_path / "candidates").mkdir(parents=True)
+    (tmp_path / "candidates" / "broken.yaml").write_text("{not: [valid", encoding="utf-8")
     register = store.load_register(tmp_path)
     assert register.reports == ()
     assert register.load_errors
 
 
-def test_the_pr_body_explains_the_twin_and_the_calibration(entry: MisbehaviourReport) -> None:
+def test_the_pr_body_carries_what_a_reviewer_needs(entry: MisbehaviourReport) -> None:
+    """A reviewer should not have to open the YAML to see the twin, the curve or the negatives."""
     prepared = proposal.prepare(entry)
-    assert "refuses everything would score perfectly" in prepared.body
-    assert "calibration" in prepared.body.lower()
-    assert entry.signature.digest in prepared.body
-    assert "no `IFX` id is claimed" in prepared.body
-    assert "de-identification ran locally" in prepared.body.lower()
+    body = prepared.body
+    assert "refuses everything would score perfectly" in body
+    assert "calibration" in body.lower()
+    assert entry.signature.digest in body
+    assert "no `AGENT` id is claimed" in body
+    assert "de-identification ran locally" in body.lower()
+    # The expanded capture set is in the tables, not buried in the file.
+    assert "twin over-refusals" in body
+    assert "### Gradient" in body and "pressure_approval" in body
+    assert "### Tested and did NOT show it" in body
+    assert "mock-opus-2026-05-01" in body
+    assert "no guardrails" in body or "ifixai-policy-gate" in body

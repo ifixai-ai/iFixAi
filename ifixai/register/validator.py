@@ -93,6 +93,8 @@ def check_rules(report: MisbehaviourReport) -> list[Problem]:
         _reproductions,
         _provenance,
         _observed,
+        _twin_measured,
+        _guardrails_stated,
         _state,
     ):
         problems.extend(rule(report))
@@ -331,22 +333,153 @@ def _provenance(report: MisbehaviourReport) -> Iterable[Problem]:
 
 def _observed(report: MisbehaviourReport) -> Iterable[Problem]:
     for index, observation in enumerate(report.observed):
+        where = f"observed[{index}]"
         if observation.occurrences == 0:
             yield Problem(
                 "observed",
-                f"observed[{index}]",
-                f"{observation.model} showed the behaviour 0 times in {observation.trials} trials. A report needs at "
-                "least one model that showed it; a zero belongs in a mitigation rerun, not here",
+                where,
+                f"{observation.model.snapshot} showed the behaviour 0 times in {observation.trials} trials. A "
+                "report needs at least one model that showed it; a zero belongs in negative_results",
             )
-    if all(observation.occurrences == 0 for observation in report.observed):
-        yield Problem("observed", "observed", "no model showed the behaviour at all")
-    for index, observation in enumerate(report.observed):
         if observation.trials < 5:
             yield Problem(
                 "observed",
-                f"observed[{index}]",
+                where,
                 f"{observation.trials} trials is too few to report a rate; run at least 5 so the interval means "
                 "something",
+            )
+        yield from _gradient(report, observation, where)
+        yield from _model_identity(observation.model, where)
+    if all(observation.occurrences == 0 for observation in report.observed):
+        yield Problem("observed", "observed", "no model showed the behaviour at all")
+    for index, negative in enumerate(report.negative_results):
+        yield from _model_identity(negative.model, f"negative_results[{index}]")
+    yield from _negatives_are_distinct(report)
+
+
+def _model_identity(model: Any, where: str) -> Iterable[Problem]:
+    """The snapshot must not be an alias.
+
+    This is the check that keeps reports from rotting. An alias moves, so a report identified by one
+    cannot be re-verified later: a failure to reproduce could be a fixed model or a moved pointer,
+    and nobody can tell which. The heuristic is conservative — it only objects when the snapshot is
+    the alias the caller passed, or is a well-known floating alias with nothing pinning it.
+    """
+    snapshot = model.snapshot.strip()
+    if model.alias_requested and snapshot == model.alias_requested.strip():
+        yield Problem(
+            "model",
+            f"{where}.model.snapshot",
+            f"the snapshot is the same string as the alias requested ({snapshot!r}). Record what the provider "
+            "reported as serving the request; an alias moves, and a report identified by one cannot be "
+            "re-verified later",
+        )
+    if snapshot.lower() in FLOATING_ALIASES:
+        yield Problem(
+            "model",
+            f"{where}.model.snapshot",
+            f"{snapshot!r} is a floating alias, not a snapshot. Record the dated or digest-pinned build the "
+            "provider served",
+        )
+
+
+#: Aliases known to move. Not exhaustive and not meant to be: it catches the common case of filing
+#: against a pointer, and the rule above catches the general one.
+FLOATING_ALIASES = frozenset({
+    "gpt-4", "gpt-4o", "gpt-4-turbo", "gpt-5", "chatgpt-latest",
+    "claude-3-opus", "claude-3-sonnet", "claude-3-5-sonnet", "claude-sonnet-4", "claude-opus-4",
+    "gemini-pro", "gemini-1.5-pro", "gemini-2.0-flash",
+    "latest", "default",
+})
+
+
+def _gradient(report: MisbehaviourReport, observation: Any, where: str) -> Iterable[Problem]:
+    """The curve and the headline figure must agree.
+
+    A reader quotes the headline and reads the curve; if the two disagree, one of them is wrong and
+    the register cannot say which. So when a gradient includes the rung the behaviour signature
+    names, the headline has to be that rung's counts — which also pins the headline to a stated
+    condition rather than to an unexplained pool across conditions.
+    """
+    if not observation.gradient:
+        return
+    trigger = report.signature.trigger
+    rung = observation.rung(trigger)
+    if rung is None:
+        yield Problem(
+            "observed",
+            f"{where}.gradient",
+            f"the gradient has no rung for {trigger!r}, the condition the signature names, so there is nothing "
+            f"tying the headline {observation.occurrences}/{observation.trials} to a stated condition",
+        )
+        return
+    if (rung.occurrences, rung.trials) != (observation.occurrences, observation.trials):
+        yield Problem(
+            "observed",
+            f"{where}",
+            f"the headline is {observation.occurrences}/{observation.trials} but the {trigger!r} rung of the "
+            f"gradient is {rung.occurrences}/{rung.trials}. The headline is the rate at the condition the "
+            "signature names; a reader quoting one and reading the other must not get two answers",
+        )
+
+
+def _negatives_are_distinct(report: MisbehaviourReport) -> Iterable[Problem]:
+    """A model cannot both show the behaviour and be listed as not showing it."""
+    positives = {
+        (observation.model.snapshot, observation.scaffold.harness, observation.scaffold.harness_version)
+        for observation in report.observed
+    }
+    for index, negative in enumerate(report.negative_results):
+        key = (negative.model.snapshot, negative.scaffold.harness, negative.scaffold.harness_version)
+        if key in positives:
+            yield Problem(
+                "observed",
+                f"negative_results[{index}]",
+                f"{negative.model.snapshot} in {negative.scaffold.harness} is listed as both showing and not "
+                "showing the behaviour; if the difference is a setting, say which in the scaffold or the model",
+            )
+
+
+def _twin_measured(report: MisbehaviourReport) -> Iterable[Problem]:
+    """A violation rate with no twin rate beside it is not interpretable.
+
+    The shape of the format already requires ``twin`` on every observation, so this is the softer
+    half: a report whose twin was over-refused at least as often as the subject was violated is
+    probably not describing a boundary failure at all — it is describing a model that has stopped
+    discriminating, where the fix is the opposite one — so it must say so out loud rather than
+    letting a reader draw the wrong conclusion from the headline.
+    """
+    for index, observation in enumerate(report.observed):
+        if observation.twin.rate >= observation.rate and observation.rate > 0:
+            said = " ".join(report.caveats).lower() + " " + report.summary.lower()
+            if "over-refus" not in said and "over refus" not in said:
+                yield Problem(
+                    "observed",
+                    f"observed[{index}].twin",
+                    f"the permitted twin was over-refused {observation.twin.over_refusals}/"
+                    f"{observation.twin.trials} times, at least as often as the behaviour appeared "
+                    f"({observation.occurrences}/{observation.trials}). That may be a model that refuses "
+                    "broadly rather than a boundary failure; say so in the summary or a caveat so a reader "
+                    "does not read the headline as a boundary finding",
+                )
+
+
+def _guardrails_stated(report: MisbehaviourReport) -> Iterable[Problem]:
+    """"Failed with guardrails on" and "failed naked" are different findings.
+
+    Empty-and-known means none were active, which is a fact. Empty-and-unknown means the filer does
+    not know, which is also a fact — and a different one. The format makes the filer pick.
+    """
+    for index, observation in enumerate(report.observed):
+        scaffold = observation.scaffold
+        if scaffold.guardrails_recorded and not scaffold.guardrails:
+            continue
+        if not scaffold.guardrails_recorded and scaffold.guardrails:
+            yield Problem(
+                "scaffold",
+                f"observed[{index}].scaffold",
+                "guardrails are listed but guardrails_recorded is false; either they were recorded or they "
+                "were not",
             )
 
 

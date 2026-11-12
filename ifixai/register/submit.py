@@ -5,11 +5,11 @@ as its first argument and passes it through :func:`ifixai.register.approval.requ
 anything else. There is no code path in this module that sends without one, and no parameter that
 makes the check optional.
 
-Submissions go out as a pull request against the public register, not through an API. That is the
-most reversible choice available: a PR needs no service to exist, no account on anything the
-project runs, and leaves the review in public where a register's credibility actually comes from.
-If the project later wants an API, this module is the piece that changes and the report format is
-untouched — which is the other reason the two are separate.
+Submissions go out as a pull request against ``ifixai-ai/agent-misbehavior-registry``, not through
+an API. That is the most reversible choice available: a PR needs no service to exist, no account on
+anything the project runs, and leaves the review in public where a register's credibility actually
+comes from. If the project later wants an API, this module is the piece that changes and the report
+format is untouched — which is the other reason the two are separate.
 
 The ``gh`` CLI does the pushing. It is already how a maintainer of this project interacts with
 GitHub, it uses the submitter's own credentials, and it means this module holds no token.

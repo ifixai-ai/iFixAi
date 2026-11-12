@@ -23,6 +23,7 @@ import ast
 import io
 import re
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ import pytest
 from ifixai.register import approval as approval_module
 from ifixai.register import mcp, proposal, submit
 from ifixai.register.approval import (
+    AFFIRMATIVE,
     Approval,
     ApprovalDeclined,
     ApprovalRequired,
@@ -37,6 +39,7 @@ from ifixai.register.approval import (
     confirm,
     payload_digest,
 )
+from ifixai.register.clearance import Clearance
 from ifixai.register.spec import MisbehaviourReport
 
 pytestmark = pytest.mark.unit
@@ -85,7 +88,19 @@ def _answers(*values: str) -> Callable[[], str]:
 
 
 def _approve(report: MisbehaviourReport) -> Approval:
-    return confirm(report, granted_by="a person", reader=_answers("y", "y", "publish"), writer=io.StringIO())
+    """The two-question path: no standing clearance, so rights are asked outright."""
+    return confirm(report, granted_by="a person", reader=_answers("y", "y"), writer=io.StringIO())
+
+
+def _clearance(expires: date) -> Clearance:
+    return Clearance(
+        organisation="Acme Health Partners",
+        authorised_by="R. Mbeki, Head of Platform Security",
+        scope="Synthetic and de-identified findings from our own staging systems.",
+        expires_on=expires,
+        excludes=(),
+        source_file=".ifixai/contribution.yaml",
+    )
 
 
 # -- submit refuses without a matching approval ------------------------------------------
@@ -105,6 +120,16 @@ def test_submit_refuses_an_approval_for_different_bytes(entry: MisbehaviourRepor
     prepared = proposal.prepare(edited)
     with pytest.raises(ApprovalRequired, match="changed after it was approved"):
         submit.submit(prepared, approval, checkout=tmp_path, dry_run=True)
+
+
+def test_the_clearance_module_cannot_approve_anything() -> None:
+    """The pre-clearance file answers the rights question. Nothing in it reaches the gate: it
+    produces a record, never a witness."""
+    from ifixai.register import clearance as clearance_mod
+
+    source = code_only(Path(clearance_mod.__file__))
+    assert "HumanWitness" not in source
+    assert "Approval(" not in source
 
 
 def test_submit_with_a_matching_approval_proceeds(entry: MisbehaviourReport, tmp_path: Path) -> None:
@@ -190,32 +215,110 @@ def test_an_approval_without_both_flags_is_refused(entry: MisbehaviourReport) ->
 @pytest.mark.parametrize(
     "answers",
     [
-        ("n", "y", "publish"),
-        ("y", "n", "publish"),
-        ("", "", ""),
-        ("y", "y", "yes"),
-        ("y", "y", "Publish"),
-        ("y", "y", ""),
+        ("n", "y"),
+        ("", ""),
+        ("y", "n"),
+        ("y", ""),
+        ("no", "y"),
+        ("yeah", "y"),
     ],
 )
-def test_confirm_refuses_anything_short_of_a_full_yes(entry: MisbehaviourReport, answers) -> None:
+def test_confirm_refuses_anything_short_of_a_yes(entry: MisbehaviourReport, answers) -> None:
     with pytest.raises(ApprovalDeclined):
         confirm(entry, granted_by="a person", reader=_answers(*answers), writer=io.StringIO())
 
 
-def test_confirm_asks_about_both_flags_by_name(entry: MisbehaviourReport) -> None:
+@pytest.mark.parametrize("answer", ["y", "Y", "yes", "YES"])
+def test_the_affirmative_answers_are_exactly_these(entry: MisbehaviourReport, answer: str) -> None:
+    approval = confirm(entry, granted_by="a person", reader=_answers(answer, "y"), writer=io.StringIO())
+    assert approval.covers(entry)
+    assert answer.lower() in AFFIRMATIVE
+
+
+def test_the_question_is_asked_under_the_factual_context(entry: MisbehaviourReport) -> None:
     shown = io.StringIO()
-    confirm(entry, granted_by="a person", reader=_answers("y", "y", "publish"), writer=shown)
-    asked = shown.getvalue().lower()
-    assert "person" in asked and "secret" in asked
+    confirm(entry, granted_by="a person", reader=_answers("y", "y"), writer=shown)
+    asked = shown.getvalue()
+    assert "aren't published anywhere today" in asked
+    assert "Contribute to the public catalogue? [y/N]" in asked
     assert "entitled to publish" in asked
-    assert "publish" in asked
+
+
+def test_the_context_is_factual_not_persuasive() -> None:
+    """Two short lines, stating the gap and the consequence. Nothing that reads as a pitch: these
+    are engineers running a security tool, and a prompt that sells makes them doubt the
+    de-identification promise, which is the one thing it cannot afford."""
+    block = approval_module.context_block()
+    assert len(block.splitlines()) <= 2
+    lowered = block.lower()
+    for word in (
+        "help",
+        "community",
+        "join",
+        "mission",
+        "safer",
+        "together",
+        "important",
+        "urgent",
+        "please",
+        "!",
+        "thousands",
+        "contributors",
+    ):
+        assert word not in lowered, f"the context line reads as persuasion: {word!r}"
 
 
 def test_the_prompts_default_to_no(entry: MisbehaviourReport) -> None:
     """A prompt that defaults to yes is a prompt people clear without reading."""
-    for _, prompt in approval_module.PROMPTS:
+    for prompt in (approval_module.CONTRIBUTE_PROMPT, approval_module.RIGHTS_PROMPT):
         assert prompt.rstrip().endswith("[y/N]")
+
+
+def test_a_valid_standing_clearance_makes_it_one_question(entry: MisbehaviourReport) -> None:
+    """One keystroke, and the rights answer is traceable to the person who gave it."""
+    shown = io.StringIO()
+    reader = _answers("y")  # a second question would raise IndexError... or read ""
+    approval = confirm(
+        entry,
+        granted_by="a person",
+        clearance=_clearance(date(2027, 3, 31)),
+        reader=reader,
+        writer=shown,
+        today=date(2026, 11, 12),
+    )
+    assert approval.rights_cleared_confirmed
+    assert approval.pre_clearance is not None
+    assert approval.pre_clearance.authorised_by == "R. Mbeki, Head of Platform Security"
+    assert "entitled to publish" not in shown.getvalue()
+    assert shown.getvalue().count("[y/N]") == 1
+
+
+def test_an_expired_clearance_falls_back_to_asking(entry: MisbehaviourReport) -> None:
+    shown = io.StringIO()
+    approval = confirm(
+        entry,
+        granted_by="a person",
+        clearance=_clearance(date(2026, 1, 1)),
+        reader=_answers("y", "y"),
+        writer=shown,
+        today=date(2026, 11, 12),
+    )
+    assert "entitled to publish" in shown.getvalue()
+    assert approval.pre_clearance is None
+
+
+def test_a_clearance_cannot_supply_the_yes(entry: MisbehaviourReport) -> None:
+    """A standing clearance answers the rights question in advance. It cannot answer the one that
+    matters, and a declined contribution with a perfectly valid clearance still sends nothing."""
+    with pytest.raises(ApprovalDeclined):
+        confirm(
+            entry,
+            granted_by="a person",
+            clearance=_clearance(date(2027, 3, 31)),
+            reader=_answers("n"),
+            writer=io.StringIO(),
+            today=date(2026, 11, 12),
+        )
 
 
 def test_an_approval_records_who_without_recording_their_console(entry: MisbehaviourReport) -> None:
@@ -223,6 +326,21 @@ def test_an_approval_records_who_without_recording_their_console(entry: Misbehav
     assert record["granted_by"] == "a person"
     assert "answers" not in record
     assert "witness" not in record
+
+
+def test_a_pre_cleared_approval_records_the_authorisation_trail(entry: MisbehaviourReport) -> None:
+    approval = confirm(
+        entry,
+        granted_by="a person",
+        clearance=_clearance(date(2027, 3, 31)),
+        reader=_answers("y"),
+        writer=io.StringIO(),
+        today=date(2026, 11, 12),
+    )
+    record = approval_module.record(approval)
+    assert record["pre_clearance"]["authorised_by"] == "R. Mbeki, Head of Platform Security"
+    assert record["pre_clearance"]["expires_on"] == "2027-03-31"
+    assert record["pre_clearance"]["source_file"] == ".ifixai/contribution.yaml"
 
 
 # -- the agent-facing surface cannot send -------------------------------------------------

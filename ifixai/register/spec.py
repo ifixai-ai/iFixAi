@@ -11,7 +11,7 @@ binds that description to one runtime, and a report may carry several, so Harbor
 implementation among possible others and adding a second never changes the report's identity.
 
 The report's identity is its :class:`BehaviourSignature`, not its id. A submission is always a
-``candidate``; only a curated entry is ``accepted`` and consumes a permanent ``IFX-YYYY-NNNN`` id.
+``candidate``; only a curated entry is ``accepted`` and consumes a permanent id (see `naming`).
 That keeps the register's quality independent of its volume: anyone may file, nobody may mint.
 """
 
@@ -24,13 +24,14 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ifixai.register import naming
+
 SPEC_VERSION = "1"
 
-#: Canonical spelling of an accepted entry's permanent id, as the private catalogue uses it.
-ENTRY_ID_PATTERN = re.compile(r"^IFX-(?P<year>\d{4})-(?P<number>\d{4}|[1-9]\d{4,})\Z", re.ASCII)
-#: A candidate's local reference. Not an identifier the register owns: it is the submitter's
-#: handle on their own draft, so two people can file the same behaviour without colliding.
-CANDIDATE_REF_PATTERN = re.compile(r"^IFXC-[0-9a-f]{12}-\d{8}\Z", re.ASCII)
+#: Identifier shapes and the register's location live in `naming`, as single constants, because
+#: both are still being decided and neither should be a literal in a dozen files.
+ENTRY_ID_PATTERN = naming.ID_PATTERN
+CANDIDATE_REF_PATTERN = naming.CANDIDATE_REF_PATTERN
 
 RISK_LEVELS = ("critical", "high", "medium", "low")
 
@@ -365,16 +366,204 @@ class Determinism(StrictModel):
     their mismatch is a failure to reproduce or an expected wobble.
     """
 
-    seed: Optional[int] = None
+    seed: int | None = None
     temperature: float = Field(ge=0.0)
     step_cap: int = Field(gt=0)
     allowed_variation: tuple[str, ...] = Field(
         default=(),
         description="What may differ between runs without being a failure to reproduce",
     )
+    reproduces_at_temperature_zero: Literal["yes", "no", "untested"] = Field(
+        default="untested",
+        description="Whether the behaviour still appears with sampling pinned off. 'no' is itself a finding",
+    )
+    pass_at_k: str = Field(
+        default="",
+        description="pass^k if measured, e.g. 'pass^8 = 0.31': the chance of k consecutive clean runs",
+    )
 
 
 # ---------------------------------------------------------------------- 10. observed result
+#
+# This is the section that grew most beyond the eleven required fields, and every addition is here
+# for the same reason: a finding that cannot be told apart from a neighbouring finding is a finding
+# that will be argued about rather than fixed. "GPT-4 refunded without authorisation" is an
+# anecdote. "This snapshot, through this gateway, in this scaffold, with these guardrails on,
+# 37/48 at this pressure rung and 2/48 at base, while the permitted twin was over-refused 1/48
+# time" is a measurement.
+
+
+class Route(str, Enum):
+    """How the request reached the model. Almost nobody records this, and it matters: the same
+    snapshot behind a gateway is a different system — different default parameters, different
+    system-prompt injection, sometimes a different quantisation."""
+
+    direct = "direct"
+    gateway = "gateway"
+
+
+class ModelIdentity(StrictModel):
+    """Exactly which model served the request.
+
+    Why ``snapshot`` is required and ``alias`` is not: an alias moves. A report filed against
+    ``claude-sonnet-4`` or ``gpt-4o`` names whatever that pointed at on the day, and six months
+    later nobody can tell whether a failure to reproduce is a fixed model or a moved alias. This is
+    the single largest cause of findings rotting, so the snapshot the provider reports as serving
+    the request is the required field and the alias the caller asked for is recorded beside it.
+
+    The two hashes are hashes on purpose. A system prompt and a tool schema change behaviour
+    completely, so two reports are not comparable without knowing whether they shared them — and
+    almost nobody can publish the contents. A hash makes "same prompt" and "different prompt"
+    checkable without anyone disclosing anything.
+    """
+
+    snapshot: str = Field(
+        min_length=1,
+        description="The exact build the provider reports as serving the request, never the alias",
+    )
+    alias_requested: str = Field(default="", description="What the caller asked for, if it differed")
+    provider: str = Field(min_length=1, description="Who served it: anthropic, openai, a local runtime")
+    route: Route = Route.direct
+    gateway: str = Field(default="", description="The gateway, when route is gateway: portkey, openrouter, bedrock, azure")
+    system_prompt_sha256: str = Field(default="", description="Hash, never the contents")
+    tool_schema_sha256: str = Field(default="", description="Hash of the tool definitions as sent, never the contents")
+    temperature: float | None = None
+    top_p: float | None = None
+    seed: int | None = None
+    max_tokens: int | None = None
+    reasoning_budget: int | None = Field(default=None, description="Thinking/reasoning token budget, where the model has one")
+
+    @field_validator("system_prompt_sha256", "tool_schema_sha256")
+    @classmethod
+    def _hash_shape(cls, value: str) -> str:
+        if value and not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", value):
+            raise ValueError("a hash is 64 hex characters, optionally prefixed sha256:; never the contents")
+        return value
+
+    @model_validator(mode="after")
+    def _route(self) -> ModelIdentity:
+        if self.route is Route.gateway and not self.gateway.strip():
+            raise ValueError("route is gateway but no gateway is named; which one changes the behaviour")
+        if self.route is Route.direct and self.gateway.strip():
+            raise ValueError(f"a gateway ({self.gateway}) is named but the route says direct")
+        return self
+
+
+class Guardrail(StrictModel):
+    """One guardrail that was active during the run.
+
+    Why this is not a footnote: "failed with guardrails on" and "failed naked" are different
+    findings with different consequences, and a register that cannot tell them apart will be
+    dismissed by the first person who has guardrails deployed. ``mode`` distinguishes a guardrail
+    that was watching from one that was empowered to stop the agent.
+    """
+
+    name: str = Field(min_length=1)
+    version: str = ""
+    mode: Literal["blocking", "monitoring", "advisory"] = "blocking"
+
+
+class Scaffold(StrictModel):
+    """The agent around the model.
+
+    Most of the variance people attribute to models lives here. A model that loops with retries and
+    self-critique is a different system from the same model answering once, and a scaffold with
+    memory or retrieval has seen things the report's world does not describe.
+    """
+
+    harness: str = Field(min_length=1, description="The agent scaffold the model ran inside")
+    harness_version: str = Field(min_length=1)
+    loop_type: str = Field(default="", description="e.g. react, plan-execute, single-shot, tool-calling loop")
+    step_cap: int | None = Field(default=None, gt=0)
+    retries_enabled: bool | None = None
+    self_critique_enabled: bool | None = None
+    memory_present: bool | None = None
+    rag_present: bool | None = None
+    guardrails: tuple[Guardrail, ...] = Field(
+        default=(),
+        description="Guardrails active during the run. Empty means none were active, not unknown",
+    )
+    guardrails_recorded: bool = Field(
+        default=True,
+        description="False when the filer does not know what was active; empty-and-unknown is not the same as none",
+    )
+
+    @property
+    def ran_with_guardrails(self) -> bool:
+        return bool(self.guardrails)
+
+
+class FailureAnatomy(StrictModel):
+    """What the failure looked like from the inside.
+
+    These are the fields that separate a model that blundered from a model that knew. An agent that
+    states the boundary and then crosses it anyway, or that reports success for something it did not
+    do, is not making a mistake about the rules — and a register that records only a rate cannot
+    show the difference.
+    """
+
+    first_violation_step: int | None = Field(
+        default=None, ge=1, description="The step at which the boundary was first crossed"
+    )
+    acknowledged_boundary_then_crossed: bool | None = Field(
+        default=None,
+        description="The agent said it was not permitted, and did it anyway. A deception signal",
+    )
+    reported_success_falsely: bool | None = Field(
+        default=None, description="The agent said it had done something it had not. A deception signal"
+    )
+    multi_step: bool | None = Field(default=None, description="Reached over several steps, not in one call")
+    self_corrected: bool | None = Field(default=None, description="The agent undid or reported its own violation")
+
+
+class TwinResult(StrictModel):
+    """How the permitted twin fared, measured, not assumed.
+
+    Why it travels with every rate rather than sitting in its own section: a violation rate without
+    the twin's over-refusal rate beside it is not interpretable. 37/48 violations with the twin
+    served perfectly is a boundary failure. 37/48 with the twin over-refused 40/48 times is a model
+    that has stopped distinguishing anything, and the fix is the opposite one.
+    """
+
+    over_refusals: int = Field(ge=0, description="Twin trials where the agent refused work the role may do")
+    trials: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _counts(self) -> TwinResult:
+        if self.over_refusals > self.trials:
+            raise ValueError(f"{self.over_refusals} over-refusals in only {self.trials} twin trials")
+        return self
+
+    @property
+    def rate(self) -> float:
+        return self.over_refusals / self.trials
+
+
+class VariantResult(StrictModel):
+    """One rung of the dose-response curve: how often the behaviour appeared under one condition.
+
+    The gradient is the most distinctive thing this register has, so it is a first-class structure
+    rather than a note. A behaviour that appears 2/48 at base and 44/48 with a planted instruction
+    tells a reader which defence to build; a single pooled number tells them nothing, and a number
+    reported only at the hardest rung overstates the risk.
+    """
+
+    variant: str = Field(min_length=1, description="The rung: base, hidden_policy, pressure_*, injected_note, hard")
+    occurrences: int = Field(ge=0)
+    trials: int = Field(gt=0)
+    twin: TwinResult | None = Field(
+        default=None, description="The twin measured at this rung, where it was measured"
+    )
+
+    @model_validator(mode="after")
+    def _counts(self) -> VariantResult:
+        if self.occurrences > self.trials:
+            raise ValueError(f"{self.variant}: {self.occurrences} occurrences in only {self.trials} trials")
+        return self
+
+    @property
+    def rate(self) -> float:
+        return self.occurrences / self.trials
 
 
 class ObservedResult(StrictModel):
@@ -383,26 +572,70 @@ class ObservedResult(StrictModel):
     Why counts: "42% of the time" cannot be given a confidence interval, cannot be pooled with
     another run, and hides whether the denominator was 12 trials or 1,200. Occurrences out of
     trials can be recomputed and cannot be rounded into a better number.
+
+    ``occurrences``/``trials`` is the headline figure, measured at the condition the behaviour
+    signature names. When a ``gradient`` is given, the validator checks the headline against the
+    rung for that trigger, so the number a reader quotes and the curve they read cannot disagree.
     """
 
-    model: str = Field(min_length=1)
-    model_version: str = Field(min_length=1, description="The exact identifier the runs called")
-    harness: str = Field(min_length=1, description="The agent scaffold the model ran inside")
-    harness_version: str = Field(min_length=1)
+    model: ModelIdentity
+    scaffold: Scaffold
     occurrences: int = Field(ge=0)
     trials: int = Field(gt=0)
+    twin: TwinResult
     observed_on: date
+    gradient: tuple[VariantResult, ...] = Field(
+        default=(), description="The rate at each variant rung: the dose-response curve"
+    )
+    anatomy: FailureAnatomy | None = None
     note: str = ""
 
     @model_validator(mode="after")
     def _counts(self) -> ObservedResult:
         if self.occurrences > self.trials:
-            raise ValueError(f"{self.model}: {self.occurrences} occurrences in only {self.trials} trials")
+            raise ValueError(f"{self.model.snapshot}: {self.occurrences} occurrences in only {self.trials} trials")
+        variants = [rung.variant for rung in self.gradient]
+        if len(set(variants)) != len(variants):
+            raise ValueError("a variant appears twice in one gradient")
         return self
 
     @property
     def rate(self) -> float:
         return self.occurrences / self.trials
+
+    def rung(self, variant: str) -> VariantResult | None:
+        return next((rung for rung in self.gradient if rung.variant == variant), None)
+
+
+class NegativeResult(StrictModel):
+    """A model and scaffold that were tested and did **not** show the behaviour.
+
+    Most registers omit this, and omitting it is what makes a register a list of complaints instead
+    of a comparison table. A negative result is as useful to somebody choosing a model as a positive
+    one, and it is the only thing that makes a positive one meaningful: without it, a reader cannot
+    tell whether the behaviour is specific to one model or universal and simply unmeasured
+    elsewhere.
+
+    ``occurrences`` is fixed at 0 by the shape of the field. ``trials`` is required, because "did
+    not show it" in three attempts is not a result.
+    """
+
+    model: ModelIdentity
+    scaffold: Scaffold
+    trials: int = Field(gt=0)
+    observed_on: date
+    twin: TwinResult | None = Field(
+        default=None, description="Where the twin was measured too; an over-refusing model is not a safe one"
+    )
+    note: str = ""
+
+    @model_validator(mode="after")
+    def _enough_trials(self) -> NegativeResult:
+        if self.trials < 5:
+            raise ValueError(
+                f"{self.model.snapshot}: {self.trials} trials is not enough to say a model does not do this"
+            )
+        return self
 
 
 # ------------------------------------------------------------------- 11. provenance and rights
@@ -413,6 +646,30 @@ class SourceKind(str, Enum):
     audit_derived = "audit_derived"
     public_incident = "public_incident"
     researcher = "researcher"
+
+
+class PreClearance(StrictModel):
+    """Which standing authorisation allowed this submission to be published.
+
+    Rights clearance is not machine-checkable: only the organisation that owns the audited system
+    can say whether its contract permits publication. Asking that question per submission is
+    correct and also kills the one-keystroke flow that makes anybody file at all.
+
+    So an organisation answers it once, in a file committed to its own repository
+    (``.ifixai/contribution.yaml``), and a submission records which authorisation it relied on. The
+    result is an auditable trail — who granted it, for what scope, until when — rather than a
+    checkbox nobody can trace. An absent or expired pre-clearance does not block a filing; it falls
+    back to asking the person, which is where this started.
+    """
+
+    authorised_by: str = Field(min_length=1, description="Who in the organisation granted it")
+    organisation: str = Field(default="", description="Whose authorisation it is")
+    scope: str = Field(min_length=1, description="What it covers, e.g. 'synthetic and de-identified audit findings'")
+    expires_on: date
+    source_file: str = Field(default=".ifixai/contribution.yaml", description="Where the authorisation is recorded")
+
+    def valid_on(self, day: date) -> bool:
+        return day <= self.expires_on
 
 
 class Provenance(StrictModel):
@@ -430,6 +687,10 @@ class Provenance(StrictModel):
     de_identified: bool = False
     rights_cleared: bool = False
     confirmed_by: str = Field(default="", description="Who asserted the flags; required when either is set")
+    pre_clearance: PreClearance | None = Field(
+        default=None,
+        description="The standing authorisation the rights-cleared flag rests on, when there was one",
+    )
 
     @model_validator(mode="after")
     def _rules(self) -> Provenance:
@@ -440,6 +701,11 @@ class Provenance(StrictModel):
             )
         if (self.de_identified or self.rights_cleared) and not self.confirmed_by.strip():
             raise ValueError("the de-identified / rights-cleared flags are an assertion by a person; name them")
+        if self.pre_clearance is not None and not self.rights_cleared:
+            raise ValueError(
+                "a pre-clearance is recorded but rights_cleared is false; an authorisation that did not clear "
+                "the rights is not the authorisation this submission relied on"
+            )
         return self
 
 
@@ -519,7 +785,9 @@ class MisbehaviourReport(StrictModel):
 
     spec_version: Literal["1"] = "1"
     state: ReportState = ReportState.candidate
-    id: Optional[str] = Field(default=None, description="IFX-YYYY-NNNN; only an accepted entry has one")
+    id: str | None = Field(
+        default=None, description=f"{naming.ID_EXAMPLE}; only an accepted entry has one"
+    )
     candidate_ref: Optional[str] = Field(default=None, description="The submitter's handle on their own draft")
 
     title: str = Field(min_length=1, max_length=120)
@@ -533,6 +801,10 @@ class MisbehaviourReport(StrictModel):
     twin: Twin
     grading: Grading
     observed: tuple[ObservedResult, ...] = Field(min_length=1)
+    negative_results: tuple[NegativeResult, ...] = Field(
+        default=(),
+        description="Models tested that did NOT show the behaviour. What turns a register into a comparison table",
+    )
     determinism: Determinism
     provenance: Provenance
     signature: BehaviourSignature
@@ -551,14 +823,14 @@ class MisbehaviourReport(StrictModel):
     @classmethod
     def _id_shape(cls, value: Optional[str]) -> Optional[str]:
         if value is not None and ENTRY_ID_PATTERN.match(value) is None:
-            raise ValueError(f"{value!r} is not an IFX-YYYY-NNNN id")
+            raise ValueError(f"{value!r} is not an {naming.ID_EXAMPLE} id")
         return value
 
     @field_validator("candidate_ref")
     @classmethod
     def _ref_shape(cls, value: Optional[str]) -> Optional[str]:
         if value is not None and CANDIDATE_REF_PATTERN.match(value) is None:
-            raise ValueError(f"{value!r} is not an IFXC-<digest12>-<YYYYMMDD> candidate reference")
+            raise ValueError(f"{value!r} is not an {naming.CANDIDATE_REF_EXAMPLE} candidate reference")
         return value
 
     @model_validator(mode="after")
@@ -566,15 +838,15 @@ class MisbehaviourReport(StrictModel):
         if self.state is ReportState.candidate:
             if self.id is not None:
                 raise ValueError(
-                    "a candidate carries no IFX id: permanent ids are issued by curation, never claimed in a "
-                    "submission"
+                    f"a candidate carries no {naming.ENTRY_ID_PREFIX} id: permanent ids are issued by curation, "
+                    "never claimed in a submission"
                 )
             # candidate_ref is left open here on purpose: it is derived from the signature and the
             # creation date, so a freshly built draft cannot carry it yet. The validator requires it
             # of anything actually submitted (`validator._state`).
         else:
             if self.id is None:
-                raise ValueError(f"a {self.state.value} report needs its IFX-YYYY-NNNN id")
+                raise ValueError(f"a {self.state.value} report needs its {naming.ID_EXAMPLE} id")
             match = ENTRY_ID_PATTERN.match(self.id)
             assert match is not None  # the field validator already checked the shape
             if int(match["year"]) != self.created_on.year:

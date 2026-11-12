@@ -13,15 +13,25 @@ does the whole path, and ``mcp`` runs the prepare-only server an editor's agent 
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import click
 import yaml
 
+from ifixai.register import clearance as clearance_module
 from ifixai.register import diff as diff_module
 from ifixai.register import mcp as mcp_module
-from ifixai.register import proposal, scrub, signature, store, submit, validator
-from ifixai.register.approval import ApprovalDeclined, ApprovalRequired, confirm
+from ifixai.register import (
+    prompt,
+    proposal,
+    scrub,
+    signature,
+    store,
+    submit,
+    validator,
+)
+from ifixai.register.approval import ApprovalRequired
 from ifixai.register.draft import unfinished
 from ifixai.register.spec import SPEC_VERSION, BehaviourSignature, MisbehaviourReport
 from ifixai.register.submit import SubmissionError
@@ -40,7 +50,12 @@ def _read(path: str) -> MisbehaviourReport:
 
 @click.group()
 def report() -> None:
-    """File a reproducible report of AI-agent misbehaviour to the public register."""
+    """File a reproducible report of AI-agent misbehaviour to the public register.
+
+    The register is ifixai-ai/agent-misbehavior-registry. Everything here runs locally and needs no
+    provider key; only `submit` touches the network, and only after you have said yes to that
+    submission.
+    """
 
 
 @report.command("validate")
@@ -131,47 +146,126 @@ def review_cmd(path: str, names: tuple[str, ...], plain: bool) -> None:
 @click.argument("path", type=click.Path(exists=True, dir_okay=False))
 @click.option("--name", "names", multiple=True, help="A real name to strike from free text too. Repeatable.")
 @click.option("--as", "granted_by", required=True, help="Who is approving this submission, for the audit trail.")
-@click.option("--checkout", default=".", type=click.Path(file_okay=False), help="A clone of the register repo.")
+@click.option(
+    "--checkout",
+    default=".",
+    type=click.Path(file_okay=False),
+    help="A clone of the register repository, where the branch is made.",
+)
 @click.option("--repo", default=proposal.DEFAULT_REGISTER_REPO, show_default=True, help="Where the PR is opened.")
+@click.option("--show", "show_diff", is_flag=True, help="Print the whole original-vs-redacted diff first.")
 @click.option("--dry-run", is_flag=True, help="Do everything except push and open the pull request.")
 def submit_cmd(
-    path: str, names: tuple[str, ...], granted_by: str, checkout: str, repo: str, dry_run: bool
+    path: str,
+    names: tuple[str, ...],
+    granted_by: str,
+    checkout: str,
+    repo: str,
+    show_diff: bool,
+    dry_run: bool,
 ) -> None:
-    """De-identify, show the diff, ask for your approval, then open the pull request."""
+    """De-identify, show what would be published, ask once, then open the pull request."""
     root = Path(checkout)
-    scrubbed = scrub.scrub(_read(path), tuple(names))
-    register = store.load_register(root)
-    prepared = proposal.prepare(scrubbed.report, register.reports)
-    left = unfinished(scrubbed.report)
+    offer = prompt.build(_read(path), register_root=root, project_root=Path(), extra_names=names)
+    left = unfinished(offer.report)
     if left:
         raise click.ClickException(
-            "this draft is unfinished; these fields still carry the TODO placeholder:\n  "
-            + "\n  ".join(left)
+            "this draft is unfinished; these fields still carry the TODO placeholder:\n  " + "\n  ".join(left)
         )
-    if prepared.blocked_reason is not None:
-        raise click.ClickException(prepared.blocked_reason)
-    diff_module.render(scrubbed)
-    click.echo("")
-    if prepared.duplicates:
-        click.echo("Possible duplicate(s) already in the register:")
-        for duplicate in prepared.duplicates:
-            click.echo(f"  ~ {duplicate}")
-        click.echo("Filing anyway is fine; a curator decides whether this joins an existing entry.")
-        click.echo("")
-    click.echo(f"This would open a pull request against {repo}, adding {prepared.relative_path}.")
-    click.echo("")
+    if offer.proposal.blocked_reason is not None:
+        raise click.ClickException(offer.proposal.blocked_reason)
+    click.echo(f"This would open a pull request against {repo}, adding {offer.proposal.relative_path}.", err=True)
+    approval = prompt.ask(offer, granted_by=granted_by, writer=click.get_text_stream("stderr"), show_diff=show_diff)
+    if approval is None:
+        raise click.exceptions.Exit(0)
     try:
-        approval = confirm(scrubbed.report, granted_by=granted_by)
-    except ApprovalDeclined as error:
-        raise click.ClickException(str(error)) from None
-    try:
-        sent = submit.submit(prepared, approval, checkout=root, repo=repo, dry_run=dry_run)
+        sent = submit.submit(offer.proposal, approval, checkout=root, repo=repo, dry_run=dry_run)
     except (SubmissionError, ApprovalRequired) as error:
         raise click.ClickException(str(error)) from None
     if dry_run:
         click.echo(f"Committed to branch {sent.branch}. Nothing pushed (--dry-run).")
     else:
         click.echo(f"Filed: {sent.pull_request_url or sent.branch}")
+
+
+@report.command("offer")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--name", "names", multiple=True, help="A real name to strike from free text too. Repeatable.")
+@click.option("--register-root", default=".", type=click.Path(file_okay=False), help="A clone of the register.")
+@click.option("--show", "show_diff", is_flag=True, help="Print the whole original-vs-redacted diff first.")
+@click.option("--json", "as_json", is_flag=True, help="What was prepared, for a harness to decide with.")
+def offer_cmd(path: str, names: tuple[str, ...], register_root: str, show_diff: bool, as_json: bool) -> None:
+    """What the prompt at the moment of discovery shows, without asking.
+
+    This is what a run calls when it has surfaced something: everything is prepared and
+    de-identified locally, and nothing is asked and nothing is sent. `ifixai report submit` is the
+    same preparation followed by the one question.
+    """
+    offer = prompt.build(_read(path), register_root=Path(register_root), extra_names=names)
+    if as_json:
+        click.echo(
+            json.dumps(
+                {
+                    "signature": offer.report.signature.digest,
+                    "already_filed": [str(duplicate) for duplicate in offer.proposal.duplicates],
+                    "worth_offering": prompt.should_offer(offer),
+                    "redactions": len(offer.scrubbed.findings),
+                    "validates": offer.proposal.validation.ok,
+                    "rights_pre_cleared": offer.pre_cleared,
+                },
+                indent=2,
+            )
+        )
+        return
+    if show_diff:
+        click.echo(diff_module.plain(offer.scrubbed))
+    click.echo(offer.headline())
+    click.echo("")
+    click.echo(prompt.context_block())
+    click.echo("")
+    if prompt.should_offer(offer):
+        click.echo(f'Nothing asked and nothing sent. To file it: ifixai report submit {path} --as "your name"')
+    else:
+        click.echo("This behaviour is already in the register, so a run would not interrupt to offer it.")
+
+
+@report.group("clearance")
+def clearance_group() -> None:
+    """Your organisation's standing permission to publish findings."""
+
+
+@clearance_group.command("init")
+@click.option("--at", "root", default=".", type=click.Path(file_okay=False), help="The repository to write it in.")
+def clearance_init(root: str) -> None:
+    """Write the clearance template for somebody who can authorise it to fill in."""
+    try:
+        written = clearance_module.write_template(Path(root))
+    except clearance_module.ClearanceError as error:
+        raise click.ClickException(str(error)) from None
+    click.echo(f"Wrote {written}. Have somebody who can actually grant it fill it in, then commit it.")
+    click.echo("With a valid clearance, filing a report is one confirmation instead of two.")
+
+
+@clearance_group.command("show")
+@click.option("--at", "root", default=".", type=click.Path(file_okay=False))
+def clearance_show(root: str) -> None:
+    """Whether a standing clearance is present, and whether it is still valid."""
+    try:
+        found = clearance_module.load(Path(root))
+    except clearance_module.ClearanceError as error:
+        raise click.ClickException(str(error)) from None
+    if found is None:
+        click.echo(
+            f"No {clearance_module.DEFAULT_PATH} here. You will be asked about publication rights per "
+            "submission. `ifixai report clearance init` writes a template."
+        )
+        raise click.exceptions.Exit(1)
+    click.echo(found.summary(date.today()))
+    if found.excludes:
+        click.echo("Excludes:")
+        for item in found.excludes:
+            click.echo(f"  - {item}")
+    raise click.exceptions.Exit(0 if found.valid_on(date.today()) else 1)
 
 
 @report.command("mcp")

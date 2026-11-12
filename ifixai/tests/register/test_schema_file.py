@@ -79,3 +79,40 @@ def test_the_schema_offers_no_llm_judge_grading_source(schema: dict) -> None:
 def test_the_schema_fixes_identity_to_the_login(schema: dict) -> None:
     identity = schema["$defs"]["Identity"]["properties"]["identity_source"]
     assert identity.get("const") == "login" or identity.get("enum") == ["login"]
+
+
+def test_the_docs_page_indexes_the_spec_rather_than_copying_it() -> None:
+    """One source per artefact.
+
+    The specification prose is authored in the register, where a citation lands. This page is about
+    the implementation and indexes the fields without restating the argument for each one — so there
+    is no second copy to keep in step. A future edit that pastes the reference back in fails here.
+    """
+    page = (ROOT / "docs" / "register-spec.md").read_text(encoding="utf-8")
+    assert "agent-misbehavior-registry/blob/main/spec/report-spec-1.md" in page
+    assert "canonical specification" in page
+    # The field-by-field reference lives in the register, not here.
+    assert "## The required fields, and what breaks without each" not in page
+    assert page.count("### ") <= 2, "this page is growing a second copy of the field reference"
+
+
+def test_the_published_schema_can_be_checked_against_a_register() -> None:
+    """`publish_register_spec.py --check` is what a maintainer runs before a release. It must fail
+    loudly on a directory that is not a register, rather than appearing to succeed."""
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "publish_register_spec.py"),
+            "--registry",
+            str(ROOT),
+            "--check",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 2
+    assert "does not look like a clone of the register" in done.stderr

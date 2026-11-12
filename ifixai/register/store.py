@@ -3,10 +3,10 @@
 The register on disk is two directories of YAML, and that is the whole storage layer:
 
 ``register/entries/``
-    Accepted entries. One file per permanent id, named ``IFX-YYYY-NNNN.yaml``.
+    Accepted entries. One file per permanent id, named ``<id>.yaml`` (``AGENT-2026-0001.yaml``).
 
 ``register/candidates/``
-    Submissions. One file per candidate reference, named ``IFXC-<digest12>-<YYYYMMDD>.yaml``.
+    Submissions. One file per candidate reference, named ``CAND-<digest12>-<YYYYMMDD>.yaml``.
 
 Files, in git, in the open repository. No database and no service, because the most reversible
 thing a register can be at the start is a directory somebody can fork: if the project later moves
@@ -24,8 +24,11 @@ import yaml
 
 from ifixai.register.spec import MisbehaviourReport, ReportState
 
-ENTRIES_DIR = Path("register/entries")
-CANDIDATES_DIR = Path("register/candidates")
+#: Layout inside a checkout of the register. Relative, so the same code reads a clone of the public
+#: register and the copy of it vendored into this repository's tests.
+ENTRIES_DIR = Path("entries")
+CANDIDATES_DIR = Path("candidates")
+REGISTRY_FILE = Path("registry.yaml")
 
 
 def dump_yaml(report: MisbehaviourReport) -> str:

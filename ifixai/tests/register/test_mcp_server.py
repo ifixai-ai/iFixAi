@@ -75,8 +75,8 @@ def test_describe_spec_names_every_required_field() -> None:
 
 def test_compute_signature_reports_a_known_behaviour(entry: MisbehaviourReport, tmp_path: Path) -> None:
     root = tmp_path
-    (root / "register" / "entries").mkdir(parents=True)
-    (root / "register" / "entries" / "IFX-2026-0101.yaml").write_text(store.dump_yaml(entry), encoding="utf-8")
+    (root / "entries").mkdir(parents=True)
+    (root / "entries" / "AGENT-2026-0001.yaml").write_text(store.dump_yaml(entry), encoding="utf-8")
     text = _text(
         _call(
             "register_compute_signature",
@@ -89,7 +89,7 @@ def test_compute_signature_reports_a_known_behaviour(entry: MisbehaviourReport, 
         )
     )
     assert entry.signature.digest in text
-    assert "already filed as" in text and "IFX-2026-0101" in text
+    assert "already filed as" in text and "AGENT-2026-0001" in text
 
 
 def test_compute_signature_reports_an_unknown_behaviour(tmp_path: Path) -> None:

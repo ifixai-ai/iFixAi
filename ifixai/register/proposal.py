@@ -18,13 +18,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Optional
 
-from ifixai.register import store, validator
+from ifixai.register import naming, store, validator
 from ifixai.register.spec import MisbehaviourReport
 
-#: Where submissions go by default. A maintainer can point this elsewhere; see the PR description
-#: for why the register starts in the same repository as the tool that files into it.
-DEFAULT_REGISTER_REPO = "ifixai-ai/iFixAi"
-BRANCH_PREFIX = "register/candidate"
+#: Where submissions go. One constant, in `naming`, because the register's location and its
+#: identifier prefix are the two things most likely to be revised once it has readers.
+DEFAULT_REGISTER_REPO = naming.REGISTRY_REPO
+BRANCH_PREFIX = "candidate"
 
 
 @dataclass(frozen=True)
@@ -82,9 +82,29 @@ def _body(
     duplicates: Sequence[validator.Duplicate],
 ) -> str:
     observed = "\n".join(
-        f"| {row.model} {row.model_version} | {row.harness} {row.harness_version} | "
-        f"{row.occurrences}/{row.trials} | {row.observed_on} |"
+        f"| `{row.model.snapshot}` | {row.model.route.value}"
+        + (f" via {row.model.gateway}" if row.model.gateway else "")
+        + f" | {row.scaffold.harness} {row.scaffold.harness_version}"
+        + (
+            " + " + ", ".join(guard.name for guard in row.scaffold.guardrails)
+            if row.scaffold.guardrails
+            else " (no guardrails)"
+        )
+        + f" | {row.occurrences}/{row.trials} | {row.twin.over_refusals}/{row.twin.trials} |"
+        f" {row.observed_on} |"
         for row in report.observed
+    )
+    gradient_rows = []
+    for row in report.observed:
+        for rung in row.gradient:
+            gradient_rows.append(
+                f"| `{row.model.snapshot}` | {rung.variant} | {rung.occurrences}/{rung.trials} | "
+                + (f"{rung.twin.over_refusals}/{rung.twin.trials} |" if rung.twin else "not measured |")
+            )
+    negatives = "\n".join(
+        f"| `{row.model.snapshot}` | {row.scaffold.harness} {row.scaffold.harness_version} | "
+        f"0/{row.trials} | {row.observed_on} |"
+        for row in report.negative_results
     )
     runtimes = "\n".join(
         f"| {repro.runtime} {repro.version} | `{repro.task_id}` | {repro.status.value} | "
@@ -98,14 +118,14 @@ def _body(
         "",
         f"**Signature** `{report.signature.family}` / `{report.signature.failure}` / "
         f"`{report.signature.trigger}` → `{report.signature.digest}`",
-        "**State** candidate (no `IFX` id is claimed; curation issues those)",
+        f"**State** candidate (no `{naming.ENTRY_ID_PREFIX}` id is claimed; curation issues those)",
         f"**Provenance** {report.provenance.source_kind.value}, de-identified: "
         f"{report.provenance.de_identified}, rights cleared: {report.provenance.rights_cleared}",
         "",
         "### Observed",
         "",
-        "| model | harness | occurrences / trials | date |",
-        "| --- | --- | --- | --- |",
+        "| model snapshot | route | scaffold | violations | twin over-refusals | date |",
+        "| --- | --- | --- | --- | --- | --- |",
         observed,
         "",
         "### Reproduction implementations",
@@ -114,10 +134,35 @@ def _body(
         "| --- | --- | --- | --- |",
         runtimes,
         "",
+        *(
+            [
+                "### Gradient",
+                "",
+                "| model snapshot | variant | violations | twin over-refusals |",
+                "| --- | --- | --- | --- |",
+                *gradient_rows,
+                "",
+            ]
+            if gradient_rows
+            else []
+        ),
+        *(
+            [
+                "### Tested and did NOT show it",
+                "",
+                "| model snapshot | scaffold | result | date |",
+                "| --- | --- | --- | --- |",
+                negatives,
+                "",
+            ]
+            if negatives
+            else []
+        ),
         "### Twin",
         "",
         f"`{report.twin.login_id}` sends the identical request about the same record and is expected to have the "
-        "work actually done. Without that half, a deployment that refuses everything would score perfectly.",
+        "work actually done. Without that half, a deployment that refuses everything would score perfectly. The "
+        "twin's measured over-refusal rate is in the table above, beside every violation rate.",
         "",
         "### Validation",
         "",
@@ -138,7 +183,9 @@ def _body(
         "---",
         "",
         "Filed with `ifixai report submit`. De-identification ran locally before anything left the submitter's "
-        "machine, and the submitter confirmed the redacted content and both provenance flags by hand.",
+        "machine, and the submitter saw the redaction summary and confirmed this submission by hand. The "
+        "rights half came from a standing clearance where the submission records one, and was asked outright "
+        "where it does not.",
     ]
     return "\n".join(lines)
 
