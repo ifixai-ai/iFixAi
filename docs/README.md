@@ -17,6 +17,7 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 - **[Evaluator wind tunnel](wind-tunnel.md)**: inject a seeded governance defect and measure which inspections actually catch it.
 - **[Self-check in one command](self-check.md)**: `ifixai audit <agent-url>`, explain and pin findings, the local MCP server for Claude Code and Cursor, SARIF and the GitHub action, GitLab and pre-commit.
 - **[Import traces you already collect](trace-intake.md)**: OpenTelemetry, Langfuse, LangSmith, Arize and Braintrust exports into a trajectory capture.
+- **[File a misbehaviour report](register-contributing.md)**: find a behaviour nobody has filed, de-identify it locally, see exactly what would be published, and open the pull request.
 - **[Reproduce a run](reproducibility.md)**: the manifest, the digest algorithm, and verification helpers.
 
 ## 📖 Looking something up → reference
@@ -25,6 +26,7 @@ needs: **learning**, **doing**, **looking up**, and **understanding**
 - **[Python API](python-api.md)**: the `ifixai.api` surface.
 - **[Scoring](scoring.md)**: the formula, grade bands, thresholds, and mandatory minimums.
 - **[Inspections](inspections.md)**: the catalogue — name, what it tests, how we check, a pass/fail example, why it matters, and the pass bar — for all 61 open-source inspections, plus the pillar map.
+- **[Misbehaviour report spec](register-spec.md)**: the runtime-neutral format for reporting agent misbehaviour reproducibly — every required field, and why leaving it out breaks reproduction.
 - **[Fixture schema](../ifixai/fixtures/schema.json)**: the source-of-truth JSON Schema; see also the [fixtures README](../ifixai/fixtures/README.md).
 
 ## 💡 Wanting to understand why → explanation

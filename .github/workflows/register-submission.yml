@@ -1,0 +1,90 @@
+name: Register spec and examples
+
+# Submissions to the public register go to ifixai-ai/agent-misbehavior-registry, which has its own
+# CI (including the append-only enforcement on its ledger). This workflow is the tooling side: it
+# keeps the schema in step with the model it is generated from, and checks that the worked examples
+# in ifixai/register/examples/ still pass the validator a submitter runs.
+#
+# It needs no secret and no network beyond the checkout: the report format is runtime-neutral, so a
+# report is checkable on a laptop with no API key, and so is checkable here.
+on:
+  pull_request:
+    paths:
+      - "ifixai/register/examples/**"
+      - "ifixai/register/**"
+      - "ifixai/schemas/misbehaviour-report-*.schema.json"
+      - "ifixai/cli/report.py"
+      - "scripts/check_register_submission.py"
+      - "scripts/generate_register_schema.py"
+      - ".github/workflows/register-submission.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Two commits so the diff against the base is available without a full history.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Schema matches the model
+        # The JSON Schema is generated from ifixai/register/spec.py. Two statements of one format
+        # drift, and the one submissions are checked against must be the one the library enforces.
+        run: python scripts/generate_register_schema.py --check
+
+      - name: Example reports that changed
+        id: changed
+        run: |
+          set -euo pipefail
+          base="origin/${{ github.base_ref }}"
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}" || true
+          files="$(git diff --name-only --diff-filter=ACMR "$base"...HEAD -- 'ifixai/register/examples/**/*.yaml' || true)"
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$files" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          if [ -z "$files" ]; then
+            echo "No register files changed."
+          else
+            echo "Checking:"; echo "$files"
+          fi
+
+      - name: Check the changed examples
+        # Schema conformance, every cross-field rule, calibration present, de-identified and
+        # rights-cleared for an audit-derived report, no leftover placeholders, correct placement,
+        # and duplicate behaviour signatures. A failure writes a readable reason naming the field,
+        # into the job summary as well as the log. This is the same check a submitter gets, so the
+        # examples cannot drift out of being valid submissions.
+        run: |
+          set -euo pipefail
+          files="${{ steps.changed.outputs.files }}"
+          if [ -z "$files" ]; then
+            echo "Nothing to check."
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          python scripts/check_register_submission.py --register-root ifixai/register/examples $files
+
+      - name: Every example still validates
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(ifixai/register/examples/entries/*.yaml ifixai/register/examples/candidates/*.yaml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No examples."
+            exit 0
+          fi
+          ifixai report validate --register-root ifixai/register/examples "${files[@]}"
+
+      - name: Register tests
+        run: pytest ifixai/tests/register -q
