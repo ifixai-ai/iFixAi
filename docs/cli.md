@@ -22,12 +22,24 @@ ifixai windtunnel sweep      # measure which inspections catch each seeded defec
 ifixai windtunnel sweep --output base.json      # seal the measurement
 ifixai windtunnel sweep --baseline base.json    # exit 1 if a detection was lost
 ifixai run -p openai -k "$OPENAI_API_KEY" -c DECEPTION   # example: one category
+ifixai report signature --family F --failure X --trigger T   # is this behaviour already filed?
+ifixai report validate FILE  # check a misbehaviour report against the spec
+ifixai report review FILE    # de-identify locally and show what would be published; sends nothing
+ifixai report submit FILE --as "your name"   # review, approve, then open the pull request
+ifixai report mcp            # prepare-only MCP server for an editor's agent
 ```
 
-`trajectory`, `policy-lab` and `windtunnel` are offline command groups that need
-no provider key; see [trajectory assurance](trajectory-assurance.md),
-[Business Policy Lab](business-policy-lab.md) and the
-[evaluator wind tunnel](wind-tunnel.md).
+`trajectory`, `policy-lab`, `windtunnel` and `report` are offline command groups
+that need no provider key; see [trajectory assurance](trajectory-assurance.md),
+[Business Policy Lab](business-policy-lab.md), the
+[evaluator wind tunnel](wind-tunnel.md) and
+[filing a misbehaviour report](register-contributing.md).
+
+`ifixai report submit` always de-identifies locally, shows you the original beside
+the redaction, and asks you to confirm the de-identified and rights-cleared flags
+and type a confirmation word before anything leaves your machine. There is no flag
+that skips those steps, and the MCP server exposes no tool that can send. The
+format itself is documented in [the report spec](register-spec.md).
 
 ## `ifixai run` flags
 

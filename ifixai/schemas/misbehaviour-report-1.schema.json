@@ -1,0 +1,1001 @@
+{
+  "$defs": {
+    "BehaviourSignature": {
+      "additionalProperties": false,
+      "description": "What makes two reports the same behaviour.\n\nThe triple matches the private catalogue's clustering key exactly, so a report filed here and a\ncluster found there land on the same entry. ``digest`` is derived, never authored: the\nvalidator recomputes it and rejects a mismatch, so a submitter cannot dodge de-duplication by\nediting it.",
+      "properties": {
+        "digest": {
+          "default": "",
+          "description": "Derived; see ifixai.register.signature",
+          "title": "Digest",
+          "type": "string"
+        },
+        "failure": {
+          "description": "The failed check, e.g. authority.violation",
+          "minLength": 1,
+          "title": "Failure",
+          "type": "string"
+        },
+        "family": {
+          "description": "The task family, e.g. authority_boundary",
+          "minLength": 1,
+          "title": "Family",
+          "type": "string"
+        },
+        "trigger": {
+          "description": "The condition present in every failing trial",
+          "minLength": 1,
+          "title": "Trigger",
+          "type": "string"
+        }
+      },
+      "required": [
+        "family",
+        "failure",
+        "trigger"
+      ],
+      "title": "BehaviourSignature",
+      "type": "object"
+    },
+    "Calibration": {
+      "additionalProperties": false,
+      "description": "Proof that the task can be passed and can be failed.\n\nWhy required, and why it is non-negotiable: a reproduction that has never been shown to reward\na correct run is an assertion, not a finding. The reference solution scoring 1 rules out a task\nthat is impossible or mis-specified; doing nothing scoring 0 rules out a task that any agent\npasses by inaction, which is the single most common way a misbehaviour \"finding\" turns out to\nbe a broken grader.",
+      "properties": {
+        "calibrated_on": {
+          "format": "date",
+          "title": "Calibrated On",
+          "type": "string"
+        },
+        "null_action": {
+          "$ref": "#/$defs/CalibrationRun"
+        },
+        "reference_solution": {
+          "$ref": "#/$defs/CalibrationRun"
+        }
+      },
+      "required": [
+        "reference_solution",
+        "null_action",
+        "calibrated_on"
+      ],
+      "title": "Calibration",
+      "type": "object"
+    },
+    "CalibrationRun": {
+      "additionalProperties": false,
+      "description": "One calibration run and the score it earned.",
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Where the run can be seen: bundle hash, log path, job name",
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "description",
+        "score",
+        "evidence"
+      ],
+      "title": "CalibrationRun",
+      "type": "object"
+    },
+    "Determinism": {
+      "additionalProperties": false,
+      "description": "What was pinned and what was allowed to move.\n\nWhy required: without the seed, the temperature and the step cap, a different occurrence count\nis not evidence of a different model \u2014 it may be evidence of a different setting. Stating what\nis *allowed* to vary is the part people omit, and it is the part that tells a re-runner whether\ntheir mismatch is a failure to reproduce or an expected wobble.",
+      "properties": {
+        "allowed_variation": {
+          "default": [],
+          "description": "What may differ between runs without being a failure to reproduce",
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Variation",
+          "type": "array"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "step_cap": {
+          "exclusiveMinimum": 0,
+          "title": "Step Cap",
+          "type": "integer"
+        },
+        "temperature": {
+          "minimum": 0.0,
+          "title": "Temperature",
+          "type": "number"
+        }
+      },
+      "required": [
+        "temperature",
+        "step_cap"
+      ],
+      "title": "Determinism",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "description": "An actor or object in the world, with concrete field values.\n\nWhy required: an agent's behaviour is a function of what it can see. \"a customer account\" is\nnot reproducible; ``{entity_id: ACC-0001, type: account, fields: {status: delinquent}}`` is.",
+      "properties": {
+        "entity_id": {
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": true,
+          "title": "Fields",
+          "type": "object"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "type"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "EscalationChannel": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_id": {
+          "minLength": 1,
+          "title": "Channel Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel_id",
+        "description"
+      ],
+      "title": "EscalationChannel",
+      "type": "object"
+    },
+    "Expected": {
+      "additionalProperties": false,
+      "description": "What correct behaviour leaves behind.\n\nWhy required, and why it is a condition on state: an agent that says \"I have escalated this to\nyour supervisor\" and does nothing must fail, and an agent that does the right thing while\nphrasing it oddly must pass. There is no field anywhere in this format for the wording of a\nreply, and ``reply_sent`` asserts only that one was sent. That is not an oversight: grading on\nwording is how a register fills up with findings that do not survive a model upgrade.",
+      "properties": {
+        "forbidden_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WorldCondition"
+          },
+          "title": "Forbidden Effects",
+          "type": "array"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "world_conditions": {
+          "items": {
+            "$ref": "#/$defs/WorldCondition"
+          },
+          "minItems": 1,
+          "title": "World Conditions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "world_conditions"
+      ],
+      "title": "Expected",
+      "type": "object"
+    },
+    "Grading": {
+      "additionalProperties": false,
+      "description": "How a trial becomes a 0 or a 1.\n\nWhy required: two people grading the same transcript by eye get two numbers. The combination is\nconjunctive and binary so the score has one meaning \u2014 every named check passed \u2014 and a partial\ncredit scheme cannot quietly turn a failure into a pass.",
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/GradingCheck"
+          },
+          "minItems": 1,
+          "title": "Checks",
+          "type": "array"
+        },
+        "combination": {
+          "const": "all_checks_and",
+          "default": "all_checks_and",
+          "title": "Combination",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checks"
+      ],
+      "title": "Grading",
+      "type": "object"
+    },
+    "GradingCheck": {
+      "additionalProperties": false,
+      "description": "One named, binary check.\n\n``source`` is restricted to the two things that can be recomputed by anyone holding the run's\nartefacts. There is no ``llm_judge`` member, and adding one would be a different spec: a check\nwhose value depends on a model's opinion is not reproducible, and a register built on such\nchecks cannot tell a real regression from a judge drift.",
+      "properties": {
+        "conditions": {
+          "description": "Names of `expected` conditions this check reads",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Conditions",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "world_state",
+            "evidence_log"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "source",
+        "conditions"
+      ],
+      "title": "GradingCheck",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "description": "Roles, logins and escalation paths.\n\nWhy required: \"the agent used a tool it should not have\" is meaningless without a statement of\nwhich role holds which tool. ``identity_source`` is fixed to ``login`` and cannot be set to\nanything else: a report in which identity could be claimed in conversation would be a report\nabout a different, much less interesting failure, and would make the twin unconstructible.",
+      "properties": {
+        "escalation_channels": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EscalationChannel"
+          },
+          "title": "Escalation Channels",
+          "type": "array"
+        },
+        "identity_source": {
+          "const": "login",
+          "default": "login",
+          "title": "Identity Source",
+          "type": "string"
+        },
+        "logins": {
+          "items": {
+            "$ref": "#/$defs/Login"
+          },
+          "minItems": 1,
+          "title": "Logins",
+          "type": "array"
+        },
+        "roles": {
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "minItems": 1,
+          "title": "Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "roles",
+        "logins"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "Login": {
+      "additionalProperties": false,
+      "description": "An authenticated identity. Who is acting comes from here and from nowhere else.",
+      "properties": {
+        "display_name": {
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "login_id": {
+          "minLength": 1,
+          "title": "Login Id",
+          "type": "string"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "login_id",
+        "display_name",
+        "roles"
+      ],
+      "title": "Login",
+      "type": "object"
+    },
+    "ObservedResult": {
+      "additionalProperties": false,
+      "description": "One measured rate: counts, never a bare percentage.\n\nWhy counts: \"42% of the time\" cannot be given a confidence interval, cannot be pooled with\nanother run, and hides whether the denominator was 12 trials or 1,200. Occurrences out of\ntrials can be recomputed and cannot be rounded into a better number.",
+      "properties": {
+        "harness": {
+          "description": "The agent scaffold the model ran inside",
+          "minLength": 1,
+          "title": "Harness",
+          "type": "string"
+        },
+        "harness_version": {
+          "minLength": 1,
+          "title": "Harness Version",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "model_version": {
+          "description": "The exact identifier the runs called",
+          "minLength": 1,
+          "title": "Model Version",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "observed_on": {
+          "format": "date",
+          "title": "Observed On",
+          "type": "string"
+        },
+        "occurrences": {
+          "minimum": 0,
+          "title": "Occurrences",
+          "type": "integer"
+        },
+        "trials": {
+          "exclusiveMinimum": 0,
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model",
+        "model_version",
+        "harness",
+        "harness_version",
+        "occurrences",
+        "trials",
+        "observed_on"
+      ],
+      "title": "ObservedResult",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Where the report came from, and whether it may be published.\n\nWhy required: the register is public and permanent. A report derived from an audit of somebody\nelse's system carries two risks a synthetic one does not \u2014 somebody's data and somebody's\ncontract \u2014 so an ``audit_derived`` report is rejected unless both flags are set. The flags are\nassertions by a named human, not something a tool may infer: de-identification can be checked\nmechanically, clearance cannot.",
+      "properties": {
+        "confirmed_by": {
+          "default": "",
+          "description": "Who asserted the flags; required when either is set",
+          "title": "Confirmed By",
+          "type": "string"
+        },
+        "de_identified": {
+          "default": false,
+          "title": "De Identified",
+          "type": "boolean"
+        },
+        "reference": {
+          "description": "The sweep, audit, incident or paper this came from",
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "rights_cleared": {
+          "default": false,
+          "title": "Rights Cleared",
+          "type": "boolean"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/SourceKind"
+        }
+      },
+      "required": [
+        "source_kind",
+        "reference"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Record": {
+      "additionalProperties": false,
+      "description": "A data record the agent may read or act on.\n\n``carries_untrusted_text`` marks a record whose free text came from outside the trust boundary\n(a customer note, a scraped page, a ticket body). A planted instruction lives in such a field,\nso a report about instruction-following from data must say which record carries it.",
+      "properties": {
+        "carries_untrusted_text": {
+          "default": false,
+          "title": "Carries Untrusted Text",
+          "type": "boolean"
+        },
+        "fields": {
+          "additionalProperties": true,
+          "title": "Fields",
+          "type": "object"
+        },
+        "record_id": {
+          "minLength": 1,
+          "title": "Record Id",
+          "type": "string"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "record_id",
+        "type"
+      ],
+      "title": "Record",
+      "type": "object"
+    },
+    "ReportState": {
+      "description": "Anything submitted is a candidate. Only curation produces an accepted entry, and only an\naccepted entry consumes a permanent id. Volume accumulates in one bucket; quality is asserted\nin the other.",
+      "enum": [
+        "candidate",
+        "accepted",
+        "rejected"
+      ],
+      "title": "ReportState",
+      "type": "string"
+    },
+    "ReproductionImplementation": {
+      "additionalProperties": false,
+      "description": "One runtime that reproduces the report.\n\nPlural by design. The report is the definition; this is a binding of the definition to a\nruntime that happened to be available. Harbor is the reference implementation because it is the\none iFixAi maintains and calibrates, not because the register depends on it: a second runtime\ncan be appended to an accepted entry without reissuing its id, and an entry whose only\nimplementation has rotted still describes a real, re-implementable behaviour.",
+      "properties": {
+        "calibration": {
+          "$ref": "#/$defs/Calibration"
+        },
+        "how_to_run": {
+          "default": "",
+          "title": "How To Run",
+          "type": "string"
+        },
+        "image_digest": {
+          "default": "",
+          "description": "sha256 of the environment image, when the runtime has one",
+          "title": "Image Digest",
+          "type": "string"
+        },
+        "last_verified_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Verified On"
+        },
+        "reference_implementation": {
+          "default": false,
+          "title": "Reference Implementation",
+          "type": "boolean"
+        },
+        "rot_reason": {
+          "default": "",
+          "title": "Rot Reason",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "e.g. harbor, inspect, a project's own harness",
+          "minLength": 1,
+          "title": "Runtime",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ReproductionStatus",
+          "default": "calibrates"
+        },
+        "task_id": {
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runtime",
+        "version",
+        "task_id",
+        "calibration"
+      ],
+      "title": "ReproductionImplementation",
+      "type": "object"
+    },
+    "ReproductionStatus": {
+      "description": "Whether this implementation still does what the report says it does.",
+      "enum": [
+        "calibrates",
+        "rot",
+        "unverified"
+      ],
+      "title": "ReproductionStatus",
+      "type": "string"
+    },
+    "Request": {
+      "additionalProperties": false,
+      "description": "What was asked, verbatim, and by which login.\n\nWhy required: paraphrase is not reproduction. A summarised request loses the exact wording that\ncarried the pressure, the claim of authority or the planted instruction, and two readers will\nrebuild two different tasks from it.",
+      "properties": {
+        "channel": {
+          "default": "chat",
+          "minLength": 1,
+          "title": "Channel",
+          "type": "string"
+        },
+        "sent_by": {
+          "description": "A login_id from `identity.logins`",
+          "minLength": 1,
+          "title": "Sent By",
+          "type": "string"
+        },
+        "text": {
+          "description": "Verbatim, exactly as sent",
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "sent_by"
+      ],
+      "title": "Request",
+      "type": "object"
+    },
+    "Role": {
+      "additionalProperties": false,
+      "description": "A role, the tools it holds, and where it may send work it may not do itself.",
+      "properties": {
+        "holds_tools": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Holds Tools",
+          "type": "array"
+        },
+        "may_escalate_to": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "May Escalate To",
+          "type": "array"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "Role",
+      "type": "object"
+    },
+    "SourceKind": {
+      "enum": [
+        "synthetic",
+        "audit_derived",
+        "public_incident",
+        "researcher"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    },
+    "Tool": {
+      "additionalProperties": false,
+      "description": "A tool the world offers.\n\nWhy required: ``signature`` makes a call checkable (did it pass the requested record, or a\ndifferent one?). ``risk`` is what a severity judgement rests on. ``mutates_state`` decides\nwhether the expected condition can be a state condition at all: for a read-only tool, the\nevidence log is the only place the call is visible.",
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "mutates_state": {
+          "title": "Mutates State",
+          "type": "boolean"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "risk": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Risk",
+          "type": "string"
+        },
+        "signature": {
+          "description": "e.g. refund(record_id: str, amount: int) -> Receipt",
+          "minLength": 1,
+          "title": "Signature",
+          "type": "string"
+        },
+        "tool_id": {
+          "minLength": 1,
+          "title": "Tool Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_id",
+        "name",
+        "signature",
+        "risk",
+        "mutates_state"
+      ],
+      "title": "Tool",
+      "type": "object"
+    },
+    "Twin": {
+      "additionalProperties": false,
+      "description": "The permitted counterpart: the same request and the same record, from a role that holds the\ntool.\n\nWhy required: without it, a deployment that refuses everything scores perfectly. The twin is\nwhat turns \"it did something it should not have\" into \"it discriminates correctly\", and it is\nthe only control that distinguishes a safety property from a capability loss. The validator\nenforces that the request text is identical and that the twin's login really does hold the\ntool the subject's login does not.",
+      "properties": {
+        "expected": {
+          "$ref": "#/$defs/Expected"
+        },
+        "login_id": {
+          "description": "A login whose roles DO hold the tool",
+          "minLength": 1,
+          "title": "Login Id",
+          "type": "string"
+        },
+        "record_id": {
+          "description": "Must equal the record the subject request named",
+          "minLength": 1,
+          "title": "Record Id",
+          "type": "string"
+        },
+        "request_text": {
+          "description": "Must equal `request.text`, word for word",
+          "minLength": 1,
+          "title": "Request Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "login_id",
+        "request_text",
+        "record_id",
+        "expected"
+      ],
+      "title": "Twin",
+      "type": "object"
+    },
+    "WorldCondition": {
+      "additionalProperties": false,
+      "description": "One condition on the world after the run, or on the evidence log of the run.\n\n``subject`` names what is being asserted about: a record id, a tool id, or a channel id.\n``assertion`` is a small declarative statement, never a sentence to be judged. The permitted\npredicates are deliberately few; a report that needs a new one is a request to version the\nspec, not a licence to write prose here.",
+      "properties": {
+        "description": {
+          "description": "What a human should understand this to mean",
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "field": {
+          "default": "",
+          "title": "Field",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "predicate": {
+          "enum": [
+            "record_field_equals",
+            "record_field_unchanged",
+            "record_exists",
+            "tool_called_on_record",
+            "tool_not_called",
+            "escalated_to_channel",
+            "reply_sent"
+          ],
+          "title": "Predicate",
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "predicate",
+        "subject"
+      ],
+      "title": "WorldCondition",
+      "type": "object"
+    },
+    "WorldState": {
+      "additionalProperties": false,
+      "description": "The starting world, as ids and field values rather than prose.\n\nWhy required: without concrete state there is nothing for the expected condition to be a\ncondition *on*, and no way to tell a run that acted on the wrong record from one that acted on\nthe right one.",
+      "properties": {
+        "description": {
+          "description": "One line of orientation for a human reader",
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Entity"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/Record"
+          },
+          "minItems": 1,
+          "title": "Records",
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "records"
+      ],
+      "title": "WorldState",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/ifixai-ai/iFixAi/blob/main/ifixai/schemas/misbehaviour-report-1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A reproducible report of AI-agent misbehaviour. Runtime-neutral: the behaviour is described in the report's own terms and bound to one or more runtimes under `reproductions`. See docs/register-spec.md for why each required field is required.",
+  "properties": {
+    "candidate_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The submitter's handle on their own draft",
+      "title": "Candidate Ref"
+    },
+    "caveats": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Caveats",
+      "type": "array"
+    },
+    "created_on": {
+      "format": "date",
+      "title": "Created On",
+      "type": "string"
+    },
+    "detected_by": {
+      "default": [],
+      "description": "iFixAi inspection ids, when the filer used them",
+      "items": {
+        "type": "string"
+      },
+      "title": "Detected By",
+      "type": "array"
+    },
+    "determinism": {
+      "$ref": "#/$defs/Determinism"
+    },
+    "expected": {
+      "$ref": "#/$defs/Expected"
+    },
+    "grading": {
+      "$ref": "#/$defs/Grading"
+    },
+    "id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "IFX-YYYY-NNNN; only an accepted entry has one",
+      "title": "Id"
+    },
+    "identity": {
+      "$ref": "#/$defs/Identity"
+    },
+    "observed": {
+      "items": {
+        "$ref": "#/$defs/ObservedResult"
+      },
+      "minItems": 1,
+      "title": "Observed",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "references": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "rejection_reason": {
+      "default": "",
+      "title": "Rejection Reason",
+      "type": "string"
+    },
+    "reproductions": {
+      "items": {
+        "$ref": "#/$defs/ReproductionImplementation"
+      },
+      "minItems": 1,
+      "title": "Reproductions",
+      "type": "array"
+    },
+    "request": {
+      "$ref": "#/$defs/Request"
+    },
+    "severity": {
+      "default": "medium",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "severity_rationale": {
+      "default": "",
+      "title": "Severity Rationale",
+      "type": "string"
+    },
+    "signature": {
+      "$ref": "#/$defs/BehaviourSignature"
+    },
+    "spec_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Spec Version",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/ReportState",
+      "default": "candidate"
+    },
+    "summary": {
+      "description": "Plain-language description a non-specialist can follow",
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "tools": {
+      "items": {
+        "$ref": "#/$defs/Tool"
+      },
+      "minItems": 1,
+      "title": "Tools",
+      "type": "array"
+    },
+    "twin": {
+      "$ref": "#/$defs/Twin"
+    },
+    "updated_on": {
+      "format": "date",
+      "title": "Updated On",
+      "type": "string"
+    },
+    "world": {
+      "$ref": "#/$defs/WorldState"
+    }
+  },
+  "required": [
+    "title",
+    "summary",
+    "world",
+    "identity",
+    "tools",
+    "request",
+    "expected",
+    "twin",
+    "grading",
+    "observed",
+    "determinism",
+    "provenance",
+    "signature",
+    "reproductions",
+    "created_on",
+    "updated_on"
+  ],
+  "title": "iFixAi misbehaviour report, spec version 1",
+  "type": "object"
+}

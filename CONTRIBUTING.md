@@ -60,6 +60,19 @@ Run `ifixai validate` (no args) after authoring or editing an inspection. The la
 - `SPEC` invariants (id, category, threshold, weight, strategic flags) match the registry;
 - the runner registers cleanly with `harness/registry.py`.
 
+## Filing a misbehaviour report
+
+Reports of reproducible AI-agent misbehaviour go to the public register in
+`register/`, as pull requests. They are a different kind of contribution from code
+and have their own guide: see [docs/register-contributing.md](docs/register-contributing.md)
+for the path, and [docs/register-spec.md](docs/register-spec.md) for the format and
+why each required field is required.
+
+The short version is `ifixai report submit <file> --as "your name"`, which
+de-identifies locally, shows you exactly what would be published, and asks for your
+approval before opening the pull request. Submissions are checked by
+`.github/workflows/register-submission.yml`.
+
 ## Authoring a fixture
 
 Fixtures are YAML files under `ifixai/fixtures/`. Validate against `ifixai/fixtures/schema.json`, or run `ifixai validate <fixture>`.
