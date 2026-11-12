@@ -92,7 +92,7 @@ required field is required.
 The short version is `ifixai report submit <file> --as "your name"`, which
 de-identifies locally, shows you exactly what would be published, and asks you once
 before opening the pull request. The worked examples are in
-[examples/register/](examples/register/).
+[ifixai/register/examples/](ifixai/register/examples/).
 
 ## Authoring a fixture
 

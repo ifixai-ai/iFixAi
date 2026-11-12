@@ -3,14 +3,14 @@ name: Register spec and examples
 # Submissions to the public register go to ifixai-ai/agent-misbehavior-registry, which has its own
 # CI (including the append-only enforcement on its ledger). This workflow is the tooling side: it
 # keeps the schema in step with the model it is generated from, and checks that the worked examples
-# in examples/register/ still pass the validator a submitter runs.
+# in ifixai/register/examples/ still pass the validator a submitter runs.
 #
 # It needs no secret and no network beyond the checkout: the report format is runtime-neutral, so a
 # report is checkable on a laptop with no API key, and so is checkable here.
 on:
   pull_request:
     paths:
-      - "examples/register/**"
+      - "ifixai/register/examples/**"
       - "ifixai/register/**"
       - "ifixai/schemas/misbehaviour-report-*.schema.json"
       - "ifixai/cli/report.py"
@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
           base="origin/${{ github.base_ref }}"
           git fetch --no-tags --depth=1 origin "${{ github.base_ref }}" || true
-          files="$(git diff --name-only --diff-filter=ACMR "$base"...HEAD -- 'examples/register/**/*.yaml' || true)"
+          files="$(git diff --name-only --diff-filter=ACMR "$base"...HEAD -- 'ifixai/register/examples/**/*.yaml' || true)"
           echo "files<<EOF" >> "$GITHUB_OUTPUT"
           echo "$files" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -73,18 +73,18 @@ jobs:
             exit 0
           fi
           # shellcheck disable=SC2086
-          python scripts/check_register_submission.py --register-root examples/register $files
+          python scripts/check_register_submission.py --register-root ifixai/register/examples $files
 
       - name: Every example still validates
         run: |
           set -euo pipefail
           shopt -s nullglob
-          files=(examples/register/entries/*.yaml examples/register/candidates/*.yaml)
+          files=(ifixai/register/examples/entries/*.yaml ifixai/register/examples/candidates/*.yaml)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No examples."
             exit 0
           fi
-          ifixai report validate --register-root examples/register "${files[@]}"
+          ifixai report validate --register-root ifixai/register/examples "${files[@]}"
 
       - name: Register tests
         run: pytest ifixai/tests/register -q

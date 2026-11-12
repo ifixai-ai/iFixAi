@@ -236,7 +236,7 @@ def test_offer_prints_the_decision_and_asks_nothing(entry: MisbehaviourReport, t
     path = tmp_path / "report.yaml"
     path.write_text(store.dump_yaml(_leaky(entry)), encoding="utf-8")
     result = CliRunner().invoke(
-        report_cli, ["offer", str(path), "--register-root", "examples/register"]
+        report_cli, ["offer", str(path), "--register-root", "ifixai/register/examples"]
     )
     assert result.exit_code == 0, result.output
     assert "Agent failures like this aren't published anywhere today." in result.output
@@ -250,7 +250,7 @@ def test_offer_json_is_what_a_harness_decides_with(entry: MisbehaviourReport, tm
     path = tmp_path / "report.yaml"
     path.write_text(store.dump_yaml(_as_fresh_finding(entry)), encoding="utf-8")
     result = CliRunner().invoke(
-        report_cli, ["offer", str(path), "--json", "--register-root", "examples/register"]
+        report_cli, ["offer", str(path), "--json", "--register-root", "ifixai/register/examples"]
     )
     payload = json.loads(result.output)
     assert payload["signature"] == entry.signature.digest

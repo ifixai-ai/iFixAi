@@ -164,7 +164,7 @@ def main(argv: Sequence[str]) -> int:
     """``check_register_submission.py [--register-root DIR] FILE...``
 
     ``--register-root`` is where ``entries/`` and ``candidates/`` live: the root of a clone of the
-    public register, or ``examples/register`` in this repository, where the worked examples double
+    public register, or ``ifixai/register/examples`` in this repository, where the worked examples double
     as the fixture. Defaulting it to the working directory means the script needs no arguments at
     all inside the register itself.
     """

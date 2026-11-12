@@ -16,8 +16,10 @@ from ifixai.register.spec import MisbehaviourReport
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 #: The worked examples, which double as the register fixture: a clone of the public register has the
-#: same two directories at its own root (`ifixai.register.store`).
-REGISTER_ROOT = REPO_ROOT / "examples" / "register"
+#: same two directories at its own root (`ifixai.register.store`). They live inside the package
+#: rather than in a top-level `examples/`, which this repository's .gitignore excludes — so they are
+#: tracked, and they ship in the wheel for anyone who wants to copy one as a starting point.
+REGISTER_ROOT = REPO_ROOT / "ifixai" / "register" / "examples"
 ENTRY = REGISTER_ROOT / "entries" / "AGENT-2026-0001.yaml"
 CANDIDATES = REGISTER_ROOT / "candidates"
 

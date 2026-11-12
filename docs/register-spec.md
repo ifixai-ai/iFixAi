@@ -12,7 +12,7 @@ second copy to keep in step.
 
 - Machine-readable schema: [`ifixai/schemas/misbehaviour-report-1.schema.json`](../ifixai/schemas/misbehaviour-report-1.schema.json), generated from the model and published to the register with its digest recorded
 - The format in code: [`ifixai/register/spec.py`](../ifixai/register/spec.py)
-- Worked examples: [`examples/register/`](../examples/register/) — an accepted entry and a candidate, which double as the test fixture
+- Worked examples: [`ifixai/register/examples/`](../ifixai/register/examples/) — an accepted entry and a candidate, which double as the test fixture
 - How to file one: [register-contributing.md](register-contributing.md)
 - Where entries live: [ifixai-ai/agent-misbehavior-registry](https://github.com/ifixai-ai/agent-misbehavior-registry)
 
@@ -136,7 +136,7 @@ and the right outcome is usually an added `observed` row on the existing entry.
 | --- | --- | --- |
 | Who creates it | anyone | curation |
 | Identifier | `CAND-<digest12>-<YYYYMMDD>`, derived | `AGENT-YYYY-NNNN`, permanent, never reused |
-| Lives in | `examples/register/candidates/` | `examples/register/entries/` |
+| Lives in | `ifixai/register/examples/candidates/` | `ifixai/register/examples/entries/` |
 | Means | somebody filed this and it passes the validator | a curator has read it and stands behind it |
 
 **Anything submitted is a candidate.** A submission that claimed an `AGENT` id is rejected by the
@@ -191,7 +191,7 @@ Two statements of one format drift, so neither artefact has two homes:
 | --- | --- | --- |
 | The JSON Schema | generated from `ifixai/register/spec.py` | `scripts/generate_register_schema.py --check` in this repo's CI; the register checks its published copy against the sha256 in its `schema/PROVENANCE.md` |
 | The specification prose | authored in the register | nothing to catch: this page indexes it and does not restate it |
-| The worked examples | `examples/register/` here, published to the register | validated by the same checks a submitter runs, in both repos |
+| The worked examples | `ifixai/register/examples/` here, published to the register | validated by the same checks a submitter runs, in both repos |
 
 `scripts/publish_register_spec.py --registry <clone>` republishes the schema and its provenance
 note; `--check` reports drift and writes nothing.

@@ -153,7 +153,7 @@ To wire the server up, add to your editor's MCP configuration:
 
 ## What CI checks on your pull request
 
-A submission PR touching `examples/register/candidates/**` or `examples/register/entries/**` is checked by
+A submission PR touching `ifixai/register/examples/candidates/**` or `ifixai/register/examples/entries/**` is checked by
 [`.github/workflows/register-submission.yml`](../.github/workflows/register-submission.yml), which
 runs the same validator you can run locally. It checks:
 
@@ -175,8 +175,8 @@ new one.
 
 ## Review, and what `accepted` means
 
-Your file lands in `examples/register/candidates/` as a candidate. It carries no `AGENT` id and claims none.
-Curation reads it and either accepts it — at which point it moves to `examples/register/entries/` with a
+Your file lands in `ifixai/register/examples/candidates/` as a candidate. It carries no `AGENT` id and claims none.
+Curation reads it and either accepts it — at which point it moves to `ifixai/register/examples/entries/` with a
 permanent `AGENT-YYYY-NNNN` id — or leaves it as a candidate, or rejects it with a recorded reason.
 
 An id, once issued, is never removed or reused. A mistaken entry keeps its id and is marked
@@ -186,7 +186,7 @@ An id, once issued, is never removed or reused. A mistaken entry keeps its id an
 
 Nothing requires the CLI. Write the YAML against
 [the schema](../ifixai/schemas/misbehaviour-report-1.schema.json), put it in
-`examples/register/candidates/CAND-<digest12>-<YYYYMMDD>.yaml`, and open a pull request. CI checks the file,
+`ifixai/register/examples/candidates/CAND-<digest12>-<YYYYMMDD>.yaml`, and open a pull request. CI checks the file,
 not how you made it. If you do this, you are taking on the de-identification yourself — read the
 provenance section of the spec before you do.
 

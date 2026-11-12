@@ -115,9 +115,9 @@ def test_validate_reports_ok_for_the_shipped_examples() -> None:
         report_cli,
         [
             "validate",
-            "examples/register/entries/AGENT-2026-0001.yaml",
+            "ifixai/register/examples/entries/AGENT-2026-0001.yaml",
             "--register-root",
-            "examples/register",
+            "ifixai/register/examples",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -205,7 +205,7 @@ def _place_payload(payload: dict, tmp_path: Path, name: str, directory: str) -> 
 def _check(root: Path, *paths: Path, register_root: Path | None = None) -> subprocess.CompletedProcess:
     repo = Path(__file__).resolve().parents[3]
     script = repo / "scripts" / "check_register_submission.py"
-    where = register_root if register_root is not None else repo / "examples" / "register"
+    where = register_root if register_root is not None else repo / "ifixai" / "register" / "examples"
     return subprocess.run(
         [sys.executable, str(script), "--register-root", str(where), *[str(path) for path in paths]],
         cwd=str(root),
@@ -217,7 +217,7 @@ def _check(root: Path, *paths: Path, register_root: Path | None = None) -> subpr
 
 def test_ci_passes_the_shipped_examples() -> None:
     root = Path(__file__).resolve().parents[3]
-    done = _check(root, root / "examples" / "register" / "entries" / "AGENT-2026-0001.yaml")
+    done = _check(root, root / "ifixai" / "register" / "examples" / "entries" / "AGENT-2026-0001.yaml")
     assert done.returncode == 0, done.stdout + done.stderr
     assert "pass" in done.stdout
 

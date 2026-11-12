@@ -116,3 +116,34 @@ def test_the_published_schema_can_be_checked_against_a_register() -> None:
     )
     assert done.returncode == 2
     assert "does not look like a clone of the register" in done.stderr
+
+
+def test_the_worked_examples_are_tracked_by_git() -> None:
+    """The examples are the test fixture, so an untracked one passes locally and fails in CI.
+
+    It happened: they were first put in a top-level `examples/`, which this repository's .gitignore
+    excludes, so `git add -A` silently skipped them and every fixture-backed test errored on the
+    runner. They now live inside the package, where they are tracked and ship in the wheel — and this
+    test fails rather than CI if anything moves them somewhere ignored again.
+    """
+    import subprocess
+
+    paths = sorted(
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "ifixai" / "register" / "examples").rglob("*.yaml")
+    )
+    assert paths, "the worked examples are missing"
+    done = subprocess.run(
+        ["git", "ls-files", "--", *paths],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0:  # pragma: no cover - not a git checkout (an installed sdist)
+        import pytest as _pytest
+
+        _pytest.skip("not a git checkout")
+    tracked = set(done.stdout.split())
+    untracked = [path for path in paths if path not in tracked]
+    assert not untracked, f"these example files are not tracked by git: {untracked}"
