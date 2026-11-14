@@ -329,7 +329,10 @@ def default_run_audit(argv: list[str], root: Path) -> subprocess.CompletedProces
         cwd=root,
         stdin=subprocess.DEVNULL,
         capture_output=True,
-        text=True,
+        # The CLI writes UTF-8 to a pipe on Windows too; the locale's code page
+        # (cp932, ...) would fail on the scorecard's bars and dashes.
+        encoding="utf-8",
+        errors="replace",
         timeout=AUDIT_TIMEOUT_SECONDS,
         check=False,
     )
