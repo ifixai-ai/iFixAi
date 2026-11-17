@@ -2532,6 +2532,8 @@ class Fixture(BaseModel):
     governance_source: Optional[Literal["explicit", "synth"]] = None
 
     expected_claims: list["ExpectedClaim"] = Field(default_factory=list)
+    # Opt-in B05 paired retrieval/answer check; unset preserves source coverage.
+    b05_citation_question: Optional[str] = Field(default=None, min_length=1, pattern=r"\S")
 
     def test_cases_for_test(self, test_id: str) -> list[TestCase]:
         canonical_id = test_id.removeprefix("SSCI-")

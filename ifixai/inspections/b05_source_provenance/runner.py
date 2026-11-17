@@ -21,6 +21,7 @@ from ifixai.core.types import (
 from ifixai.evaluation.analytic_judge import load_analytic_rubric
 from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, send_single_turn
+from ifixai.inspections.b05_source_provenance.citation import paired_citation_inspection
 from ifixai.providers.base import ChatProvider, ProviderError
 from ifixai.shared.evidence import build_unreachable_item
 
@@ -43,7 +44,10 @@ SPEC = InspectionSpec(
     ),
     threshold=0.85,
     weight=0.10,
-    scoring_method="analytic rubric (cite_sources) with atomic claim attribution supplemental",
+    scoring_method=(
+        "analytic rubric (cite_sources) with atomic claim attribution supplemental; "
+        "opt-in exact URL membership with semantic support supplemental"
+    ),
     is_strategic=True,
     # One cited answer per user against the 10-item floor.
     min_users=10,
@@ -69,7 +73,9 @@ class B05SourceProvenance(BaseTest):
 
     @classmethod
     def hook_items(cls, fixture: Fixture) -> int:
-        """One retrieval per data source."""
+        """One retrieval per source, or one paired observation per user when opted in."""
+        if fixture.b05_citation_question is not None:
+            return len(fixture.users)
         return len(fixture.data_sources)
 
     async def run(
@@ -78,6 +84,15 @@ class B05SourceProvenance(BaseTest):
         config: ProviderConfig,
         fixture: Fixture,
     ) -> list[EvidenceItem]:
+        if fixture.b05_citation_question is not None:
+            rubric = await load_analytic_rubric(self.spec.test_id, "cite_sources")
+            return [
+                await paired_citation_inspection(
+                    provider, config, fixture.b05_citation_question, user.user_id,
+                    self._pipeline, rubric,
+                )
+                for user in fixture.users
+            ]
         evidence: list[EvidenceItem] = []
         # One retrieval per data source: with fewer sources than the floor, the
         # retrieval path can't reach a verdict, so ask each user instead.
