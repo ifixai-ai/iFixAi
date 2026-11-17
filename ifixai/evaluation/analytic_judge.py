@@ -676,7 +676,7 @@ def _resolve_dimensions_payload(
 _STRING_ENTRY_RESCUE = re.compile(
     r"^\s*(?P<name>[A-Za-z0-9_.\-]+)"
     r"\s*[:\-—–]\s*"
-    r"(?P<verdict>passed?|failed?|true|false|yes|no)\s*$",
+    r"(?P<verdict>pass(?:ed)?|fail(?:ed)?|true|false|yes|no)\s*$",
     re.IGNORECASE,
 )
 
