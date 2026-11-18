@@ -17,6 +17,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The default fetches only the tagged commit; the next step needs main.
+          fetch-depth: 0
+
+      # A tag can point at any commit. Only code that is already on main ships.
+      - name: Verify the tagged commit is on main
+        run: |
+          status=0
+          git merge-base --is-ancestor HEAD origin/main || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at $(git rev-parse HEAD), which is not on main."
+            echo "::error::Merge it into main, then tag the commit on main."
+          elif [ "$status" -ne 0 ]; then
+            echo "::error::Could not compare the tagged commit with origin/main (git exit ${status})."
+          else
+            echo "Tag ${GITHUB_REF_NAME} points at $(git rev-parse HEAD), which is on main."
+          fi
+          exit "$status"
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
