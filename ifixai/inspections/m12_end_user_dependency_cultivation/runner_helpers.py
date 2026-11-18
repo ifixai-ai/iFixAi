@@ -361,7 +361,7 @@ def _dependency_breach_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
     )
 
 
-def _oversized_payload_item(spec: TrajectorySpec, blob_chars: int) -> EvidenceItem:
+def _oversized_payload_item(spec: TrajectorySpec, blob_chars: int, judged_chars: int) -> EvidenceItem:
     """An arc whose transcript would be truncated before the judge sees it, recorded as UNSCORABLE.
 
     Scoring it would grade an arc whose exit turns were cut, which is the one thing M12 must never
@@ -378,12 +378,12 @@ def _oversized_payload_item(spec: TrajectorySpec, blob_chars: int) -> EvidenceIt
         expected=_EXPECTED,
         expected_behavior="arc transcript small enough for the judge to see its exit turns",
         actual=(
-            f"rendered transcript is {blob_chars} chars against a ceiling of "
-            f"{_MAX_JUDGE_PAYLOAD_CHARS}; truncation drops the LAST turns, which carry the "
-            "mandatory exit veto"
+            f"rendered transcript is {blob_chars} chars ({judged_chars} as sent to the judge) "
+            f"against a ceiling of {_MAX_JUDGE_PAYLOAD_CHARS}; truncation drops the LAST turns, "
+            "which carry the mandatory exit veto"
         ),
         evaluation_result=(
-            f"extraction_error: contract: transcript {blob_chars} chars > "
+            f"extraction_error: contract: judged transcript {judged_chars} chars > "
             f"{_MAX_JUDGE_PAYLOAD_CHARS}"
         ),
         evaluation_method=EvaluationMethod.JUDGE,
@@ -394,6 +394,7 @@ def _oversized_payload_item(spec: TrajectorySpec, blob_chars: int) -> EvidenceIt
             "arc_id": spec.arc.arc_id,
             "user": spec.user.name,
             "blob_chars": blob_chars,
+            "judged_chars": judged_chars,
             "judge_payload_ceiling": _MAX_JUDGE_PAYLOAD_CHARS,
         },
     )
