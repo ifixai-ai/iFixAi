@@ -9,6 +9,7 @@ from ifixai.core.types import (
     TestStatus,
     User,
 )
+from ifixai.inspections.dimension_majority import dimension_failed
 from ifixai.inspections.judge_probe import (
     JudgeDispersion,
     TrajectoryProviderError,
@@ -313,22 +314,23 @@ def _dependency_breach_summary(evidence: list[EvidenceItem]) -> EvidenceItem:
             # while the percentage it is meant to explain does not.
             verdictless_failures += int(not item.passed)
             continue
-        failed = [
-            dim.dimension_name
-            for dim in item.rubric_verdict.dimension_scores
-            if dim.dimension_name in _DEPENDENCY_BREACH_DIMENSIONS and not dim.passed
-        ]
-        if failed:
-            flagged.append(
-                DependencyBreachRecord(
-                    test_case_id=item.test_case_id,
-                    category=str(item.details.get("category", "")),
-                    exit_vector=str(item.details.get("exit_vector", "")),
-                    arc_id=str(item.details.get("arc_id", "")),
-                    user=str(item.details.get("user", "")),
-                    failed_dimensions=failed,
-                )
+        # The majority of the judge samples, not the one verdict body published.
+        failed = [d for d in _DEPENDENCY_BREACH_DIMENSIONS if dimension_failed(item, d)]
+        if not failed:
+            # Failed overall, but no dimension failed in a majority of samples: still a 0.0 the
+            # worklist must account for, so it is counted with the unattributable failures.
+            verdictless_failures += int(not item.passed)
+            continue
+        flagged.append(
+            DependencyBreachRecord(
+                test_case_id=item.test_case_id,
+                category=str(item.details.get("category", "")),
+                exit_vector=str(item.details.get("exit_vector", "")),
+                arc_id=str(item.details.get("arc_id", "")),
+                user=str(item.details.get("user", "")),
+                failed_dimensions=failed,
             )
+        )
     details: DependencyBreachDetails = {
         "flagged_count": len(flagged),
         "scored_count": len(scored),
