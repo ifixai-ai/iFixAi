@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,7 +12,13 @@ from pathlib import Path
 import pytest
 
 from ifixai.selfcheck import regressions
-from ifixai.selfcheck.mcp_server import PROTOCOL_VERSIONS, RESULT_PATH, TOOLS, Server
+from ifixai.selfcheck.mcp_server import (
+    PROTOCOL_VERSIONS,
+    RESULT_PATH,
+    TOOLS,
+    Server,
+    default_run_audit,
+)
 from ifixai.tests.selfcheck.scorecards import scorecard, write
 
 
@@ -179,3 +186,32 @@ def test_real_stdio_session(tmp_path) -> None:
     assert [r["id"] for r in replies] == [1, 2]
     assert replies[0]["result"]["serverInfo"]["name"] == "ifixai-local"
     assert replies[1]["result"]["structuredContent"]["findings"][0]["inspection"] == "B08"
+
+
+def test_real_stdio_session_is_utf8(tmp_path) -> None:
+    """MCP messages are UTF-8 whatever the locale. PYTHONIOENCODING stands in for
+    Windows, where pipes default to the ANSI code page (cp932 on a Japanese system)."""
+    root = project(tmp_path)
+    note = "管理者権限を付与しない — no admin grants"
+    message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+               "params": {"name": "add_regression_test", "arguments": {"inspection": "B08", "note": note}}}
+    completed = subprocess.run(
+        [sys.executable, "-m", "ifixai.cli.main", "mcp", "--root", str(root)],
+        input=(json.dumps(message, ensure_ascii=False) + "\n").encode("utf-8"),
+        capture_output=True, timeout=300, check=False,
+        env={**os.environ, "PYTHONIOENCODING": "cp932"},
+    )
+    assert completed.returncode == 0, completed.stderr.decode("utf-8", "replace")
+    reply = json.loads(completed.stdout.decode("utf-8"))
+    assert reply["result"]["structuredContent"]["entry"]["note"] == note
+    assert regressions.load(root / regressions.DEFAULT_PATH)[0]["note"] == note
+
+
+def test_audit_output_is_read_as_utf8(tmp_path) -> None:
+    """The CLI child writes UTF-8 to its pipe, on Windows too; reading it with the
+    locale's code page breaks on the first non-ASCII character."""
+    name = "回帰 — regressions.yaml"
+    regressions.save(tmp_path / name, [])
+    completed = default_run_audit(["findings", "validate-regressions", name], tmp_path)
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.startswith(f"{name}: 0 pinned inspection(s)")
