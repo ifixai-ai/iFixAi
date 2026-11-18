@@ -7,12 +7,14 @@ import pytest
 from pydantic import ValidationError
 
 from ifixai.api import run_selected
+from ifixai.core.applicability import NO_JUDGE_REASON, describe_blocking_reason
 from ifixai.core.fixture_loader import load_fixture
 from ifixai.core.types import (
     EvaluationMethod,
     EvaluationPipelineConfig,
     Fixture,
     JudgeErrorKind,
+    NotApplicable,
     PipelineResult,
     ProviderConfig,
     RetrievedSource,
@@ -25,8 +27,10 @@ from ifixai.providers.base import (
     ProviderConnectionError,
     ProviderTimeoutError,
 )
+from ifixai.reporting.health import measurement_failure_banner, run_health
 
 URL = "https://docs.python.org/3/library/urllib.request.html"
+APOSTROPHE_URL = "https://en.wikipedia.org/wiki/Hooke's_law"
 QUESTION = "How does urllib.request.urlopen open a URL?"
 
 
@@ -114,16 +118,54 @@ async def test_unknown_evidence_is_not_a_failed_membership_assertion(results):
     assert all(item.details["url_membership"] is None and item.details["unknown_reason"] for item in result.evidence)
 
 
-async def test_unsupported_retrieval_is_unknown_without_chat_fallback():
-    class Unsupported(ChatProvider):
-        async def send_message(self, messages, config):
-            pytest.fail("unsupported pairing must not fall back to unrelated chat")
+class Unsupported(ChatProvider):
+    """An agent with no `retrieve_sources` of its own, like the bundled mock."""
 
-    card = await run_selected({"B05"}, provider=Unsupported(), fixture=fixture(), governance=None)
-    result, = card.test_results
-    assert result.status.value == "inconclusive"
-    assert len(result.evidence) == 10
-    assert all(item.extraction_error == JudgeErrorKind.CONTRACT for item in result.evidence)
+    def __init__(self, answer="Documentation 0 is public."):
+        self.answer = answer
+        self.prompts = []
+
+    async def send_message(self, messages, config):
+        self.prompts.append(messages[-1].content)
+        return self.answer
+
+
+@pytest.mark.parametrize(("provider_type", "users", "reason"), [
+    (Agent, 10, None),
+    (Agent, 9, NO_JUDGE_REASON),
+    (Unsupported, 10, NO_JUDGE_REASON),
+])
+def test_opting_in_needs_a_judge_unless_the_agent_answers_retrieve_sources(provider_type, users, reason):
+    opted_in = fixture().model_copy(update={"users": fixture().users[:users]})
+    assert describe_blocking_reason("B05", opted_in, provider_type, has_judge=False) == reason
+
+
+async def test_no_retrieval_hook_is_set_aside_instead_of_blaming_the_judge():
+    """An agent with no retrieval has nothing to pair, so a judge-free run must set B05
+    aside exactly as it does without the opt-in, never report unusable judge verdicts."""
+    agent = Unsupported()
+    aside: list[NotApplicable] = []
+    card = await run_selected(
+        {"B05"}, provider=agent, fixture=fixture(), governance=None, on_set_aside=aside.extend,
+    )
+    assert card.test_results == [] and agent.prompts == []
+    assert [(n.test_id, n.reason) for n in aside] == [("B05", NO_JUDGE_REASON)]
+    assert run_health(card).judge_broke == 0
+    assert measurement_failure_banner(run_health(card)) is None
+
+
+async def test_no_retrieval_hook_with_a_judge_keeps_source_coverage():
+    check = B05SourceProvenance()
+    check._pipeline = AsyncMock()
+    check._pipeline.evaluate.return_value = PipelineResult(
+        passed=True, evaluation_result="attributed", evaluation_method=EvaluationMethod.JUDGE,
+    )
+    check._pipeline.evaluate_atomic.return_value = JudgeErrorKind.EXTRACTION
+    agent = Unsupported()
+    evidence = await check.run(agent, ProviderConfig(provider="test"), fixture())
+    assert len(evidence) == 10 and all(e.extraction_error is None for e in evidence)
+    assert all(e.test_case_id.startswith("B05_atomic_") for e in evidence)
+    assert all("Cite each source by name" in p for p in agent.prompts)
 
 
 async def test_no_opt_in_keeps_source_coverage_without_answer_calls():
@@ -185,6 +227,38 @@ async def test_provider_failures_keep_existing_error_boundary(stage, error):
 ])
 def test_exact_url_tokens(text, url):
     assert url in cited_urls(text)
+
+
+@pytest.mark.parametrize("text", [
+    f"Read {APOSTROPHE_URL} for the derivation.",
+    f"Read {APOSTROPHE_URL}.",
+    f"Read '{APOSTROPHE_URL}'.",
+    f'Read "{APOSTROPHE_URL}".',
+    f"Read <{APOSTROPHE_URL}>.",
+    f"Read [Hooke's law]({APOSTROPHE_URL}).",
+    f"Read ({APOSTROPHE_URL}).",
+])
+def test_an_apostrophe_does_not_truncate_a_cited_url(text):
+    assert cited_urls(text) == {APOSTROPHE_URL}
+
+
+@pytest.mark.parametrize("url", [
+    "https://en.wikipedia.org/wiki/Hooke%27s_law",
+    "https://example.org/a!$&'()*+,;=:@/b",
+    "https://example.org/search?q=it's&page=2#don't",
+])
+def test_sub_delims_and_percent_encoding_survive_bare_extraction(url):
+    assert url in cited_urls(f"Source: {url} (see above).")
+
+
+async def test_an_apostrophe_url_is_matched_exactly_end_to_end():
+    agent = Agent(
+        f"Hooke's law is derived at {APOSTROPHE_URL}.", [source(metadata={"url": APOSTROPHE_URL})],
+    )
+    card = await run_selected({"B05"}, provider=agent, fixture=fixture(), governance=None)
+    result, = card.test_results
+    assert (result.status.value, result.score) == ("pass", 1.0)
+    assert all(item.details["cited_urls"] == [APOSTROPHE_URL] for item in result.evidence)
 
 
 def test_fixture_yaml_round_trip(tmp_path):

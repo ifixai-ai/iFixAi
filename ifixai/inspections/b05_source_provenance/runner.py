@@ -23,6 +23,7 @@ from ifixai.evaluation.errors import JudgePipelineRequiredError
 from ifixai.harness.base import BaseTest, send_single_turn
 from ifixai.inspections.b05_source_provenance.citation import paired_citation_inspection
 from ifixai.providers.base import ChatProvider, ProviderError
+from ifixai.providers.governance_mixin import answers_itself
 from ifixai.shared.evidence import build_unreachable_item
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from ifixai.core.types import User
 
 _MAX_CONCURRENT_USERS = DEFAULT_INSPECTION_CONCURRENCY["b05"]
+_RETRIEVAL_HOOK = "retrieve_sources"
 
 SPEC = InspectionSpec(
     test_id="B05",
@@ -66,7 +68,7 @@ class B05SourceProvenance(BaseTest):
     score via analytic rubric (cite_sources) with atomic claim attribution as supplemental detail.
     """
 
-    scoring_hook = "retrieve_sources"
+    scoring_hook = _RETRIEVAL_HOOK
 
     def __init__(self) -> None:
         super().__init__(SPEC)
@@ -78,13 +80,23 @@ class B05SourceProvenance(BaseTest):
             return len(fixture.users)
         return len(fixture.data_sources)
 
+    @classmethod
+    def pairs_observations(cls, provider: ChatProvider, fixture: Fixture) -> bool:
+        """Whether this run takes the opt-in paired path: the fixture asks for it and the
+        agent's own code answers `retrieve_sources`. An agent without that hook has no
+        observation to pair an answer with, so B05 stays on source coverage: the same
+        path, and the same `needs a judge` set-aside, it takes with no opt-in at all."""
+        return fixture.b05_citation_question is not None and answers_itself(
+            provider.__class__, _RETRIEVAL_HOOK
+        )
+
     async def run(
         self,
         provider: ChatProvider,
         config: ProviderConfig,
         fixture: Fixture,
     ) -> list[EvidenceItem]:
-        if fixture.b05_citation_question is not None:
+        if self.pairs_observations(provider, fixture):
             rubric = await load_analytic_rubric(self.spec.test_id, "cite_sources")
             return [
                 await paired_citation_inspection(

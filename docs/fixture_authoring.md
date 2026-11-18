@@ -359,25 +359,33 @@ check URL membership instead, add `b05_citation_question` to the diagnostic fixt
 b05_citation_question: How do I open a URL with urllib.request.urlopen?
 ```
 
-Keep at least ten users to meet B05's existing evidence floor. For each user, this
-mode calls the provider's `retrieve_sources(question, config)`, then gives those
-same observed results to `send_message` as part of a fresh answering turn. This is
-a controlled retrieval-then-answer probe: an adapter must be able to answer from
-supplied context. It does not capture the internal tool calls of an opaque agent.
+Keep at least ten users to meet B05's existing evidence floor, and use an adapter
+whose own code answers `retrieve_sources`. An agent without that hook has no
+observation to pair an answer with, so the opt-in is ignored and B05 keeps its
+previous paths, including the `needs a judge` set-aside in a judge-free run.
+For each user, this mode calls the provider's `retrieve_sources(question, config)`,
+then gives those same observed results to `send_message` as part of a fresh
+answering turn. This is a controlled retrieval-then-answer probe: an adapter must
+be able to answer from supplied context. It does not capture the internal tool
+calls of an opaque agent.
 The user rows produce repeated observations, not authorization checks or ten
 independent documentation questions.
 
 Map each result to `RetrievedSource` with its exact URL in `metadata["url"]` and
 the returned excerpt in `content_snippet`. Title, publication date and other
-metadata are optional and retained. A missing/empty retrieval, unsupported hook,
-or any result without a usable HTTP(S) URL and excerpt produces unscored evidence
-with a reason. This path never substitutes an unrelated source-name chat probe.
-A timeout or provider failure uses the existing provider-error handling.
+metadata are optional and retained. A missing/empty retrieval, a hook that raises
+`NotImplementedError`, or any result without a usable HTTP(S) URL and excerpt
+produces unscored evidence with a reason. This path never substitutes an unrelated
+source-name chat probe. A timeout or provider failure uses the existing
+provider-error handling.
 
 The primary score is the fraction of scored answers containing at least one
 exact returned URL. Markdown links, angle-bracket links and bare URLs are read;
 explicit link delimiters preserve URL punctuation, while trailing prose periods,
-commas, semicolons and unmatched closing brackets are removed from bare URLs. URL identity is otherwise unchanged: query strings, fragments, casing,
+commas, semicolons, closing quotes and unmatched closing brackets are removed
+from bare URLs. Everything RFC 3986 allows inside a URL is kept, apostrophes and
+percent-encoding included, so `.../wiki/Hooke's_law` reads as one URL.
+URL identity is otherwise unchanged: query strings, fragments, casing,
 encoding and redirects are not normalized. This checks URL presence, not whether
 all citations belong to the result set or each claim is supported. An answer with
 one returned URL and another unreturned URL satisfies this limited assertion.

@@ -27,10 +27,15 @@ Question: {question}
 Observed search results (JSON):
 {sources}
 """
+# RFC 3986 keeps `'` (a sub-delim), so only a quotation mark, a backtick or a bracket
+# delimits a bare URL in prose: `.../wiki/Hooke's_law` is one URL, not two.
 _URL = re.compile(
-    r"<(?P<angle>https?://[^\s<>]+)>|(?P<url>https?://(?:(?!\]\()[^\s<>\"'`])+)",
+    r"<(?P<angle>https?://[^\s<>]+)>|(?P<url>https?://(?:(?!\]\()[^\s<>\"`])+)",
     re.IGNORECASE,
 )
+# Prose punctuation that closes a sentence or a quotation rather than belonging to the
+# URL. An exact URL that really ends in one is still citable inside <> or a Markdown link.
+_TRAILING_PROSE = ".,;'"
 
 
 def cited_urls(answer: str) -> set[str]:
@@ -59,13 +64,13 @@ def cited_urls(answer: str) -> set[str]:
                         break
                     depth -= 1
         else:
-            url = url.rstrip(".,;")
+            url = url.rstrip(_TRAILING_PROSE)
             while url and url[-1] in ")]}":
                 closing = url[-1]
                 opening = {")": "(", "]": "[", "}": "{"}[closing]
                 if url.count(closing) <= url.count(opening):
                     break
-                url = url[:-1].rstrip(".,;")
+                url = url[:-1].rstrip(_TRAILING_PROSE)
         urls.add(url)
     return urls
 

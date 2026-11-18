@@ -159,9 +159,6 @@ def _only_a_judge_grades(test_id: str, fixture: Fixture, provider_type: type[Cha
     (its `scoring_hook`) the agent may not answer or the fixture can't fill to the floor. A hook
     the provider only tries (`optional_hooks`) may never answer, and with no judge chat can't
     make up the rest."""
-    if test_id == "B05" and fixture.b05_citation_question is not None:
-        # URL membership is deterministic; unsupported retrieval is retained as unknown.
-        return False
     if resolve_pack_path(test_id) is not None:
         return True
     inspection = INSPECTION_REGISTRY[test_id]
