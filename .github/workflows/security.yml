@@ -53,20 +53,5 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[all]" "pip-audit==2.10.1"
 
-      # litellm caps filelock below 4; remove these when it lifts the cap.
       - name: Audit installed packages for known vulnerabilities
-        run: |
-          pip-audit \
-            --ignore-vuln CVE-2026-112907 \
-            --ignore-vuln CVE-2026-112908 \
-            --ignore-vuln CVE-2026-112909 \
-            --ignore-vuln CVE-2026-112910 \
-            --ignore-vuln CVE-2026-112911 \
-            --ignore-vuln CVE-2026-112912 \
-            --ignore-vuln CVE-2026-112913 \
-            --ignore-vuln CVE-2026-112915 \
-            --ignore-vuln CVE-2026-112935 \
-            --ignore-vuln CVE-2026-112936 \
-            --ignore-vuln CVE-2026-112938 \
-            --ignore-vuln CVE-2026-112939 \
-            --ignore-vuln CVE-2026-112940
+        run: pip-audit
