@@ -1,8 +1,11 @@
 version: 2
 updates:
-  # Keeps the SHA pins in .github/workflows current, `# vX.Y.Z` comments included.
+  # Keeps the SHA pins in .github/workflows and in the public self-check action
+  # current, `# vX.Y.Z` comments included.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /actions/self-check
     schedule:
       interval: weekly
     groups:
