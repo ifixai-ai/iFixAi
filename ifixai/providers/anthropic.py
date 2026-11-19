@@ -168,6 +168,10 @@ class AnthropicProvider(ChatProvider):
                     details=str(exc),
                 ) from exc
             except anthropic.APIConnectionError as exc:
+                if attempt < attempts - 1:
+                    await asyncio.sleep(backoff)
+                    backoff *= BACKOFF_MULTIPLIER
+                    continue
                 raise ProviderConnectionError(
                     provider="anthropic",
                     endpoint=endpoint,
