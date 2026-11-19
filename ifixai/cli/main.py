@@ -6,7 +6,7 @@ import sys
 import click
 
 from ifixai._version import VERSION
-from ifixai.cli.audit import audit, findings, mcp
+from ifixai.cli.audit import audit, findings
 from ifixai.cli.author import author
 from ifixai.cli.compare import compare
 from ifixai.cli.init import init, load_dotenv_file
@@ -34,7 +34,6 @@ ifixai_cli.add_command(author)
 ifixai_cli.add_command(run)
 ifixai_cli.add_command(audit)
 ifixai_cli.add_command(findings)
-ifixai_cli.add_command(mcp)
 ifixai_cli.add_command(list_group, name="list")
 ifixai_cli.add_command(validate)
 ifixai_cli.add_command(compare)

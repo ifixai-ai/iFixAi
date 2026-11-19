@@ -104,7 +104,7 @@ Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `
 | `--concurrency`, `-j` | `5` | Max in-flight LLM requests (1-20). Overrides `IFIXAI_CONCURRENCY`. |
 | `--no-parallel` | off | Alias for `--concurrency 1`. |
 | `--dry-run` | off | Print inspection and judge-call estimates, then exit. |
-| `--no-promo` | off | Skip the [Pro-version offer](#pro-version-offer) and start the run immediately. `IFIXAI_NO_PROMO=1` skips it on every run. |
+| `--no-promo` | off | Hide the [hosted-audit offer](#hosted-audit-offer) at the start and end of a run. `IFIXAI_NO_PROMO=1` hides it on every run. |
 | `--reliability-out` | `runs` | Directory for `manifest.json`, one subdir per run. |
 | `--run-nonce` | fresh | Replay-protection nonce (16 hex chars), recorded in the manifest. |
 | `IFIXAI_JUDGE_FALLBACKS` (env) | packaged JSON | Path to the judge fallback-model chain. See [Judge fallback models](#judge-fallback-models). |
@@ -117,25 +117,19 @@ assignments. Older manifests without that base seed resume using the original ra
 behavior for incomplete inspections; completed checkpoint results keep their own
 seeds. Legacy unfinished probe contexts cannot be reconstructed.
 
-## Pro-version offer
+## Hosted-audit offer
 
-The first interactive `ifixai run` on a machine opens with one question: whether you'd like to claim your free fast audit at <https://www.ifixai.ai/>. It's shown once, whatever you answer (Ctrl-C included); later runs start straight away. The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the offer again.
+A run in a terminal prints three lines on stderr offering one free hosted audit: the command that adds iFixAi's hosted connector to Claude Code, and what to say to it. Nothing is asked and the run never waits.
 
-Move with the arrow keys and press Enter:
+- **At the start:** once per machine, on the first real run. The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the start lines again.
+- **At the end:** after the report paths of every finished real run in which at least one inspection passed or failed.
 
-- **No** (preselected, just press Enter): the run starts.
-- **Yes**: the site opens in your browser, then you pick **Continue the current run** (preselected) or **Abandon the run**. Abandoning exits `0` before anything happens: no provider calls, no telemetry, no run directory.
-
-Ctrl-C on either question aborts without starting the run. Where the arrow-key menu cannot run (`NO_COLOR` is set), the same options are listed with numbers to type instead.
-
-To start immediately, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to skip it on every run:
+The lines never go into a report file or SARIF. They are not shown for `--provider mock`, on `--dry-run`, in CI, or when stdout or stderr is not a terminal (pipes, scripts, agent-driven runs). `--quiet` does not hide them. To hide them, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to hide them on every run:
 
 ```bash
 ifixai run --provider openai --no-promo
 export IFIXAI_NO_PROMO=1
 ```
-
-The offer is never shown when stdin or stdout is not a terminal (pipes, scripts, agent-driven runs), in CI, or on `--dry-run`, so automated runs are never blocked by it. `--quiet` does not skip it; use `--no-promo`. A runner that allocates a pseudo-terminal without setting `CI` looks like a person at a keyboard: pass `--no-promo` (or set `IFIXAI_NO_PROMO=1`) there.
 
 ## How a run is judged
 

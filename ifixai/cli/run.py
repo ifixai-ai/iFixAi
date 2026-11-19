@@ -45,7 +45,7 @@ from ifixai.cli.orchestrator import (
     print_not_applicable,
     print_report_only_overviews,
 )
-from ifixai.cli.pro_offer import NO_PROMO_ENV_VAR, RunDecision, offer_pro_version
+from ifixai.cli.pro_offer import NO_PROMO_ENV_VAR, offer_at_end, offer_at_start
 from ifixai.cli.reports import save_reports
 from ifixai.cli.schemas import InteractiveConfig
 from ifixai.cli.validate import (
@@ -911,9 +911,9 @@ def _reject_profile(ctx: click.Context, param: click.Parameter, value: str | Non
     is_flag=True,
     default=False,
     envvar=NO_PROMO_ENV_VAR,
-    help="Skip the Pro-version offer and start the run immediately. Set "
-    f"{NO_PROMO_ENV_VAR}=1 to skip it on every run. The offer is never shown "
-    "in CI or when input/output is not a terminal.",
+    help="Hide the hosted-audit offer printed at the start and end of a run. Set "
+    f"{NO_PROMO_ENV_VAR}=1 to hide it on every run. The offer is never shown "
+    "in CI or when output is not a terminal.",
 )
 @click.option(
     "--print-telemetry",
@@ -1163,10 +1163,6 @@ def run(
             sys.exit(1)
 
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
-    # Asked before telemetry and any provider call, so abandoning leaves no trace.
-    if not (no_promo or dry_run) and offer_pro_version() is RunDecision.ABANDON:
-        click.echo("Run abandoned -- no inspections were run.")
-        return
     if no_telemetry:
         telemetry.disable()
     telemetry.show_disclosure()
@@ -1187,6 +1183,9 @@ def run(
         auth_method = interactive.get("auth_method") or auth_method
         if interactive.get("extra_headers"):
             extra_headers = interactive["extra_headers"]
+    # After the guided setup, so a mock agent picked there never sees the offer.
+    if not (no_promo or dry_run):
+        offer_at_start(provider)
 
     eval_mode_auto_selected_judge: str | None = None
     if eval_mode is None:
@@ -2166,6 +2165,8 @@ def run(
     click.echo(f"  Run nonce: {manifest.run_nonce}")
     click.echo(f"  Manifest: {manifest_path}")
 
+    if not no_promo:
+        offer_at_end(provider, result)
     telemetry.emit_completed()
 
     # Reports and checkpoint are on disk. The exit code is read off the verdict the headline

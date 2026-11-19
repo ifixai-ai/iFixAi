@@ -1,88 +1,75 @@
-"""Pro-version offer shown at the start of an interactive ``ifixai run``.
+"""The hosted-audit offer printed at the start and at the end of an ``ifixai run``.
 
-The offer is made once per machine, before telemetry and before any provider
-call, so a run the user abandons for the website leaves no trace beyond the
-``pro-offer-shown`` marker. It is never shown when stdin or stdout is not a
-terminal, or in CI, so scripted and agent-driven runs cannot block on it. Skip
-it with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
+Three lines on stderr, never a question: the run never waits on them. The start
+lines show once per machine; the end lines show after every finished real run
+(not the mock agent, at least one inspection with a verdict). Both need a person
+at a terminal: never when stdout or stderr is not a terminal, or in CI. Skip them
+with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
 """
 
 import sys
-import webbrowser
-from enum import Enum
-from typing import TextIO, TypedDict
+from typing import Literal, TextIO
 
 import click
 
 from ifixai import telemetry
-from ifixai.cli import ui
+from ifixai.core.types import TestRunResult, TestStatus
 
-PRO_URL = "https://www.ifixai.ai/"
 NO_PROMO_ENV_VAR = "IFIXAI_NO_PROMO"
 OFFER_MARKER_NAME = "pro-offer-shown"
+MOCK_PROVIDER = "mock"
 
-YES_OPTION = "Yes"
-NO_OPTION = "No"
-CONTINUE_OPTION = "Continue the current run"
-ABANDON_OPTION = "Abandon the run"
+OfferPlace = Literal["start", "end"]
 
-
-class RunDecision(str, Enum):
-    """What the user wants done with the current run after seeing the offer."""
-
-    CONTINUE = "continue"
-    ABANDON = "abandon"
-
-
-class ChoiceQuestion(TypedDict):
-    """One question with a fixed set of answers; Enter alone picks ``default``."""
-
-    message: str
-    options: tuple[str, ...]
-    default: str
-
-
-PRO_INTEREST_QUESTION = ChoiceQuestion(
-    message="Claim your free fast audit now?",
-    options=(YES_OPTION, NO_OPTION),
-    default=NO_OPTION,
+OFFER_HEADLINE = (
+    "One free hosted audit for you: up to 12 inspections the open-source set does "
+    "not have, 20 minutes at most."
 )
-RUN_DECISION_QUESTION = ChoiceQuestion(
-    message="What would you like to do with this run?",
-    options=(CONTINUE_OPTION, ABANDON_OPTION),
-    default=CONTINUE_OPTION,
+OFFER_COMMAND_LINE = (
+    "Add iFixAi to your coding agent: claude mcp add --transport http --scope user "
+    "ifixai https://mcp.ifixai.ai/mcp"
 )
+OFFER_SAY_LINE = "Then say: audit my agent with code MYAUDIT"
 
 
-def offer_pro_version() -> RunDecision:
-    """Offer the Pro version and report whether the current run should go ahead.
-
-    Opens the Pro website when the user accepts. Returns ``CONTINUE`` without
-    asking anything when nobody is at a terminal to answer or it was already shown.
-    """
-    if not can_prompt_user() or not mark_offer_shown():
-        return RunDecision.CONTINUE
-    print_offer()
-    if ask_choice(PRO_INTEREST_QUESTION) != YES_OPTION:
-        return RunDecision.CONTINUE
-    open_pro_site()
-    if ask_choice(RUN_DECISION_QUESTION) == ABANDON_OPTION:
-        return RunDecision.ABANDON
-    return RunDecision.CONTINUE
+def offer_at_start(provider: str) -> None:
+    """Print the offer once per machine, before the first real run's inspections."""
+    if provider.lower() == MOCK_PROVIDER or not person_at_terminal():
+        return
+    if not mark_offer_shown():
+        return
+    print_offer("start")
 
 
-def can_prompt_user() -> bool:
-    """True only when a person is at a terminal to answer the offer."""
+def offer_at_end(provider: str, result: TestRunResult) -> None:
+    """Print the offer after a finished real run that reached at least one verdict."""
+    if provider.lower() == MOCK_PROVIDER or not person_at_terminal():
+        return
+    if not has_verdict(result):
+        return
+    print_offer("end")
+
+
+def has_verdict(result: TestRunResult) -> bool:
+    """True when at least one inspection passed or failed."""
+    return any(
+        test.status in (TestStatus.PASS, TestStatus.FAIL)
+        for test in result.test_results
+    )
+
+
+def person_at_terminal() -> bool:
+    """True only when a person reads both output streams at a terminal, outside CI."""
     return (
-        is_terminal(sys.stdin) and is_terminal(sys.stdout) and not telemetry.in_ci()
+        is_terminal(sys.stdout) and is_terminal(sys.stderr) and not telemetry.in_ci()
     )
 
 
 def mark_offer_shown() -> bool:
     """Create the shown-once marker; False if it exists or can't be written.
 
-    Marked before asking, so any answer (Ctrl-C included) counts. When it can't
-    be written the offer is skipped, so a looping script never stops on it twice.
+    When it can't be written the start lines are skipped, so a machine that
+    can't keep the marker doesn't see them on every run.
     """
     try:
         (telemetry._ensure_config_dir() / OFFER_MARKER_NAME).touch(exist_ok=False)
@@ -100,48 +87,11 @@ def is_terminal(stream: TextIO | None) -> bool:
     return stream is not None and stream.isatty()
 
 
-def print_offer() -> None:
-    """Print the Pro-version pitch and its link."""
-    click.echo(click.style("  iFixAi Pro", bold=True))
-    click.echo("  Claim your free fast audit")
-    click.echo(click.style(f"  {PRO_URL}", fg="cyan"))
-    click.echo()
-
-
-def open_pro_site() -> None:
-    """Open the Pro website in the default browser; print the link when that fails."""
-    if webbrowser.open(PRO_URL):
-        click.echo(click.style(f"Opened {PRO_URL} in your browser.", fg="green"))
-        return
-    click.echo(
-        click.style(
-            f"Could not open a browser. Visit {PRO_URL} to claim your free fast audit.",
-            fg="yellow",
-        )
-    )
-
-
-def ask_choice(question: ChoiceQuestion) -> str:
-    """Ask with an arrow-key menu, or a numbered list where menus are unavailable."""
-    if ui.is_interactive():
-        return ui.select_or_abort(
-            question["message"], question["options"], question["default"]
-        )
-    return ask_numbered_choice(question)
-
-
-def ask_numbered_choice(question: ChoiceQuestion) -> str:
-    """List the options with numbers and read the number the user types.
-
-    The plain path for terminals where the arrow-key menu cannot run: ``NO_COLOR``
-    is set, or ``questionary`` is not installed.
-    """
-    options = question["options"]
-    for number, option in enumerate(options, start=1):
-        click.echo(f"  [{number}] {option}")
-    typed_number = click.prompt(
-        question["message"],
-        type=click.IntRange(1, len(options)),
-        default=options.index(question["default"]) + 1,
-    )
-    return options[typed_number - 1]
+def print_offer(where: OfferPlace) -> None:
+    """Print the three offer lines on stderr and count that they were shown."""
+    click.echo(err=True)
+    click.echo(click.style(OFFER_HEADLINE, bold=True), err=True)
+    click.echo(OFFER_COMMAND_LINE, err=True)
+    click.echo(OFFER_SAY_LINE, err=True)
+    click.echo(err=True)
+    telemetry.emit_offer_shown(where)

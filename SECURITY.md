@@ -62,12 +62,13 @@ Generic `Authorization: Bearer <token>` and `X-API-Key: <value>` headers are scr
 
 iFixAi sends pseudonymous run telemetry — from the CLI, the plugin, and scaffolded agent skills alike, since all three run the same engine — so we can count how many people use it and whether they return. It is consent-first: disclosed in plain language on first run, off automatically in CI, and every opt-out is honored *before* any identifier is created or any event is sent.
 
-**What is sent** — one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report:
+**What is sent:** one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report, and `ifixai_offer_shown` when the terminal prints the hosted-audit offer:
 
 | Field | Example | Why |
 |---|---|---|
 | install id | random `uuid4`, stored at `${XDG_CONFIG_HOME:-~/.config}/ifixai/install-id` (`0600`) | unique installs + retention |
-| event | `ifixai_started` / `ifixai_completed` | run count + completion rate |
+| event | `ifixai_started` / `ifixai_completed` / `ifixai_offer_shown` | run count + completion rate + how often the offer is seen |
+| where | `start` / `end`, on `ifixai_offer_shown` only | which of the two offers was seen |
 | version | `3.0.2` | adoption per release |
 | os | `Darwin` / `Linux` / `Windows` (from `platform.system()`) | platform mix |
 | surface | `cli` / `plugin` / `skill` | separate the run interfaces |
@@ -84,7 +85,7 @@ iFixAi sends pseudonymous run telemetry — from the CLI, the plugin, and scaffo
 - a file at `${XDG_CONFIG_HOME:-~/.config}/ifixai/telemetry-opt-out`
 - automatically in CI (`CI`, or a known vendor variable such as `GITHUB_ACTIONS`)
 
-**Data protection (GDPR / UK GDPR).** The install id is a persistent identifier, so this telemetry is *pseudonymous personal data*, not anonymous. Lawful basis: legitimate interest (Art 6(1)(f)) in understanding adoption and retention; the processing is minimal (seven fields, no model I/O, only classifications and never the paths they were derived from), IP-stripped, opt-out-respecting, and never used for profiling or advertising. **Retention: events are kept indefinitely** — we do not auto-delete. **Erasure:** run `ifixai run --show-id` to read your install id, then email **info@ime.life** to have its events deleted; deleting the local `install-id` file stops future linkage but does not remove rows already collected. Data controller: iFixAi (**info@ime.life**).
+**Data protection (GDPR / UK GDPR).** The install id is a persistent identifier, so this telemetry is *pseudonymous personal data*, not anonymous. Lawful basis: legitimate interest (Art 6(1)(f)) in understanding adoption and retention; the processing is minimal (eight fields, no model I/O, only classifications and never the paths they were derived from), IP-stripped, opt-out-respecting, and never used for profiling or advertising. **Retention: events are kept indefinitely**; we do not auto-delete. **Erasure:** run `ifixai run --show-id` to read your install id, then email **info@ime.life** to have its events deleted; deleting the local `install-id` file stops future linkage but does not remove rows already collected. Data controller: iFixAi (**info@ime.life**).
 
 ## Coordinated disclosure
 

@@ -1,8 +1,8 @@
-"""The Pro-version offer shown at the start of an interactive ``ifixai run``."""
+"""The hosted-audit offer printed at the start and the end of an ``ifixai run``."""
 
 import io
+import json
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 
 import click
@@ -11,25 +11,22 @@ from click.testing import CliRunner
 
 import ifixai.cli.run as run_module
 from ifixai import telemetry
-from ifixai.cli import pro_offer, ui
+from ifixai.cli import pro_offer
 from ifixai.cli.main import ifixai_cli
-from ifixai.cli.pro_offer import (
-    ABANDON_OPTION,
-    CONTINUE_OPTION,
-    NO_OPTION,
-    NO_PROMO_ENV_VAR,
-    PRO_INTEREST_QUESTION,
-    PRO_URL,
-    YES_OPTION,
-    RunDecision,
-)
+from ifixai.cli.pro_offer import NO_PROMO_ENV_VAR
+from ifixai.core.types import TestResult, TestRunResult, TestStatus
 
 UNKNOWN_TEST_ID = "ZZ99"
 UNKNOWN_TEST_ERROR = "unknown test ID"
-ABANDONED_MESSAGE = "Run abandoned"
-OFFER_LINE = "  Claim your free fast audit\n"
-OFFER_QUESTION = "Claim your free fast audit now?"
-RETIRED_COPY = ("free sample", "Try the Pro version")
+REAL_PROVIDER = "openai"
+CONNECTOR_URL = "https://mcp.ifixai.ai/mcp"
+EXPECTED_LINES = [
+    "One free hosted audit for you: up to 12 inspections the open-source set does not "
+    "have, 20 minutes at most.",
+    "Add iFixAi to your coding agent: claude mcp add --transport http --scope user "
+    "ifixai https://mcp.ifixai.ai/mcp",
+    "Then say: audit my agent with code MYAUDIT",
+]
 SKIPPED_RUNS = [
     (["--no-promo"], {}),
     ([], {NO_PROMO_ENV_VAR: "1"}),
@@ -38,91 +35,76 @@ SKIPPED_RUNS = [
 
 
 class FakeStream(io.StringIO):
-    """A text stream that reports whether it is attached to a terminal.
+    """A text stream that reports whether it is attached to a terminal."""
 
-    ``typed_text`` is what a user would have typed, for a stream used as stdin.
-    """
-
-    def __init__(self, is_terminal: bool, typed_text: str = "") -> None:
-        super().__init__(typed_text)
+    def __init__(self, is_terminal: bool) -> None:
+        super().__init__()
         self.is_terminal = is_terminal
 
     def isatty(self) -> bool:
         return self.is_terminal
 
 
-class BrowserRecorder:
-    """Stands in for ``webbrowser.open`` and records the URLs it was asked for."""
-
-    def __init__(self, is_launch_successful: bool) -> None:
-        self.is_launch_successful = is_launch_successful
-        self.opened_urls: list[str] = []
-
-    def __call__(self, url: str) -> bool:
-        self.opened_urls.append(url)
-        return self.is_launch_successful
-
-
-class OfferRecorder:
-    """Stands in for ``offer_pro_version`` and counts how often the run asked."""
-
-    def __init__(self, decision: RunDecision) -> None:
-        self.decision = decision
-        self.call_count = 0
-
-    def __call__(self) -> RunDecision:
-        self.call_count += 1
-        return self.decision
-
-
-class CallCounter:
-    """Stands in for a no-argument side effect and counts its calls."""
+class EventRecorder:
+    """Stands in for ``telemetry.emit_offer_shown`` and records each place."""
 
     def __init__(self) -> None:
-        self.call_count = 0
+        self.places: list[str] = []
 
-    def __call__(self) -> None:
-        self.call_count += 1
-
-
-class ScriptedMenu:
-    """Stands in for the arrow-key menu and answers each question in order."""
-
-    def __init__(self, answers: list[str]) -> None:
-        self.remaining_answers = iter(answers)
-        self.defaults: list[str] = []
-
-    def __call__(self, message: str, choices: Sequence[str], default: str) -> str:
-        self.defaults.append(default)
-        return next(self.remaining_answers)
+    def __call__(self, where: str) -> None:
+        self.places.append(where)
 
 
-class CancelledMenu:
-    """Stands in for the arrow-key menu when the user presses Ctrl-C on it."""
+class SenderRecorder:
+    """Stands in for the telemetry sender and keeps every body it was given."""
 
-    def __call__(self, message: str, choices: Sequence[str], default: str) -> str:
-        raise KeyboardInterrupt
+    def __init__(self) -> None:
+        self.bodies: list[dict[str, object]] = []
 
-
-class UnexpectedMenu:
-    """Stands in for the arrow-key menu on a terminal where it must not be used."""
-
-    def __call__(self, message: str, choices: Sequence[str], default: str) -> str:
-        raise AssertionError("the arrow-key menu was used where it cannot run")
+    def submit(self, body: bytes) -> None:
+        self.bodies.append(json.loads(body))
 
 
-def report_terminal_attached() -> bool:
-    return True
+class CallRecorder:
+    """Stands in for a run hook and records its calls in a shared order list."""
+
+    def __init__(self, name: str, order: list[str], reports: Path | None = None) -> None:
+        self.name = name
+        self.order = order
+        self.reports = reports
+        self.calls: list[tuple[object, ...]] = []
+        self.reports_on_disk: list[bool] = []
+
+    def __call__(self, *args: object) -> None:
+        self.calls.append(args)
+        self.order.append(self.name)
+        if self.reports is not None:
+            self.reports_on_disk.append(bool(list(self.reports.glob("*.json"))))
 
 
 def report_outside_ci() -> bool:
     return False
 
 
-@click.command()
-def show_offer_decision() -> None:
-    """Minimal host command so CliRunner can answer the offer's prompts."""
-    click.echo(f"decision={pro_offer.offer_pro_version().value}")
+def report_terminal_attached() -> bool:
+    return True
+
+
+def report_terminal_attached_for(stream: object) -> bool:
+    return True
+
+
+def run_result(*statuses: TestStatus) -> TestRunResult:
+    return TestRunResult(
+        test_results=[
+            TestResult(test_id=f"B{index:02d}", status=status)
+            for index, status in enumerate(statuses, start=1)
+        ]
+    )
+
+
+def offer_lines(text: str) -> list[str]:
+    return [line for line in click.unstyle(text).splitlines() if line in EXPECTED_LINES]
 
 
 @pytest.fixture(autouse=True)
@@ -133,15 +115,17 @@ def offer_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def browser(monkeypatch: pytest.MonkeyPatch) -> BrowserRecorder:
-    recorder = BrowserRecorder(is_launch_successful=True)
-    monkeypatch.setattr(pro_offer.webbrowser, "open", recorder)
+def shown_events(monkeypatch: pytest.MonkeyPatch) -> EventRecorder:
+    recorder = EventRecorder()
+    monkeypatch.setattr(telemetry, "emit_offer_shown", recorder)
     return recorder
 
 
 @pytest.fixture
-def attached_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pro_offer, "can_prompt_user", report_terminal_attached)
+def terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every stream counts as a terminal, outside CI; the output itself is read with capsys."""
+    monkeypatch.setattr(pro_offer, "is_terminal", report_terminal_attached_for)
+    monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
 
 
 @pytest.fixture
@@ -168,369 +152,262 @@ def mock_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     ]
 
 
-@pytest.mark.parametrize("answers", ["2\n", "\n"])
-def test_declining_continues_the_run_without_opening_the_site(
-    attached_terminal: None, browser: BrowserRecorder, answers: str
+def test_the_start_offer_prints_the_three_lines_on_stderr_once_per_machine(
+    terminal: None,
+    shown_events: EventRecorder,
+    offer_marker: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    result = CliRunner().invoke(show_offer_decision, input=answers)
+    pro_offer.offer_at_start(REAL_PROVIDER)
+    pro_offer.offer_at_start(REAL_PROVIDER)
 
-    assert result.exit_code == 0, result.output
-    assert PRO_URL in result.output
-    assert "decision=continue" in result.output
-    assert browser.opened_urls == []
+    printed = capsys.readouterr()
+    assert offer_lines(printed.err) == EXPECTED_LINES
+    assert printed.out == ""
+    assert offer_marker.exists()
+    assert shown_events.places == ["start"]
+
+
+def test_the_end_offer_prints_after_every_real_run_with_a_verdict(
+    terminal: None,
+    shown_events: EventRecorder,
+    offer_marker: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    offer_marker.parent.mkdir(parents=True)
+    offer_marker.touch()
+
+    pro_offer.offer_at_end(REAL_PROVIDER, run_result(TestStatus.PASS))
+    pro_offer.offer_at_end(REAL_PROVIDER, run_result(TestStatus.FAIL, TestStatus.ERROR))
+
+    printed = capsys.readouterr()
+    assert offer_lines(printed.err) == EXPECTED_LINES * 2
+    assert printed.out == ""
+    assert shown_events.places == ["end", "end"]
 
 
 @pytest.mark.parametrize(
-    "answers,expected",
-    [("1\n1\n", "continue"), ("1\n\n", "continue"), ("1\n2\n", "abandon")],
+    "statuses",
+    [(), (TestStatus.INCONCLUSIVE,), (TestStatus.ERROR, TestStatus.INCONCLUSIVE)],
 )
-def test_accepting_opens_the_site_then_asks_what_to_do_with_the_run(
-    attached_terminal: None, browser: BrowserRecorder, answers: str, expected: str
+def test_the_end_offer_needs_at_least_one_verdict(
+    terminal: None,
+    shown_events: EventRecorder,
+    statuses: tuple[TestStatus, ...],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    result = CliRunner().invoke(show_offer_decision, input=answers)
+    pro_offer.offer_at_end(REAL_PROVIDER, run_result(*statuses))
 
-    assert result.exit_code == 0, result.output
-    assert browser.opened_urls == [PRO_URL]
-    assert "Continue the current run" in result.output
-    assert "Abandon the run" in result.output
-    assert f"decision={expected}" in result.output
+    assert capsys.readouterr().err == ""
+    assert shown_events.places == []
 
 
-def test_a_browser_that_will_not_open_still_leaves_the_link_and_the_choice(
-    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("provider", ["mock", "MOCK"])
+def test_the_mock_agent_never_sees_the_offer(
+    terminal: None,
+    shown_events: EventRecorder,
+    offer_marker: Path,
+    provider: str,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    failing_browser = BrowserRecorder(is_launch_successful=False)
-    monkeypatch.setattr(pro_offer.webbrowser, "open", failing_browser)
+    pro_offer.offer_at_start(provider)
+    pro_offer.offer_at_end(provider, run_result(TestStatus.PASS))
 
-    result = CliRunner().invoke(show_offer_decision, input="1\n2\n")
-
-    assert result.exit_code == 0, result.output
-    assert "Could not open a browser" in result.output
-    assert f"Visit {PRO_URL}" in result.output
-    assert "decision=abandon" in result.output
-
-
-def test_a_number_outside_the_list_is_refused_and_asked_again(
-    attached_terminal: None, browser: BrowserRecorder
-) -> None:
-    result = CliRunner().invoke(show_offer_decision, input="7\n0\nyes\n1\n2\n")
-
-    assert result.exit_code == 0, result.output
-    assert result.output.count("Error:") == 3
-    assert browser.opened_urls == [PRO_URL]
-    assert "decision=abandon" in result.output
-
-
-def test_no_color_terminals_get_the_numbered_list_not_the_arrow_menu(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("NO_COLOR", "1")
-    monkeypatch.setattr(sys, "stdin", FakeStream(is_terminal=True, typed_text="1\n"))
-    monkeypatch.setattr(sys, "stdout", FakeStream(is_terminal=True))
-    monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
-
-    assert ui.is_interactive() is False
-    assert pro_offer.ask_choice(PRO_INTEREST_QUESTION) == YES_OPTION
-
-
-def test_no_terminal_means_no_prompt_and_the_run_continues(
-    browser: BrowserRecorder, offer_marker: Path
-) -> None:
-    # CliRunner's streams are not terminals, so the real gate is exercised here.
-    result = CliRunner().invoke(show_offer_decision, input="1\n2\n")
-
-    assert result.output.strip() == "decision=continue"
-    assert browser.opened_urls == []
+    assert capsys.readouterr().err == ""
     assert not offer_marker.exists()
+    assert shown_events.places == []
 
 
 @pytest.mark.parametrize(
-    "is_stdin_terminal,is_stdout_terminal,expected",
+    "is_stdout_terminal,is_stderr_terminal,expected",
     [(True, True, True), (False, True, False), (True, False, False)],
 )
-def test_prompting_needs_a_terminal_on_both_streams(
+def test_the_offer_needs_a_terminal_on_both_output_streams(
     monkeypatch: pytest.MonkeyPatch,
-    is_stdin_terminal: bool,
     is_stdout_terminal: bool,
+    is_stderr_terminal: bool,
     expected: bool,
 ) -> None:
     monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
-    monkeypatch.setattr(sys, "stdin", FakeStream(is_stdin_terminal))
     monkeypatch.setattr(sys, "stdout", FakeStream(is_stdout_terminal))
+    monkeypatch.setattr(sys, "stderr", FakeStream(is_stderr_terminal))
 
-    assert pro_offer.can_prompt_user() is expected
+    assert pro_offer.person_at_terminal() is expected
 
 
-@pytest.mark.parametrize("missing_stream", ["stdin", "stdout"])
+@pytest.mark.parametrize("missing_stream", ["stdout", "stderr"])
 def test_a_missing_standard_stream_is_not_a_terminal(
     monkeypatch: pytest.MonkeyPatch, missing_stream: str
 ) -> None:
-    # Python sets a standard stream to None when the process has no handle for
-    # it, e.g. `ifixai run ... <&-` or a detached Windows process.
     monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
-    monkeypatch.setattr(sys, "stdin", FakeStream(is_terminal=True))
     monkeypatch.setattr(sys, "stdout", FakeStream(is_terminal=True))
+    monkeypatch.setattr(sys, "stderr", FakeStream(is_terminal=True))
     monkeypatch.setattr(sys, missing_stream, None)
 
-    assert pro_offer.can_prompt_user() is False
+    assert pro_offer.person_at_terminal() is False
 
 
-def test_ci_is_never_prompted_even_with_a_terminal(
-    monkeypatch: pytest.MonkeyPatch, offer_marker: Path
+def test_ci_never_sees_the_offer_even_with_a_terminal(
+    monkeypatch: pytest.MonkeyPatch,
+    shown_events: EventRecorder,
+    offer_marker: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("CI", "true")
-    monkeypatch.setattr(sys, "stdin", FakeStream(is_terminal=True))
-    monkeypatch.setattr(sys, "stdout", FakeStream(is_terminal=True))
+    monkeypatch.setattr(pro_offer, "is_terminal", report_terminal_attached_for)
 
-    assert pro_offer.can_prompt_user() is False
-    assert pro_offer.offer_pro_version() is RunDecision.CONTINUE
+    pro_offer.offer_at_start(REAL_PROVIDER)
+    pro_offer.offer_at_end(REAL_PROVIDER, run_result(TestStatus.PASS))
+
+    assert capsys.readouterr().err == ""
     assert not offer_marker.exists()
-
-
-@pytest.mark.parametrize("extra_args,env", SKIPPED_RUNS)
-def test_run_skips_the_offer_when_told_to_or_when_nothing_will_run(
-    run_args: list[str],
-    monkeypatch: pytest.MonkeyPatch,
-    extra_args: list[str],
-    env: dict[str, str],
-) -> None:
-    offer = OfferRecorder(RunDecision.ABANDON)
-    monkeypatch.setattr(run_module, "offer_pro_version", offer)
-
-    result = CliRunner().invoke(ifixai_cli, [*run_args, *extra_args], env=env)
-
-    assert offer.call_count == 0
-    assert ABANDONED_MESSAGE not in result.output
-    assert UNKNOWN_TEST_ERROR in result.output
-
-
-def test_run_makes_the_offer_once_and_continues_when_the_user_keeps_the_run(
-    run_args: list[str], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    offer = OfferRecorder(RunDecision.CONTINUE)
-    monkeypatch.setattr(run_module, "offer_pro_version", offer)
-
-    result = CliRunner().invoke(ifixai_cli, run_args)
-
-    assert offer.call_count == 1
-    assert result.exit_code == 1, result.output
-    assert UNKNOWN_TEST_ERROR in result.output
-
-
-def test_abandoning_exits_cleanly_before_the_run_leaves_any_trace(
-    tmp_path: Path,
-    mock_run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    started = CallCounter()
-    monkeypatch.setattr(telemetry, "emit_started", started)
-
-    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="1\n2\n")
-
-    assert result.exit_code == 0, result.output
-    assert ABANDONED_MESSAGE in result.output
-    assert browser.opened_urls == [PRO_URL]
-    assert started.call_count == 0
-    assert not (tmp_path / "runs").exists()
-    assert not (tmp_path / "reports").exists()
-
-
-def test_continuing_after_visiting_the_site_runs_the_inspections(
-    tmp_path: Path,
-    mock_run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    started = CallCounter()
-    monkeypatch.setattr(telemetry, "emit_started", started)
-
-    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="1\n1\n")
-
-    assert ABANDONED_MESSAGE not in result.output
-    assert browser.opened_urls == [PRO_URL]
-    assert started.call_count == 1
-    assert (tmp_path / "runs").exists()
-    assert list((tmp_path / "reports").glob("*.json")), result.output
-
-
-def test_input_ending_at_the_numbered_prompt_aborts_instead_of_starting_the_run(
-    tmp_path: Path,
-    mock_run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    started = CallCounter()
-    monkeypatch.setattr(telemetry, "emit_started", started)
-
-    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="")
-
-    assert result.exit_code == 1, result.output
-    assert "Aborted!" in result.output
-    assert started.call_count == 0
-    assert not (tmp_path / "runs").exists()
-
-
-def test_declining_at_the_real_prompt_lets_the_run_proceed(
-    run_args: list[str], attached_terminal: None, browser: BrowserRecorder
-) -> None:
-    result = CliRunner().invoke(ifixai_cli, run_args, input="2\n")
-
-    assert result.exit_code == 1, result.output
-    assert PRO_URL in result.output
-    assert UNKNOWN_TEST_ERROR in result.output
-    assert browser.opened_urls == []
-
-
-@pytest.mark.parametrize(
-    "answers,expected,expected_urls",
-    [
-        ([NO_OPTION], RunDecision.CONTINUE, []),
-        ([YES_OPTION, CONTINUE_OPTION], RunDecision.CONTINUE, [PRO_URL]),
-        ([YES_OPTION, ABANDON_OPTION], RunDecision.ABANDON, [PRO_URL]),
-    ],
-)
-def test_arrow_menu_answers_drive_the_same_decisions(
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-    answers: list[str],
-    expected: RunDecision,
-    expected_urls: list[str],
-) -> None:
-    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu(answers))
-
-    assert pro_offer.offer_pro_version() is expected
-    assert browser.opened_urls == expected_urls
-
-
-def test_arrow_menus_start_on_the_answer_that_keeps_the_run_going(
-    attached_terminal: None, browser: BrowserRecorder, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    menu = ScriptedMenu([YES_OPTION, CONTINUE_OPTION])
-    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", menu)
-
-    pro_offer.offer_pro_version()
-
-    assert menu.defaults == [NO_OPTION, CONTINUE_OPTION]
-
-
-def test_ctrl_c_on_the_arrow_menu_aborts_instead_of_starting_the_run(
-    tmp_path: Path,
-    mock_run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    started = CallCounter()
-    monkeypatch.setattr(telemetry, "emit_started", started)
-    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", CancelledMenu())
-
-    result = CliRunner().invoke(ifixai_cli, mock_run_args)
-
-    assert result.exit_code == 1, result.output
-    assert "Aborted!" in result.output
-    assert started.call_count == 0
-    assert not (tmp_path / "runs").exists()
-
-
-def test_the_offer_invites_a_free_fast_audit(
-    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    failing_browser = BrowserRecorder(is_launch_successful=False)
-    monkeypatch.setattr(pro_offer.webbrowser, "open", failing_browser)
-
-    result = CliRunner().invoke(show_offer_decision, input="1\n1\n")
-
-    assert OFFER_LINE in result.output
-    assert OFFER_QUESTION in result.output
-    assert [copy for copy in RETIRED_COPY if copy in result.output] == []
-
-
-def test_a_second_run_starts_straight_away_without_the_offer(
-    run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    offer_marker: Path,
-) -> None:
-    first = CliRunner().invoke(ifixai_cli, run_args, input="2\n")
-    # No input: a second offer would stop at the prompt and abort.
-    second = CliRunner().invoke(ifixai_cli, run_args, input="")
-
-    assert OFFER_LINE in first.output
-    assert offer_marker.exists()
-    assert OFFER_LINE not in second.output
-    assert "Aborted!" not in second.output
-    assert UNKNOWN_TEST_ERROR in second.output
-
-
-@pytest.mark.parametrize(
-    "answers",
-    [[NO_OPTION], [YES_OPTION, CONTINUE_OPTION], [YES_OPTION, ABANDON_OPTION]],
-)
-def test_any_answer_counts_as_shown(
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-    answers: list[str],
-) -> None:
-    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu(answers))
-    pro_offer.offer_pro_version()
-    monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
-
-    assert pro_offer.offer_pro_version() is RunDecision.CONTINUE
-
-
-def test_ctrl_c_on_the_offer_counts_as_shown(
-    attached_terminal: None, browser: BrowserRecorder, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", CancelledMenu())
-    with pytest.raises(KeyboardInterrupt):
-        pro_offer.offer_pro_version()
-    monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
-
-    assert pro_offer.offer_pro_version() is RunDecision.CONTINUE
-
-
-@pytest.mark.parametrize("extra_args,env", SKIPPED_RUNS)
-def test_a_skipped_offer_is_not_marked_shown(
-    run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    offer_marker: Path,
-    extra_args: list[str],
-    env: dict[str, str],
-) -> None:
-    result = CliRunner().invoke(ifixai_cli, [*run_args, *extra_args], env=env)
-
-    assert OFFER_LINE not in result.output
-    assert UNKNOWN_TEST_ERROR in result.output
-    assert not offer_marker.exists()
+    assert shown_events.places == []
 
 
 @pytest.mark.parametrize("blocking_file", ["config", "config/ifixai"])
-def test_a_marker_that_cannot_be_written_skips_the_offer_and_runs(
+def test_a_marker_that_cannot_be_written_skips_the_start_lines(
     tmp_path: Path,
-    run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
+    terminal: None,
+    shown_events: EventRecorder,
     blocking_file: str,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     # A file where the config dir should be: the marker can't be created.
     blocker = tmp_path / blocking_file
     blocker.parent.mkdir(parents=True, exist_ok=True)
     blocker.write_text("not a directory", encoding="utf-8")
 
-    result = CliRunner().invoke(ifixai_cli, run_args, input="")
+    pro_offer.offer_at_start(REAL_PROVIDER)
 
-    assert OFFER_LINE not in result.output
-    assert "Aborted!" not in result.output
+    assert capsys.readouterr().err == ""
+    assert shown_events.places == []
+
+
+def test_the_lines_name_the_connector_and_no_web_page() -> None:
+    lines = [pro_offer.OFFER_HEADLINE, pro_offer.OFFER_COMMAND_LINE, pro_offer.OFFER_SAY_LINE]
+    urls = [word for line in lines for word in line.split() if "://" in word]
+
+    assert lines == EXPECTED_LINES
+    assert urls == [CONNECTOR_URL]
+    assert not any("dashboard" in line.lower() for line in lines)
+
+
+def test_the_run_offers_at_the_start_and_after_the_saved_reports(
+    tmp_path: Path, mock_run_args: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order: list[str] = []
+    start = CallRecorder("start", order)
+    end = CallRecorder("end", order, reports=tmp_path / "reports")
+    monkeypatch.setattr(run_module, "offer_at_start", start)
+    monkeypatch.setattr(run_module, "offer_at_end", end)
+    monkeypatch.setattr(telemetry, "emit_completed", CallRecorder("completed", order))
+
+    result = CliRunner().invoke(ifixai_cli, mock_run_args)
+
+    assert order == ["start", "end", "completed"], result.output
+    assert start.calls == [("mock",)]
+    assert end.calls[0][0] == "mock"
+    assert isinstance(end.calls[0][1], TestRunResult)
+    assert end.reports_on_disk == [True]
+
+
+@pytest.mark.parametrize("extra_args,env", SKIPPED_RUNS)
+def test_the_run_skips_the_offer_when_told_to_or_when_nothing_will_run(
+    run_args: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    extra_args: list[str],
+    env: dict[str, str],
+) -> None:
+    order: list[str] = []
+    monkeypatch.setattr(run_module, "offer_at_start", CallRecorder("start", order))
+    monkeypatch.setattr(run_module, "offer_at_end", CallRecorder("end", order))
+
+    result = CliRunner().invoke(ifixai_cli, [*run_args, *extra_args], env=env)
+
+    assert order == []
     assert UNKNOWN_TEST_ERROR in result.output
+
+
+def test_no_promo_skips_the_end_offer_of_a_finished_run(
+    mock_run_args: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order: list[str] = []
+    monkeypatch.setattr(run_module, "offer_at_start", CallRecorder("start", order))
+    monkeypatch.setattr(run_module, "offer_at_end", CallRecorder("end", order))
+
+    result = CliRunner().invoke(ifixai_cli, [*mock_run_args, "--no-promo"])
+
+    assert "Reports saved" in result.output
+    assert order == []
+
+
+def test_a_run_without_a_terminal_never_shows_or_marks_the_offer(
+    mock_run_args: list[str], offer_marker: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Not the mock agent, so only the missing terminal keeps the lines away.
+    monkeypatch.setattr(pro_offer, "MOCK_PROVIDER", "no-such-provider")
+
+    result = CliRunner().invoke(ifixai_cli, mock_run_args)
+
+    assert "Reports saved" in result.output
+    assert offer_lines(result.output) == []
+    assert not offer_marker.exists()
+
+
+def test_a_real_run_at_a_terminal_starts_and_ends_on_the_offer(
+    tmp_path: Path, mock_run_args: list[str], offer_marker: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The mock agent stands in for a real one here; the terminal check is answered yes.
+    monkeypatch.setattr(pro_offer, "MOCK_PROVIDER", "no-such-provider")
+    monkeypatch.setattr(pro_offer, "person_at_terminal", report_terminal_attached)
+
+    first = CliRunner().invoke(ifixai_cli, mock_run_args)
+    second = CliRunner().invoke(ifixai_cli, mock_run_args)
+
+    assert offer_lines(first.output) == EXPECTED_LINES * 2, first.output
+    assert first.output.index("Reports saved") < first.output.rindex(EXPECTED_LINES[0])
+    assert offer_marker.exists()
+    assert offer_lines(second.output) == EXPECTED_LINES, second.output
+    assert second.output.index("Reports saved") < second.output.index(EXPECTED_LINES[0])
+    for report in (tmp_path / "reports").iterdir():
+        assert "MYAUDIT" not in report.read_text(encoding="utf-8")
+
+
+class TestOfferTelemetry:
+    @pytest.fixture
+    def sender(self, monkeypatch: pytest.MonkeyPatch) -> SenderRecorder:
+        recorder = SenderRecorder()
+        for name in ("IFIXAI_TELEMETRY", "DO_NOT_TRACK"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
+        monkeypatch.setattr(telemetry, "_force_disabled", False)
+        monkeypatch.setattr(telemetry, "_offers_emitted", set())
+        monkeypatch.setattr(telemetry, "_get_sender", lambda: recorder)
+        return recorder
+
+    def test_each_place_is_sent_once_with_where_it_was(self, sender: SenderRecorder) -> None:
+        telemetry.emit_offer_shown("start")
+        telemetry.emit_offer_shown("end")
+        telemetry.emit_offer_shown("end")
+
+        assert [body["event"] for body in sender.bodies] == ["ifixai_offer_shown"] * 2
+        assert [body["properties"]["where"] for body in sender.bodies] == ["start", "end"]
+
+    def test_an_unknown_place_is_never_sent(self, sender: SenderRecorder) -> None:
+        telemetry.emit_offer_shown("/home/someone/project")
+
+        assert sender.bodies == []
+
+    def test_other_events_carry_no_where(self, sender: SenderRecorder) -> None:
+        telemetry._enqueue("ifixai_started")
+
+        assert "where" not in sender.bodies[0]["properties"]
+
+    def test_the_opt_out_sends_nothing(
+        self, sender: SenderRecorder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("IFIXAI_TELEMETRY", "0")
+
+        telemetry.emit_offer_shown("start")
+
+        assert sender.bodies == []

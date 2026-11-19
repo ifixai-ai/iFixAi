@@ -1,8 +1,8 @@
 """The self-check result: what a free local run found, labelled as exactly that.
 
 Input is the JSON scorecard `ifixai run --format json` writes. Output is a
-small, stable document (`ifixai.self-check/1`) that the CLI prints, the MCP
-server returns, and SARIF and the PR comment are built from.
+small, stable document (`ifixai.self-check/1`) that the CLI prints, and SARIF
+and the PR comment are built from.
 
 The verdict sentence is a template filled from counts. No model writes it, and
 it never uses the words a certified result would ("passed", "verified"):
