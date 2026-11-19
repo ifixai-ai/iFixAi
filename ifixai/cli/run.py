@@ -911,9 +911,9 @@ def _reject_profile(ctx: click.Context, param: click.Parameter, value: str | Non
     is_flag=True,
     default=False,
     envvar=NO_PROMO_ENV_VAR,
-    help="Hide the hosted-audit offer printed at the start and end of a run. Set "
-    f"{NO_PROMO_ENV_VAR}=1 to hide it on every run. The offer is never shown "
-    "in CI or when output is not a terminal.",
+    help="Skip the free Pro audit offer at the start and the steps at the end of a run. "
+    f"Set {NO_PROMO_ENV_VAR}=1 to skip it on every run. The offer is never shown "
+    "in CI or without a terminal.",
 )
 @click.option(
     "--print-telemetry",
@@ -1183,9 +1183,10 @@ def run(
         auth_method = interactive.get("auth_method") or auth_method
         if interactive.get("extra_headers"):
             extra_headers = interactive["extra_headers"]
-    # After the guided setup, so a mock agent picked there never sees the offer.
-    if not (no_promo or dry_run):
-        offer_at_start(provider)
+    # After the guided setup, so a mock agent picked there never sees the offer. A Pro pick
+    # ends the run here, before anything is sent to an agent.
+    if not (no_promo or dry_run) and offer_at_start(provider):
+        return
 
     eval_mode_auto_selected_judge: str | None = None
     if eval_mode is None:
@@ -2165,8 +2166,6 @@ def run(
     click.echo(f"  Run nonce: {manifest.run_nonce}")
     click.echo(f"  Manifest: {manifest_path}")
 
-    if not no_promo:
-        offer_at_end(provider, result)
     telemetry.emit_completed()
 
     # Reports and checkpoint are on disk. The exit code is read off the verdict the headline
@@ -2175,6 +2174,8 @@ def run(
     # A stopped run already said why, and the RUN INVALID banner above says why a few surviving
     # probes scoring above --min-score still exit 2.
     if result.partial or health.invalid:
+        if not no_promo:
+            offer_at_end(provider, result)
         sys.exit(exit_code)
 
     if result.overall_score is None:
@@ -2211,6 +2212,9 @@ def run(
             f"{', '.join(sorted(failed))} failed, {what}, so the run fails whatever the score.",
             fg="red",
         ))
+    # The offer is the last thing a finished run prints.
+    if not no_promo:
+        offer_at_end(provider, result)
     if exit_code:
         sys.exit(exit_code)
 

@@ -62,13 +62,13 @@ Generic `Authorization: Bearer <token>` and `X-API-Key: <value>` headers are scr
 
 iFixAi sends pseudonymous run telemetry — from the CLI, the plugin, and scaffolded agent skills alike, since all three run the same engine — so we can count how many people use it and whether they return. It is consent-first: disclosed in plain language on first run, off automatically in CI, and every opt-out is honored *before* any identifier is created or any event is sent.
 
-**What is sent:** one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report, and `ifixai_offer_shown` when the terminal prints the hosted-audit offer:
+**What is sent:** one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report, `ifixai_offer_shown` when the terminal shows the free Pro audit offer, and `ifixai_offer_accepted` when you pick it:
 
 | Field | Example | Why |
 |---|---|---|
 | install id | random `uuid4`, stored at `${XDG_CONFIG_HOME:-~/.config}/ifixai/install-id` (`0600`) | unique installs + retention |
-| event | `ifixai_started` / `ifixai_completed` / `ifixai_offer_shown` | run count + completion rate + how often the offer is seen |
-| where | `start` / `end`, on `ifixai_offer_shown` only | which of the two offers was seen |
+| event | `ifixai_started` / `ifixai_completed` / `ifixai_offer_shown` / `ifixai_offer_accepted` | run count + completion rate + how often the offer is seen and picked |
+| where | `start` / `end`, on the two offer events only | where the offer was seen or picked |
 | version | `3.0.2` | adoption per release |
 | os | `Darwin` / `Linux` / `Windows` (from `platform.system()`) | platform mix |
 | surface | `cli` / `plugin` / `skill` | separate the run interfaces |

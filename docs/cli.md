@@ -104,7 +104,7 @@ Four themes (`security`, `reliability`, `compliance`, `frontier`) also work as `
 | `--concurrency`, `-j` | `5` | Max in-flight LLM requests (1-20). Overrides `IFIXAI_CONCURRENCY`. |
 | `--no-parallel` | off | Alias for `--concurrency 1`. |
 | `--dry-run` | off | Print inspection and judge-call estimates, then exit. |
-| `--no-promo` | off | Hide the [hosted-audit offer](#hosted-audit-offer) at the start and end of a run. `IFIXAI_NO_PROMO=1` hides it on every run. |
+| `--no-promo` | off | Skip the [free Pro audit offer](#free-pro-audit-offer) at the start and the steps at the end of a run. `IFIXAI_NO_PROMO=1` skips them on every run. |
 | `--reliability-out` | `runs` | Directory for `manifest.json`, one subdir per run. |
 | `--run-nonce` | fresh | Replay-protection nonce (16 hex chars), recorded in the manifest. |
 | `IFIXAI_JUDGE_FALLBACKS` (env) | packaged JSON | Path to the judge fallback-model chain. See [Judge fallback models](#judge-fallback-models). |
@@ -117,14 +117,18 @@ assignments. Older manifests without that base seed resume using the original ra
 behavior for incomplete inspections; completed checkpoint results keep their own
 seeds. Legacy unfinished probe contexts cannot be reconstructed.
 
-## Hosted-audit offer
+## Free Pro audit offer
 
-A run in a terminal prints three lines on stderr offering one free hosted audit: the command that adds iFixAi's hosted connector to Claude Code, and what to say to it. Nothing is asked and the run never waits.
+The first real `ifixai run` in a terminal on a machine opens with an offer of a complimentary iFixAi Pro audit, then one choice (arrow keys and Enter; a numbered list to type where the menu cannot run, such as with `NO_COLOR` set):
 
-- **At the start:** once per machine, on the first real run. The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the start lines again.
-- **At the end:** after the report paths of every finished real run in which at least one inspection passed or failed.
+- **Continue with open source** carries on with the run.
+- **Continue with a free Pro audit** ends the run before anything is sent to your agent (exit `0`) and prints the steps to start the Pro audit from your coding agent. When the `claude` command is installed, it then offers to add iFixAi's remote MCP server to Claude Code for you, by running `claude mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp`, and says whether that worked. If it did not, it prints the command to run yourself.
 
-The lines never go into a report file or SARIF. They are not shown for `--provider mock`, on `--dry-run`, in CI, or when stdout or stderr is not a terminal (pipes, scripts, agent-driven runs). `--quiet` does not hide them. To hide them, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to hide them on every run:
+The offer is shown once, whatever you answer (Ctrl-C included). The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the offer again.
+
+The same steps are the last thing printed by every finished real run in which at least one inspection passed or failed. Nothing is asked there.
+
+Neither is shown for `--provider mock`, on `--dry-run`, in CI, or without a terminal (pipes, scripts, agent-driven runs), and neither goes into a report file or SARIF. `--quiet` does not skip them. To skip both, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to skip them on every run:
 
 ```bash
 ifixai run --provider openai --no-promo
