@@ -1,14 +1,14 @@
 """Pro-version offer shown at the start of an interactive ``ifixai run``.
 
 The offer is made once per machine, before telemetry and before any provider
-call, so a run the user abandons for the website leaves no trace beyond the
-``pro-offer-shown`` marker. It is never shown when stdin or stdout is not a
-terminal, or in CI, so scripted and agent-driven runs cannot block on it. Skip
-it with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
+call. Choosing the free Pro audit prints the steps that start it from a coding
+agent and stops the run, so it leaves no trace beyond the
+``pro-audit-offer-shown`` marker. It is never shown when stdin or stdout is not
+a terminal, or in CI, so scripted and agent-driven runs cannot block on it.
+Skip it with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
 """
 
 import sys
-import webbrowser
 from enum import Enum
 from typing import TextIO, TypedDict
 
@@ -16,15 +16,38 @@ import click
 
 from ifixai import telemetry
 from ifixai.cli import ui
+from ifixai.cli._branding import ACCENT_RGB
 
-PRO_URL = "https://www.ifixai.ai/"
+MCP_SERVER_URL = "https://mcp.ifixai.ai/mcp"
+PROMO_CODE = "SF2026"
+FREE_AUDIT_INSPECTION_COUNT = 12
 NO_PROMO_ENV_VAR = "IFIXAI_NO_PROMO"
-OFFER_MARKER_NAME = "pro-offer-shown"
+# Renamed from "pro-offer-shown" when the offer changed, so a machine that saw
+# the old offer is shown the new one once.
+OFFER_MARKER_NAME = "pro-audit-offer-shown"
 
-YES_OPTION = "Yes"
-NO_OPTION = "No"
-CONTINUE_OPTION = "Continue the current run"
-ABANDON_OPTION = "Abandon the run"
+PRO_AUDIT_OPTION = "Continue with a free Pro audit"
+OPEN_SOURCE_OPTION = "Continue with open source"
+
+COPY_INDENT = "  "
+# Narrow enough for an 80-column terminal once the indent is added.
+COPY_WIDTH = 76
+OFFER_HEADLINE_LINES = (
+    "Even when your AI agent does exactly what you ask,",
+    "what else does it do along the way?",
+)
+NO_PAYMENT_NOTE = "No payment or subscription required."
+OFFER_PARAGRAPHS = (
+    "Try a complimentary iFixAi Pro audit through MCP.",
+    f"We run {FREE_AUDIT_INSPECTION_COUNT} inspections. You get two reports "
+    "showing what happened during testing, what it means for your business, "
+    "and how the findings relate to relevant regulations.",
+    NO_PAYMENT_NOTE,
+)
+CODE_COVERAGE_NOTE = (
+    f"The code covers {FREE_AUDIT_INSPECTION_COUNT} inspections, all findings, "
+    "and both reports."
+)
 
 
 class RunDecision(str, Enum):
@@ -42,33 +65,28 @@ class ChoiceQuestion(TypedDict):
     default: str
 
 
-PRO_INTEREST_QUESTION = ChoiceQuestion(
-    message="Claim your free fast audit now?",
-    options=(YES_OPTION, NO_OPTION),
-    default=NO_OPTION,
-)
-RUN_DECISION_QUESTION = ChoiceQuestion(
-    message="What would you like to do with this run?",
-    options=(CONTINUE_OPTION, ABANDON_OPTION),
-    default=CONTINUE_OPTION,
+# Open source is preselected so Enter alone keeps the run going.
+CONTINUE_PATH_QUESTION = ChoiceQuestion(
+    message="How would you like to continue?",
+    options=(PRO_AUDIT_OPTION, OPEN_SOURCE_OPTION),
+    default=OPEN_SOURCE_OPTION,
 )
 
 
 def offer_pro_version() -> RunDecision:
-    """Offer the Pro version and report whether the current run should go ahead.
+    """Offer the free Pro audit and report whether the current run should go ahead.
 
-    Opens the Pro website when the user accepts. Returns ``CONTINUE`` without
-    asking anything when nobody is at a terminal to answer or it was already shown.
+    Choosing the Pro audit prints how to start it and stops the run. Returns
+    ``CONTINUE`` without asking anything when nobody is at a terminal to answer
+    or the offer was already shown.
     """
     if not can_prompt_user() or not mark_offer_shown():
         return RunDecision.CONTINUE
     print_offer()
-    if ask_choice(PRO_INTEREST_QUESTION) != YES_OPTION:
+    if ask_choice(CONTINUE_PATH_QUESTION) != PRO_AUDIT_OPTION:
         return RunDecision.CONTINUE
-    open_pro_site()
-    if ask_choice(RUN_DECISION_QUESTION) == ABANDON_OPTION:
-        return RunDecision.ABANDON
-    return RunDecision.CONTINUE
+    print_audit_steps()
+    return RunDecision.ABANDON
 
 
 def can_prompt_user() -> bool:
@@ -101,23 +119,22 @@ def is_terminal(stream: TextIO | None) -> bool:
 
 
 def print_offer() -> None:
-    """Print the Pro-version pitch and its link."""
-    click.echo(click.style("  iFixAi Pro", bold=True))
-    click.echo("  Claim your free fast audit")
-    click.echo(click.style(f"  {PRO_URL}", fg="cyan"))
+    """Print the offer: the question the audit answers and what it covers."""
+    for line in OFFER_HEADLINE_LINES:
+        click.echo(click.style(f"{COPY_INDENT}{line}", bold=True))
+    for paragraph in OFFER_PARAGRAPHS:
+        click.echo()
+        click.echo(wrap_to_copy_width(paragraph))
     click.echo()
 
 
-def open_pro_site() -> None:
-    """Open the Pro website in the default browser; print the link when that fails."""
-    if webbrowser.open(PRO_URL):
-        click.echo(click.style(f"Opened {PRO_URL} in your browser.", fg="green"))
-        return
-    click.echo(
-        click.style(
-            f"Could not open a browser. Visit {PRO_URL} to claim your free fast audit.",
-            fg="yellow",
-        )
+def wrap_to_copy_width(paragraph: str) -> str:
+    """Wrap one paragraph of offer copy to the indented copy width."""
+    return click.wrap_text(
+        paragraph,
+        width=COPY_WIDTH,
+        initial_indent=COPY_INDENT,
+        subsequent_indent=COPY_INDENT,
     )
 
 
@@ -145,3 +162,25 @@ def ask_numbered_choice(question: ChoiceQuestion) -> str:
         default=options.index(question["default"]) + 1,
     )
     return options[typed_number - 1]
+
+
+def print_audit_steps() -> None:
+    """Print the three steps that start the free Pro audit from a coding agent."""
+    server_url = click.style(MCP_SERVER_URL, fg="cyan")
+    promo_code = click.style(PROMO_CODE, fg=ACCENT_RGB, bold=True)
+    click.echo()
+    click.echo(click.style(f"{COPY_INDENT}Run your free iFixAi Pro audit", bold=True))
+    click.echo()
+    click.echo(f"{COPY_INDENT}1. Add this remote MCP server in your coding agent.")
+    click.echo(f"{COPY_INDENT}   {server_url}")
+    click.echo()
+    click.echo(f"{COPY_INDENT}2. Sign in with Google or Microsoft.")
+    click.echo()
+    click.echo(
+        f'{COPY_INDENT}3. In your coding agent, type "Audit my agent with iFixAi".'
+    )
+    click.echo(f"{COPY_INDENT}   When prompted, redeem code {promo_code}.")
+    click.echo()
+    click.echo(f"{COPY_INDENT}{CODE_COVERAGE_NOTE}")
+    click.echo(f"{COPY_INDENT}{NO_PAYMENT_NOTE}")
+    click.echo()

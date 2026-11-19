@@ -58,7 +58,7 @@ _LOGO_LINES: tuple[str, ...] = (
     "██  ██      ██ ██   ██  ██   ██ ██",
 )
 
-_ACCENT_RGB = (232, 99, 42)
+ACCENT_RGB = (232, 99, 42)
 _DIM_RGB = (110, 110, 117)
 
 _CATEGORY_COLORS: dict[InspectionCategory, tuple[int, int, int]] = {
@@ -106,7 +106,7 @@ def print_startup_banner(version: str, *, quiet: bool = False) -> None:
         return
     click.echo()
     for line in _LOGO_LINES:
-        click.echo("  " + _truecolor(line, _ACCENT_RGB, bold=True))
+        click.echo("  " + _truecolor(line, ACCENT_RGB, bold=True))
     click.echo()
     click.echo(_truecolor(f"  ™  ·  v{version}", _DIM_RGB))
     click.echo()

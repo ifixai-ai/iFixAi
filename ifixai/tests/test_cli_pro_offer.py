@@ -1,4 +1,4 @@
-"""The Pro-version offer shown at the start of an interactive ``ifixai run``."""
+"""The Pro-audit offer shown at the start of an interactive ``ifixai run``."""
 
 import io
 import sys
@@ -14,22 +14,41 @@ from ifixai import telemetry
 from ifixai.cli import pro_offer, ui
 from ifixai.cli.main import ifixai_cli
 from ifixai.cli.pro_offer import (
-    ABANDON_OPTION,
-    CONTINUE_OPTION,
-    NO_OPTION,
+    CODE_COVERAGE_NOTE,
+    CONTINUE_PATH_QUESTION,
+    COPY_INDENT,
     NO_PROMO_ENV_VAR,
-    PRO_INTEREST_QUESTION,
-    PRO_URL,
-    YES_OPTION,
+    OFFER_HEADLINE_LINES,
+    OFFER_PARAGRAPHS,
+    OPEN_SOURCE_OPTION,
+    PRO_AUDIT_OPTION,
     RunDecision,
+    wrap_to_copy_width,
 )
 
+# Spelled out rather than imported: a mistyped server address or code would
+# leave the user with steps that cannot be followed.
+MCP_SERVER_URL = "https://mcp.ifixai.ai/mcp"
+PROMO_CODE = "SF2026"
 UNKNOWN_TEST_ID = "ZZ99"
 UNKNOWN_TEST_ERROR = "unknown test ID"
-ABANDONED_MESSAGE = "Run abandoned"
-OFFER_LINE = "  Claim your free fast audit\n"
-OFFER_QUESTION = "Claim your free fast audit now?"
-RETIRED_COPY = ("free sample", "Try the Pro version")
+STOPPED_MESSAGE = "No inspections were run"
+TERMINAL_WIDTH = 80
+OFFER_FIRST_LINE = f"{COPY_INDENT}{OFFER_HEADLINE_LINES[0]}\n"
+OFFER_TEXT = (
+    *(f"{COPY_INDENT}{line}\n" for line in OFFER_HEADLINE_LINES),
+    *(wrap_to_copy_width(paragraph) for paragraph in OFFER_PARAGRAPHS),
+)
+SETUP_STEPS = (
+    "  1. Add this remote MCP server in your coding agent.\n",
+    f"     {MCP_SERVER_URL}\n",
+    "  2. Sign in with Google or Microsoft.\n",
+    '  3. In your coding agent, type "Audit my agent with iFixAi".\n',
+    f"     When prompted, redeem code {PROMO_CODE}.\n",
+    f"{COPY_INDENT}{CODE_COVERAGE_NOTE}\n",
+)
+FIRST_SETUP_STEP = SETUP_STEPS[0]
+PREVIOUS_MARKER_NAME = "pro-offer-shown"
 SKIPPED_RUNS = [
     (["--no-promo"], {}),
     ([], {NO_PROMO_ENV_VAR: "1"}),
@@ -49,18 +68,6 @@ class FakeStream(io.StringIO):
 
     def isatty(self) -> bool:
         return self.is_terminal
-
-
-class BrowserRecorder:
-    """Stands in for ``webbrowser.open`` and records the URLs it was asked for."""
-
-    def __init__(self, is_launch_successful: bool) -> None:
-        self.is_launch_successful = is_launch_successful
-        self.opened_urls: list[str] = []
-
-    def __call__(self, url: str) -> bool:
-        self.opened_urls.append(url)
-        return self.is_launch_successful
 
 
 class OfferRecorder:
@@ -90,9 +97,11 @@ class ScriptedMenu:
 
     def __init__(self, answers: list[str]) -> None:
         self.remaining_answers = iter(answers)
+        self.offered_choices: list[tuple[str, ...]] = []
         self.defaults: list[str] = []
 
     def __call__(self, message: str, choices: Sequence[str], default: str) -> str:
+        self.offered_choices.append(tuple(choices))
         self.defaults.append(default)
         return next(self.remaining_answers)
 
@@ -119,6 +128,17 @@ def report_outside_ci() -> bool:
     return False
 
 
+def find_missing_copy(output: str, expected_copy: Sequence[str]) -> list[str]:
+    """The expected lines that do not appear in ``output``, in their listed order."""
+    return [line for line in expected_copy if line not in output]
+
+
+def is_in_listed_order(output: str, expected_copy: Sequence[str]) -> bool:
+    """True when every expected line appears in ``output`` in the order listed."""
+    positions = [output.index(line) for line in expected_copy]
+    return positions == sorted(positions)
+
+
 @click.command()
 def show_offer_decision() -> None:
     """Minimal host command so CliRunner can answer the offer's prompts."""
@@ -129,14 +149,7 @@ def show_offer_decision() -> None:
 def offer_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Where the shown-once marker lands; kept in ``tmp_path``, never the real home."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    return tmp_path / "config" / "ifixai" / "pro-offer-shown"
-
-
-@pytest.fixture
-def browser(monkeypatch: pytest.MonkeyPatch) -> BrowserRecorder:
-    recorder = BrowserRecorder(is_launch_successful=True)
-    monkeypatch.setattr(pro_offer.webbrowser, "open", recorder)
-    return recorder
+    return tmp_path / "config" / "ifixai" / "pro-audit-offer-shown"
 
 
 @pytest.fixture
@@ -150,8 +163,14 @@ def run_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv(NO_PROMO_ENV_VAR, raising=False)
     return [
-        "run", "--provider", "mock", "--eval-mode", "self",
-        "--test", UNKNOWN_TEST_ID, "--no-telemetry",
+        "run",
+        "--provider",
+        "mock",
+        "--eval-mode",
+        "self",
+        "--test",
+        UNKNOWN_TEST_ID,
+        "--no-telemetry",
     ]
 
 
@@ -161,63 +180,81 @@ def mock_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv(NO_PROMO_ENV_VAR, raising=False)
     return [
-        "run", "--provider", "mock", "--fixture", "customer_support",
-        "--test", "B01", "--eval-mode", "self", "--no-telemetry", "--no-parallel",
-        "--output", str(tmp_path / "reports"),
-        "--reliability-out", str(tmp_path / "runs"),
+        "run",
+        "--provider",
+        "mock",
+        "--fixture",
+        "customer_support",
+        "--test",
+        "B01",
+        "--eval-mode",
+        "self",
+        "--no-telemetry",
+        "--no-parallel",
+        "--output",
+        str(tmp_path / "reports"),
+        "--reliability-out",
+        str(tmp_path / "runs"),
     ]
 
 
 @pytest.mark.parametrize("answers", ["2\n", "\n"])
-def test_declining_continues_the_run_without_opening_the_site(
-    attached_terminal: None, browser: BrowserRecorder, answers: str
+def test_choosing_open_source_continues_the_run_without_the_setup_steps(
+    attached_terminal: None, answers: str
 ) -> None:
     result = CliRunner().invoke(show_offer_decision, input=answers)
 
     assert result.exit_code == 0, result.output
-    assert PRO_URL in result.output
+    assert OFFER_FIRST_LINE in result.output
     assert "decision=continue" in result.output
-    assert browser.opened_urls == []
+    assert FIRST_SETUP_STEP not in result.output
+    assert MCP_SERVER_URL not in result.output
 
 
-@pytest.mark.parametrize(
-    "answers,expected",
-    [("1\n1\n", "continue"), ("1\n\n", "continue"), ("1\n2\n", "abandon")],
-)
-def test_accepting_opens_the_site_then_asks_what_to_do_with_the_run(
-    attached_terminal: None, browser: BrowserRecorder, answers: str, expected: str
+def test_choosing_the_pro_audit_shows_the_steps_in_order_and_stops_the_run(
+    attached_terminal: None,
 ) -> None:
-    result = CliRunner().invoke(show_offer_decision, input=answers)
+    result = CliRunner().invoke(show_offer_decision, input="1\n")
 
     assert result.exit_code == 0, result.output
-    assert browser.opened_urls == [PRO_URL]
-    assert "Continue the current run" in result.output
-    assert "Abandon the run" in result.output
-    assert f"decision={expected}" in result.output
-
-
-def test_a_browser_that_will_not_open_still_leaves_the_link_and_the_choice(
-    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    failing_browser = BrowserRecorder(is_launch_successful=False)
-    monkeypatch.setattr(pro_offer.webbrowser, "open", failing_browser)
-
-    result = CliRunner().invoke(show_offer_decision, input="1\n2\n")
-
-    assert result.exit_code == 0, result.output
-    assert "Could not open a browser" in result.output
-    assert f"Visit {PRO_URL}" in result.output
+    assert find_missing_copy(result.output, SETUP_STEPS) == []
+    assert is_in_listed_order(result.output, SETUP_STEPS)
     assert "decision=abandon" in result.output
 
 
-def test_a_number_outside_the_list_is_refused_and_asked_again(
-    attached_terminal: None, browser: BrowserRecorder
+def test_the_offer_text_is_printed_in_full_and_in_order(
+    attached_terminal: None,
 ) -> None:
-    result = CliRunner().invoke(show_offer_decision, input="7\n0\nyes\n1\n2\n")
+    result = CliRunner().invoke(show_offer_decision, input="2\n")
+
+    assert find_missing_copy(result.output, OFFER_TEXT) == []
+    assert is_in_listed_order(result.output, OFFER_TEXT)
+
+
+@pytest.mark.parametrize("answer", ["1\n", "2\n"])
+def test_every_line_on_screen_fits_an_80_column_terminal(
+    attached_terminal: None, answer: str
+) -> None:
+    result = CliRunner().invoke(show_offer_decision, input=answer)
+
+    lines = result.output.splitlines()
+    assert [line for line in lines if len(line) > TERMINAL_WIDTH] == []
+
+
+def test_the_offer_is_printed_before_the_steps(attached_terminal: None) -> None:
+    result = CliRunner().invoke(show_offer_decision, input="1\n")
+
+    output = result.output
+    assert output.index(OFFER_FIRST_LINE) < output.index(FIRST_SETUP_STEP)
+
+
+def test_a_number_outside_the_list_is_refused_and_asked_again(
+    attached_terminal: None,
+) -> None:
+    result = CliRunner().invoke(show_offer_decision, input="7\n0\nyes\n1\n")
 
     assert result.exit_code == 0, result.output
     assert result.output.count("Error:") == 3
-    assert browser.opened_urls == [PRO_URL]
     assert "decision=abandon" in result.output
 
 
@@ -230,17 +267,14 @@ def test_no_color_terminals_get_the_numbered_list_not_the_arrow_menu(
     monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
 
     assert ui.is_interactive() is False
-    assert pro_offer.ask_choice(PRO_INTEREST_QUESTION) == YES_OPTION
+    assert pro_offer.ask_choice(CONTINUE_PATH_QUESTION) == PRO_AUDIT_OPTION
 
 
-def test_no_terminal_means_no_prompt_and_the_run_continues(
-    browser: BrowserRecorder, offer_marker: Path
-) -> None:
+def test_no_terminal_means_no_prompt_and_the_run_continues(offer_marker: Path) -> None:
     # CliRunner's streams are not terminals, so the real gate is exercised here.
-    result = CliRunner().invoke(show_offer_decision, input="1\n2\n")
+    result = CliRunner().invoke(show_offer_decision, input="1\n")
 
     assert result.output.strip() == "decision=continue"
-    assert browser.opened_urls == []
     assert not offer_marker.exists()
 
 
@@ -300,7 +334,7 @@ def test_run_skips_the_offer_when_told_to_or_when_nothing_will_run(
     result = CliRunner().invoke(ifixai_cli, [*run_args, *extra_args], env=env)
 
     assert offer.call_count == 0
-    assert ABANDONED_MESSAGE not in result.output
+    assert STOPPED_MESSAGE not in result.output
     assert UNKNOWN_TEST_ERROR in result.output
 
 
@@ -317,40 +351,37 @@ def test_run_makes_the_offer_once_and_continues_when_the_user_keeps_the_run(
     assert UNKNOWN_TEST_ERROR in result.output
 
 
-def test_abandoning_exits_cleanly_before_the_run_leaves_any_trace(
+def test_choosing_the_pro_audit_stops_before_the_run_leaves_any_trace(
     tmp_path: Path,
     mock_run_args: list[str],
     attached_terminal: None,
-    browser: BrowserRecorder,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     started = CallCounter()
     monkeypatch.setattr(telemetry, "emit_started", started)
 
-    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="1\n2\n")
+    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="1\n")
 
     assert result.exit_code == 0, result.output
-    assert ABANDONED_MESSAGE in result.output
-    assert browser.opened_urls == [PRO_URL]
+    assert MCP_SERVER_URL in result.output
+    assert STOPPED_MESSAGE in result.output
     assert started.call_count == 0
     assert not (tmp_path / "runs").exists()
     assert not (tmp_path / "reports").exists()
 
 
-def test_continuing_after_visiting_the_site_runs_the_inspections(
+def test_choosing_open_source_runs_the_inspections(
     tmp_path: Path,
     mock_run_args: list[str],
     attached_terminal: None,
-    browser: BrowserRecorder,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     started = CallCounter()
     monkeypatch.setattr(telemetry, "emit_started", started)
 
-    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="1\n1\n")
+    result = CliRunner().invoke(ifixai_cli, mock_run_args, input="2\n")
 
-    assert ABANDONED_MESSAGE not in result.output
-    assert browser.opened_urls == [PRO_URL]
+    assert STOPPED_MESSAGE not in result.output
     assert started.call_count == 1
     assert (tmp_path / "runs").exists()
     assert list((tmp_path / "reports").glob("*.json")), result.output
@@ -360,7 +391,6 @@ def test_input_ending_at_the_numbered_prompt_aborts_instead_of_starting_the_run(
     tmp_path: Path,
     mock_run_args: list[str],
     attached_terminal: None,
-    browser: BrowserRecorder,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     started = CallCounter()
@@ -374,57 +404,53 @@ def test_input_ending_at_the_numbered_prompt_aborts_instead_of_starting_the_run(
     assert not (tmp_path / "runs").exists()
 
 
-def test_declining_at_the_real_prompt_lets_the_run_proceed(
-    run_args: list[str], attached_terminal: None, browser: BrowserRecorder
+def test_choosing_open_source_at_the_real_prompt_lets_the_run_proceed(
+    run_args: list[str], attached_terminal: None
 ) -> None:
     result = CliRunner().invoke(ifixai_cli, run_args, input="2\n")
 
     assert result.exit_code == 1, result.output
-    assert PRO_URL in result.output
+    assert OFFER_FIRST_LINE in result.output
     assert UNKNOWN_TEST_ERROR in result.output
-    assert browser.opened_urls == []
+    assert FIRST_SETUP_STEP not in result.output
 
 
 @pytest.mark.parametrize(
-    "answers,expected,expected_urls",
+    "answer,expected",
     [
-        ([NO_OPTION], RunDecision.CONTINUE, []),
-        ([YES_OPTION, CONTINUE_OPTION], RunDecision.CONTINUE, [PRO_URL]),
-        ([YES_OPTION, ABANDON_OPTION], RunDecision.ABANDON, [PRO_URL]),
+        (OPEN_SOURCE_OPTION, RunDecision.CONTINUE),
+        (PRO_AUDIT_OPTION, RunDecision.ABANDON),
     ],
 )
 def test_arrow_menu_answers_drive_the_same_decisions(
     attached_terminal: None,
-    browser: BrowserRecorder,
     monkeypatch: pytest.MonkeyPatch,
-    answers: list[str],
+    answer: str,
     expected: RunDecision,
-    expected_urls: list[str],
 ) -> None:
     monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu(answers))
+    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu([answer]))
 
     assert pro_offer.offer_pro_version() is expected
-    assert browser.opened_urls == expected_urls
 
 
-def test_arrow_menus_start_on_the_answer_that_keeps_the_run_going(
-    attached_terminal: None, browser: BrowserRecorder, monkeypatch: pytest.MonkeyPatch
+def test_the_menu_lists_the_pro_audit_first_and_starts_on_open_source(
+    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    menu = ScriptedMenu([YES_OPTION, CONTINUE_OPTION])
+    menu = ScriptedMenu([OPEN_SOURCE_OPTION])
     monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
     monkeypatch.setattr(ui, "select_or_abort", menu)
 
     pro_offer.offer_pro_version()
 
-    assert menu.defaults == [NO_OPTION, CONTINUE_OPTION]
+    assert menu.offered_choices == [(PRO_AUDIT_OPTION, OPEN_SOURCE_OPTION)]
+    assert menu.defaults == [OPEN_SOURCE_OPTION]
 
 
 def test_ctrl_c_on_the_arrow_menu_aborts_instead_of_starting_the_run(
     tmp_path: Path,
     mock_run_args: list[str],
     attached_terminal: None,
-    browser: BrowserRecorder,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     started = CallCounter()
@@ -440,48 +466,41 @@ def test_ctrl_c_on_the_arrow_menu_aborts_instead_of_starting_the_run(
     assert not (tmp_path / "runs").exists()
 
 
-def test_the_offer_invites_a_free_fast_audit(
-    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    failing_browser = BrowserRecorder(is_launch_successful=False)
-    monkeypatch.setattr(pro_offer.webbrowser, "open", failing_browser)
-
-    result = CliRunner().invoke(show_offer_decision, input="1\n1\n")
-
-    assert OFFER_LINE in result.output
-    assert OFFER_QUESTION in result.output
-    assert [copy for copy in RETIRED_COPY if copy in result.output] == []
-
-
 def test_a_second_run_starts_straight_away_without_the_offer(
-    run_args: list[str],
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    offer_marker: Path,
+    run_args: list[str], attached_terminal: None, offer_marker: Path
 ) -> None:
     first = CliRunner().invoke(ifixai_cli, run_args, input="2\n")
     # No input: a second offer would stop at the prompt and abort.
     second = CliRunner().invoke(ifixai_cli, run_args, input="")
 
-    assert OFFER_LINE in first.output
+    assert OFFER_FIRST_LINE in first.output
     assert offer_marker.exists()
-    assert OFFER_LINE not in second.output
+    assert OFFER_FIRST_LINE not in second.output
     assert "Aborted!" not in second.output
     assert UNKNOWN_TEST_ERROR in second.output
 
 
-@pytest.mark.parametrize(
-    "answers",
-    [[NO_OPTION], [YES_OPTION, CONTINUE_OPTION], [YES_OPTION, ABANDON_OPTION]],
-)
+def test_the_previous_marker_name_does_not_hide_the_offer(
+    attached_terminal: None, offer_marker: Path
+) -> None:
+    previous_marker = offer_marker.with_name(PREVIOUS_MARKER_NAME)
+    previous_marker.parent.mkdir(parents=True)
+    previous_marker.touch()
+
+    first = CliRunner().invoke(show_offer_decision, input="2\n")
+    second = CliRunner().invoke(show_offer_decision, input="")
+
+    assert OFFER_FIRST_LINE in first.output
+    assert offer_marker.exists()
+    assert second.output.strip() == "decision=continue"
+
+
+@pytest.mark.parametrize("answer", [OPEN_SOURCE_OPTION, PRO_AUDIT_OPTION])
 def test_any_answer_counts_as_shown(
-    attached_terminal: None,
-    browser: BrowserRecorder,
-    monkeypatch: pytest.MonkeyPatch,
-    answers: list[str],
+    attached_terminal: None, monkeypatch: pytest.MonkeyPatch, answer: str
 ) -> None:
     monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu(answers))
+    monkeypatch.setattr(ui, "select_or_abort", ScriptedMenu([answer]))
     pro_offer.offer_pro_version()
     monkeypatch.setattr(ui, "select_or_abort", UnexpectedMenu())
 
@@ -489,7 +508,7 @@ def test_any_answer_counts_as_shown(
 
 
 def test_ctrl_c_on_the_offer_counts_as_shown(
-    attached_terminal: None, browser: BrowserRecorder, monkeypatch: pytest.MonkeyPatch
+    attached_terminal: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
     monkeypatch.setattr(ui, "select_or_abort", CancelledMenu())
@@ -504,14 +523,13 @@ def test_ctrl_c_on_the_offer_counts_as_shown(
 def test_a_skipped_offer_is_not_marked_shown(
     run_args: list[str],
     attached_terminal: None,
-    browser: BrowserRecorder,
     offer_marker: Path,
     extra_args: list[str],
     env: dict[str, str],
 ) -> None:
     result = CliRunner().invoke(ifixai_cli, [*run_args, *extra_args], env=env)
 
-    assert OFFER_LINE not in result.output
+    assert OFFER_FIRST_LINE not in result.output
     assert UNKNOWN_TEST_ERROR in result.output
     assert not offer_marker.exists()
 
@@ -521,7 +539,6 @@ def test_a_marker_that_cannot_be_written_skips_the_offer_and_runs(
     tmp_path: Path,
     run_args: list[str],
     attached_terminal: None,
-    browser: BrowserRecorder,
     blocking_file: str,
 ) -> None:
     # A file where the config dir should be: the marker can't be created.
@@ -531,6 +548,6 @@ def test_a_marker_that_cannot_be_written_skips_the_offer_and_runs(
 
     result = CliRunner().invoke(ifixai_cli, run_args, input="")
 
-    assert OFFER_LINE not in result.output
+    assert OFFER_FIRST_LINE not in result.output
     assert "Aborted!" not in result.output
     assert UNKNOWN_TEST_ERROR in result.output
