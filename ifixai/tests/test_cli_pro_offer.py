@@ -205,6 +205,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("HOME", str(folder))
     monkeypatch.setenv("USERPROFILE", str(folder))
     monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.delenv("COPILOT_HOME", raising=False)
     monkeypatch.setattr(pro_offer.shutil, "which", no_command)
     monkeypatch.setattr(pro_offer.subprocess, "run", CommandRecorder())
     return folder
@@ -632,7 +633,7 @@ def test_every_line_fits_the_terminal_except_the_lines_to_copy(
     for folder in (".cursor", ".copilot", ".kiro", ".junie", ".warp", ".gemini/config"):
         (home / folder).mkdir(parents=True)
     for agent in pro_offer.AGENTS:
-        if isinstance(agent, pro_offer.JsonFileAgent) and (home / agent.folder).is_dir():
+        if isinstance(agent, pro_offer.JsonFileAgent) and agent.folder().is_dir():
             agent.config_path().parent.mkdir(exist_ok=True)
             agent.config_path().write_text("// not JSON", encoding="utf-8")
 
@@ -655,8 +656,15 @@ def test_the_start_and_agent_questions_fit_an_80_column_line(count: int) -> None
         assert longest < 80
 
 
+@pytest.fixture
+def config_in_home(home: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The XDG config folder where it is when unset: ``~/.config``."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    return home / ".config"
+
+
 def test_the_agents_are_named_in_the_table_order(
-    agent_cli: CommandRecorder, home: Path
+    agent_cli: CommandRecorder, home: Path, config_in_home: Path
 ) -> None:
     for name in ("opencode", "claude", "gemini"):
         agent_cli.installed[name] = (0, "", "")
@@ -673,7 +681,8 @@ def test_the_agents_are_named_in_the_table_order(
     [("copilot", ".copilot", "VS Code Copilot"), ("devin", ".config/devin", "Devin Desktop")],
 )
 def test_a_file_shared_with_an_installed_cli_is_left_to_that_cli(
-    agent_cli: CommandRecorder, home: Path, cli: str, folder: str, skipped: str
+    agent_cli: CommandRecorder, home: Path, config_in_home: Path, cli: str, folder: str,
+    skipped: str,
 ) -> None:
     (home / folder).mkdir(parents=True)
     agent_cli.installed[cli] = (0, "", "")
@@ -699,17 +708,86 @@ def test_a_file_shared_with_an_installed_cli_is_left_to_that_cli(
     ],
 )
 def test_each_file_agent_gets_its_documented_entry_in_a_new_file(
-    agent_cli: CommandRecorder, home: Path, agent_name: str, file: str, entry: dict[str, object]
+    agent_cli: CommandRecorder,
+    home: Path,
+    config_in_home: Path,
+    agent_name: str,
+    file: str,
+    entry: dict[str, object],
 ) -> None:
     [agent] = [a for a in pro_offer.AGENTS if a.name == agent_name]
     assert isinstance(agent, pro_offer.JsonFileAgent)
-    (home / agent.folder).mkdir(parents=True)
+    agent.folder().mkdir(parents=True)
 
     assert agent.add() is True
     assert json.loads((home / file).read_text(encoding="utf-8")) == {
         "mcpServers": {"ifixai": entry}
     }
     assert not backup_of(home / file).exists()
+
+
+DEVIN_ENTRY = {"url": CONNECTOR_URL, "transport": "http"}
+DEVIN_BY_HAND = "  devin mcp add -s user ifixai https://mcp.ifixai.ai/mcp"
+
+
+def test_devin_cli_gets_its_user_file_and_is_never_run(
+    person_answering: None, agent_cli: CommandRecorder, config_in_home: Path
+) -> None:
+    # Its own `mcp add` writes this file, then waits for a browser sign-in past the limit.
+    agent_cli.installed["devin"] = (0, "", "")
+    (config_in_home / "devin").mkdir(parents=True)
+    path = config_in_home / "devin" / "mcp_config.json"
+    path.write_bytes(json_bytes({"mcpServers": {"other": {"url": "https://other.example"}}}))
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert result.exit_code == 0, result.output
+    assert after_steps(result.output)[0] == "Found on this computer: Devin CLI."
+    assert after_steps(result.output)[-2:] == ["Added to Devin CLI.", RESTART]
+    assert agent_cli.calls == []
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "mcpServers": {"other": {"url": "https://other.example"}, "ifixai": DEVIN_ENTRY}
+    }
+
+
+def test_devin_cli_without_its_folder_gets_the_command_and_no_folder(
+    person_answering: None, agent_cli: CommandRecorder, config_in_home: Path
+) -> None:
+    agent_cli.installed["devin"] = (0, "", "")
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert after_steps(result.output)[-3:] == [
+        "Could not add it to Devin CLI. Run this yourself:", DEVIN_BY_HAND, RESTART,
+    ]
+    assert not (config_in_home / "devin").exists()
+    assert agent_cli.calls == []
+
+
+def test_devin_follows_xdg_config_home_and_appdata_on_windows(
+    agent_cli: CommandRecorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    assert pro_offer.devin_config_folder() == tmp_path / "xdg" / "devin"
+
+    monkeypatch.setattr(pro_offer.sys, "platform", "win32")
+    assert pro_offer.devin_config_folder() == tmp_path / "appdata" / "devin"
+
+
+def test_copilot_home_moves_the_vs_code_copilot_file(
+    agent_cli: CommandRecorder, home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elsewhere = tmp_path / "copilot-elsewhere"
+    elsewhere.mkdir()
+    (home / ".copilot").mkdir()
+    monkeypatch.setenv("COPILOT_HOME", str(elsewhere))
+    [agent] = [a for a in pro_offer.AGENTS if a.name == "VS Code Copilot"]
+
+    assert agent.found() is True
+    assert agent.add() is True
+    assert "ifixai" in json.loads((elsewhere / "mcp-config.json").read_text())["mcpServers"]
+    assert list((home / ".copilot").iterdir()) == []
 
 
 def test_a_file_agent_without_its_own_folder_is_not_found_and_nothing_is_created(
@@ -794,7 +872,10 @@ def test_a_failed_write_leaves_the_old_file_and_no_temporary_file(
 
     monkeypatch.setattr(pro_offer.os, "fsync", full_disk)
 
-    assert pro_offer.JsonFileAgent("Cursor", ".cursor", "mcp.json", {"url": CONNECTOR_URL}).add() is False
+    cursor = pro_offer.JsonFileAgent(
+        "Cursor", pro_offer.in_home(".cursor"), "mcp.json", {"url": CONNECTOR_URL}
+    )
+    assert cursor.add() is False
     assert cursor_file.read_bytes() == json_bytes(CURSOR_CONFIG)
     assert sorted(p.name for p in cursor_file.parent.iterdir()) == [
         "mcp.json", "mcp.json.ifixai-backup",

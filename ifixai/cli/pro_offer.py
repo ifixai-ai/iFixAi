@@ -19,6 +19,7 @@ import subprocess  # nosec B404
 import sys
 import tempfile
 import textwrap
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol, TextIO, TypedDict
@@ -223,23 +224,35 @@ class CommandAgent:
 
 
 @dataclass(frozen=True)
+class CommandFileAgent(CommandAgent):
+    """A CLI whose own ``mcp add`` writes the entry, then waits for a browser sign-in past
+    the time limit. The entry goes into the user file that command writes instead; the
+    person still gets the command when that fails."""
+
+    settings: "JsonFileAgent" = field(compare=False, kw_only=True)
+
+    def add(self) -> bool:
+        return self.settings.folder().is_dir() and self.settings.add()
+
+
+@dataclass(frozen=True)
 class JsonFileAgent:
     """An agent with a documented JSON user file; found when its own folder exists."""
 
     name: str
-    folder: str
+    folder: Callable[[], Path] = field(compare=False)
     file: str
     entry: dict[str, object] = field(compare=False)
     # Skipped when this CLI is on the PATH: that CLI owns the same file or the same user.
     unless: str | None = None
 
     def config_path(self) -> Path:
-        return Path.home() / self.folder / self.file
+        return self.folder() / self.file
 
     def found(self) -> bool:
         if self.unless is not None and shutil.which(self.unless) is not None:
             return False
-        return (Path.home() / self.folder).is_dir()
+        return self.folder().is_dir()
 
     def add(self) -> bool:
         try:
@@ -309,9 +322,7 @@ class OpencodeAgent:
     command: str = "opencode"
 
     def config_folder(self) -> Path:
-        configured = os.environ.get("XDG_CONFIG_HOME")
-        base = Path(configured) if configured else Path.home() / ".config"
-        return base / "opencode"
+        return xdg_config_home() / "opencode"
 
     def config_path(self) -> Path:
         """The file opencode's own settings writer edits: the first one that exists."""
@@ -437,9 +448,39 @@ def display_path(path: Path) -> str:
         return str(path)
 
 
+def in_home(folder: str) -> Callable[[], Path]:
+    return lambda: Path.home() / folder
+
+
+def xdg_config_home() -> Path:
+    configured = os.environ.get("XDG_CONFIG_HOME")
+    return Path(configured) if configured else Path.home() / ".config"
+
+
+def copilot_home() -> Path:
+    """GitHub Copilot's user folder: ``COPILOT_HOME`` replaces ``~/.copilot`` when set."""
+    configured = os.environ.get("COPILOT_HOME")
+    return Path(configured).expanduser() if configured else Path.home() / ".copilot"
+
+
+def devin_config_folder() -> Path:
+    """Devin's user folder, shared by the CLI and Devin Desktop: ``%APPDATA%\\devin`` on
+    Windows, else ``devin`` in the XDG config folder (the CLI follows ``XDG_CONFIG_HOME``)."""
+    appdata = os.environ.get("APPDATA")
+    if sys.platform == "win32" and appdata:
+        return Path(appdata) / "devin"
+    return xdg_config_home() / "devin"
+
+
 def http_add(*scope: str) -> tuple[str, ...]:
     return ("mcp", "add", "--transport", "http", *scope, SERVER_NAME, CONNECTOR_URL)
 
+
+# Written by Devin Desktop and by the Devin CLI's ``mcp add -s user``.
+DEVIN_SETTINGS = JsonFileAgent(
+    "Devin Desktop", devin_config_folder, "mcp_config.json",
+    {"url": CONNECTOR_URL, "transport": "http"}, unless="devin",
+)
 
 # Every agent the server is added to, in the order the question names them.
 AGENTS: tuple[CodingAgent, ...] = (
@@ -447,28 +488,29 @@ AGENTS: tuple[CodingAgent, ...] = (
     CodexAgent(),
     CommandAgent("Gemini CLI", "gemini", http_add("--scope", "user")),
     CommandAgent("GitHub Copilot CLI", "copilot", http_add()),
-    CommandAgent("Devin CLI", "devin", ("mcp", "add", "-s", "user", SERVER_NAME, CONNECTOR_URL)),
+    CommandFileAgent(
+        "Devin CLI", "devin", ("mcp", "add", "-s", "user", SERVER_NAME, CONNECTOR_URL),
+        settings=DEVIN_SETTINGS,
+    ),
     CommandAgent(
         "Cline CLI", "cline",
         ("mcp", "add", SERVER_NAME, CONNECTOR_URL, "--transport", "http", "--yes"),
     ),
     CommandAgent("Amp", "amp", ("mcp", "add", SERVER_NAME, CONNECTOR_URL)),
     OpencodeAgent(),
-    JsonFileAgent("Cursor", ".cursor", "mcp.json", {"url": CONNECTOR_URL}),
+    JsonFileAgent("Cursor", in_home(".cursor"), "mcp.json", {"url": CONNECTOR_URL}),
     JsonFileAgent(
-        "VS Code Copilot", ".copilot", "mcp-config.json",
+        "VS Code Copilot", copilot_home, "mcp-config.json",
         {"type": "http", "url": CONNECTOR_URL, "tools": ["*"]}, unless="copilot",
     ),
-    JsonFileAgent("Kiro", ".kiro", "settings/mcp.json", {"url": CONNECTOR_URL}),
-    JsonFileAgent("Junie", ".junie", "mcp/mcp.json", {"url": CONNECTOR_URL}),
-    JsonFileAgent("Warp", ".warp", ".mcp.json", {"url": CONNECTOR_URL}),
+    JsonFileAgent("Kiro", in_home(".kiro"), "settings/mcp.json", {"url": CONNECTOR_URL}),
+    JsonFileAgent("Junie", in_home(".junie"), "mcp/mcp.json", {"url": CONNECTOR_URL}),
+    JsonFileAgent("Warp", in_home(".warp"), ".mcp.json", {"url": CONNECTOR_URL}),
     JsonFileAgent(
-        "Antigravity CLI", ".gemini/config", "mcp_config.json", {"serverUrl": CONNECTOR_URL}
+        "Antigravity CLI", in_home(".gemini/config"), "mcp_config.json",
+        {"serverUrl": CONNECTOR_URL},
     ),
-    JsonFileAgent(
-        "Devin Desktop", ".config/devin", "mcp_config.json",
-        {"url": CONNECTOR_URL, "transport": "http"}, unless="devin",
-    ),
+    DEVIN_SETTINGS,
 )
 
 def render_screen(

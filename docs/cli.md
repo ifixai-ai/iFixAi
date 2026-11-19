@@ -132,17 +132,17 @@ Nothing is added unless you pick **Add it for me**. Each agent is then added the
 | Codex | `codex` is on the `PATH`, or `$CODEX_HOME` (default `~/.codex`) exists | appends an `[mcp_servers.ifixai]` table to `$CODEX_HOME/config.toml` |
 | Gemini CLI | `gemini` is on the `PATH` | `gemini mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp` |
 | GitHub Copilot CLI | `copilot` is on the `PATH` | `copilot mcp add --transport http ifixai https://mcp.ifixai.ai/mcp` |
-| Devin CLI | `devin` is on the `PATH` | `devin mcp add -s user ifixai https://mcp.ifixai.ai/mcp` |
+| Devin CLI | `devin` is on the `PATH` | adds `ifixai` to the user file that `devin mcp add -s user` writes, `$XDG_CONFIG_HOME/devin/mcp_config.json` (default `~/.config/devin/`; `%APPDATA%\devin\` on Windows). The command itself is not run: after adding, it waits for a browser sign-in |
 | Cline CLI | `cline` is on the `PATH` | `cline mcp add ifixai https://mcp.ifixai.ai/mcp --transport http --yes` |
 | Amp | `amp` is on the `PATH` | `amp mcp add ifixai https://mcp.ifixai.ai/mcp` |
 | opencode | `opencode` is on the `PATH`, or `$XDG_CONFIG_HOME/opencode/` (default `~/.config/opencode/`) exists | adds `ifixai` under `mcp` in that folder's `opencode.jsonc`, `opencode.json` or `config.json` (the first that exists, else a new `opencode.json`) |
 | Cursor | `~/.cursor/` exists | `~/.cursor/mcp.json` |
-| VS Code Copilot | `~/.copilot/` exists and `copilot` is not on the `PATH` | `~/.copilot/mcp-config.json` |
+| VS Code Copilot | `$COPILOT_HOME` (default `~/.copilot/`) exists and `copilot` is not on the `PATH` | `$COPILOT_HOME/mcp-config.json` |
 | Kiro | `~/.kiro/` exists | `~/.kiro/settings/mcp.json` |
 | Junie | `~/.junie/` exists | `~/.junie/mcp/mcp.json` |
 | Warp | `~/.warp/` exists | `~/.warp/.mcp.json` |
 | Antigravity CLI | `~/.gemini/config/` exists | `~/.gemini/config/mcp_config.json` |
-| Devin Desktop | `~/.config/devin/` exists and `devin` is not on the `PATH` | `~/.config/devin/mcp_config.json` |
+| Devin Desktop | Devin's folder above exists and `devin` is not on the `PATH` | `mcp_config.json` in that folder |
 
 - A command runs as a fixed argument list, never through a shell, with a 60-second limit. An answer that the server already exists counts as done.
 - A file is changed only when the agent's own folder already exists. Only the `ifixai` entry is added and every other setting keeps its value. A JSON file is saved again with two-space indentation; Codex's `config.toml` keeps every byte and gains the table at its end. An `ifixai` entry that is already there counts as done, and the file is not touched. A file that does not parse (for example JSON with comments) is left alone. Before a file is changed, it is copied to `<file>.ifixai-backup`, and the new file is written to a temporary file and renamed into place.
