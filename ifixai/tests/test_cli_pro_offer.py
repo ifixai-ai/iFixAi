@@ -22,7 +22,6 @@ UNKNOWN_TEST_ID = "ZZ99"
 UNKNOWN_TEST_ERROR = "unknown test ID"
 REAL_PROVIDER = "openai"
 CONNECTOR_URL = "https://mcp.ifixai.ai/mcp"
-FAKE_CLAUDE = "/opt/fake/bin/claude"
 PRO_ANSWER = "1\n"
 OPEN_SOURCE_ANSWER = "2\n"
 # The founder's mockups (ticket, 19 Nov), word for word.
@@ -104,21 +103,26 @@ class CallRecorder:
         return self.answer
 
 
-class ClaudeRecorder:
-    """Stands in for ``subprocess.run`` of the ``claude`` CLI: records it, answers as told."""
+class CommandRecorder:
+    """Stands in for ``shutil.which`` and ``subprocess.run`` of the agent CLIs.
 
-    def __init__(
-        self, returncode: int = 0, stdout: str = "", stderr: str = "",
-        raises: Exception | None = None,
-    ) -> None:
-        self.returncode, self.stdout, self.stderr, self.raises = returncode, stdout, stderr, raises
+    ``installed`` maps a command name to its answer: (exit code, stdout, stderr), or
+    an exception to raise. Every call is recorded; a command not installed is not found.
+    """
+
+    def __init__(self) -> None:
+        self.installed: dict[str, tuple[int, str, str] | Exception] = {}
         self.calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def which(self, name: str) -> str | None:
+        return f"/fake/bin/{name}" if name in self.installed else None
 
     def __call__(self, args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         self.calls.append((args, kwargs))
-        if self.raises is not None:
-            raise self.raises
-        return subprocess.CompletedProcess(args, self.returncode, self.stdout, self.stderr)
+        answer = self.installed[Path(args[0]).name]
+        if isinstance(answer, Exception):
+            raise answer
+        return subprocess.CompletedProcess(args, *answer)
 
 
 def report_outside_ci() -> bool:
@@ -133,12 +137,12 @@ def report_false(*_: object) -> bool:
     return False
 
 
-def no_claude(_: str) -> None:
+def no_command(_: str) -> None:
     return None
 
 
-def fake_claude(_: str) -> str:
-    return FAKE_CLAUDE
+def fake_command(name: str) -> str:
+    return f"/fake/bin/{name}"
 
 
 def terminal_of(columns: int):
@@ -191,10 +195,19 @@ def events(monkeypatch: pytest.MonkeyPatch) -> dict[str, EventRecorder]:
 
 
 @pytest.fixture(autouse=True)
-def without_claude(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No ``claude`` on the PATH unless a test puts its fake there; the real one never runs."""
-    monkeypatch.setattr(pro_offer.shutil, "which", no_claude)
-    monkeypatch.setattr(pro_offer.subprocess, "run", ClaudeRecorder(raises=AssertionError()))
+def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An empty home folder and no agent CLI on the PATH, unless a test adds them.
+
+    The real home, the real agents and their files are never seen or run.
+    """
+    folder = tmp_path / "home"
+    folder.mkdir()
+    monkeypatch.setenv("HOME", str(folder))
+    monkeypatch.setenv("USERPROFILE", str(folder))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setattr(pro_offer.shutil, "which", no_command)
+    monkeypatch.setattr(pro_offer.subprocess, "run", CommandRecorder())
+    return folder
 
 
 @pytest.fixture
@@ -334,7 +347,7 @@ def test_a_pro_pick_prints_the_steps_and_is_counted(
     assert result.exit_code == 0, result.output
     assert contains_block(result.output, STEPS_LINES), result.output
     assert "pro=True" in result.output
-    assert "Claude Code" not in result.output
+    assert "Found on this computer" not in result.output
     assert events["shown"].places == ["start"]
     assert events["accepted"].places == ["start"]
 
@@ -418,108 +431,436 @@ def test_a_marker_that_cannot_be_written_skips_the_offer(
     assert result.output.strip() == "pro=False"
 
 
-# --- Adding the connector to Claude Code ----------------------------------------------------
+# --- Adding the server to the coding agents found ---------------------------------------------
+
+ADD_FOR_ME = "1\n"
+ADD_MYSELF = "2\n"
+CLAUDE_ADD = [
+    "mcp", "add", "--transport", "http", "--scope", "user", "ifixai", CONNECTOR_URL,
+]
+CLAUDE_BY_HAND = (
+    "  claude mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp"
+)
+CODEX_BY_HAND = "  codex mcp add ifixai --url https://mcp.ifixai.ai/mcp"
+CODEX_TABLE = b'\n[mcp_servers.ifixai]\nurl = "https://mcp.ifixai.ai/mcp"\n'
+CODEX_CONFIG = b'# mine\nmodel = "o3"\n\n[mcp_servers.other]\ncommand = "other-server"'
+CURSOR_CONFIG = {"mcpServers": {"other": {"url": "https://other.example/mcp"}}, "theme": "dark"}
+RESTART = "Restart your coding agent, then do steps 2 and 3."
+needs_tomllib = pytest.mark.skipif(pro_offer.tomllib is None, reason="tomllib is Python 3.11+")
 
 
-def test_with_claude_installed_a_pro_pick_adds_the_connector_on_a_yes(
-    person_answering: None, monkeypatch: pytest.MonkeyPatch
+def json_bytes(config: object) -> bytes:
+    return (json.dumps(config, indent=2) + "\n").encode("utf-8")
+
+
+def backup_of(path: Path) -> Path:
+    return path.with_name(path.name + ".ifixai-backup")
+
+
+def after_steps(output: str) -> list[str]:
+    """The lines printed after the steps screen, without the host command's own line."""
+    lines = plain_lines(output)
+    steps_end = len(lines) - lines[::-1].index(STEPS_LINES[-1])
+    rest = lines[steps_end:]
+    return [line for line in rest if line and not line.startswith("pro=")]
+
+
+@pytest.fixture
+def agent_cli(monkeypatch: pytest.MonkeyPatch) -> CommandRecorder:
+    """Agent CLIs on the PATH: put a name in ``installed`` and set its answer."""
+    recorder = CommandRecorder()
+    monkeypatch.setattr(pro_offer.shutil, "which", recorder.which)
+    monkeypatch.setattr(pro_offer.subprocess, "run", recorder)
+    return recorder
+
+
+@pytest.fixture
+def codex_home(home: Path) -> Path:
+    folder = home / ".codex"
+    folder.mkdir()
+    return folder
+
+
+@pytest.fixture
+def cursor_file(home: Path) -> Path:
+    (home / ".cursor").mkdir()
+    path = home / ".cursor" / "mcp.json"
+    path.write_bytes(json_bytes(CURSOR_CONFIG))
+    return path
+
+
+@needs_tomllib
+def test_one_key_adds_the_server_to_every_agent_found(
+    person_answering: None, agent_cli: CommandRecorder, codex_home: Path, cursor_file: Path
 ) -> None:
-    claude = ClaudeRecorder(returncode=0, stdout="Added HTTP MCP server ifixai")
-    monkeypatch.setattr(pro_offer.shutil, "which", fake_claude)
-    monkeypatch.setattr(pro_offer.subprocess, "run", claude)
+    agent_cli.installed["claude"] = (0, "Added HTTP MCP server ifixai to user config", "")
+    (codex_home / "config.toml").write_bytes(CODEX_CONFIG)
 
-    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + "1\n")
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
 
     assert result.exit_code == 0, result.output
-    assert "Add it to Claude Code for me" in result.output
-    assert "I'll add it myself" in result.output
-    assert [args for args, _ in claude.calls] == [[
-        FAKE_CLAUDE, "mcp", "add", "--transport", "http", "--scope", "user", "ifixai",
-        CONNECTOR_URL,
-    ]]
-    assert "shell" not in claude.calls[0][1]
-    assert claude.calls[0][1]["timeout"] == pro_offer.CLAUDE_ADD_TIMEOUT_SECONDS
-    assert "Added the iFixAi server to Claude Code." in result.output
-    assert result.output.rstrip().endswith("Restart Claude Code, then do steps 2 and 3.\npro=True")
+    assert after_steps(result.output)[:4] == [
+        "Found on this computer: Claude Code, Codex, Cursor.",
+        "  [1] Add it for me",
+        "  [2] I'll add it myself",
+        "Add the iFixAi server to them now? [1]: 1",
+    ]
+    assert after_steps(result.output)[4:] == [
+        "Added to Claude Code.", "Added to Codex.", "Added to Cursor.", RESTART,
+    ]
+    [(args, kwargs)] = agent_cli.calls
+    assert args == ["/fake/bin/claude", *CLAUDE_ADD]
+    assert "shell" not in kwargs
+    assert kwargs["stdin"] is subprocess.DEVNULL
+    assert kwargs["timeout"] == pro_offer.ADD_TIMEOUT_SECONDS
+    assert (codex_home / "config.toml").read_bytes() == CODEX_CONFIG + CODEX_TABLE
+    assert backup_of(codex_home / "config.toml").read_bytes() == CODEX_CONFIG
+    cursor = json.loads(cursor_file.read_text(encoding="utf-8"))
+    assert cursor == {
+        "mcpServers": {**CURSOR_CONFIG["mcpServers"], "ifixai": {"url": CONNECTOR_URL}},
+        "theme": "dark",
+    }
+    assert backup_of(cursor_file).read_bytes() == json_bytes(CURSOR_CONFIG)
 
 
-def test_an_existing_ifixai_server_counts_as_added(
-    person_answering: None, monkeypatch: pytest.MonkeyPatch
+def test_no_agent_found_means_no_question(
+    person_answering: None, agent_cli: CommandRecorder
 ) -> None:
-    claude = ClaudeRecorder(returncode=1, stderr="MCP server ifixai already exists in user config")
-    monkeypatch.setattr(pro_offer.shutil, "which", fake_claude)
-    monkeypatch.setattr(pro_offer.subprocess, "run", claude)
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER)
 
-    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + "\n")
+    assert result.exit_code == 0, result.output
+    assert after_steps(result.output) == []
+    assert last_printed_lines(result.output, 2) == [STEPS_LINES[-1], "pro=True"]
 
-    assert "Added the iFixAi server to Claude Code." in result.output
-    assert "Could not add it" not in result.output
+
+def test_one_agent_is_asked_about_as_it(
+    person_answering: None, agent_cli: CommandRecorder
+) -> None:
+    agent_cli.installed["claude"] = (0, "", "")
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert "Found on this computer: Claude Code." in result.output
+    assert "Add the iFixAi server to it now?" in result.output
 
 
 @pytest.mark.parametrize(
-    "claude",
+    "answer",
+    [(1, "", "MCP server ifixai already exists in user config"), (0, "", "")],
+    ids=["already-exists", "added"],
+)
+def test_a_command_that_adds_or_already_has_it_says_added(
+    person_answering: None, agent_cli: CommandRecorder, answer: tuple[int, str, str]
+) -> None:
+    agent_cli.installed["claude"] = answer
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert after_steps(result.output)[-2:] == ["Added to Claude Code.", RESTART]
+    assert "Could not add" not in result.output
+
+
+@pytest.mark.parametrize(
+    "answer",
     [
-        ClaudeRecorder(returncode=1, stderr="Error: invalid transport"),
-        ClaudeRecorder(raises=FileNotFoundError("claude")),
-        ClaudeRecorder(raises=subprocess.TimeoutExpired("claude", 60)),
+        (1, "", "Error: invalid transport"),
+        FileNotFoundError("claude"),
+        subprocess.TimeoutExpired("claude", 60),
     ],
     ids=["refused", "missing", "timed-out"],
 )
-def test_a_failed_add_prints_the_command_to_run_by_hand(
-    person_answering: None, monkeypatch: pytest.MonkeyPatch, claude: ClaudeRecorder
+def test_a_failed_command_prints_its_line_after_the_others_are_added(
+    person_answering: None,
+    agent_cli: CommandRecorder,
+    cursor_file: Path,
+    answer: tuple[int, str, str] | Exception,
 ) -> None:
-    monkeypatch.setattr(pro_offer.shutil, "which", fake_claude)
-    monkeypatch.setattr(pro_offer.subprocess, "run", claude)
+    agent_cli.installed["claude"] = answer
 
-    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + "1\n")
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
 
     assert result.exit_code == 0, result.output
-    assert "Could not add it. Run this yourself:" in result.output
-    assert (
-        "  claude mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp"
-        in plain_lines(result.output)
-    )
-    assert "Added the iFixAi server" not in result.output
-    assert "Restart Claude Code, then do steps 2 and 3." in result.output
+    assert after_steps(result.output)[-4:] == [
+        "Added to Cursor.",
+        "Could not add it to Claude Code. Run this yourself:",
+        CLAUDE_BY_HAND,
+        RESTART,
+    ]
+    assert "ifixai" in json.loads(cursor_file.read_text(encoding="utf-8"))["mcpServers"]
 
 
-def test_adding_it_myself_runs_nothing(
-    person_answering: None, monkeypatch: pytest.MonkeyPatch
+def test_adding_it_myself_runs_and_writes_nothing(
+    person_answering: None, agent_cli: CommandRecorder, codex_home: Path, cursor_file: Path
 ) -> None:
-    claude = ClaudeRecorder()
-    monkeypatch.setattr(pro_offer.shutil, "which", fake_claude)
-    monkeypatch.setattr(pro_offer.subprocess, "run", claude)
+    agent_cli.installed["claude"] = (0, "", "")
+    (codex_home / "config.toml").write_bytes(CODEX_CONFIG)
 
-    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + "2\n")
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_MYSELF)
 
-    assert claude.calls == []
-    assert "pro=True" in result.output
-    assert "Restart Claude Code" not in result.output
+    assert result.exit_code == 0, result.output
+    assert agent_cli.calls == []
+    assert (codex_home / "config.toml").read_bytes() == CODEX_CONFIG
+    assert cursor_file.read_bytes() == json_bytes(CURSOR_CONFIG)
+    assert sorted(p.name for p in codex_home.iterdir()) == ["config.toml"]
+    assert RESTART not in result.output
 
 
-@pytest.mark.parametrize(
-    "question", [pro_offer.START_QUESTION, pro_offer.CLAUDE_CODE_QUESTION], ids=["start", "claude"]
-)
-def test_each_question_with_its_longest_answer_fits_an_80_column_line(
-    question: pro_offer.ChoiceQuestion,
+def test_open_source_never_offers_to_add_the_server(
+    person_answering: None, agent_cli: CommandRecorder, cursor_file: Path
 ) -> None:
-    # The arrow menu echoes "? <question> <answer>" on one line after the pick.
-    longest = max(len(f"? {question['message']} {option}") for option in question["options"])
-
-    assert longest < 80
-
-
-def test_open_source_never_offers_the_claude_code_setup(
-    person_answering: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    claude = ClaudeRecorder()
-    monkeypatch.setattr(pro_offer.shutil, "which", fake_claude)
-    monkeypatch.setattr(pro_offer.subprocess, "run", claude)
+    agent_cli.installed["claude"] = (0, "", "")
 
     result = CliRunner().invoke(start_offer, input=OPEN_SOURCE_ANSWER)
 
-    assert "Claude Code" not in result.output
-    assert claude.calls == []
+    assert "Found on this computer" not in result.output
+    assert agent_cli.calls == []
+
+
+@pytest.mark.parametrize("columns", [80, 40])
+def test_every_line_fits_the_terminal_except_the_lines_to_copy(
+    person_answering: None,
+    agent_cli: CommandRecorder,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    columns: int,
+) -> None:
+    monkeypatch.setattr(pro_offer.shutil, "get_terminal_size", terminal_of(columns))
+    for name in ("claude", "codex", "gemini", "amp", "opencode", "cline"):
+        agent_cli.installed[name] = (1, "", "Error")
+    for folder in (".cursor", ".copilot", ".kiro", ".junie", ".warp", ".gemini/config"):
+        (home / folder).mkdir(parents=True)
+    for agent in pro_offer.AGENTS:
+        if isinstance(agent, pro_offer.JsonFileAgent) and (home / agent.folder).is_dir():
+            agent.config_path().parent.mkdir(exist_ok=True)
+            agent.config_path().write_text("// not JSON", encoding="utf-8")
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    printed = after_steps(result.output)
+    to_copy = [line for line in printed if line.startswith("  ") and line[2] != "["]
+    assert len(to_copy) == 12, result.output
+    assert " ".join(printed).endswith(RESTART)
+    # Two answers echoed by the typed menu follow its question on one line.
+    wide = [line for line in printed if line not in to_copy and len(line) >= columns]
+    assert [line for line in wide if not line.startswith("Add the iFixAi server")] == []
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_the_start_and_agent_questions_fit_an_80_column_line(count: int) -> None:
+    # The arrow menu echoes "? <question> <answer>" on one line after the pick.
+    for question in (pro_offer.START_QUESTION, pro_offer.agents_question(count)):
+        longest = max(len(f"? {question['message']} {option}") for option in question["options"])
+        assert longest < 80
+
+
+def test_the_agents_are_named_in_the_table_order(
+    agent_cli: CommandRecorder, home: Path
+) -> None:
+    for name in ("opencode", "claude", "gemini"):
+        agent_cli.installed[name] = (0, "", "")
+    for folder in (".config/devin", ".warp", ".cursor"):
+        (home / folder).mkdir(parents=True)
+
+    assert [agent.name for agent in pro_offer.AGENTS if agent.found()] == [
+        "Claude Code", "Gemini CLI", "opencode", "Cursor", "Warp", "Devin Desktop",
+    ]
+
+
+@pytest.mark.parametrize(
+    "cli,folder,skipped",
+    [("copilot", ".copilot", "VS Code Copilot"), ("devin", ".config/devin", "Devin Desktop")],
+)
+def test_a_file_shared_with_an_installed_cli_is_left_to_that_cli(
+    agent_cli: CommandRecorder, home: Path, cli: str, folder: str, skipped: str
+) -> None:
+    (home / folder).mkdir(parents=True)
+    agent_cli.installed[cli] = (0, "", "")
+
+    names = [agent.name for agent in pro_offer.AGENTS if agent.found()]
+
+    assert skipped not in names
+    assert len(names) == 1
+
+
+@pytest.mark.parametrize(
+    "agent_name,file,entry",
+    [
+        ("Cursor", ".cursor/mcp.json", {"url": CONNECTOR_URL}),
+        ("VS Code Copilot", ".copilot/mcp-config.json",
+         {"type": "http", "url": CONNECTOR_URL, "tools": ["*"]}),
+        ("Kiro", ".kiro/settings/mcp.json", {"url": CONNECTOR_URL}),
+        ("Junie", ".junie/mcp/mcp.json", {"url": CONNECTOR_URL}),
+        ("Warp", ".warp/.mcp.json", {"url": CONNECTOR_URL}),
+        ("Antigravity CLI", ".gemini/config/mcp_config.json", {"serverUrl": CONNECTOR_URL}),
+        ("Devin Desktop", ".config/devin/mcp_config.json",
+         {"url": CONNECTOR_URL, "transport": "http"}),
+    ],
+)
+def test_each_file_agent_gets_its_documented_entry_in_a_new_file(
+    agent_cli: CommandRecorder, home: Path, agent_name: str, file: str, entry: dict[str, object]
+) -> None:
+    [agent] = [a for a in pro_offer.AGENTS if a.name == agent_name]
+    assert isinstance(agent, pro_offer.JsonFileAgent)
+    (home / agent.folder).mkdir(parents=True)
+
+    assert agent.add() is True
+    assert json.loads((home / file).read_text(encoding="utf-8")) == {
+        "mcpServers": {"ifixai": entry}
+    }
+    assert not backup_of(home / file).exists()
+
+
+def test_a_file_agent_without_its_own_folder_is_not_found_and_nothing_is_created(
+    agent_cli: CommandRecorder, home: Path
+) -> None:
+    assert [agent for agent in pro_offer.AGENTS if agent.found()] == []
+    assert list(home.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        b'{\n  // my servers\n  "mcpServers": {}\n}\n',
+        b"{broken",
+        b"[1, 2]",
+        b'{"mcpServers": ["a"]}',
+        b"\xff\xfe not utf-8",
+    ],
+    ids=["comments", "broken", "not-an-object", "servers-not-an-object", "not-utf-8"],
+)
+def test_a_file_that_does_not_parse_is_left_alone_with_the_line_to_add(
+    person_answering: None, agent_cli: CommandRecorder, cursor_file: Path, content: bytes
+) -> None:
+    cursor_file.write_bytes(content)
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert result.exit_code == 0, result.output
+    assert cursor_file.read_bytes() == content
+    assert not backup_of(cursor_file).exists()
+    assert after_steps(result.output)[-3:] == [
+        'Could not add it to Cursor. Add this under "mcpServers" in ~/.cursor/mcp.json:',
+        '  "ifixai": {"url": "https://mcp.ifixai.ai/mcp"}',
+        RESTART,
+    ]
+
+
+def test_an_existing_ifixai_entry_counts_as_added_and_is_never_changed(
+    person_answering: None, agent_cli: CommandRecorder, cursor_file: Path
+) -> None:
+    mine = b'{"mcpServers":{"ifixai":{"url":"https://my.own/mcp"}}}'
+    cursor_file.write_bytes(mine)
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert after_steps(result.output)[-2:] == ["Added to Cursor.", RESTART]
+    assert cursor_file.read_bytes() == mine
+    assert not backup_of(cursor_file).exists()
+
+
+def test_an_empty_file_gains_the_entry(agent_cli: CommandRecorder, cursor_file: Path) -> None:
+    cursor_file.write_bytes(b"\n")
+
+    assert pro_offer.add_json_entry(cursor_file, {"url": CONNECTOR_URL}) is True
+    assert json.loads(cursor_file.read_text(encoding="utf-8")) == {
+        "mcpServers": {"ifixai": {"url": CONNECTOR_URL}}
+    }
+
+
+def test_a_symlinked_file_is_written_through_and_keeps_its_mode(
+    agent_cli: CommandRecorder, cursor_file: Path, tmp_path: Path
+) -> None:
+    real = tmp_path / "dotfiles" / "cursor-mcp.json"
+    real.parent.mkdir()
+    real.write_bytes(json_bytes(CURSOR_CONFIG))
+    real.chmod(0o640)
+    cursor_file.unlink()
+    cursor_file.symlink_to(real)
+
+    assert pro_offer.add_json_entry(cursor_file, {"url": CONNECTOR_URL}) is True
+    assert cursor_file.is_symlink()
+    assert "ifixai" in json.loads(real.read_text(encoding="utf-8"))["mcpServers"]
+    assert real.stat().st_mode & 0o777 == 0o640
+    assert backup_of(real).read_bytes() == json_bytes(CURSOR_CONFIG)
+
+
+def test_a_failed_write_leaves_the_old_file_and_no_temporary_file(
+    agent_cli: CommandRecorder, cursor_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def full_disk(_: int) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(pro_offer.os, "fsync", full_disk)
+
+    assert pro_offer.JsonFileAgent("Cursor", ".cursor", "mcp.json", {"url": CONNECTOR_URL}).add() is False
+    assert cursor_file.read_bytes() == json_bytes(CURSOR_CONFIG)
+    assert sorted(p.name for p in cursor_file.parent.iterdir()) == [
+        "mcp.json", "mcp.json.ifixai-backup",
+    ]
+
+
+@needs_tomllib
+def test_codex_honours_codex_home(
+    agent_cli: CommandRecorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elsewhere = tmp_path / "codex-elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(elsewhere))
+
+    assert [agent.name for agent in pro_offer.AGENTS if agent.found()] == ["Codex"]
+    assert pro_offer.CodexAgent().add() is True
+    assert (elsewhere / "config.toml").read_bytes() == CODEX_TABLE
+
+
+@needs_tomllib
+def test_codex_with_ifixai_already_is_never_changed(
+    agent_cli: CommandRecorder, codex_home: Path
+) -> None:
+    mine = b'[mcp_servers.ifixai]\nurl = "https://my.own/mcp"\n'
+    (codex_home / "config.toml").write_bytes(mine)
+
+    assert pro_offer.CodexAgent().add() is True
+    assert (codex_home / "config.toml").read_bytes() == mine
+    assert not backup_of(codex_home / "config.toml").exists()
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b"model = \n", b'mcp_servers = { other = { command = "x" } }\n', b"mcp_servers = 3\n"],
+    ids=["broken", "inline-table", "not-a-table"],
+)
+def test_a_codex_file_that_cannot_take_the_table_is_left_alone(
+    person_answering: None, agent_cli: CommandRecorder, codex_home: Path, content: bytes
+) -> None:
+    (codex_home / "config.toml").write_bytes(content)
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert result.exit_code == 0, result.output
+    assert (codex_home / "config.toml").read_bytes() == content
+    assert after_steps(result.output)[-3:] == [
+        "Could not add it to Codex. Run this yourself:", CODEX_BY_HAND, RESTART,
+    ]
+
+
+def test_codex_on_the_path_without_its_folder_gets_the_line_and_no_folder(
+    agent_cli: CommandRecorder, home: Path
+) -> None:
+    agent_cli.installed["codex"] = (0, "", "")
+
+    assert [agent.name for agent in pro_offer.AGENTS if agent.found()] == ["Codex"]
+    assert pro_offer.CodexAgent().add() is False
+    assert not (home / ".codex").exists()
+    assert agent_cli.calls == []
+
+
+def test_codex_without_tomllib_gets_the_line(
+    agent_cli: CommandRecorder, codex_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pro_offer, "tomllib", None)
+
+    assert pro_offer.CodexAgent().add() is False
+    assert list(codex_home.iterdir()) == []
 
 
 # --- The end of a run -----------------------------------------------------------------------
@@ -531,7 +872,7 @@ def test_the_steps_print_on_stderr_after_every_real_run_with_a_verdict(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(pro_offer.shutil, "which", fake_claude)
+    monkeypatch.setattr(pro_offer.shutil, "which", fake_command)
 
     pro_offer.offer_at_end(REAL_PROVIDER, run_result(TestStatus.PASS))
     pro_offer.offer_at_end(REAL_PROVIDER, run_result(TestStatus.FAIL, TestStatus.ERROR))

@@ -122,7 +122,32 @@ seeds. Legacy unfinished probe contexts cannot be reconstructed.
 The first real `ifixai run` in a terminal on a machine opens with an offer of a complimentary iFixAi Pro audit, then one choice (arrow keys and Enter; a numbered list to type where the menu cannot run, such as with `NO_COLOR` set):
 
 - **Continue with open source** carries on with the run.
-- **Continue with a free Pro audit** ends the run before anything is sent to your agent (exit `0`) and prints the steps to start the Pro audit from your coding agent. When the `claude` command is installed, it then offers to add iFixAi's remote MCP server to Claude Code for you, by running `claude mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp`, and says whether that worked. If it did not, it prints the command to run yourself.
+- **Continue with a free Pro audit** ends the run before anything is sent to your agent (exit `0`) and prints the steps to start the Pro audit from your coding agent. It then names the coding agents it finds on this computer and asks whether to add iFixAi's remote MCP server (`https://mcp.ifixai.ai/mcp`, named `ifixai`) to them. With no agent found, nothing is asked.
+
+Nothing is added unless you pick **Add it for me**. Each agent is then added the way its own documentation describes:
+
+| Agent | Found when | How it is added |
+|---|---|---|
+| Claude Code | `claude` is on the `PATH` | `claude mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp` |
+| Codex | `codex` is on the `PATH`, or `$CODEX_HOME` (default `~/.codex`) exists | appends an `[mcp_servers.ifixai]` table to `$CODEX_HOME/config.toml` |
+| Gemini CLI | `gemini` is on the `PATH` | `gemini mcp add --transport http --scope user ifixai https://mcp.ifixai.ai/mcp` |
+| GitHub Copilot CLI | `copilot` is on the `PATH` | `copilot mcp add --transport http ifixai https://mcp.ifixai.ai/mcp` |
+| Devin CLI | `devin` is on the `PATH` | `devin mcp add -s user ifixai https://mcp.ifixai.ai/mcp` |
+| Cline CLI | `cline` is on the `PATH` | `cline mcp add ifixai https://mcp.ifixai.ai/mcp --transport http --yes` |
+| Amp | `amp` is on the `PATH` | `amp mcp add ifixai https://mcp.ifixai.ai/mcp` |
+| opencode | `opencode` is on the `PATH` | `opencode mcp add ifixai --url https://mcp.ifixai.ai/mcp --global` |
+| Cursor | `~/.cursor/` exists | `~/.cursor/mcp.json` |
+| VS Code Copilot | `~/.copilot/` exists and `copilot` is not on the `PATH` | `~/.copilot/mcp-config.json` |
+| Kiro | `~/.kiro/` exists | `~/.kiro/settings/mcp.json` |
+| Junie | `~/.junie/` exists | `~/.junie/mcp/mcp.json` |
+| Warp | `~/.warp/` exists | `~/.warp/.mcp.json` |
+| Antigravity CLI | `~/.gemini/config/` exists | `~/.gemini/config/mcp_config.json` |
+| Devin Desktop | `~/.config/devin/` exists and `devin` is not on the `PATH` | `~/.config/devin/mcp_config.json` |
+
+- A command runs as a fixed argument list, never through a shell, with a 60-second limit. An answer that the server already exists counts as done.
+- A file is changed only when the agent's own folder already exists. Only the `ifixai` entry is added and every other setting keeps its value. A JSON file is saved again with two-space indentation; Codex's `config.toml` keeps every byte and gains the table at its end. An `ifixai` entry that is already there counts as done, and the file is not touched. A file that does not parse (for example JSON with comments) is left alone. Before a file is changed, it is copied to `<file>.ifixai-backup`, and the new file is written to a temporary file and renamed into place.
+- Anything that could not be added is listed after the others, with the exact command to run or the entry to paste. One agent failing never stops the others, and the run still exits `0`.
+- Restart your coding agent afterwards to load the server.
 
 The offer is shown once, whatever you answer (Ctrl-C included). The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the offer again.
 
