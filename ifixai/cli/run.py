@@ -1165,7 +1165,9 @@ def run(
     print_startup_banner(IFIXAI_VERSION, quiet=quiet)
     # Asked before telemetry and any provider call, so abandoning leaves no trace.
     if not (no_promo or dry_run) and offer_pro_version() is RunDecision.ABANDON:
-        click.echo("Run abandoned -- no inspections were run.")
+        click.echo(
+            "No inspections were run. Follow the steps above in your coding agent."
+        )
         return
     if no_telemetry:
         telemetry.disable()
