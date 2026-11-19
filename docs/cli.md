@@ -135,7 +135,7 @@ Nothing is added unless you pick **Add it for me**. Each agent is then added the
 | Devin CLI | `devin` is on the `PATH` | `devin mcp add -s user ifixai https://mcp.ifixai.ai/mcp` |
 | Cline CLI | `cline` is on the `PATH` | `cline mcp add ifixai https://mcp.ifixai.ai/mcp --transport http --yes` |
 | Amp | `amp` is on the `PATH` | `amp mcp add ifixai https://mcp.ifixai.ai/mcp` |
-| opencode | `opencode` is on the `PATH` | `opencode mcp add ifixai --url https://mcp.ifixai.ai/mcp --global` |
+| opencode | `opencode` is on the `PATH`, or `$XDG_CONFIG_HOME/opencode/` (default `~/.config/opencode/`) exists | adds `ifixai` under `mcp` in that folder's `opencode.jsonc`, `opencode.json` or `config.json` (the first that exists, else a new `opencode.json`) |
 | Cursor | `~/.cursor/` exists | `~/.cursor/mcp.json` |
 | VS Code Copilot | `~/.copilot/` exists and `copilot` is not on the `PATH` | `~/.copilot/mcp-config.json` |
 | Kiro | `~/.kiro/` exists | `~/.kiro/settings/mcp.json` |

@@ -625,6 +625,8 @@ def test_every_line_fits_the_terminal_except_the_lines_to_copy(
     columns: int,
 ) -> None:
     monkeypatch.setattr(pro_offer.shutil, "get_terminal_size", terminal_of(columns))
+    # Where it is when unset, so opencode's file is named from the home folder.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
     for name in ("claude", "codex", "gemini", "amp", "opencode", "cline"):
         agent_cli.installed[name] = (1, "", "Error")
     for folder in (".cursor", ".copilot", ".kiro", ".junie", ".warp", ".gemini/config"):
@@ -861,6 +863,159 @@ def test_codex_without_tomllib_gets_the_line(
 
     assert pro_offer.CodexAgent().add() is False
     assert list(codex_home.iterdir()) == []
+
+
+OPENCODE_ENTRY = {"type": "remote", "url": CONNECTOR_URL, "enabled": True}
+OPENCODE_SNIPPET = (
+    '  "ifixai": {"type": "remote", "url": "https://mcp.ifixai.ai/mcp", "enabled": true}'
+)
+OPENCODE_CONFIG = {
+    "$schema": "https://opencode.ai/config.json",
+    "model": "anthropic/claude-sonnet-4-5",
+    "mcp": {"other": {"type": "local", "command": ["other-server"]}},
+}
+
+
+@pytest.fixture
+def opencode_folder(home: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """opencode's global config folder, at its default place under the home folder."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    folder = home / ".config" / "opencode"
+    folder.mkdir(parents=True)
+    return folder
+
+
+def test_one_key_adds_the_server_to_opencode_and_keeps_its_other_settings(
+    person_answering: None, agent_cli: CommandRecorder, opencode_folder: Path
+) -> None:
+    agent_cli.installed["opencode"] = (0, "", "")
+    path = opencode_folder / "opencode.json"
+    path.write_bytes(json_bytes(OPENCODE_CONFIG))
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert result.exit_code == 0, result.output
+    assert after_steps(result.output)[0] == "Found on this computer: opencode."
+    assert after_steps(result.output)[-2:] == ["Added to opencode.", RESTART]
+    assert agent_cli.calls == []
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        **OPENCODE_CONFIG,
+        "mcp": {**OPENCODE_CONFIG["mcp"], "ifixai": OPENCODE_ENTRY},
+    }
+    assert backup_of(path).read_bytes() == json_bytes(OPENCODE_CONFIG)
+
+
+def test_opencode_without_a_file_gets_a_new_opencode_json(
+    agent_cli: CommandRecorder, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("XDG_CONFIG_HOME")
+    (home / ".config" / "opencode").mkdir(parents=True)
+
+    assert [agent.name for agent in pro_offer.AGENTS if agent.found()] == ["opencode"]
+    assert pro_offer.OpencodeAgent().add() is True
+    path = home / ".config" / "opencode" / "opencode.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == {"mcp": {"ifixai": OPENCODE_ENTRY}}
+    assert sorted(p.name for p in path.parent.iterdir()) == ["opencode.json"]
+
+
+def test_opencode_honours_xdg_config_home(
+    agent_cli: CommandRecorder, home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elsewhere = tmp_path / "xdg-elsewhere"
+    (elsewhere / "opencode").mkdir(parents=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(elsewhere))
+
+    assert pro_offer.OpencodeAgent().add() is True
+    assert (elsewhere / "opencode" / "opencode.json").exists()
+    assert list(home.iterdir()) == []
+
+
+@pytest.mark.parametrize("others", [["opencode.json"], ["opencode.json", "config.json"], []])
+def test_opencode_writes_the_jsonc_file_it_reads_last_when_that_is_plain_json(
+    agent_cli: CommandRecorder, opencode_folder: Path, others: list[str]
+) -> None:
+    jsonc = opencode_folder / "opencode.jsonc"
+    jsonc.write_bytes(b'{\n  "$schema": "https://opencode.ai/config.json"\n}')
+    for name in others:
+        (opencode_folder / name).write_bytes(b'{"model": "x"}')
+
+    assert pro_offer.OpencodeAgent().add() is True
+    assert json.loads(jsonc.read_text(encoding="utf-8")) == {
+        "$schema": "https://opencode.ai/config.json", "mcp": {"ifixai": OPENCODE_ENTRY},
+    }
+    for name in others:
+        assert (opencode_folder / name).read_bytes() == b'{"model": "x"}'
+
+
+@pytest.mark.parametrize(
+    "file,content",
+    [
+        ("opencode.jsonc", b'{\n  // mine\n  "model": "x",\n}\n'),
+        ("opencode.json", b"{broken"),
+        ("config.json", b"[1]"),
+        ("opencode.json", b'{"mcp": ["a"]}'),
+    ],
+    ids=["jsonc-with-comments", "broken", "not-an-object", "mcp-not-an-object"],
+)
+def test_an_opencode_file_that_does_not_parse_is_left_alone_with_the_entry_to_paste(
+    person_answering: None,
+    agent_cli: CommandRecorder,
+    opencode_folder: Path,
+    file: str,
+    content: bytes,
+) -> None:
+    (opencode_folder / file).write_bytes(content)
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert result.exit_code == 0, result.output
+    assert sorted(p.name for p in opencode_folder.iterdir()) == [file]
+    assert (opencode_folder / file).read_bytes() == content
+    assert after_steps(result.output)[-4:] == [
+        'Could not add it to opencode. Add this under "mcp" in',
+        f"~/.config/opencode/{file}:",
+        OPENCODE_SNIPPET,
+        RESTART,
+    ]
+
+
+@pytest.mark.parametrize(
+    "file,content",
+    [
+        ("opencode.json", {"mcp": {"ifixai": {"type": "remote", "url": "https://my.own/mcp"}}}),
+        ("opencode.json", {"mcp": {"servers": {"ifixai": {"type": "remote", "url": "x"}}}}),
+        ("config.json", {"mcp": {"ifixai": {"type": "remote", "url": "https://my.own/mcp"}}}),
+    ],
+    ids=["flat", "v2-servers", "in-a-file-merged-before"],
+)
+def test_an_existing_ifixai_in_any_opencode_file_counts_as_added_and_nothing_changes(
+    agent_cli: CommandRecorder, opencode_folder: Path, file: str, content: dict[str, object]
+) -> None:
+    (opencode_folder / file).write_bytes(json_bytes(content))
+    (opencode_folder / "opencode.jsonc").write_bytes(b'{"model": "x"}')
+    before = {p.name: p.read_bytes() for p in opencode_folder.iterdir()}
+
+    assert pro_offer.OpencodeAgent().add() is True
+    assert {p.name: p.read_bytes() for p in opencode_folder.iterdir()} == before
+
+
+def test_opencode_on_the_path_without_its_folder_gets_the_entry_to_paste_and_no_folder(
+    person_answering: None, agent_cli: CommandRecorder, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    agent_cli.installed["opencode"] = (0, "", "")
+
+    result = CliRunner().invoke(start_offer, input=PRO_ANSWER + ADD_FOR_ME)
+
+    assert result.exit_code == 0, result.output
+    assert after_steps(result.output)[-4:] == [
+        'Could not add it to opencode. Add this under "mcp" in',
+        "~/.config/opencode/opencode.json:",
+        OPENCODE_SNIPPET,
+        RESTART,
+    ]
+    assert not (home / ".config" / "opencode").exists()
+    assert agent_cli.calls == []
 
 
 # --- The end of a run -----------------------------------------------------------------------

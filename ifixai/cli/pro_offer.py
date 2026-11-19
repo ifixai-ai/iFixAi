@@ -44,6 +44,10 @@ SERVER_NAME = "ifixai"
 ADD_TIMEOUT_SECONDS = 60
 BACKUP_SUFFIX = ".ifixai-backup"
 CODEX_TABLE = f'\n[mcp_servers.{SERVER_NAME}]\nurl = "{CONNECTOR_URL}"\n'
+# The flat shape: opencode 1.3 reads only this one, and later versions still accept it.
+OPENCODE_ENTRY: dict[str, object] = {"type": "remote", "url": CONNECTOR_URL, "enabled": True}
+# opencode merges all three; its own settings writer edits the first that exists.
+OPENCODE_FILES = ("opencode.jsonc", "opencode.json", "config.json")
 MIN_WRAP_WIDTH = 20
 
 OfferPlace = Literal["start", "end"]
@@ -282,21 +286,85 @@ class CodexAgent:
         ]
 
 
-def add_json_entry(path: Path, entry: dict[str, object]) -> bool:
-    """Add the server under ``mcpServers``, keeping every other key; True when it is there.
+def read_json_object(path: Path) -> dict[str, object] | None:
+    """The file's JSON object, ``{}`` when it is missing or empty, None when it is not an object.
+
+    Raises ValueError when it does not parse (comments, a broken file, not UTF-8).
+    """
+    if not path.exists():
+        return {}
+    text = path.read_bytes().decode("utf-8")
+    if not text.strip():
+        return {}
+    config = json.loads(text)
+    return config if isinstance(config, dict) else None
+
+
+@dataclass(frozen=True)
+class OpencodeAgent:
+    """opencode's global config. Its own ``mcp add`` asks its questions in the terminal
+    (1.3.13 has no ``--url``), so the entry goes into the file opencode reads."""
+
+    name: str = "opencode"
+    command: str = "opencode"
+
+    def config_folder(self) -> Path:
+        configured = os.environ.get("XDG_CONFIG_HOME")
+        base = Path(configured) if configured else Path.home() / ".config"
+        return base / "opencode"
+
+    def config_path(self) -> Path:
+        """The file opencode's own settings writer edits: the first one that exists."""
+        folder = self.config_folder()
+        existing = (folder / name for name in OPENCODE_FILES if (folder / name).exists())
+        return next(existing, folder / "opencode.json")
+
+    def found(self) -> bool:
+        return shutil.which(self.command) is not None or self.config_folder().is_dir()
+
+    def add(self) -> bool:
+        """Add the entry unless one of the files opencode merges already names the server."""
+        folder = self.config_folder()
+        if not folder.is_dir():
+            return False
+        try:
+            configs = [read_json_object(folder / name) for name in OPENCODE_FILES]
+            if any(config is None for config in configs):
+                return False
+            if any(has_opencode_server(config) for config in configs if config is not None):
+                return True
+            return add_json_entry(self.config_path(), OPENCODE_ENTRY, key="mcp")
+        except (OSError, ValueError):
+            return False
+
+    def manual_lines(self) -> list[str]:
+        return [
+            f'Could not add it to {self.name}. Add this under "mcp" in '
+            f"{display_path(self.config_path())}:",
+            f'  "{SERVER_NAME}": {json.dumps(OPENCODE_ENTRY)}',
+        ]
+
+
+def has_opencode_server(config: dict[str, object]) -> bool:
+    """True when the server is under ``mcp``, or under ``mcp.servers`` (opencode's V2 shape)."""
+    servers = config.get("mcp")
+    if not isinstance(servers, dict):
+        return False
+    nested = servers.get("servers")
+    return SERVER_NAME in servers or (isinstance(nested, dict) and SERVER_NAME in nested)
+
+
+def add_json_entry(path: Path, entry: dict[str, object], key: str = "mcpServers") -> bool:
+    """Add the server under ``key``, keeping every other key; True when it is there.
 
     A file that does not parse as a JSON object (comments, a broken file) is left alone.
     An existing ``ifixai`` entry counts as done and the file is not touched.
     """
     target = path.resolve()
-    config: object = {}
-    if target.exists():
-        text = target.read_bytes().decode("utf-8")
-        if text.strip():
-            config = json.loads(text)
-    if not isinstance(config, dict):
+    config = read_json_object(target)
+    if config is None:
         return False
-    servers = config.setdefault("mcpServers", {})
+    servers = config.setdefault(key, {})
     if not isinstance(servers, dict):
         return False
     if SERVER_NAME in servers:
@@ -385,9 +453,7 @@ AGENTS: tuple[CodingAgent, ...] = (
         ("mcp", "add", SERVER_NAME, CONNECTOR_URL, "--transport", "http", "--yes"),
     ),
     CommandAgent("Amp", "amp", ("mcp", "add", SERVER_NAME, CONNECTOR_URL)),
-    CommandAgent(
-        "opencode", "opencode", ("mcp", "add", SERVER_NAME, "--url", CONNECTOR_URL, "--global")
-    ),
+    OpencodeAgent(),
     JsonFileAgent("Cursor", ".cursor", "mcp.json", {"url": CONNECTOR_URL}),
     JsonFileAgent(
         "VS Code Copilot", ".copilot", "mcp-config.json",
