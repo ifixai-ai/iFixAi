@@ -1,14 +1,12 @@
 """Real keystrokes through the arrow-key menu (needs ``questionary`` installed)."""
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import click
 import pytest
 
-from ifixai.cli import pro_offer, ui
-from ifixai.cli.pro_offer import PRO_URL, RunDecision
+from ifixai.cli import ui
 
 pytest.importorskip("questionary")
 application = pytest.importorskip("prompt_toolkit.application")
@@ -16,30 +14,12 @@ keyboard = pytest.importorskip("prompt_toolkit.input")
 screen = pytest.importorskip("prompt_toolkit.output")
 
 UP_ARROW = "\x1b[A"
-DOWN_ARROW = "\x1b[B"
 ENTER = "\r"
 CTRL_C = "\x03"
 
 
-class BrowserRecorder:
-    """Stands in for ``webbrowser.open`` and records the URLs it was asked for."""
-
-    def __init__(self) -> None:
-        self.opened_urls: list[str] = []
-
-    def __call__(self, url: str) -> bool:
-        self.opened_urls.append(url)
-        return True
-
-
 def report_terminal_attached() -> bool:
     return True
-
-
-@pytest.fixture(autouse=True)
-def config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keeps the offer's shown-once marker in ``tmp_path``, never the real home."""
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
 
 @pytest.fixture
@@ -77,28 +57,3 @@ def test_select_aborts_cancel_instead_of_answering_with_its_default(
 
     with pytest.raises(click.Abort):
         ui.select("Pick one", ["first", "second"], default="second")
-
-
-@pytest.mark.parametrize(
-    "typed,expected,expected_urls",
-    [
-        (ENTER, RunDecision.CONTINUE, []),
-        (UP_ARROW + ENTER + ENTER, RunDecision.CONTINUE, [PRO_URL]),
-        (UP_ARROW + ENTER + DOWN_ARROW + ENTER, RunDecision.ABANDON, [PRO_URL]),
-    ],
-)
-def test_the_offer_end_to_end_with_real_keystrokes(
-    keys: Any,
-    monkeypatch: pytest.MonkeyPatch,
-    typed: str,
-    expected: RunDecision,
-    expected_urls: list[str],
-) -> None:
-    browser = BrowserRecorder()
-    monkeypatch.setattr(pro_offer.webbrowser, "open", browser)
-    monkeypatch.setattr(pro_offer, "can_prompt_user", report_terminal_attached)
-    monkeypatch.setattr(ui, "is_interactive", report_terminal_attached)
-    keys.send_text(typed)
-
-    assert pro_offer.offer_pro_version() is expected
-    assert browser.opened_urls == expected_urls

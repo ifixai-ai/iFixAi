@@ -21,7 +21,6 @@ as a regression, convert it to SARIF, render the PR comment.
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import sys
@@ -378,21 +377,6 @@ def comment_cmd(report: str, output: str | None) -> None:
         Path(output).write_text(text, encoding="utf-8")
     else:
         click.echo(text, nl=False)
-
-
-@click.command("mcp")
-@click.option("--root", type=click.Path(file_okay=False, exists=True), default=".", show_default=True,
-              help="Project folder the tools read reports from and pin regressions in.")
-def mcp(root: str) -> None:
-    """Serve the self-check tools to an MCP client (Claude Code, Cursor) over stdio."""
-    from ifixai.selfcheck.mcp_server import Server
-
-    # MCP messages are UTF-8. Pipes default to the locale's code page instead
-    # (cp1252, cp932, ... on Windows), which garbles every non-ASCII argument.
-    for stream in (sys.stdin, sys.stdout):
-        if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8", errors="replace")
-    Server(Path(root)).serve(sys.stdin, sys.stdout)
 
 
 @findings.command("validate-regressions")

@@ -33,6 +33,15 @@ We aim to acknowledge receipt within **7 business days** and to provide a remedi
 - **Do not paste scorecard JSON into third-party web tools** (diagram renderers, pastebins, gists) without first confirming no inspection response contains sensitive material. Scorecards capture full model inputs and outputs; those may include content users did not intend to publish.
 - **Resume checkpoints hold the same full inputs and outputs.** Every run writes `runs/<run_id>/checkpoint.json` (under `--reliability-out`) after each inspection, so `--resume <run_id>` can finish an interrupted run without re-billing the inspections already done. The file is written owner-only (`0600`) and stays on disk after the run finishes. Treat it like a scorecard: delete stale checkpoints, and do not run on a shared multi-user machine with untrusted co-tenants.
 
+## Coding agent settings the CLI can change
+
+Only when you pick **Continue with a free Pro audit** and then **Add it for me** in a terminal, `ifixai run` adds iFixAi's remote MCP server (`https://mcp.ifixai.ai/mcp`, named `ifixai`) to the coding agents it finds. It never does this in CI, without a terminal, or with `--no-promo`. `ifixai offer --add-server` does the same without asking, for a coding agent that has asked you first. The full list of agents, commands and files is in [docs/cli.md](docs/cli.md#free-pro-audit-offer).
+
+- **Commands it runs:** each agent's own `mcp add` command from your `PATH` (for example `claude`, `gemini`, `copilot`), as a fixed argument list, never through a shell, with stdin closed and a 60-second limit. Their output is not shown or stored.
+- **Files it writes:** Codex's `config.toml`, opencode's global `opencode.json` (or `opencode.jsonc`, `config.json`), and the JSON settings files of Devin (CLI and Desktop), Cursor, VS Code Copilot, Kiro, Junie, Warp and Antigravity under your home folder. A file is written only when the agent's own folder already exists. Only the `ifixai` entry is added; an existing `ifixai` entry and files that do not parse are left untouched.
+- **Backup and atomic write:** before a file changes, it is copied to `<file>.ifixai-backup` beside it. The new content goes to a temporary file in the same folder and is renamed into place, keeping the old file's permissions, so the agent never reads a half-written file. To undo, restore the backup or remove the `ifixai` entry.
+- **No credentials:** nothing written contains a key or token. Signing in to the server happens later, in your coding agent.
+
 ## Credential redaction coverage
 
 The scrubber (`ifixai/providers/secrets.py::scrub_secrets`) is parametrically verified against every provider registered in `ifixai.providers.resolver.REGISTERED_PROVIDERS`. Each registered provider has at least one credential shape that is matched and replaced with a provider-tagged redaction token:
@@ -62,12 +71,13 @@ Generic `Authorization: Bearer <token>` and `X-API-Key: <value>` headers are scr
 
 iFixAi sends pseudonymous run telemetry — from the CLI, the plugin, and scaffolded agent skills alike, since all three run the same engine — so we can count how many people use it and whether they return. It is consent-first: disclosed in plain language on first run, off automatically in CI, and every opt-out is honored *before* any identifier is created or any event is sent.
 
-**What is sent** — one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report:
+**What is sent:** one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report, `ifixai_offer_shown` when the free Pro audit offer or its steps are shown, and `ifixai_offer_accepted` when you pick it:
 
 | Field | Example | Why |
 |---|---|---|
 | install id | random `uuid4`, stored at `${XDG_CONFIG_HOME:-~/.config}/ifixai/install-id` (`0600`) | unique installs + retention |
-| event | `ifixai_started` / `ifixai_completed` | run count + completion rate |
+| event | `ifixai_started` / `ifixai_completed` / `ifixai_offer_shown` / `ifixai_offer_accepted` | run count + completion rate + how often the offer is seen and picked |
+| where | `start` / `end`, on the two offer events only | where the offer was seen or picked |
 | version | `3.0.2` | adoption per release |
 | os | `Darwin` / `Linux` / `Windows` (from `platform.system()`) | platform mix |
 | surface | `cli` / `plugin` / `skill` | separate the run interfaces |
@@ -84,7 +94,7 @@ iFixAi sends pseudonymous run telemetry — from the CLI, the plugin, and scaffo
 - a file at `${XDG_CONFIG_HOME:-~/.config}/ifixai/telemetry-opt-out`
 - automatically in CI (`CI`, or a known vendor variable such as `GITHUB_ACTIONS`)
 
-**Data protection (GDPR / UK GDPR).** The install id is a persistent identifier, so this telemetry is *pseudonymous personal data*, not anonymous. Lawful basis: legitimate interest (Art 6(1)(f)) in understanding adoption and retention; the processing is minimal (seven fields, no model I/O, only classifications and never the paths they were derived from), IP-stripped, opt-out-respecting, and never used for profiling or advertising. **Retention: events are kept indefinitely** — we do not auto-delete. **Erasure:** run `ifixai run --show-id` to read your install id, then email **info@ime.life** to have its events deleted; deleting the local `install-id` file stops future linkage but does not remove rows already collected. Data controller: iFixAi (**info@ime.life**).
+**Data protection (GDPR / UK GDPR).** The install id is a persistent identifier, so this telemetry is *pseudonymous personal data*, not anonymous. Lawful basis: legitimate interest (Art 6(1)(f)) in understanding adoption and retention; the processing is minimal (eight fields, no model I/O, only classifications and never the paths they were derived from), IP-stripped, opt-out-respecting, and never used for profiling or advertising. **Retention: events are kept indefinitely**; we do not auto-delete. **Erasure:** run `ifixai run --show-id` to read your install id, then email **info@ime.life** to have its events deleted; deleting the local `install-id` file stops future linkage but does not remove rows already collected. Data controller: iFixAi (**info@ime.life**).
 
 ## Coordinated disclosure
 

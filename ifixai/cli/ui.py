@@ -27,6 +27,7 @@ from ifixai.scoring.engine import is_unscored
 _ACCENT = "rgb(232,99,42)"
 _DIM = "grey62"
 SELECT_INSTRUCTION = "(↑/↓ to move, enter to select)"
+NUMBERED_SELECT_INSTRUCTION = "(↑/↓ or a number to move, enter to select)"
 
 
 @lru_cache(maxsize=1)
@@ -74,7 +75,7 @@ def console():
     return Console()
 
 
-def _qstyle():
+def _qstyle(*, reverse_pointed_row: bool = False):
     """A branded questionary style (accent pointer/highlight)."""
     import questionary
 
@@ -83,7 +84,7 @@ def _qstyle():
             ("qmark", "fg:#e8632a bold"),
             ("question", "bold"),
             ("pointer", "fg:#e8632a bold"),
-            ("highlighted", "fg:#e8632a bold"),
+            ("highlighted", "fg:#e8632a bold reverse" if reverse_pointed_row else "fg:#e8632a bold"),
             ("selected", "fg:#4ade80"),
             ("answer", "fg:#e8632a bold"),
             ("instruction", "fg:#9aa0a6"),
@@ -135,19 +136,23 @@ def select(
 def select_or_abort(message: str, choices: Sequence[str], default: str) -> str:
     """Arrow-key single choice where Ctrl-C aborts instead of picking the default.
 
-    Like ``select``, this prompt does not choose a default after cancellation.
-    It propagates ``KeyboardInterrupt`` on Ctrl-C; ``select`` raises
-    ``click.Abort`` instead. Callers must check ``is_interactive()`` first.
+    The options are numbered: typing a number moves to it, as the arrows do, and Enter
+    picks the one shown in reverse video. Like ``select``, this prompt does not choose a
+    default after cancellation. It propagates ``KeyboardInterrupt`` on Ctrl-C; ``select``
+    raises ``click.Abort`` instead. Callers must check ``is_interactive()`` first.
     """
     import questionary
 
+    labels = list(choices)
     return questionary.select(
         message,
-        choices=_choices(list(choices), None),
-        default=default,
-        style=_qstyle(),
-        use_shortcuts=False,
-        instruction=SELECT_INSTRUCTION,
+        choices=_choices(labels, None),
+        # questionary styles its default row as already chosen wherever the pointer is; the
+        # pointer starts on the first row anyway, so only a later default is passed.
+        default=None if default == labels[0] else default,
+        style=_qstyle(reverse_pointed_row=True),
+        use_shortcuts=True,
+        instruction=NUMBERED_SELECT_INSTRUCTION,
     ).unsafe_ask()
 
 
