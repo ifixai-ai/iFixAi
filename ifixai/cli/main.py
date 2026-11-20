@@ -12,6 +12,7 @@ from ifixai.cli.compare import compare
 from ifixai.cli.init import init, load_dotenv_file
 from ifixai.cli.list_cmd import list_group
 from ifixai.cli.policy_lab import policy_lab
+from ifixai.cli.pro_offer import offer
 from ifixai.cli.run import run
 from ifixai.cli.scaffold import install
 from ifixai.cli.setup_cmd import setup
@@ -32,6 +33,7 @@ ifixai_cli.add_command(init)
 ifixai_cli.add_command(install)
 ifixai_cli.add_command(author)
 ifixai_cli.add_command(run)
+ifixai_cli.add_command(offer)
 ifixai_cli.add_command(audit)
 ifixai_cli.add_command(findings)
 ifixai_cli.add_command(list_group, name="list")

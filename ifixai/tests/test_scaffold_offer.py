@@ -14,7 +14,7 @@ from ifixai.cli.main import ifixai_cli
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = REPO_ROOT / "ifixai" / "scaffold" / "playbook.md"
 PLUGIN_SKILL = REPO_ROOT / "plugin" / "skills" / "ifixai" / "SKILL.md"
-BEFORE_STEP_ONE = "Before step 1, make the free Pro audit offer in The offer below once."
+BEFORE_STEP_ONE = "Before step 1 of every audit, make the free Pro audit offer in The offer below."
 LAST_STEP = (
     "10. After the findings of a real run (never a mock run), show the free Pro audit steps "
     "at the end\n    of step 9."
@@ -82,6 +82,12 @@ def test_the_skill_offers_first_and_shows_the_steps_last(path: Path) -> None:
     assert "**Continue with a free Pro audit**" in offer
     assert "**Continue with open source**" in offer
     assert CLAUDE_COMMAND in " ".join(offer.split())
+    # Every audit asks the engine for the offer, and a yes adds the server to every agent.
+    assert "Before step 1 of every audit, in every session, run `ifixai offer`" in " ".join(
+        offer.split()
+    )
+    assert "run `ifixai offer --add-server`" in " ".join(offer.split())
+    assert "once" not in offer
     assert "SF2026" in offer
     assert "dashboard" not in offer.lower()
 

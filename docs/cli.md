@@ -119,7 +119,7 @@ seeds. Legacy unfinished probe contexts cannot be reconstructed.
 
 ## Free Pro audit offer
 
-The first real `ifixai run` in a terminal on a machine opens with an offer of a complimentary iFixAi Pro audit, then one choice (arrow keys and Enter; a numbered list to type where the menu cannot run, such as with `NO_COLOR` set):
+Every real `ifixai run` with a person at a terminal opens with an offer of a complimentary iFixAi Pro audit, then one choice (arrow keys and Enter; a numbered list to type where the menu cannot run, such as with `NO_COLOR` set):
 
 - **Continue with open source** carries on with the run.
 - **Continue with a free Pro audit** ends the run before anything is sent to your agent (exit `0`) and prints the steps to start the Pro audit from your coding agent. It then names the coding agents it finds on this computer and asks whether to add iFixAi's remote MCP server (`https://mcp.ifixai.ai/mcp`, named `ifixai`) to them. With no agent found, nothing is asked.
@@ -149,16 +149,20 @@ Nothing is added unless you pick **Add it for me**. Each agent is then added the
 - Anything that could not be added is listed after the others, with the exact command to run or the entry to paste. One agent failing never stops the others, and the run still exits `0`.
 - Restart your coding agent afterwards to load the server.
 
-The offer is shown once, whatever you answer (Ctrl-C included). The marker is a `pro-offer-shown` file in `$XDG_CONFIG_HOME/ifixai` (else `~/.config/ifixai`): delete it to see the offer again.
+The same steps are the last thing printed (on stderr) by every finished real run in which at least one inspection passed or failed, with or without a terminal, so a coding agent that runs `ifixai` reads them in its output. Nothing is asked there.
 
-The same steps are the last thing printed by every finished real run in which at least one inspection passed or failed. Nothing is asked there.
-
-Neither is shown for `--provider mock`, on `--dry-run`, in CI, or without a terminal (pipes, scripts, agent-driven runs), and neither goes into a report file or SARIF. `--quiet` does not skip them. To skip both, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to skip them on every run:
+Neither is shown for `--provider mock`, on `--dry-run` or in CI. The start screen also needs a terminal (no pipes, scripts or agent-driven runs). Neither goes into a report file or SARIF. `--quiet` does not skip them. To skip both, pass `--no-promo`, or set `IFIXAI_NO_PROMO=1` to skip them on every run:
 
 ```bash
 ifixai run --provider openai --no-promo
 export IFIXAI_NO_PROMO=1
 ```
+
+### `ifixai offer`
+
+For a coding agent that runs iFixAi for you (the iFixAi skill and the playbook `ifixai install` writes call it before every audit). It prints the offer text and its two choices, every time, for the agent to show you. It prints nothing in CI or with `IFIXAI_NO_PROMO=1`.
+
+`ifixai offer --add-server` adds the server to every coding agent found, as **Add it for me** does above, without asking: the coding agent asks you first. It prints the same lines (added, or what to run or paste yourself), and exits `0` either way. With no agent found, it says to add `https://mcp.ifixai.ai/mcp` as a remote MCP server yourself.
 
 ## How a run is judged
 

@@ -912,8 +912,8 @@ def _reject_profile(ctx: click.Context, param: click.Parameter, value: str | Non
     default=False,
     envvar=NO_PROMO_ENV_VAR,
     help="Skip the free Pro audit offer at the start and the steps at the end of a run. "
-    f"Set {NO_PROMO_ENV_VAR}=1 to skip it on every run. The offer is never shown "
-    "in CI or without a terminal.",
+    f"Set {NO_PROMO_ENV_VAR}=1 to skip it on every run. Neither is shown in CI, and the "
+    "offer at the start needs a terminal.",
 )
 @click.option(
     "--print-telemetry",

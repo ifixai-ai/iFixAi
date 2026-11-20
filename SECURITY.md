@@ -35,7 +35,7 @@ We aim to acknowledge receipt within **7 business days** and to provide a remedi
 
 ## Coding agent settings the CLI can change
 
-Only when you pick **Continue with a free Pro audit** and then **Add it for me** in a terminal, `ifixai run` adds iFixAi's remote MCP server (`https://mcp.ifixai.ai/mcp`, named `ifixai`) to the coding agents it finds. It never does this in CI, without a terminal, or with `--no-promo`. The full list of agents, commands and files is in [docs/cli.md](docs/cli.md#free-pro-audit-offer).
+Only when you pick **Continue with a free Pro audit** and then **Add it for me** in a terminal, `ifixai run` adds iFixAi's remote MCP server (`https://mcp.ifixai.ai/mcp`, named `ifixai`) to the coding agents it finds. It never does this in CI, without a terminal, or with `--no-promo`. `ifixai offer --add-server` does the same without asking, for a coding agent that has asked you first. The full list of agents, commands and files is in [docs/cli.md](docs/cli.md#free-pro-audit-offer).
 
 - **Commands it runs:** each agent's own `mcp add` command from your `PATH` (for example `claude`, `gemini`, `copilot`), as a fixed argument list, never through a shell, with stdin closed and a 60-second limit. Their output is not shown or stored.
 - **Files it writes:** Codex's `config.toml`, opencode's global `opencode.json` (or `opencode.jsonc`, `config.json`), and the JSON settings files of Devin (CLI and Desktop), Cursor, VS Code Copilot, Kiro, Junie, Warp and Antigravity under your home folder. A file is written only when the agent's own folder already exists. Only the `ifixai` entry is added; an existing `ifixai` entry and files that do not parse are left untouched.
@@ -71,7 +71,7 @@ Generic `Authorization: Bearer <token>` and `X-API-Key: <value>` headers are scr
 
 iFixAi sends pseudonymous run telemetry — from the CLI, the plugin, and scaffolded agent skills alike, since all three run the same engine — so we can count how many people use it and whether they return. It is consent-first: disclosed in plain language on first run, off automatically in CI, and every opt-out is honored *before* any identifier is created or any event is sent.
 
-**What is sent:** one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report, `ifixai_offer_shown` when the terminal shows the free Pro audit offer, and `ifixai_offer_accepted` when you pick it:
+**What is sent:** one `ifixai_started` event per run, plus `ifixai_completed` when a run produces a report, `ifixai_offer_shown` when the free Pro audit offer or its steps are shown, and `ifixai_offer_accepted` when you pick it:
 
 | Field | Example | Why |
 |---|---|---|

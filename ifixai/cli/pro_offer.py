@@ -1,12 +1,13 @@
 """The free Pro audit offer: a choice at the start of a run, and the steps at its end.
 
-The start screen shows once per machine, before anything is sent to an agent, as
-a choice between a free Pro audit and carrying on with open source. Picking Pro
-ends the run, prints the steps, and offers to add the iFixAi server to every
-coding agent found on the machine. The steps screen is also the last thing
-printed on every finished real run (not the mock agent, at least one inspection
-with a verdict). Neither shows in CI or without a terminal. Skip both with
-``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
+The start screen shows on every real run with a person at a terminal, before
+anything is sent to an agent, as a choice between a free Pro audit and carrying
+on with open source. Picking Pro ends the run, prints the steps, and offers to
+add the iFixAi server to every coding agent found on the machine. The steps are
+also the last thing printed (on stderr) by every finished real run with at least
+one verdict, with or without a terminal, so a coding agent reads them too.
+``ifixai offer`` prints the offer for a coding agent to show. Nothing shows in CI
+or for the mock agent. Skip it all with ``--no-promo`` or ``IFIXAI_NO_PROMO=1``.
 """
 
 import json
@@ -37,7 +38,6 @@ except ModuleNotFoundError:  # Python 3.10: Codex's file is then never written.
     tomllib = None  # type: ignore[assignment]
 
 NO_PROMO_ENV_VAR = "IFIXAI_NO_PROMO"
-OFFER_MARKER_NAME = "pro-offer-shown"
 MOCK_PROVIDER = "mock"
 CONNECTOR_URL = "https://mcp.ifixai.ai/mcp"
 PROMO_CODE = "SF2026"
@@ -108,14 +108,12 @@ def agents_question(count: int) -> ChoiceQuestion:
 
 
 def offer_at_start(provider: str) -> bool:
-    """Make the start offer once per machine; True when the user picked the Pro audit.
+    """Make the start offer to the person at the terminal; True when they picked the Pro audit.
 
     A Pro pick has printed the steps (and offered to add the server to the coding
     agents found), and the caller ends the run before anything is sent to an agent.
     """
     if provider.lower() == MOCK_PROVIDER or not can_ask_user():
-        return False
-    if not mark_offer_shown():
         return False
     click.echo()
     click.echo(render_screen(START_HEADLINE, START_BODY, sys.stdout))
@@ -130,8 +128,12 @@ def offer_at_start(provider: str) -> bool:
 
 
 def offer_at_end(provider: str, result: TestRunResult) -> None:
-    """Print the steps after a finished real run that reached at least one verdict."""
-    if provider.lower() == MOCK_PROVIDER or not person_at_terminal():
+    """Print the steps after a finished real run that reached at least one verdict.
+
+    Printed without a terminal too, so a coding agent that ran the tool reads them in its
+    output; never in CI.
+    """
+    if provider.lower() == MOCK_PROVIDER or telemetry.in_ci():
         return
     if not has_verdict(result):
         return
@@ -156,6 +158,11 @@ def offer_agent_setup() -> None:
         click.echo(line)
     if ask_choice(agents_question(len(found))) != ADD_FOR_ME_OPTION:
         return
+    add_to_agents(found, width)
+
+
+def add_to_agents(found: list["CodingAgent"], width: int) -> None:
+    """Add the server to each agent; the ones that failed print their manual lines last."""
     failed: list[CodingAgent] = []
     for agent in found:
         if agent.add():
@@ -170,6 +177,44 @@ def offer_agent_setup() -> None:
             click.echo(line)
     for line in wrap(("", "", "Restart your coding agent, then do steps 2 and 3."), width):
         click.echo(line)
+
+
+@click.command("offer")
+@click.option(
+    "--add-server",
+    is_flag=True,
+    default=False,
+    help="Add iFixAi's remote MCP server to every coding agent found on this computer, "
+    "without asking. For a coding agent that has asked the person first.",
+)
+def offer(add_server: bool) -> None:
+    """Print the free Pro audit offer, for a coding agent to show before an audit.
+
+    Prints nothing in CI or with IFIXAI_NO_PROMO=1.
+    """
+    if add_server:
+        found = [agent for agent in AGENTS if agent.found()]
+        if found:
+            add_to_agents(found, terminal_width())
+        else:
+            click.echo(
+                f"No coding agent found on this computer. Add {CONNECTOR_URL} as a remote "
+                "MCP server in your coding agent."
+            )
+        return
+    if telemetry.in_ci() or no_promo_set():
+        return
+    click.echo(render_screen(START_HEADLINE, START_BODY, sys.stdout))
+    click.echo()
+    for option in START_QUESTION["options"]:
+        click.echo(f"- {option}")
+    telemetry.emit_offer_shown("start")
+
+
+def no_promo_set() -> bool:
+    """``IFIXAI_NO_PROMO`` read the way ``ifixai run --no-promo`` reads it (a click flag)."""
+    value = os.environ.get(NO_PROMO_ENV_VAR, "").strip().lower()
+    return value not in {"", "0", "false", "f", "no", "n", "off"}
 
 
 class CodingAgent(Protocol):
@@ -571,26 +616,6 @@ def can_ask_user() -> bool:
         and is_terminal(sys.stderr)
         and not telemetry.in_ci()
     )
-
-
-def person_at_terminal() -> bool:
-    """True only when a person reads both output streams at a terminal, outside CI."""
-    return (
-        is_terminal(sys.stdout) and is_terminal(sys.stderr) and not telemetry.in_ci()
-    )
-
-
-def mark_offer_shown() -> bool:
-    """Create the shown-once marker; False if it exists or can't be written.
-
-    Marked before asking, so any answer (Ctrl-C included) counts. When it can't
-    be written the offer is skipped, so a looping script never stops on it twice.
-    """
-    try:
-        (telemetry._ensure_config_dir() / OFFER_MARKER_NAME).touch(exist_ok=False)
-    except OSError:
-        return False
-    return True
 
 
 def is_terminal(stream: TextIO | None) -> bool:

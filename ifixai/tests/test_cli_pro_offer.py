@@ -180,10 +180,10 @@ def start_offer() -> None:
 
 
 @pytest.fixture(autouse=True)
-def offer_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Where the shown-once marker lands; kept in ``tmp_path``, never the real home."""
+def xdg_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The XDG config folder, kept in ``tmp_path``, never the real one."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    return tmp_path / "config" / "ifixai" / "pro-offer-shown"
+    return tmp_path / "config"
 
 
 @pytest.fixture(autouse=True)
@@ -321,22 +321,24 @@ def test_colour_marks_the_url_and_the_code_only_where_the_terminal_shows_colour(
 # --- The start choice -----------------------------------------------------------------------
 
 
-def test_open_source_carries_on_and_the_offer_is_shown_once(
-    person_answering: None, offer_marker: Path, events: dict[str, EventRecorder]
+def test_open_source_carries_on_and_the_offer_shows_on_every_run(
+    person_answering: None, tmp_path: Path, events: dict[str, EventRecorder]
 ) -> None:
+    before = sorted(tmp_path.rglob("*"))
     first = CliRunner().invoke(start_offer, input=OPEN_SOURCE_ANSWER)
-    second = CliRunner().invoke(start_offer, input="")
+    second = CliRunner().invoke(start_offer, input=OPEN_SOURCE_ANSWER)
 
-    assert first.exit_code == 0, first.output
-    assert "Try a complimentary iFixAi Pro audit through MCP." in first.output
-    assert "Continue with a free Pro audit" in first.output
-    assert "Continue with open source" in first.output
-    assert "pro=False" in first.output
-    assert "Run your free iFixAi Pro audit" not in first.output
-    assert offer_marker.exists()
-    assert second.output.strip() == "pro=False"
-    assert events["shown"].places == ["start"]
+    for result in (first, second):
+        assert result.exit_code == 0, result.output
+        assert "Try a complimentary iFixAi Pro audit through MCP." in result.output
+        assert "Continue with a free Pro audit" in result.output
+        assert "Continue with open source" in result.output
+        assert "pro=False" in result.output
+        assert "Run your free iFixAi Pro audit" not in result.output
+    assert events["shown"].places == ["start", "start"]
     assert events["accepted"].places == []
+    # Nothing on disk remembers that it was shown.
+    assert sorted(tmp_path.rglob("*")) == before
 
 
 @pytest.mark.parametrize("answer", [PRO_ANSWER, "\n"])
@@ -376,10 +378,9 @@ def test_the_arrow_menu_answers_the_same_choice(
 
 @pytest.mark.parametrize("provider", ["mock", "MOCK"])
 def test_the_mock_agent_never_sees_the_offer(
-    person_answering: None, offer_marker: Path, events: dict[str, EventRecorder], provider: str
+    person_answering: None, events: dict[str, EventRecorder], provider: str
 ) -> None:
     assert pro_offer.offer_at_start(provider) is False
-    assert not offer_marker.exists()
     assert events["shown"].places == []
 
 
@@ -407,29 +408,13 @@ def test_asking_needs_a_terminal_on_every_stream(
     assert pro_offer.can_ask_user() is expected
 
 
-def test_ci_is_never_asked_even_with_a_terminal(
-    monkeypatch: pytest.MonkeyPatch, offer_marker: Path
-) -> None:
+def test_ci_is_never_asked_even_with_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CI", "true")
     monkeypatch.setattr(sys, "stdin", FakeStream(is_terminal=True))
     monkeypatch.setattr(sys, "stdout", FakeStream(is_terminal=True))
 
     assert pro_offer.can_ask_user() is False
     assert pro_offer.offer_at_start(REAL_PROVIDER) is False
-    assert not offer_marker.exists()
-
-
-@pytest.mark.parametrize("blocking_file", ["config", "config/ifixai"])
-def test_a_marker_that_cannot_be_written_skips_the_offer(
-    tmp_path: Path, person_answering: None, blocking_file: str
-) -> None:
-    blocker = tmp_path / blocking_file
-    blocker.parent.mkdir(parents=True, exist_ok=True)
-    blocker.write_text("not a directory", encoding="utf-8")
-
-    result = CliRunner().invoke(start_offer, input="")
-
-    assert result.output.strip() == "pro=False"
 
 
 # --- Adding the server to the coding agents found ---------------------------------------------
@@ -1142,21 +1127,19 @@ def test_the_end_steps_skip_the_mock_agent_and_ci(
     assert capsys.readouterr().err == ""
 
 
-@pytest.mark.parametrize(
-    "is_stdout_terminal,is_stderr_terminal,expected",
-    [(True, True, True), (False, True, False), (True, False, False)],
-)
-def test_the_end_steps_need_a_terminal_on_both_output_streams(
-    monkeypatch: pytest.MonkeyPatch,
-    is_stdout_terminal: bool,
-    is_stderr_terminal: bool,
-    expected: bool,
+def test_the_end_steps_print_without_a_terminal_so_a_coding_agent_reads_them(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
-    monkeypatch.setattr(sys, "stdout", FakeStream(is_stdout_terminal))
-    monkeypatch.setattr(sys, "stderr", FakeStream(is_stderr_terminal))
+    assert not pro_offer.is_terminal(sys.stdout)
+    assert not pro_offer.is_terminal(sys.stderr)
 
-    assert pro_offer.person_at_terminal() is expected
+    pro_offer.offer_at_end(REAL_PROVIDER, run_result(TestStatus.PASS))
+
+    printed = capsys.readouterr()
+    assert printed.out == ""
+    # Piped: plain text, no colour codes.
+    assert printed.err == "\n" + "\n".join(STEPS_LINES) + "\n"
 
 
 # --- Inside a run -----------------------------------------------------------------------------
@@ -1188,18 +1171,15 @@ def test_open_source_runs_and_the_run_ends_on_the_steps(
     mock_run_args: list[str],
     person_answering: None,
     mock_counts_as_real: None,
-    offer_marker: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(pro_offer, "person_at_terminal", report_true)
+    monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
 
     first = CliRunner().invoke(ifixai_cli, mock_run_args, input=OPEN_SOURCE_ANSWER)
-    second = CliRunner().invoke(ifixai_cli, mock_run_args, input="")
+    second = CliRunner().invoke(ifixai_cli, mock_run_args, input=OPEN_SOURCE_ANSWER)
 
-    assert "Try a complimentary iFixAi Pro audit through MCP." in first.output
-    assert "Try a complimentary" not in second.output
-    assert offer_marker.exists()
     for run in (first, second):
+        assert "Try a complimentary iFixAi Pro audit through MCP." in run.output
         assert "Reports saved" in run.output, run.output
         assert last_printed_lines(run.output, len(STEPS_LINES)) == STEPS_LINES, run.output
     for report in (tmp_path / "reports").iterdir():
@@ -1256,14 +1236,128 @@ def test_no_promo_skips_the_end_steps_of_a_finished_run(
     assert order == []
 
 
-def test_a_run_without_a_terminal_never_shows_or_marks_the_offer(
-    mock_run_args: list[str], offer_marker: Path, mock_counts_as_real: None
+def test_a_run_without_a_terminal_never_asks_but_ends_on_the_steps(
+    mock_run_args: list[str],
+    mock_counts_as_real: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
+
+    result = CliRunner().invoke(ifixai_cli, mock_run_args)
+
+    assert "Reports saved" in result.output
+    assert "Try a complimentary" not in result.output
+    assert last_printed_lines(result.stderr, len(STEPS_LINES)) == STEPS_LINES, result.output
+    assert "SF2026" not in result.stdout
+
+
+def test_a_run_in_ci_without_a_terminal_prints_no_steps(
+    mock_run_args: list[str], mock_counts_as_real: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(telemetry, "in_ci", report_true)
+
     result = CliRunner().invoke(ifixai_cli, mock_run_args)
 
     assert "Reports saved" in result.output
     assert "iFixAi Pro" not in result.output
-    assert not offer_marker.exists()
+
+
+# --- `ifixai offer`, for a coding agent ------------------------------------------------------
+
+
+@pytest.fixture
+def outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(telemetry, "in_ci", report_outside_ci)
+    monkeypatch.delenv(NO_PROMO_ENV_VAR, raising=False)
+
+
+def test_ifixai_offer_prints_the_offer_and_its_two_choices_every_time(
+    outside_ci: None, tmp_path: Path, events: dict[str, EventRecorder]
+) -> None:
+    before = sorted(tmp_path.rglob("*"))
+    runs = [CliRunner().invoke(ifixai_cli, ["offer"]) for _ in range(2)]
+
+    for result in runs:
+        assert result.exit_code == 0, result.output
+        printed = plain_lines(result.output)
+        assert " ".join(line for line in printed[:-2] if line) == START_TEXT
+        assert printed[-2:] == ["- Continue with a free Pro audit", "- Continue with open source"]
+    assert runs[0].output == runs[1].output
+    assert events["shown"].places == ["start", "start"]
+    assert sorted(tmp_path.rglob("*")) == before
+
+
+@pytest.mark.parametrize(
+    "ci,no_promo", [(True, None), (False, "1"), (False, "true")], ids=["ci", "no-promo-1", "no-promo-true"]
+)
+def test_ifixai_offer_prints_nothing_in_ci_or_when_silenced(
+    monkeypatch: pytest.MonkeyPatch,
+    events: dict[str, EventRecorder],
+    ci: bool,
+    no_promo: str | None,
+) -> None:
+    monkeypatch.setattr(telemetry, "in_ci", report_true if ci else report_outside_ci)
+    if no_promo is None:
+        monkeypatch.delenv(NO_PROMO_ENV_VAR, raising=False)
+    else:
+        monkeypatch.setenv(NO_PROMO_ENV_VAR, no_promo)
+
+    result = CliRunner().invoke(ifixai_cli, ["offer"])
+
+    assert result.exit_code == 0
+    assert result.output == ""
+    assert events["shown"].places == []
+
+
+def test_ifixai_offer_is_not_silenced_by_a_false_no_promo(
+    outside_ci: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(NO_PROMO_ENV_VAR, "0")
+
+    assert "Try a complimentary" in CliRunner().invoke(ifixai_cli, ["offer"]).output
+
+
+@needs_tomllib
+def test_add_server_adds_it_to_every_agent_found_without_asking(
+    agent_cli: CommandRecorder, codex_home: Path
+) -> None:
+    agent_cli.installed["claude"] = (0, "Added HTTP MCP server ifixai to user config", "")
+    (codex_home / "config.toml").write_bytes(CODEX_CONFIG)
+
+    result = CliRunner().invoke(ifixai_cli, ["offer", "--add-server"], input="")
+
+    assert result.exit_code == 0, result.output
+    assert plain_lines(result.output) == ["Added to Claude Code.", "Added to Codex.", RESTART]
+    [(args, _)] = agent_cli.calls
+    assert args == ["/fake/bin/claude", *CLAUDE_ADD]
+    assert (codex_home / "config.toml").read_bytes() == CODEX_CONFIG + CODEX_TABLE
+
+
+def test_add_server_prints_the_line_to_run_for_an_agent_it_could_not_add(
+    agent_cli: CommandRecorder, cursor_file: Path
+) -> None:
+    agent_cli.installed["claude"] = (1, "", "Error: invalid transport")
+
+    result = CliRunner().invoke(ifixai_cli, ["offer", "--add-server"])
+
+    assert result.exit_code == 0, result.output
+    assert plain_lines(result.output) == [
+        "Added to Cursor.",
+        "Could not add it to Claude Code. Run this yourself:",
+        CLAUDE_BY_HAND,
+        RESTART,
+    ]
+
+
+def test_add_server_with_no_agent_found_says_where_to_add_it(agent_cli: CommandRecorder) -> None:
+    result = CliRunner().invoke(ifixai_cli, ["offer", "--add-server"])
+
+    assert result.exit_code == 0, result.output
+    assert " ".join(plain_lines(result.output)) == (
+        "No coding agent found on this computer. Add https://mcp.ifixai.ai/mcp as a remote "
+        "MCP server in your coding agent."
+    )
+    assert agent_cli.calls == []
 
 
 # --- Telemetry ------------------------------------------------------------------------------
