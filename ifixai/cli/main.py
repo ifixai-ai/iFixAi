@@ -18,6 +18,7 @@ from ifixai.cli.scaffold import install
 from ifixai.cli.setup_cmd import setup
 from ifixai.cli.traces import traces
 from ifixai.cli.trajectory import trajectory
+from ifixai.cli.user_skill import ensure_user_skill
 from ifixai.cli.validate import validate
 from ifixai.cli.windtunnel import windtunnel
 
@@ -85,10 +86,17 @@ def _configure_cli_logging() -> None:
     root.setLevel(logging.DEBUG if debug else logging.WARNING)
 
 
+def _manages_skill(args: list[str]) -> bool:
+    """``ifixai install --revert`` and ``--user`` handle the skill themselves."""
+    return bool(args) and args[0] == "install" and ("--revert" in args or "--user" in args)
+
+
 def main() -> None:
     _ensure_printable_output()
     loaded = load_dotenv_file()
     _configure_cli_logging()
+    if not _manages_skill(sys.argv[1:]):
+        ensure_user_skill()
     if loaded:
         click.echo(
             click.style(

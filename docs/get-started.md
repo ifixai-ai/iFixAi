@@ -89,7 +89,16 @@ ifixai --help
 
 That first run adds the iFixAi skill to every coding agent it finds on your machine and prints one line naming them. Then ask your agent to *"run iFixAi on my agent"*: it loads the skill by its description, with no slash command to remember. The skill lands in each agent's own user-level skills folder (`ifixai/SKILL.md`), so it works in every repo you open:
 
-AGENT_TABLE
+| Agent | Skills folder |
+|---|---|
+| Claude Code | `~/.claude/skills` (or `$CLAUDE_CONFIG_DIR/skills`) |
+| Codex, Gemini CLI, GitHub Copilot CLI, opencode, Amp, Cursor, Junie, Warp, Devin, Windsurf, Zed | `~/.agents/skills`, the shared folder they all read |
+| VS Code Copilot | `~/.copilot/skills` (or `$COPILOT_HOME/skills`) |
+| Cline | `~/.cline/skills` |
+| Kiro | `~/.kiro/skills` |
+| Antigravity | `~/.gemini/config/skills` |
+
+opencode, Amp and Cursor also read `~/.claude/skills`, so when Claude Code is their only neighbour they share its copy and `~/.agents/skills` is not written.
 
 It runs again only when iFixAi is upgraded (to refresh the text) or when a new coding agent appears. It never writes over a `SKILL.md` it didn't write; `ifixai install --user --force` replaces yours. `ifixai install --user` adds it again on demand, `ifixai install --revert` removes it and keeps it off, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
 
