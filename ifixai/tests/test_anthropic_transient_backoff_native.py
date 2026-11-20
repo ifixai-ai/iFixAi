@@ -101,6 +101,48 @@ async def test_hard_native_status_is_not_retried(native_provider):
             await provider.aclose()
 
 
+@asynccontextmanager
+async def dropping_endpoint(text, *, drops=1):
+    calls = []
+
+    async def complete(request):
+        calls.append(await request.json())
+        if len(calls) <= drops:
+            request.transport.close()
+            return web.Response(status=500)
+        return web.json_response({
+            "id": "owned", "type": "message", "role": "assistant", "model": "owned-model",
+            "content": [{"type": "text", "text": text}], "stop_reason": "end_turn",
+            "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 1},
+        })
+
+    app = web.Application()
+    app.router.add_post("/{tail:.*}", complete)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    try:
+        yield f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}", calls
+    finally:
+        await runner.cleanup()
+
+
+async def test_dropped_connection_recovers_with_configured_retry(monkeypatch, native_provider):
+    from ifixai.providers import anthropic as module
+
+    monkeypatch.setattr(module, "INITIAL_BACKOFF_SECONDS", 0.01)
+    async with dropping_endpoint("owned reply") as (url, calls):
+        provider = native_provider()
+        try:
+            assert await provider.send_message([ChatMessage(content="owned prompt")], ProviderConfig(
+                provider="anthropic", endpoint=url, api_key="owned-fixture", model="owned-model", max_retries=1,
+            )) == "owned reply"
+            assert len(calls) == 2
+        finally:
+            await provider.aclose()
+
+
 @pytest.mark.parametrize("outage_target", ["agent", "judge"])
 async def test_b19_keeps_all_thirty_grades_after_three_second_529_blip(native_provider, outage_target):
     rubric = await load_analytic_rubric("B19", "comply")
