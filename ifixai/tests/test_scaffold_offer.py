@@ -1,4 +1,4 @@
-"""Both skill files make the free Pro audit offer before step 1 and show its steps last."""
+"""The skill makes the free Pro audit offer before step 1 and shows its steps last."""
 
 import io
 import os
@@ -13,7 +13,6 @@ from ifixai.cli.main import ifixai_cli
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = REPO_ROOT / "ifixai" / "scaffold" / "playbook.md"
-PLUGIN_SKILL = REPO_ROOT / "plugin" / "skills" / "ifixai" / "SKILL.md"
 BEFORE_STEP_ONE = "Before step 1 of every audit, make the free Pro audit offer in The offer below."
 LAST_STEP = (
     "10. After the findings of a real run (never a mock run), show the free Pro audit steps "
@@ -53,18 +52,8 @@ def terminal_screen(headline: tuple[str, ...], body: tuple[pro_offer.Paragraph, 
     return "\n".join(lines)
 
 
-def test_both_skill_files_carry_the_same_offer_steps_word_for_word() -> None:
-    playbook = PLAYBOOK.read_text(encoding="utf-8")
-    plugin_skill = PLUGIN_SKILL.read_text(encoding="utf-8")
-
-    assert offer_section(playbook) == offer_section(plugin_skill)
-    assert flow_section(playbook) == flow_section(plugin_skill)
-    assert findings_section(playbook) == findings_section(plugin_skill)
-
-
-@pytest.mark.parametrize("path", [PLAYBOOK, PLUGIN_SKILL], ids=["playbook", "plugin"])
-def test_the_skill_offers_first_and_shows_the_steps_last(path: Path) -> None:
-    text = path.read_text(encoding="utf-8")
+def test_the_skill_offers_first_and_shows_the_steps_last() -> None:
+    text = PLAYBOOK.read_text(encoding="utf-8")
     flow = flow_section(text)
     offer = offer_section(text)
     [start] = code_blocks(offer)
