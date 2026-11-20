@@ -3,8 +3,8 @@
 A fixture is the simulation environment iFixAi tests an agent in: its roles, users, tools, data
 and rules. The easy way to get one is to describe the agent in a short profile and let
 `ifixai author` write the fixture, then let `ifixai validate` check it gives every inspection
-the run picks enough to reach a verdict. The Claude Code plugin and the prompt `ifixai install` writes for
-other coding agents follow the same steps.
+the run picks enough to reach a verdict. The iFixAi skill your coding agent
+loads follows the same steps.
 
 ## The flow
 

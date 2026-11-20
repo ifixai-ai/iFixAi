@@ -46,7 +46,7 @@
   <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?style=flat&logo=github&color=6366f1" alt="GitHub stars" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-6366f1?logo=python&logoColor=white" alt="Python 3.10+" /></a>
-  <a href="#plugin-claude-code-and-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="#with-your-coding-agent-recommended"><img src="https://img.shields.io/badge/skill-any%20coding%20agent-6366f1" alt="Skill for any coding agent" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
@@ -82,37 +82,25 @@ There are two ways to run it.
 
 ### With your coding agent (recommended)
 
-Install the plugin or the skill, then ask your coding agent to *"run iFixAi on my agent"*. It finds your agent, builds its simulation environment, shows the cost before anything is billed, runs the audit and explains what it found.
-
-#### Plugin (Claude Code and Codex)
-
-In [Claude Code](https://claude.com/claude-code), run these, then ask, or type `/ifixai:ifixai` (`/reload-plugins` if it doesn't show up):
-
-```
-/plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-community
+```bash
+pip install ifixai     # or skip the install: uvx ifixai --help
+ifixai --help          # any ifixai command adds the skill
 ```
 
-Already installed? Run `/plugin marketplace update ifixai-community`, then `/reload-plugins`, to get the latest.
+The first `ifixai` command you run adds the iFixAi skill to your coding agent ([where it goes](docs/get-started.md#run-it-from-your-coding-agent)). Then ask it to *"run iFixAi on my agent"*. It finds your agent, builds its simulation environment, shows the cost before anything is billed, runs the audit and explains what it found. A new iFixAi version refreshes the skill on its first run. `ifixai install --revert` removes it, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
 
-Codex: run these in your terminal, then start Codex and ask. Moving from `ifixai@ifixai-ai`? See [plugin/README.md](plugin/README.md).
-
-```
-codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-community
-```
-
-#### Skill (Cursor, VS Code, Windsurf, Zed and more)
+Used the Claude Code or Codex plugin before? The skill replaces it. Remove the plugin and its marketplace:
 
 ```bash
-uvx ifixai install --agents cursor
+claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace remove ifixai-community
+codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-Then type `/ifixai-skill` in that agent. Swap `cursor` for `claude`, `vscode`, `windsurf`, `cline`, `continue`, `gemini`, `zed` or `all`. More in [get started](docs/get-started.md#run-it-from-your-coding-agent).
+Optional: `ifixai install` also writes the instructions into the current project, as a `/ifixai` command for the agents it finds there. `ifixai install --list` shows every agent it supports.
 
 ### With the guided CLI
 
-1. Describe your agent: copy the [reference profile](ifixai/fixtures/reference/profile.json) to `my-agent.json` and edit it ([how](docs/fixture_authoring.md)). Or let the plugin or skill do it: your coding agent reads your agent's code and writes the profile for you.
+1. Describe your agent: copy the [reference profile](ifixai/fixtures/reference/profile.json) to `my-agent.json` and edit it ([how](docs/fixture_authoring.md)). Or let the skill do it: your coding agent reads your agent's code and writes the profile for you.
 2. Build its simulation environment and check it. Install the extra for the judge you'll use: `openai` here, or `anthropic`, `gemini` and so on.
 
 ```bash

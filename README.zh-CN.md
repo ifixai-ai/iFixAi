@@ -47,7 +47,7 @@
   <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?style=flat&logo=github&color=6366f1" alt="GitHub stars" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-6366f1?logo=python&logoColor=white" alt="Python 3.10+" /></a>
-  <a href="#插件claude-code-和-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="#借助编程智能体推荐"><img src="https://img.shields.io/badge/skill-any%20coding%20agent-6366f1" alt="Skill for any coding agent" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
@@ -83,37 +83,25 @@ ifixai run --provider mock --eval-mode self --fixture reference.yaml
 
 ### 借助编程智能体（推荐）
 
-安装插件或 Skill，然后对你的编程智能体说 “用 iFixAi 审计我的智能体”。它会找到你的智能体，构建模拟环境，在产生任何费用之前先告诉你成本，然后运行审计，并解释审计结果。
-
-#### 插件（Claude Code 和 Codex）
-
-在 [Claude Code](https://claude.com/claude-code) 中运行下面两条命令，然后直接提问，或输入 `/ifixai:ifixai`（如果没有出现，先运行 `/reload-plugins`）：
-
-```
-/plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-community
+```bash
+pip install ifixai     # 不想安装的话：uvx ifixai --help
+ifixai --help          # 任意 ifixai 命令都会添加 Skill
 ```
 
-已经装过？先运行 `/plugin marketplace update ifixai-community`，再运行 `/reload-plugins`，即可更新到最新版本。
+你运行的第一条 `ifixai` 命令会把 iFixAi Skill 添加到你的编程智能体（[添加位置](docs/get-started.md#run-it-from-your-coding-agent)）。然后对你的编程智能体说 “用 iFixAi 审计我的智能体”。它会找到你的智能体，构建模拟环境，在产生任何费用之前先告诉你成本，然后运行审计，并解释审计结果。升级 iFixAi 后，第一次运行会同时更新 Skill。`ifixai install --revert` 可将其移除，`IFIXAI_NO_SKILL=1` 可将其关闭，在 CI 中不会运行。
 
-Codex：在终端中运行下面两条命令，然后启动 Codex 并提问。之前装的是 `ifixai@ifixai-ai`？请参阅 [plugin/README.md](plugin/README.md)。
-
-```
-codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-community
-```
-
-#### Skill（Cursor、VS Code、Windsurf、Zed 等）
+以前用过 Claude Code 或 Codex 插件？Skill 已取代它。请移除插件及其 marketplace：
 
 ```bash
-uvx ifixai install --agents cursor
+claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace remove ifixai-community
+codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-然后在该编程智能体中输入 `/ifixai-skill`。把 `cursor` 换成 `claude`、`vscode`、`windsurf`、`cline`、`continue`、`gemini`、`zed` 或 `all`，即可装到其他编程智能体。更多说明见[入门指南](docs/get-started.md#run-it-from-your-coding-agent)。
+可选：`ifixai install` 会把同样的说明写入当前项目，作为在其中找到的智能体的 `/ifixai` 命令。`ifixai install --list` 可列出所有支持的智能体。
 
 ### 使用引导式 CLI
 
-1. 描述你的智能体：把[参考档案](ifixai/fixtures/reference/profile.json)复制为 `my-agent.json` 并修改（[怎么做](docs/fixture_authoring.md)）。也可以交给插件或 Skill：你的编程智能体会阅读你的智能体代码，替你写好档案。
+1. 描述你的智能体：把[参考档案](ifixai/fixtures/reference/profile.json)复制为 `my-agent.json` 并修改（[怎么做](docs/fixture_authoring.md)）。也可以交给 Skill：你的编程智能体会阅读你的智能体代码，替你写好档案。
 2. 为你的智能体构建并校验模拟环境。安装你要用的评审模型对应的 extra：这里是 `openai`，也可以是 `anthropic`、`gemini` 等。
 
 ```bash

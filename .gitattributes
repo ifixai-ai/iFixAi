@@ -1,4 +1,3 @@
 # Keep LF on files that are parsed by POSIX shells or byte-compared, so a Windows
 # checkout (autocrlf=true) can't introduce CRLF that breaks them.
 *.sh text eol=lf
-plugin/requirements.txt text eol=lf

@@ -47,7 +47,7 @@
   <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?style=flat&logo=github&color=6366f1" alt="GitHub stars" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-6366f1?logo=python&logoColor=white" alt="Python 3.10+" /></a>
-  <a href="#プラグインclaude-code-と-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="#コーディングエージェントでおすすめ"><img src="https://img.shields.io/badge/skill-any%20coding%20agent-6366f1" alt="Skill for any coding agent" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
@@ -83,37 +83,25 @@ Windows では `py -m venv .venv` を実行してから `.venv\Scripts\activate`
 
 ### コーディングエージェントで（おすすめ）
 
-プラグインか Skill をインストールし、コーディングエージェントに「自分のエージェントで iFixAi を実行して」と頼みます。コーディングエージェントがあなたのエージェントを見つけ、シミュレーション環境を構築し、課金される前に費用を示してから監査を実行し、見つかった問題を説明します。
-
-#### プラグイン（Claude Code と Codex）
-
-[Claude Code](https://claude.com/claude-code) で次のコマンドを実行してから頼むか、`/ifixai:ifixai` と入力します（表示されない場合は `/reload-plugins` を実行）。
-
-```
-/plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-community
+```bash
+pip install ifixai     # インストールせずに使うなら: uvx ifixai --help
+ifixai --help          # どの ifixai コマンドでも Skill が追加されます
 ```
 
-インストール済みなら、`/plugin marketplace update ifixai-community` を実行してから `/reload-plugins` を実行すると最新版になります。
+最初に実行した `ifixai` コマンドが、コーディングエージェントに iFixAi の Skill を追加します（[追加先](docs/get-started.md#run-it-from-your-coding-agent)）。あとはコーディングエージェントに「自分のエージェントで iFixAi を実行して」と頼むだけです。コーディングエージェントがあなたのエージェントを見つけ、シミュレーション環境を構築し、課金される前に費用を示してから監査を実行し、見つかった問題を説明します。iFixAi を新しいバージョンにすると、最初の実行で Skill も更新されます。`ifixai install --revert` で削除、`IFIXAI_NO_SKILL=1` で無効化でき、CI では実行されません。
 
-Codex：ターミナルで次のコマンドを実行し、Codex を起動して頼みます。`ifixai@ifixai-ai` から移行する場合は [plugin/README.md](plugin/README.md) を参照してください。
-
-```
-codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-community
-```
-
-#### Skill（Cursor、VS Code、Windsurf、Zed など）
+以前 Claude Code や Codex のプラグインを使っていた場合は、Skill がその代わりになります。プラグインとマーケットプレイスを削除してください。
 
 ```bash
-uvx ifixai install --agents cursor
+claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace remove ifixai-community
+codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-続いて、そのコーディングエージェントで `/ifixai-skill` と入力します。`cursor` の代わりに `claude`、`vscode`、`windsurf`、`cline`、`continue`、`gemini`、`zed`、`all` も指定できます。詳しくは[はじめに](docs/get-started.md#run-it-from-your-coding-agent)を参照してください。
+任意：`ifixai install` を実行すると、同じ手順を現在のプロジェクトにも、そこで見つかったエージェントの `/ifixai` コマンドとして書き込みます。対応エージェントは `ifixai install --list` で確認できます。
 
 ### ガイド付き CLI で
 
-1. エージェントを記述します。[リファレンスプロファイル](ifixai/fixtures/reference/profile.json)を `my-agent.json` にコピーして編集してください（[手順](docs/fixture_authoring.md)）。プラグインや Skill に任せることもできます。コーディングエージェントがあなたのエージェントのコードを読んで、プロファイルを書いてくれます。
+1. エージェントを記述します。[リファレンスプロファイル](ifixai/fixtures/reference/profile.json)を `my-agent.json` にコピーして編集してください（[手順](docs/fixture_authoring.md)）。Skill に任せることもできます。コーディングエージェントがあなたのエージェントのコードを読んで、プロファイルを書いてくれます。
 2. シミュレーション環境を構築して検証します。使う評価モデルに合わせて extra をインストールしてください。ここでは `openai` ですが、`anthropic` や `gemini` なども選べます。
 
 ```bash

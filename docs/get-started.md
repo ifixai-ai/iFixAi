@@ -80,21 +80,34 @@ The wizard detects API keys already in your environment and shows them at the to
 
 ## Run it from your coding agent
 
-Your coding agent can be the operator: it finds your agent, builds the fixture, shows the cost via a free `--dry-run`, runs only after you say yes, and explains the scorecard. Claude Code and Codex: install the plugin ([README](../README.md#plugin-claude-code-and-codex), [plugin/README.md](../plugin/README.md)). Any agent: one command writes a native `/ifixai-skill` slash command. It needs only `uv` and Python 3.10+, no API key:
+Your coding agent can be the operator: it finds your agent, builds the fixture, shows the cost via a free `--dry-run`, runs only after you say yes, and explains the scorecard. Install iFixAi and run any command once:
 
 ```bash
-uvx ifixai install --agents cursor   # any slug: claude, vscode, windsurf, cline, continue, gemini, zed
+pip install ifixai   # or, with nothing installed: uvx ifixai --help
+ifixai --help
+```
+
+That first run adds the iFixAi skill (`ifixai/SKILL.md`) to your coding agent and prints one line saying so. Then ask your agent to *"run iFixAi on my agent"*: it loads the skill by its description, with no slash command to remember, in every repo you open.
+
+Where it goes: run from a terminal, `~/.agents/skills`, the folder most coding agents share, plus `~/.claude/skills` when Claude Code is installed, since Claude Code reads only its own. Run by a coding agent, only the folder that agent reads, so an agent with its own folder gets the skill the first time it runs `ifixai`. `ifixai install --user` adds it for every coding agent it finds, and `ifixai install --list` shows each one's folder.
+
+It runs again when iFixAi is upgraded, to refresh the text. It never writes over a `SKILL.md` it didn't write; `ifixai install --user --force` replaces yours. `ifixai install --revert` removes it and keeps it off, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
+
+Optional, per project: `ifixai install` writes the same instructions into the current repo as a native `/ifixai` command, for teammates who don't have iFixAi installed. It needs only `uv` and Python 3.10+, no API key:
+
+```bash
+uvx ifixai install --agents cursor   # or any slug from --list
 uvx ifixai install --agents all      # every agent at once
 uvx ifixai install --list            # every supported agent and where its file lands
 ```
 
-Supported: Claude Code, Cursor, VS Code / Copilot, Windsurf, Cline, Continue, Gemini and Zed, plus an `AGENTS.md` bridge (on Codex, use the plugin). Then run `/ifixai-skill` in that agent; its runs are zero-install too (`uvx --from "ifixai[<provider>]" ifixai run`). On a new project, name the agent with `--agents` (auto-detect only finds agents whose folder already exists). Already have the CLI on your PATH? Drop the `uvx` prefix. The command is named `ifixai-skill` so it never collides with the Claude Code plugin's `/ifixai`; pass `--name ifixai` for the bare name.
+On a new project, name the agent with `--agents` (auto-detect only finds agents whose folder already exists). `--agents codex` writes the user-level skill, since Codex reads skills rather than project commands.
 
 ## Three ways to run
 
 All three run the same engine. The difference is how you drive it.
 
-| | **Guided wizard** | **Explicit flags** | **Plugin or skill** |
+| | **Guided wizard** | **Explicit flags** | **Skill in your coding agent** |
 |---|---|---|---|
 | **How you drive it** | `ifixai setup` once, then `ifixai run` with no flags; config saved to `ifixai.yaml` | every option as a flag; fully scriptable | your coding agent is the operator: finds your setup, builds the fixture, runs it, explains the scorecard |
 | **Best for** | first-time users, repeatable runs, team onboarding | CI, automation, scripted batches | a guided, explained run inside the agent you already use |
@@ -103,7 +116,7 @@ All three run the same engine. The difference is how you drive it.
 | **Who grades it** | the model itself, one independent judge, or a panel of judges | same | same |
 | **Output** | JSON + Markdown reports + terminal scorecard | same | same, plus an interactive results page |
 | **Suite** | picked in the wizard | 10 inspections by default; `--full-run` for all 61, or `--suite` ([options](cli.md#suite-options)) | the agent picks, same engine |
-| **Works in** | any terminal | any terminal or CI | Claude Code, Codex, Cursor, VS Code, Windsurf, Cline, Continue, Gemini, Zed |
+| **Works in** | any terminal | any terminal or CI | any coding agent that reads Agent Skills |
 
 ## Next steps
 

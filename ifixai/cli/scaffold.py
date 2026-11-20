@@ -1,12 +1,10 @@
-"""``ifixai install`` — scaffold the ``/ifixai`` slash command into coding agents.
+"""``ifixai install`` — write the iFixAi instructions into coding agents.
 
 One host-neutral operator playbook (``ifixai/scaffold/playbook.md``) is fanned out
-into each agent's native command file, spec-kit style. The generated body tells the
-agent to act as the operator and run the existing ``ifixai run`` CLI; no server, no
-new protocol.
-
-The command name defaults to ``ifixai-skill`` (avoiding the Claude Code marketplace
-plugin, which already owns ``/ifixai``). Pass ``--name ifixai`` to get the bare form.
+into each agent's native command or skill file, spec-kit style. The generated body
+tells the agent to act as the operator and run the existing ``ifixai run`` CLI; no
+server, no new protocol. The user-level skill every ``ifixai`` command installs
+(``ifixai.cli.user_skill``) is the same playbook in the Agent Skills format.
 """
 
 from __future__ import annotations
@@ -18,10 +16,24 @@ from pathlib import Path
 
 import click
 
+from ifixai.cli import user_skill
+
 PLAYBOOK_PATH = Path(__file__).resolve().parent.parent / "scaffold" / "playbook.md"
 
 DESCRIPTION = "Run an independent iFixAi audit on your own agent."
-DEFAULT_COMMAND_NAME = "ifixai-skill"
+DEFAULT_COMMAND_NAME = "ifixai"
+SKILL_NAME = "ifixai"
+SKILL_FILE = "SKILL.md"
+# Agents load a skill by this text alone, so it says when to use it. Plain YAML: no ": " or " #".
+SKILL_DESCRIPTION = (
+    "Audit the user's own AI agent with the free, open-source iFixAi engine on this machine "
+    "(the ifixai CLI). You find the agent in their repo, confirm it, ask at most two questions, "
+    "write a profile of it cited from the repo, build its simulation environment with "
+    "`ifixai author`, check it with `ifixai validate`, show the dry-run cost, run after a yes "
+    "and explain the findings. Use when the user asks to audit, inspect, red-team or "
+    "stress-test their agent, or to run iFixAi."
+)
+_SKILL_FRONTMATTER = f"name: {{name}}\ndescription: {SKILL_DESCRIPTION}"
 # A command name becomes a file name and (for Zed) a directory name, so keep it to
 # safe characters and reject anything that could traverse the path.
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -51,7 +63,10 @@ REGISTRY: tuple[AgentTarget, ...] = (
         frontmatter=f"description: {DESCRIPTION}",
     ),
     AgentTarget("cursor", "Cursor", "project", ".cursor/commands/{name}.md", "markdown"),
-    AgentTarget("codex", "Codex CLI", "user", ".codex/prompts/{name}.md", "markdown"),
+    AgentTarget(
+        "codex", "Codex", "user", ".agents/skills/{name}/SKILL.md", "markdown",
+        frontmatter=_SKILL_FRONTMATTER,
+    ),
     AgentTarget(
         "vscode", "VS Code / Copilot", "project", ".github/prompts/{name}.prompt.md",
         "markdown", frontmatter=f"mode: agent\ndescription: {DESCRIPTION}",
@@ -65,7 +80,7 @@ REGISTRY: tuple[AgentTarget, ...] = (
     AgentTarget("gemini", "Gemini CLI", "project", ".gemini/commands/{name}.toml", "toml"),
     AgentTarget(
         "zed", "Zed", "project", ".agents/skills/{name}/SKILL.md", "markdown",
-        frontmatter=f"name: {{name}}\ndescription: {DESCRIPTION}",
+        frontmatter=_SKILL_FRONTMATTER,
     ),
     AgentTarget("agents", "AGENTS.md (universal bridge)", "project", "AGENTS.md", "agents_md"),
 )
@@ -84,7 +99,7 @@ def _target_path(target: AgentTarget, project_root: Path, name: str) -> Path:
     return root / target.rel_path.replace("{name}", name)
 
 
-def _load_playbook() -> str:
+def load_playbook() -> str:
     if not PLAYBOOK_PATH.is_file():
         raise click.ClickException(
             f"Operator playbook missing at {PLAYBOOK_PATH}. The package is "
@@ -124,6 +139,11 @@ def _render(target: AgentTarget, body: str, name: str) -> str:
         else ""
     )
     return f"{front}{block}"
+
+
+def render_skill(body: str) -> str:
+    """The user-level ``SKILL.md``: Agent Skills frontmatter, then the managed playbook."""
+    return _render(REGISTRY_BY_SLUG["codex"], body, SKILL_NAME)
 
 
 def _is_managed(text: str, target: AgentTarget) -> bool:
@@ -208,18 +228,32 @@ def _resolve_agents(agents: str | None, project_root: Path, name: str) -> list[A
 @click.option(
     "--name",
     default=DEFAULT_COMMAND_NAME,
-    help=f"Slash-command name to scaffold (default: {DEFAULT_COMMAND_NAME}). The default "
-    "avoids the Claude Code marketplace plugin's /ifixai; pass --name ifixai for the bare name.",
+    help=f"Command name to scaffold (default: {DEFAULT_COMMAND_NAME}).",
 )
 @click.option(
     "--dir", "project_dir", default=".", type=click.Path(file_okay=False),
     help="Project root for project-scoped command files (default: current directory).",
 )
-@click.option("--revert", is_flag=True, default=False, help="Remove what `ifixai install` wrote (restoring any .bak).")
+@click.option(
+    "--user", "user_level", is_flag=True, default=False,
+    help="Add the user-level iFixAi skill to every coding agent found now (any ifixai command "
+    "does this on its own), and turn that back on after --revert.",
+)
+@click.option(
+    "--revert", is_flag=True, default=False,
+    help="Remove what `ifixai install` wrote (restoring any .bak). Without --agents, also "
+    "remove the user-level skill from every agent and keep it off.",
+)
 @click.option("--list", "list_only", is_flag=True, default=False, help="List supported agents and their target paths, then exit.")
 @click.option("--force", is_flag=True, default=False, help="Overwrite a pre-existing non-managed file without saving a .bak.")
-def install(agents: str | None, name: str, project_dir: str, revert: bool, list_only: bool, force: bool) -> None:
-    """Scaffold the /<name> slash command into your coding agents (default: /ifixai-skill)."""
+def install(
+    agents: str | None, name: str, project_dir: str, user_level: bool, revert: bool,
+    list_only: bool, force: bool,
+) -> None:
+    """Write the iFixAi instructions into your coding agents (project command, or --user skill)."""
+    if user_level and not revert:
+        user_skill.install_now(force)
+        return
     if not _NAME_RE.match(name):
         raise click.ClickException(
             f"Invalid --name '{name}'. Use letters, digits, '.', '_' or '-' "
@@ -231,9 +265,19 @@ def install(agents: str | None, name: str, project_dir: str, revert: bool, list_
         click.echo(click.style(f"ifixai install: supported agents (command: /{name})", bold=True))
         for t in REGISTRY:
             click.echo(f"  {t.slug:10s} {t.label:28s} {_target_path(t, project_root, name)}")
+        click.echo(click.style("User-level skill (written by any ifixai command):", bold=True))
+        for agent in user_skill.AGENTS:
+            folder = agent.reads[0]() / SKILL_NAME / SKILL_FILE
+            click.echo(f"  {agent.name:39s} {folder}")
         return
 
     targets = _resolve_agents(agents, project_root, name)
+    if revert and agents is None:
+        project = [t for t in targets if t.scope == "project"]
+        if project:
+            _do_revert(project, project_root, name)
+        user_skill.revert_user_skills()
+        return
     if not targets:
         click.echo(click.style("No agents selected and none auto-detected.", fg="yellow"))
         click.echo("Pass --agents (e.g. --agents cursor,codex or --agents all), or --list.")
@@ -243,7 +287,7 @@ def install(agents: str | None, name: str, project_dir: str, revert: bool, list_
         _do_revert(targets, project_root, name)
         return
 
-    body = _load_playbook()
+    body = load_playbook()
     written = 0
     for t in targets:
         path = _target_path(t, project_root, name)
@@ -283,7 +327,7 @@ def install(agents: str | None, name: str, project_dir: str, revert: bool, list_
 
     click.echo()
     click.echo(click.style(f"Done. {written} file(s) written.", bold=True))
-    click.echo(f"Open your agent and run /{name} to start a diagnostic.")
+    click.echo(f"Open your agent and run /{name}, or ask it to run iFixAi on your agent.")
 
 
 def _do_revert(targets: list[AgentTarget], project_root: Path, name: str) -> None:
@@ -317,6 +361,8 @@ def _do_revert(targets: list[AgentTarget], project_root: Path, name: str) -> Non
             click.echo(f"  {click.style('restored', fg='green')} {t.label} from .bak: {path}")
         else:
             path.unlink()
+            if path.name == SKILL_FILE and not any(path.parent.iterdir()):
+                path.parent.rmdir()
             click.echo(f"  {click.style('removed', fg='yellow')} {t.label}: {path}")
         removed += 1
 

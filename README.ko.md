@@ -47,7 +47,7 @@
   <a href="https://pepy.tech/projects/ifixai"><img src="https://img.shields.io/pepy/dt/ifixai?color=6366f1" alt="Downloads" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/stargazers"><img src="https://img.shields.io/github/stars/ifixai-ai/iFixAi?style=flat&logo=github&color=6366f1" alt="GitHub stars" /></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-6366f1?logo=python&logoColor=white" alt="Python 3.10+" /></a>
-  <a href="#플러그인-claude-code와-codex"><img src="https://img.shields.io/badge/plugin-Claude%20Code%20%C2%B7%20Codex-6366f1?logo=claude&logoColor=white" alt="Plugin for Claude Code and Codex" /></a>
+  <a href="#코딩-에이전트로-권장"><img src="https://img.shields.io/badge/skill-any%20coding%20agent-6366f1" alt="Skill for any coding agent" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ifixai-ai/iFixAi?color=6366f1" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml"><img src="https://github.com/ifixai-ai/iFixAi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
@@ -83,37 +83,25 @@ Windows에서는 `py -m venv .venv`를 실행한 다음 `.venv\Scripts\activate`
 
 ### 코딩 에이전트로 (권장)
 
-플러그인이나 Skill을 설치한 뒤 코딩 에이전트에게 "*iFixAi로 내 에이전트 감사해 줘*"라고 요청하세요. 코딩 에이전트가 여러분의 에이전트를 찾고, 시뮬레이션 환경을 만들고, 요금이 청구되기 전에 비용을 보여 준 뒤, 감사를 실행하고 발견한 내용을 설명합니다.
-
-#### 플러그인 (Claude Code와 Codex)
-
-[Claude Code](https://claude.com/claude-code)에서 아래 명령을 실행한 뒤 요청하거나 `/ifixai:ifixai`를 입력하세요(보이지 않으면 `/reload-plugins` 실행):
-
-```
-/plugin marketplace add ifixai-ai/iFixAi
-/plugin install ifixai@ifixai-community
+```bash
+pip install ifixai     # 설치 없이 쓰려면: uvx ifixai --help
+ifixai --help          # 어떤 ifixai 명령이든 Skill을 추가합니다
 ```
 
-이미 설치했나요? `/plugin marketplace update ifixai-community`를 실행한 다음 `/reload-plugins`를 실행하면 최신 버전으로 업데이트됩니다.
+처음 실행한 `ifixai` 명령이 코딩 에이전트에 iFixAi Skill을 추가합니다([추가 위치](docs/get-started.md#run-it-from-your-coding-agent)). 그런 다음 코딩 에이전트에게 "*iFixAi로 내 에이전트 감사해 줘*"라고 요청하세요. 코딩 에이전트가 여러분의 에이전트를 찾고, 시뮬레이션 환경을 만들고, 요금이 청구되기 전에 비용을 보여 준 뒤, 감사를 실행하고 발견한 내용을 설명합니다. iFixAi를 새 버전으로 올리면 첫 실행에서 Skill도 새로 고쳐집니다. `ifixai install --revert`로 제거하고 `IFIXAI_NO_SKILL=1`로 끌 수 있으며, CI에서는 실행되지 않습니다.
 
-Codex: 터미널에서 아래 명령을 실행한 뒤 Codex를 시작하고 요청하세요. `ifixai@ifixai-ai`에서 옮겨 오는 경우 [plugin/README.md](plugin/README.md)를 참고하세요.
-
-```
-codex plugin marketplace add ifixai-ai/iFixAi
-codex plugin add ifixai@ifixai-community
-```
-
-#### Skill (Cursor, VS Code, Windsurf, Zed 등)
+예전에 Claude Code나 Codex 플러그인을 썼다면 이제 Skill이 그 역할을 대신합니다. 플러그인과 마켓플레이스를 제거하세요.
 
 ```bash
-uvx ifixai install --agents cursor
+claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace remove ifixai-community
+codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-그런 다음 해당 코딩 에이전트에서 `/ifixai-skill`을 입력하세요. `cursor` 대신 `claude`, `vscode`, `windsurf`, `cline`, `continue`, `gemini`, `zed`, `all` 중 하나를 쓸 수 있습니다. 자세한 내용은 [시작하기](docs/get-started.md#run-it-from-your-coding-agent)를 참고하세요.
+선택 사항: `ifixai install`을 실행하면 같은 안내를 현재 프로젝트에도, 그곳에서 찾은 에이전트의 `/ifixai` 명령으로 씁니다. 지원하는 에이전트는 `ifixai install --list`로 볼 수 있습니다.
 
 ### 안내형 CLI로
 
-1. 에이전트를 정의합니다. [참조 프로필](ifixai/fixtures/reference/profile.json)을 `my-agent.json`으로 복사해 수정하세요([방법](docs/fixture_authoring.md)). 플러그인이나 Skill에 맡길 수도 있습니다. 코딩 에이전트가 여러분의 에이전트 코드를 읽고 프로필을 대신 써 줍니다.
+1. 에이전트를 정의합니다. [참조 프로필](ifixai/fixtures/reference/profile.json)을 `my-agent.json`으로 복사해 수정하세요([방법](docs/fixture_authoring.md)). Skill에 맡길 수도 있습니다. 코딩 에이전트가 여러분의 에이전트 코드를 읽고 프로필을 대신 써 줍니다.
 2. 시뮬레이션 환경을 만들어 검증합니다. 사용할 심사 모델에 맞는 extra를 설치하세요. 여기서는 `openai`를 쓰지만 `anthropic`, `gemini` 등을 써도 됩니다.
 
 ```bash

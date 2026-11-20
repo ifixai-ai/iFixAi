@@ -10,7 +10,7 @@ def _install(root, agent, *extra):
     return CliRunner().invoke(ifixai_cli, ["install", "--agents", agent, "--dir", str(root), *extra])
 
 
-@pytest.mark.parametrize("agent,relative", [("claude", ".claude/commands/ifixai-skill.md"), ("gemini", ".gemini/commands/ifixai-skill.toml")])
+@pytest.mark.parametrize("agent,relative", [("claude", ".claude/commands/ifixai.md"), ("gemini", ".gemini/commands/ifixai.toml")])
 def test_reinstall_preserves_new_custom_command_when_backup_is_stale(tmp_path, agent, relative):
     path = tmp_path / relative
     path.parent.mkdir(parents=True)
@@ -32,7 +32,7 @@ def test_reinstall_preserves_new_custom_command_when_backup_is_stale(tmp_path, a
 
 @pytest.mark.parametrize("preexisting_backup", [False, True])
 def test_matching_backup_and_managed_reinstall_remain_revertible(tmp_path, preexisting_backup):
-    path = tmp_path / ".claude/commands/ifixai-skill.md"
+    path = tmp_path / ".claude/commands/ifixai.md"
     path.parent.mkdir(parents=True)
     original = "Custom audit instructions.\n"
     path.write_text(original)
@@ -50,7 +50,7 @@ def test_matching_backup_and_managed_reinstall_remain_revertible(tmp_path, preex
 
 
 def test_explicit_force_retains_its_overwrite_behavior(tmp_path):
-    path = tmp_path / ".claude/commands/ifixai-skill.md"
+    path = tmp_path / ".claude/commands/ifixai.md"
     path.parent.mkdir(parents=True)
     path.write_text("Current custom command.\n")
     backup = path.with_suffix(".md.bak")

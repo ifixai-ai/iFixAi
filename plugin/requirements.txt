@@ -1,7 +1,0 @@
-# The iFixAi engine the plugin runs (the skill drives `ifixai author`, `ifixai validate` and
-# `ifixai run`). Pinned so the plugin is validated against a known engine build. The [anthropic]
-# extra pulls the Anthropic SDK that a live `ifixai run` uses. Bump this in lockstep with the
-# engine version and the plugin manifests' version when it is re-released. 4.3.0 is the first
-# release that ships `ifixai author` and the not-applicable list in `ifixai run --dry-run`, which
-# this plugin's skill needs.
-ifixai[anthropic]==4.3.0
