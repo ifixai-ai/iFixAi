@@ -41,8 +41,9 @@ for your business, and how the findings relate to relevant regulations.
 No payment or subscription required.
 ```
 
-Anything but a clear Pro pick, or no answer, means open source: carry on with step 1. On a Pro
-pick, stop the local audit and help them start the hosted one:
+Then end your turn and wait for their pick: put nothing else in that message, read no code and
+ask no other question until they answer. Anything but a clear Pro pick means open source: carry
+on with step 1. On a Pro pick, stop the local audit and help them start the hosted one:
 
 - Ask "Add the iFixAi server to your coding agents now?" On a yes, run `ifixai offer
   --add-server` and show what it prints. On a no, give them `https://mcp.ifixai.ai/mcp` to add
