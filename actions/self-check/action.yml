@@ -75,7 +75,7 @@ runs:
   using: composite
   steps:
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
         python-version: '3.12'
 
@@ -132,7 +132,7 @@ runs:
 
     - name: Upload findings to code scanning
       if: inputs.upload-sarif == 'true' && steps.self-check.outputs.sarif != ''
-      uses: github/codeql-action/upload-sarif@v4
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: ${{ steps.self-check.outputs.sarif }}
         category: ifixai-self-check

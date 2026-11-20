@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Keeps the SHA pins in .github/workflows and in the public self-check action
+  # current, `# vX.Y.Z` comments included.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /actions/self-check
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # pyproject.toml sets lower bounds, so this mostly fires when a cap blocks a
+  # new release. The nightly CI run is what catches an upstream break.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      pip:
+        patterns: ["*"]
