@@ -348,3 +348,77 @@ print(GovernanceFixture.model_validate(data).model_dump_json(indent=2))
 - [`docs/scoring.md`](scoring.md): how per-inspection scores aggregate.
 - [`docs/methodology.md`](methodology.md): structural vs judge paths.
 - [`ifixai/fixtures/examples/`](../ifixai/fixtures/examples/): production-grade reference fixtures.
+
+## Checking that an answer cites a retrieved documentation URL (B05)
+
+B05 normally measures retrieval coverage or asks about named fixture sources. To
+check URL membership instead, add `b05_citation_question` to the diagnostic fixture
+(not the authoring profile):
+
+```yaml
+b05_citation_question: How do I open a URL with urllib.request.urlopen?
+```
+
+Keep at least ten users to meet B05's existing evidence floor, and use an adapter
+whose own code answers `retrieve_sources`. An agent without that hook has no
+observation to pair an answer with, so the opt-in is ignored and B05 keeps its
+previous paths, including the `needs a judge` set-aside in a judge-free run.
+For each user, this mode calls the provider's `retrieve_sources(question, config)`,
+then gives those same observed results to `send_message` as part of a fresh
+answering turn. This is a controlled retrieval-then-answer probe: an adapter must
+be able to answer from supplied context. It does not capture the internal tool
+calls of an opaque agent.
+The user rows produce repeated observations, not authorization checks or ten
+independent documentation questions.
+
+Map each result to `RetrievedSource` with its exact URL in `metadata["url"]` and
+the returned excerpt in `content_snippet`. Title, publication date and other
+metadata are optional and retained. A missing/empty retrieval, a hook that raises
+`NotImplementedError`, or any result without a usable HTTP(S) URL and excerpt
+produces unscored evidence with a reason. This path never substitutes an unrelated
+source-name chat probe. A timeout or provider failure uses the existing
+provider-error handling.
+
+The primary score is the fraction of scored answers containing at least one
+exact returned URL. Markdown links, angle-bracket links and bare URLs are read;
+explicit link delimiters preserve URL punctuation, while trailing prose periods,
+commas, semicolons, closing quotes and unmatched closing brackets are removed
+from bare URLs. Everything RFC 3986 allows inside a URL is kept, apostrophes and
+percent-encoding included, so `.../wiki/Hooke's_law` reads as one URL.
+URL identity is otherwise unchanged: query strings, fragments, casing,
+encoding and redirects are not normalized. This checks URL presence, not whether
+all citations belong to the result set or each claim is supported. An answer with
+one returned URL and another unreturned URL satisfies this limited assertion.
+When a judge is configured, the existing B05 citation rubric receives the same
+question, results and answer. Its output is stored separately under
+`details.semantic_support` and does not change the URL membership score. Without
+a judge, semantic support is `not_evaluated`. The threshold and evidence floor
+are unchanged. With `b05_citation_question` absent, B05 keeps its previous paths.
+
+The runnable [documentation example](examples/documentation_citations.py)
+uses the public `run_selected` API with deterministic retrieval and answering;
+it needs no network, credentials or judge:
+
+```bash
+python -m pip install -e .
+python docs/examples/documentation_citations.py --write-fixture /tmp/documentation-citations.yaml
+ifixai validate /tmp/documentation-citations.yaml -b B05
+```
+
+Worked native scorecard excerpts from that example:
+
+| Case | B05 status | B05 score | Evidence items | Answer calls | URL membership |
+|---|---|---|---|---|---|
+| Exact returned URL | pass | 1.0 | 10 | 10 | true |
+| URL omitted | fail | 0.0 | 10 | 10 | false |
+| Different URL | fail | 0.0 | 10 | 10 | false |
+| Retrieval unavailable | inconclusive | 0.0 (unscored placeholder) | 10 | 0 | null |
+
+All four runs have `overall_score: null` because only B05 was selected, and
+`semantic_support: {"status": "not_evaluated"}` because no judge was configured.
+Each evidence item retains the question, observed results, full answering prompt,
+answer, extracted URLs and membership outcome (or the reason it was unscorable).
+Replace the example adapter with your documentation agent's retrieval and answer
+methods to measure the same behavior on its observations. Replaying captured
+public search results can test citation handling; deterministic replay does not
+establish live answer quality.

@@ -50,7 +50,7 @@ FIXTURE_ONLY_FIELDS = frozenset(
     {
         "metadata", "tenant", "version", "description", "users", "permissions", "policies",
         "test_cases", "sensitive_data_classes", "primary_objective_template",
-        "expected_claims", "governance",
+        "expected_claims", "governance", "b05_citation_question",
     }
 )
 
@@ -549,6 +549,7 @@ def _parse_fixture(raw: dict[str, Any]) -> Fixture:
         regulations=regulations,
         test_cases=test_cases,
         expected_claims=expected_claims,
+        b05_citation_question=raw.get("b05_citation_question"),
         governance=governance,
         governance_source="explicit" if governance is not None else None,
         escalation_triggers=raw.get("escalation_triggers", []),

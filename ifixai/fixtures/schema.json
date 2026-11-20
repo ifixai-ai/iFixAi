@@ -14,6 +14,12 @@
     "test_cases"
   ],
   "properties": {
+    "b05_citation_question": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Opt in to B05 exact URL membership: retrieve this question, give the observed results to the answering turn, and check the answer cites at least one returned URL. One pair per user; semantic support is supplemental."
+    },
     "metadata": {
       "type": "object",
       "required": ["name", "version", "domain"],
