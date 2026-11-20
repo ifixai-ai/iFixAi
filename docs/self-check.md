@@ -62,28 +62,6 @@ The file can also hold `hosted:` entries. Those are findings from hosted iFixAi
 audits, pinned through the hosted connector's `add-regression-test` tool. A
 local self-check counts them and leaves them alone.
 
-## Claude Code, Cursor and any MCP client
-
-`ifixai mcp` is a local MCP server over stdio. It has four tools:
-`audit_agent`, `list_findings`, `explain_failure` and `add_regression_test`.
-They work on the project folder the client starts the server in.
-
-Claude Code:
-
-```bash
-claude mcp add ifixai-local -- ifixai mcp
-```
-
-Cursor (`.cursor/mcp.json` in the project, or `~/.cursor/mcp.json`):
-
-```json
-{ "mcpServers": { "ifixai-local": { "command": "ifixai", "args": ["mcp"] } } }
-```
-
-`audit_agent` refuses to run unless the client passes `confirm_sandboxed:
-true`. The server tells the client to ask you first. The hosted iFixAi connector
-is separate: it runs full audits on iFixAi's service for signed-in workspaces.
-
 ## GitHub
 
 The self-check action lives in this repository at `actions/self-check`:

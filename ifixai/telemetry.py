@@ -2,10 +2,12 @@
 
 We count how often iFixAi is run, by how many distinct installs, and whether the
 same install returns across days. One ``ifixai_started`` event per run plus an
-``ifixai_completed`` event on a finished run, keyed by a random per-install id
-stored locally. Stdlib only: a synchronous ``urllib`` POST on a daemon thread,
-deliberately not aiohttp (the run paths close their asyncio loop before exit, so
-the existing session can't be reused at flush time).
+``ifixai_completed`` event on a finished run, ``ifixai_offer_shown`` (with where:
+start or end) when the free Pro audit offer is printed and ``ifixai_offer_accepted``
+when it is picked, keyed by a random per-install id stored locally. Stdlib only: a
+synchronous ``urllib`` POST on a daemon thread, deliberately not aiohttp (the run
+paths close their asyncio loop before exit, so the existing session can't be
+reused at flush time).
 
 Telemetry must never block, slow, or break a run: every path is wrapped, the send
 is fire-and-forget with a hard timeout, and failures are swallowed. See the
@@ -40,6 +42,9 @@ POSTHOG_PROJECT_KEY = "phc_sSAKNHJwLY748x2BtZvDPR5xdnMr7PndS2gmnb2LsD2H"
 # The only user-data property keys that may ever leave the machine.
 _ALLOWED_PROPS = frozenset({"version", "os", "surface", "install_source"})
 
+# The only values the ``where`` property of the two offer events may carry.
+_OFFER_PLACES = frozenset({"start", "end"})
+
 # plugin is proven, never declared
 _DECLARABLE_SURFACES = frozenset({"cli", "skill"})
 
@@ -55,7 +60,8 @@ _CI_VENDOR_VARS = (
 _DISCLOSURE_TEXT = (
     "iFixAi sends pseudonymous run telemetry: a random local install id (a "
     "persistent identifier, so it counts as personal data under GDPR), whether a "
-    "run started and completed, the tool version, your OS name, whether you ran "
+    "run started and completed, whether the free Pro audit offer was shown at "
+    "the start or the end of a run and whether it was picked, the tool version, your OS name, whether you ran "
     "the CLI, the plugin, or an agent skill, whether iFixAi was pip-installed or "
     "run from a clone, and a UTC timestamp. It never sends your code, "
     "findings, grades, prompts, file paths, "
@@ -66,6 +72,8 @@ _DISCLOSURE_TEXT = (
 
 _started_emitted = False
 _completed_emitted = False
+_offers_emitted: set[str] = set()
+_acceptances_emitted: set[str] = set()
 _force_disabled = False
 _sender: _Sender | None = None
 _sender_lock = threading.Lock()
@@ -218,6 +226,28 @@ def emit_completed() -> None:
     _enqueue("ifixai_completed")
 
 
+def emit_offer_shown(where: str) -> None:
+    """Enqueue one ``ifixai_offer_shown`` event for ``start`` or ``end`` (idempotent per place).
+
+    Any other place is dropped, so only the two allowlisted values can ever leave the machine.
+    """
+    if where not in _OFFER_PLACES or where in _offers_emitted:
+        return
+    _offers_emitted.add(where)
+    _enqueue("ifixai_offer_shown", where)
+
+
+def emit_offer_accepted(where: str) -> None:
+    """Enqueue one ``ifixai_offer_accepted`` for ``start`` or ``end`` (idempotent per place).
+
+    Only the place is sent: nothing about what the user did next, or their setup.
+    """
+    if where not in _OFFER_PLACES or where in _acceptances_emitted:
+        return
+    _acceptances_emitted.add(where)
+    _enqueue("ifixai_offer_accepted", where)
+
+
 def _detect_surface() -> str:
     """Which interface ran this: ``plugin``, ``skill``, or ``cli``.
 
@@ -249,7 +279,7 @@ def _install_source() -> str:
     return "pip" if ("site-packages" in parts or "dist-packages" in parts) else "repo"
 
 
-def _build_payload(event: str, install: str) -> bytes:
+def _build_payload(event: str, install: str, where: str | None = None) -> bytes:
     # Build strictly FROM the allowlist so nothing outside it can ever be sent —
     # an `assert` would be stripped under `python -O`, silently killing the guard.
     # sorted() keeps the --print-telemetry output deterministic.
@@ -260,6 +290,8 @@ def _build_payload(event: str, install: str) -> bytes:
         "install_source": _install_source(),
     }
     props: dict[str, object] = {key: source[key] for key in sorted(_ALLOWED_PROPS)}
+    if where in _OFFER_PLACES:
+        props["where"] = where
     props["$ip"] = None  # PostHog: don't capture/derive geo from the request IP
     props["$geoip_disable"] = True
     envelope = {
@@ -272,14 +304,14 @@ def _build_payload(event: str, install: str) -> bytes:
     return json.dumps(envelope).encode("utf-8")
 
 
-def _enqueue(event: str) -> None:
+def _enqueue(event: str, where: str | None = None) -> None:
     try:
         if not is_enabled():
             return
         install = install_id()
         if install is None:
             return
-        _get_sender().submit(_build_payload(event, install))
+        _get_sender().submit(_build_payload(event, install, where))
     except Exception:  # noqa: BLE001 — telemetry must never break a run
         pass  # telemetry must never break a run
 

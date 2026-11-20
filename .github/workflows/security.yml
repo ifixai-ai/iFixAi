@@ -1,0 +1,57 @@
+name: Security
+
+on:
+  push:
+  pull_request:
+    branches: [main, "fix/**", "feat/**"]
+  # Nightly too, so a new advisory against a dependency shows up without a push.
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The release binary, not the gitleaks Action (needs a licence key for org
+      # repos). Keep the version in step with .pre-commit-config.yaml.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.21.2
+          # From that release's checksums file, for the linux_x64 tarball.
+          GITLEAKS_SHA256: 5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba
+        run: |
+          set -euo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL --retry 3 --max-time 120 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
+
+      # --redact: CI logs on a public repo are public, so never print a found key.
+      - name: Scan for leaked keys
+        run: gitleaks dir . --redact --verbose
+
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install every provider SDK and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[all]" "pip-audit==2.10.1"
+
+      - name: Audit installed packages for known vulnerabilities
+        run: pip-audit

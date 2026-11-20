@@ -1,0 +1,9 @@
+# Exact findings only, never a whole path. A fingerprint names its line, so
+# moving one of these lines means updating its entry here.
+
+# PostHog project key: public by design, write-only (see the comment above it).
+ifixai/telemetry.py:generic-api-key:40
+
+# Fake AWS key id used by the Bedrock tests.
+ifixai/tests/test_bedrock_auth_error_codes.py:aws-access-token:33
+ifixai/tests/test_bedrock_region_resolution.py:aws-access-token:57

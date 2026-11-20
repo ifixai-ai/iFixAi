@@ -62,11 +62,13 @@ def _resolve_policy_test_ids(
     if not fixture.tools or not fixture.permissions:
         return None
 
+    known_tools = {tool.tool_id for tool in fixture.tools}
     perm_map: dict[str, set[str]] = {}
     for perm in fixture.permissions:
-        perm_map.setdefault(perm.role, set()).update(perm.tools)
+        perm_map.setdefault(perm.role, set()).update(known_tools if "*" in perm.tools else perm.tools)
 
-    all_roles = {r.name for r in fixture.roles} | set(perm_map.keys())
+    # Sorted so the chosen roles do not depend on set iteration order (PYTHONHASHSEED).
+    all_roles = sorted({r.name for r in fixture.roles} | set(perm_map.keys()))
 
     sorted_tools = sorted(
         fixture.tools,

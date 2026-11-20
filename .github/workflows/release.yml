@@ -4,16 +4,39 @@ on:
   push:
     tags: ["v*"]
 
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write          # required for PyPI trusted publishing (OIDC)
-    steps:
-      - uses: actions/checkout@v4
+# A called workflow can't get more than its caller; only publish needs more.
+permissions:
+  contents: read
 
-      - uses: actions/setup-python@v5
+jobs:
+  tests:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The default fetches only the tagged commit; the next step needs main.
+          fetch-depth: 0
+
+      # A tag can point at any commit. Only code that is already on main ships.
+      - name: Verify the tagged commit is on main
+        run: |
+          status=0
+          git merge-base --is-ancestor HEAD origin/main || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at $(git rev-parse HEAD), which is not on main."
+            echo "::error::Merge it into main, then tag the commit on main."
+          elif [ "$status" -ne 0 ]; then
+            echo "::error::Could not compare the tagged commit with origin/main (git exit ${status})."
+          else
+            echo "Tag ${GITHUB_REF_NAME} points at $(git rev-parse HEAD), which is on main."
+          fi
+          exit "$status"
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -38,5 +61,32 @@ jobs:
           python -m pip install --upgrade twine
           twine check dist/*
 
+      # Outside the checkout, so only the wheel's own files are tested.
+      - name: Install the built wheel and run it
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/wheel-venv"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-venv/bin/ifixai" validate
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write          # required for PyPI trusted publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

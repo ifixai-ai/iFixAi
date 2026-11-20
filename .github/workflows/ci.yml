@@ -6,24 +6,35 @@ on:
   # All branches still get CI on push: — see CONTRIBUTING.md § Continuous integration.
   pull_request:
     branches: [main, "fix/**", "feat/**"]
+  # Nightly against the newest release of every dependency, so an upstream
+  # release that breaks us shows up the next morning.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  # release.yml calls this workflow so nothing is published untested.
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: python -m pip install -e ".[dev]"
+        # `all` installs every provider SDK, so no provider test skips.
+        run: python -m pip install -e ".[dev,all]"
 
       - name: Validate layout and example fixtures
         run: |
@@ -65,4 +76,24 @@ jobs:
           done < <(grep -oE '[]][(][^)#]+' docs/README.md | sed 's/^](//' | grep -vE '^[a-z]+:')
           test "$broken" -eq 0 || exit 1
           echo "docs index links resolve"
+
+  # litellm caps openai below 3 and huggingface-hub below 2, so `.[all]` above
+  # tests older SDKs than users of those extras get. This job leaves litellm out.
+  newest-sdks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies (every provider SDK except litellm)
+        run: |
+          python -m pip install -e ".[dev,openai,gemini,anthropic,bedrock,huggingface]"
+          python -m pip show openai huggingface-hub | grep -E '^(Name|Version)'
+
+      - name: Tests
+        run: pytest ifixai -m "not acceptance" -q -n auto --dist loadfile
 

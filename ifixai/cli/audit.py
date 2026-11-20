@@ -379,16 +379,6 @@ def comment_cmd(report: str, output: str | None) -> None:
         click.echo(text, nl=False)
 
 
-@click.command("mcp")
-@click.option("--root", type=click.Path(file_okay=False, exists=True), default=".", show_default=True,
-              help="Project folder the tools read reports from and pin regressions in.")
-def mcp(root: str) -> None:
-    """Serve the self-check tools to an MCP client (Claude Code, Cursor) over stdio."""
-    from ifixai.selfcheck.mcp_server import Server
-
-    Server(Path(root)).serve(sys.stdin, sys.stdout)
-
-
 @findings.command("validate-regressions")
 @click.argument("path", type=click.Path(dir_okay=False), default=str(regressions_mod.DEFAULT_PATH))
 def validate_regressions_cmd(path: str) -> None:
