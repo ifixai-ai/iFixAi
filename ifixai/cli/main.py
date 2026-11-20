@@ -13,6 +13,7 @@ from ifixai.cli.init import init, load_dotenv_file
 from ifixai.cli.list_cmd import list_group
 from ifixai.cli.policy_lab import policy_lab
 from ifixai.cli.pro_offer import offer
+from ifixai.cli.report import report
 from ifixai.cli.run import run
 from ifixai.cli.scaffold import install
 from ifixai.cli.setup_cmd import setup
@@ -43,6 +44,7 @@ ifixai_cli.add_command(trajectory)
 ifixai_cli.add_command(traces)
 ifixai_cli.add_command(policy_lab)
 ifixai_cli.add_command(windtunnel)
+ifixai_cli.add_command(report)
 
 
 def _ensure_printable_output() -> None:
