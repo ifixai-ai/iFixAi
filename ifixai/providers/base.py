@@ -271,6 +271,9 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
 
 OPTIONAL_REQUEST_PARAMS: tuple[str, ...] = ("response_format", "reasoning")
 
+# A 5xx only counts as a refused schema when its body says so.
+_SCHEMA_ERROR_MARKERS: tuple[str, ...] = ("schema", "response_format", "structured")
+
 
 def drop_rejected_optional_params(kwargs: dict[str, Any], detail: str) -> list[str]:
     """Remove any optional tuning param named in `detail`; return what was removed.
@@ -376,8 +379,17 @@ async def create_chat_completion_json_fallback(
                     _NO_TEMPERATURE_MODELS.add(temperature_scope[:2])
                     kwargs.pop("temperature")
                     continue
-            # A model the provider doesn't know says nothing about schema support.
-            if kwargs.get("response_format", {}).get("type") == "json_schema" and not names_unknown_model(text):
+            # A model the provider doesn't know says nothing about schema support, and
+            # neither does a bare 500: that is a transient fault, and treating it as a
+            # refusal would switch the strict schema off for the rest of the run.
+            transient_500 = isinstance(exc, openai.InternalServerError) and not any(
+                marker in low for marker in _SCHEMA_ERROR_MARKERS
+            )
+            if (
+                kwargs.get("response_format", {}).get("type") == "json_schema"
+                and not names_unknown_model(text)
+                and not transient_500
+            ):
                 raise ProviderSchemaRejectedError(details=f"strict schema refused: {text}") from exc
             if not drop_rejected_optional_params(kwargs, text):
                 raise
