@@ -88,7 +88,7 @@ pip install ifixai     # インストールせずに使うなら: uvx ifixai --h
 ifixai --help          # どの ifixai コマンドでも Skill が追加されます
 ```
 
-最初に実行した `ifixai` コマンドが、マシン上で見つかったすべてのコーディングエージェントに iFixAi の Skill を追加し、追加先を 1 行で表示します（[対応エージェント](docs/get-started.md#run-it-from-your-coding-agent)）。あとはコーディングエージェントに「自分のエージェントで iFixAi を実行して」と頼むだけです。コーディングエージェントがあなたのエージェントを見つけ、シミュレーション環境を構築し、課金される前に費用を示してから監査を実行し、見つかった問題を説明します。iFixAi を新しいバージョンにすると、最初の実行で Skill も更新されます。`ifixai install --revert` で削除、`IFIXAI_NO_SKILL=1` で無効化でき、CI では実行されません。
+最初に実行した `ifixai` コマンドが、コーディングエージェントに iFixAi の Skill を追加します（[追加先](docs/get-started.md#run-it-from-your-coding-agent)）。あとはコーディングエージェントに「自分のエージェントで iFixAi を実行して」と頼むだけです。コーディングエージェントがあなたのエージェントを見つけ、シミュレーション環境を構築し、課金される前に費用を示してから監査を実行し、見つかった問題を説明します。iFixAi を新しいバージョンにすると、最初の実行で Skill も更新されます。`ifixai install --revert` で削除、`IFIXAI_NO_SKILL=1` で無効化でき、CI では実行されません。
 
 以前 Claude Code や Codex のプラグインを使っていた場合は、Skill がその代わりになります。プラグインとマーケットプレイスを削除してください。
 
@@ -97,7 +97,7 @@ claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace rem
 codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-任意：`ifixai install --agents cursor` を実行すると、同じ手順を現在のプロジェクトにもそのエージェントの `/ifixai` コマンドとして書き込みます。`cursor` の代わりに `claude`、`vscode`、`windsurf`、`cline`、`continue`、`gemini`、`zed`、`agents`（`AGENTS.md` のブロック）、`all` も指定できます。
+任意：`ifixai install` を実行すると、同じ手順を現在のプロジェクトにも、そこで見つかったエージェントの `/ifixai` コマンドとして書き込みます。対応エージェントは `ifixai install --list` で確認できます。
 
 ### ガイド付き CLI で
 

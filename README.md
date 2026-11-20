@@ -87,7 +87,7 @@ pip install ifixai     # or skip the install: uvx ifixai --help
 ifixai --help          # any ifixai command adds the skill
 ```
 
-The first `ifixai` command you run adds the iFixAi skill to every coding agent it finds on your machine and names them in one line ([which agents](docs/get-started.md#run-it-from-your-coding-agent)). Then ask your coding agent to *"run iFixAi on my agent"*. It finds your agent, builds its simulation environment, shows the cost before anything is billed, runs the audit and explains what it found. A new iFixAi version refreshes the skill on its first run. `ifixai install --revert` removes it, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
+The first `ifixai` command you run adds the iFixAi skill to your coding agent ([where it goes](docs/get-started.md#run-it-from-your-coding-agent)). Then ask it to *"run iFixAi on my agent"*. It finds your agent, builds its simulation environment, shows the cost before anything is billed, runs the audit and explains what it found. A new iFixAi version refreshes the skill on its first run. `ifixai install --revert` removes it, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
 
 Used the Claude Code or Codex plugin before? The skill replaces it. Remove the plugin and its marketplace:
 
@@ -96,7 +96,7 @@ claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace rem
 codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-Optional: `ifixai install --agents cursor` also writes the instructions into the current project, as a `/ifixai` command for that agent. Swap `cursor` for `claude`, `vscode`, `windsurf`, `cline`, `continue`, `gemini`, `zed`, `agents` (an `AGENTS.md` block) or `all`.
+Optional: `ifixai install` also writes the instructions into the current project, as a `/ifixai` command for the agents it finds there. `ifixai install --list` shows every agent it supports.
 
 ### With the guided CLI
 

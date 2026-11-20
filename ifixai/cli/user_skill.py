@@ -1,11 +1,14 @@
-"""The iFixAi skill in every coding agent on this computer, from the first ``ifixai`` command.
+"""The iFixAi skill for the user's coding agent, from the first ``ifixai`` command.
 
 pip runs no code when it installs a wheel, so the first ``ifixai`` command of any kind writes
 ``ifixai/SKILL.md`` (Agent Skills format: ``name`` and ``description`` frontmatter, loaded by
-description) into the user-level skills folder of every coding agent found. It runs again when
-iFixAi is upgraded or a new agent appears, prints one line on stderr when something changed,
-and never fails the command. Never in CI or with ``IFIXAI_NO_SKILL``. ``ifixai install
---revert`` removes it and keeps it off; ``ifixai install --user`` puts it back.
+description) into a user-level skills folder. Run by a coding agent, it writes only the folder
+that agent reads; run from a terminal, only the shared ``~/.agents/skills``, plus
+``~/.claude/skills`` when Claude Code is installed, since Claude Code reads no other. It runs
+again when iFixAi is upgraded or a coding agent without the file runs it, prints one line on
+stderr when something changed, and never fails the command. Never in CI or with
+``IFIXAI_NO_SKILL``. ``ifixai install --revert`` removes it and keeps it off; ``ifixai install
+--user`` puts it back, in every coding agent found.
 """
 
 import json
@@ -120,6 +123,63 @@ AGENTS: tuple[SkillAgent, ...] = (
 )
 
 
+# The running agent, told by its environment, in the order and with the variables of
+# @vercel/detect-agent 1.2.7. AI_AGENT is the generic one (e.g. "claude-code_2-1-326_agent").
+RUNNING_AGENT_VARS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("cursor", ("CURSOR_TRACE_ID", "CURSOR_AGENT")),
+    ("gemini", ("GEMINI_CLI",)),
+    ("codex", ("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID")),
+    ("antigravity", ("ANTIGRAVITY_AGENT",)),
+    ("augment-cli", ("AUGMENT_AGENT",)),
+    ("opencode", ("OPENCODE_CLIENT",)),
+    ("claude", ("CLAUDECODE", "CLAUDE_CODE")),
+    ("replit", ("REPL_ID",)),
+    ("github-copilot", ("COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN")),
+)
+DEVIN_MARKER = Path("/opt/.devin")
+# Agents whose skills folder is not the shared one, by the start of their name.
+OWN_FOLDERS: tuple[tuple[str, Folder], ...] = (
+    ("claude", CLAUDE),
+    ("cowork", CLAUDE),
+    ("antigravity", ANTIGRAVITY),
+)
+
+
+def running_agent() -> str | None:
+    """The coding agent running this command, or None for a person at a terminal."""
+    named = os.environ.get("AI_AGENT", "").strip().lower()
+    if named:
+        return named
+    if os.environ.get("CURSOR_EXTENSION_HOST_ROLE") == "agent-exec":
+        return "cursor"
+    for agent, variables in RUNNING_AGENT_VARS:
+        if agent == "opencode" and os.environ.get("OPENCODE") == "1":
+            return agent
+        if any(os.environ.get(variable) for variable in variables):
+            return agent
+    return "devin" if DEVIN_MARKER.exists() else None
+
+
+def agent_folder(agent: str) -> Path:
+    """The one skills folder a running agent reads: its own, else the shared one."""
+    own = (folder for prefix, folder in OWN_FOLDERS if agent.startswith(prefix))
+    return next(own, SHARED)()
+
+
+def terminal_folders() -> list[Path]:
+    """From a terminal: the shared folder, and Claude Code's when it is installed."""
+    claude_code = next(agent for agent in AGENTS if agent.name == "Claude Code")
+    return [SHARED(), *([CLAUDE()] if claude_code.found() else [])]
+
+
+def skill_path(folder: Path) -> Path:
+    return folder / scaffold.SKILL_NAME / scaffold.SKILL_FILE
+
+
+def is_ours(path: Path) -> bool:
+    return path.is_file() and scaffold.MD_BEGIN in path.read_text(encoding="utf-8")
+
+
 def every_folder() -> list[Path]:
     """Every skills folder any agent reads, once each: what --revert looks through."""
     return list(dict.fromkeys(read() for agent in AGENTS for read in agent.reads))
@@ -142,36 +202,32 @@ def plan(found: list[SkillAgent]) -> dict[Path, list[str]]:
 
 @dataclass
 class Outcome:
-    added: list[str]
-    updated: list[str]
+    added: list[Path]
+    updated: list[Path]
     skipped: list[Path]
     failed: list[tuple[Path, str]]
 
 
-def install_skill(
-    found: list[SkillAgent], known: frozenset[str] = frozenset(), force: bool = False
-) -> tuple[Outcome, dict[Path, list[str]]]:
-    """Write the skill for every found agent; ``known`` are the agents that had it before."""
+def install_skill(folders: list[Path], force: bool = False) -> Outcome:
+    """Write the skill into each folder, leaving a file we didn't write unless ``force``."""
     content = scaffold.render_skill(scaffold.load_playbook())
     outcome = Outcome([], [], [], [])
-    folders = plan(found)
-    for folder, names in folders.items():
-        path = folder / scaffold.SKILL_NAME / scaffold.SKILL_FILE
+    for folder in folders:
+        path = skill_path(folder)
         try:
             existing = path.read_text(encoding="utf-8") if path.is_file() else None
             if existing is not None and scaffold.MD_BEGIN not in existing and not force:
                 outcome.skipped.append(path)
                 continue
-            if existing != content:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                _write(path, content)
+            if existing == content:
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _write(path, content)
         except OSError as error:
             outcome.failed.append((path, error.strerror or str(error)))
             continue
-        changed = existing != content
-        outcome.added += [name for name in names if name not in known]
-        outcome.updated += [name for name in names if name in known and changed]
-    return outcome, folders
+        (outcome.added if existing is None else outcome.updated).append(path)
+    return outcome
 
 
 def _write(path: Path, content: str) -> None:
@@ -190,11 +246,11 @@ def _write(path: Path, content: str) -> None:
 
 def remove_skills() -> list[Path]:
     """Remove every skill file we wrote, in any agent's folder; files without our marker stay."""
-    candidates = [folder / scaffold.SKILL_NAME / scaffold.SKILL_FILE for folder in every_folder()]
+    candidates = [skill_path(folder) for folder in every_folder()]
     candidates += [Path.home() / ".codex" / "prompts" / name for name in LEGACY_CODEX_PROMPTS]
     removed = []
     for path in candidates:
-        if not path.is_file() or scaffold.MD_BEGIN not in path.read_text(encoding="utf-8"):
+        if not is_ours(path):
             continue
         path.unlink()
         removed.append(path)
@@ -231,15 +287,9 @@ def summary(outcome: Outcome) -> str | None:
     """One line for what changed, or None when nothing did."""
     parts = []
     if outcome.added:
-        parts.append(
-            f"iFixAi skill added to your coding agents ({', '.join(outcome.added)}): "
-            'ask your agent to "run iFixAi on my agent"'
-        )
-    if outcome.updated:
-        parts.append(
-            f"iFixAi skill updated to {VERSION} in your coding agents "
-            f"({', '.join(outcome.updated)})"
-        )
+        parts.append('iFixAi skill added to your coding agent: ask it to "run iFixAi on my agent"')
+    elif outcome.updated:
+        parts.append(f"iFixAi skill updated to {VERSION}")
     for path in outcome.skipped:
         parts.append(
             f"left your own {pro_offer.display_path(path)} alone (to replace it: {REPLACE})"
@@ -257,8 +307,8 @@ def summary(outcome: Outcome) -> str | None:
 def ensure_user_skill() -> None:
     """Install or refresh the skill before any command; never stops the command itself.
 
-    Runs only when iFixAi's version changed or an agent appeared since the last time, so
-    an unchanged machine costs a few PATH lookups and folder checks.
+    Does nothing unless iFixAi's version changed, or a coding agent runs it whose folder has
+    no skill yet: an unchanged machine costs a state read and a look at the environment.
     """
     if telemetry.in_ci() or skill_disabled():
         return
@@ -266,15 +316,17 @@ def ensure_user_skill() -> None:
         state = read_state()
         if state.get("opted_out"):
             return
-        found = [agent for agent in AGENTS if agent.found()]
-        known = state.get("agents") if state.get("version") == VERSION else None
-        names = frozenset(agent.name for agent in found)
-        if isinstance(known, list) and names <= set(known):
-            return
-        before = state.get("agents")
-        outcome, _ = install_skill(found, frozenset(before if isinstance(before, list) else ()))
+        agent = running_agent()
+        folders = [agent_folder(agent)] if agent else terminal_folders()
+        if state.get("version") == VERSION:
+            if agent is None or skill_path(folders[0]).exists():
+                return
+        else:
+            # Copies written for another agent or an earlier run get the new text too.
+            folders += [f for f in every_folder() if f not in folders and is_ours(skill_path(f))]
+        outcome = install_skill(folders)
         # Recorded even after a failure, so a read-only folder costs one line per version.
-        write_state({"version": VERSION, "agents": sorted(names)})
+        write_state({"version": VERSION})
         line = summary(outcome)
         if line:
             click.echo(click.style(line, dim=not (outcome.added or outcome.updated)), err=True)
@@ -289,11 +341,12 @@ def install_now(force: bool) -> None:
     if not found:
         click.echo("No coding agent found on this computer.")
         return
-    outcome, folders = install_skill(found, force=force)
-    write_state({"version": VERSION, "agents": sorted(agent.name for agent in found)})
+    folders = plan(found)
+    outcome = install_skill(list(folders), force=force)
+    write_state({"version": VERSION})
     failed = dict(outcome.failed)
     for folder, names in folders.items():
-        path = folder / scaffold.SKILL_NAME / scaffold.SKILL_FILE
+        path = skill_path(folder)
         shown = pro_offer.display_path(path)
         if path in outcome.skipped:
             note = "not written by iFixAi; --force replaces it"

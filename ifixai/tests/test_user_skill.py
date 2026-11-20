@@ -1,4 +1,4 @@
-"""The first ifixai command gives every coding agent found the iFixAi skill, once, quietly."""
+"""The first ifixai command gives the user's coding agent the iFixAi skill, once, quietly."""
 
 import os
 import stat
@@ -17,7 +17,11 @@ from ifixai.cli.main import ifixai_cli
 ENV_VARS = (
     "XDG_CONFIG_HOME", "CODEX_HOME", "COPILOT_HOME", "CLAUDE_CONFIG_DIR", "APPDATA",
     user_skill.NO_SKILL_ENV_VAR, "CI", *telemetry._CI_VENDOR_VARS,
+    "AI_AGENT", "OPENCODE", "CURSOR_EXTENSION_HOST_ROLE",
+    *(name for _, names in user_skill.RUNNING_AGENT_VARS for name in names),
 )
+ADDED = 'iFixAi skill added to your coding agent: ask it to "run iFixAi on my agent". Undo: ifixai install --revert\n'
+
 
 
 @pytest.fixture
@@ -31,6 +35,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("PATH", str(empty_bin))
     for name in ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(user_skill, "DEVIN_MARKER", tmp_path / "no-devin")
     monkeypatch.chdir(tmp_path)
     return home
 
@@ -58,22 +63,63 @@ def frontmatter(path: Path) -> dict[str, str]:
     return yaml.safe_load(path.read_text(encoding="utf-8").split("---")[1])
 
 
-def test_first_command_adds_the_skill_to_each_agent_found_in_one_line(home, capsys, monkeypatch):
+def written(home: Path) -> list[str]:
+    return sorted(str(p.relative_to(home)) for p in home.rglob("SKILL.md"))
+
+
+def test_from_a_terminal_with_claude_code_it_writes_two_files_in_one_line(
+    home, capsys, monkeypatch
+):
     (home / ".claude").mkdir()
-    (home / ".codex").mkdir()
 
-    err = run(capsys, monkeypatch, "--help")
+    assert run(capsys, monkeypatch, "--help") == ADDED
 
-    assert err.count("\n") == 1
-    assert "iFixAi skill added to your coding agents (Claude Code, Codex)" in err
-    assert "ifixai install --revert" in err
+    assert written(home) == [".agents/skills/ifixai/SKILL.md", ".claude/skills/ifixai/SKILL.md"]
     for path in (skill(home / ".claude" / "skills"), skill(home / ".agents" / "skills")):
         assert frontmatter(path)["name"] == "ifixai"
         assert "Use when the user asks to audit" in frontmatter(path)["description"]
     mode = stat.S_IMODE(skill(home / ".claude" / "skills").stat().st_mode)
     assert mode == 0o666 & ~current_umask()
-    # Nothing for agents that are not there.
-    assert sorted(p.name for p in home.iterdir()) == [".agents", ".claude", ".codex", ".config"]
+
+
+def test_from_a_terminal_without_claude_code_it_writes_only_the_shared_file(
+    home, capsys, monkeypatch
+):
+    (home / ".codex").mkdir()
+    (home / ".cline").mkdir()
+
+    assert run(capsys, monkeypatch, "--help") == ADDED
+    assert written(home) == [".agents/skills/ifixai/SKILL.md"]
+
+
+@pytest.mark.parametrize(
+    "env,folder",
+    [
+        (("CURSOR_AGENT", "1"), ".agents/skills"),
+        (("CLAUDECODE", "1"), ".claude/skills"),
+        (("AI_AGENT", "claude-code_2-1-326_agent"), ".claude/skills"),
+        (("AI_AGENT", "amp"), ".agents/skills"),
+        (("CODEX_THREAD_ID", "t1"), ".agents/skills"),
+        (("OPENCODE", "1"), ".agents/skills"),
+        (("ANTIGRAVITY_AGENT", "1"), ".gemini/config/skills"),
+    ],
+)
+def test_run_by_a_coding_agent_it_writes_only_that_agents_folder(
+    home, capsys, monkeypatch, env, folder
+):
+    (home / ".claude").mkdir()
+    monkeypatch.setenv(*env)
+
+    assert run(capsys, monkeypatch, "--help") == ADDED
+    assert written(home) == [f"{folder}/ifixai/SKILL.md"]
+
+
+def test_the_generic_variable_wins_over_an_agents_own(home, capsys, monkeypatch):
+    monkeypatch.setenv("AI_AGENT", "cursor")
+    monkeypatch.setenv("CLAUDECODE", "1")
+
+    run(capsys, monkeypatch, "--help")
+    assert written(home) == [".agents/skills/ifixai/SKILL.md"]
 
 
 def test_the_second_command_says_and_writes_nothing(home, capsys, monkeypatch):
@@ -86,17 +132,19 @@ def test_the_second_command_says_and_writes_nothing(home, capsys, monkeypatch):
     assert path.stat().st_mtime_ns == before
 
 
-def test_a_new_version_refreshes_the_text_and_says_so(home, capsys, monkeypatch):
+def test_a_new_version_refreshes_every_copy_and_says_so(home, capsys, monkeypatch):
     (home / ".claude").mkdir()
     run(capsys, monkeypatch, "--help")
     monkeypatch.setattr(user_skill, "VERSION", "99.0.0")
     monkeypatch.setattr(scaffold, "load_playbook", lambda: "# New instructions")
+    monkeypatch.setenv("CLAUDECODE", "1")
 
     err = run(capsys, monkeypatch, "--help")
 
-    assert err.count("\n") == 1
-    assert "iFixAi skill updated to 99.0.0 in your coding agents (Claude Code" in err
-    assert "# New instructions" in skill(home / ".claude" / "skills").read_text(encoding="utf-8")
+    assert err == "iFixAi skill updated to 99.0.0. Undo: ifixai install --revert\n"
+    for folder in (".claude", ".agents"):
+        text = skill(home / folder / "skills").read_text(encoding="utf-8")
+        assert "# New instructions" in text
 
 
 def test_a_new_version_with_the_same_text_says_nothing(home, capsys, monkeypatch):
@@ -107,16 +155,13 @@ def test_a_new_version_with_the_same_text_says_nothing(home, capsys, monkeypatch
     assert run(capsys, monkeypatch, "--help") == ""
 
 
-def test_an_agent_that_appears_later_gets_the_skill_on_the_next_command(home, capsys, monkeypatch):
-    (home / ".claude").mkdir()
+def test_an_agent_without_the_file_gets_it_when_it_runs_ifixai(home, capsys, monkeypatch):
     run(capsys, monkeypatch, "--help")
-    (home / ".cline").mkdir()
+    assert written(home) == [".agents/skills/ifixai/SKILL.md"]
+    monkeypatch.setenv("ANTIGRAVITY_AGENT", "1")
 
-    err = run(capsys, monkeypatch, "--help")
-
-    assert "iFixAi skill added to your coding agents (Cline)" in err
-    assert "Claude Code" not in err
-    assert skill(home / ".cline" / "skills").is_file()
+    assert run(capsys, monkeypatch, "--help") == ADDED
+    assert skill(home / ".gemini" / "config" / "skills").is_file()
     assert run(capsys, monkeypatch, "--help") == ""
 
 
@@ -142,6 +187,7 @@ def test_a_skill_the_user_wrote_is_left_alone_with_how_to_replace_it(home, capsy
     err = run(capsys, monkeypatch, "--help")
 
     assert err.count("\n") == 1
+    assert err.startswith("iFixAi skill added to your coding agent")
     assert "left your own ~/.claude/skills/ifixai/SKILL.md alone" in err
     assert "ifixai install --user --force" in err
     assert own.read_text(encoding="utf-8") == "my own skill\n"
@@ -162,10 +208,16 @@ def test_revert_removes_our_skills_keeps_the_users_and_stays_off(home, capsys, m
     run(capsys, monkeypatch, "--help")
     ours = skill(home / ".agents" / "skills")
     assert ours.is_file()
+    monkeypatch.setenv("ANTIGRAVITY_AGENT", "1")
+    run(capsys, monkeypatch, "--help")
+    monkeypatch.delenv("ANTIGRAVITY_AGENT")
+    antigravity = skill(home / ".gemini" / "config" / "skills")
+    assert antigravity.is_file()
 
     assert run(capsys, monkeypatch, "install", "--revert", "--dir", str(tmp_path)) == ""
 
     assert not ours.parent.exists()
+    assert not antigravity.exists()
     assert not legacy.exists()
     assert own.read_text(encoding="utf-8") == "my own skill\n"
     assert user_skill.read_state() == {"opted_out": True}
@@ -175,7 +227,7 @@ def test_revert_removes_our_skills_keeps_the_users_and_stays_off(home, capsys, m
     result = CliRunner().invoke(ifixai_cli, ["install", "--user"])
     assert result.exit_code == 0, result.output
     assert ours.is_file()
-    assert user_skill.read_state()["agents"] == ["Claude Code", "Codex"]
+    assert user_skill.read_state() == {"version": user_skill.VERSION}
 
 
 @pytest.mark.parametrize("env", [("CI", "true"), (user_skill.NO_SKILL_ENV_VAR, "1")])

@@ -88,7 +88,7 @@ pip install ifixai     # 설치 없이 쓰려면: uvx ifixai --help
 ifixai --help          # 어떤 ifixai 명령이든 Skill을 추가합니다
 ```
 
-처음 실행한 `ifixai` 명령이 컴퓨터에서 찾은 모든 코딩 에이전트에 iFixAi Skill을 추가하고, 추가한 곳을 한 줄로 알려 줍니다([지원 에이전트](docs/get-started.md#run-it-from-your-coding-agent)). 그런 다음 코딩 에이전트에게 "*iFixAi로 내 에이전트 감사해 줘*"라고 요청하세요. 코딩 에이전트가 여러분의 에이전트를 찾고, 시뮬레이션 환경을 만들고, 요금이 청구되기 전에 비용을 보여 준 뒤, 감사를 실행하고 발견한 내용을 설명합니다. iFixAi를 새 버전으로 올리면 첫 실행에서 Skill도 새로 고쳐집니다. `ifixai install --revert`로 제거하고 `IFIXAI_NO_SKILL=1`로 끌 수 있으며, CI에서는 실행되지 않습니다.
+처음 실행한 `ifixai` 명령이 코딩 에이전트에 iFixAi Skill을 추가합니다([추가 위치](docs/get-started.md#run-it-from-your-coding-agent)). 그런 다음 코딩 에이전트에게 "*iFixAi로 내 에이전트 감사해 줘*"라고 요청하세요. 코딩 에이전트가 여러분의 에이전트를 찾고, 시뮬레이션 환경을 만들고, 요금이 청구되기 전에 비용을 보여 준 뒤, 감사를 실행하고 발견한 내용을 설명합니다. iFixAi를 새 버전으로 올리면 첫 실행에서 Skill도 새로 고쳐집니다. `ifixai install --revert`로 제거하고 `IFIXAI_NO_SKILL=1`로 끌 수 있으며, CI에서는 실행되지 않습니다.
 
 예전에 Claude Code나 Codex 플러그인을 썼다면 이제 Skill이 그 역할을 대신합니다. 플러그인과 마켓플레이스를 제거하세요.
 
@@ -97,7 +97,7 @@ claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace rem
 codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-선택 사항: `ifixai install --agents cursor`를 실행하면 같은 안내를 현재 프로젝트에도 해당 에이전트의 `/ifixai` 명령으로 씁니다. `cursor` 대신 `claude`, `vscode`, `windsurf`, `cline`, `continue`, `gemini`, `zed`, `agents`(`AGENTS.md` 블록), `all` 중 하나를 쓸 수 있습니다.
+선택 사항: `ifixai install`을 실행하면 같은 안내를 현재 프로젝트에도, 그곳에서 찾은 에이전트의 `/ifixai` 명령으로 씁니다. 지원하는 에이전트는 `ifixai install --list`로 볼 수 있습니다.
 
 ### 안내형 CLI로
 

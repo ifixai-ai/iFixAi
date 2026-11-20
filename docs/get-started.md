@@ -87,25 +87,16 @@ pip install ifixai   # or, with nothing installed: uvx ifixai --help
 ifixai --help
 ```
 
-That first run adds the iFixAi skill to every coding agent it finds on your machine and prints one line naming them. Then ask your agent to *"run iFixAi on my agent"*: it loads the skill by its description, with no slash command to remember. The skill lands in each agent's own user-level skills folder (`ifixai/SKILL.md`), so it works in every repo you open:
+That first run adds the iFixAi skill (`ifixai/SKILL.md`) to your coding agent and prints one line saying so. Then ask your agent to *"run iFixAi on my agent"*: it loads the skill by its description, with no slash command to remember, in every repo you open.
 
-| Agent | Skills folder |
-|---|---|
-| Claude Code | `~/.claude/skills` (or `$CLAUDE_CONFIG_DIR/skills`) |
-| Codex, Gemini CLI, GitHub Copilot CLI, opencode, Amp, Cursor, Junie, Warp, Devin, Windsurf, Zed | `~/.agents/skills`, the shared folder they all read |
-| VS Code Copilot | `~/.copilot/skills` (or `$COPILOT_HOME/skills`) |
-| Cline | `~/.cline/skills` |
-| Kiro | `~/.kiro/skills` |
-| Antigravity | `~/.gemini/config/skills` |
+Where it goes: run from a terminal, `~/.agents/skills`, the folder most coding agents share, plus `~/.claude/skills` when Claude Code is installed, since Claude Code reads only its own. Run by a coding agent, only the folder that agent reads, so an agent with its own folder gets the skill the first time it runs `ifixai`. `ifixai install --user` adds it for every coding agent it finds, and `ifixai install --list` shows each one's folder.
 
-opencode, Amp and Cursor also read `~/.claude/skills`, so when Claude Code is their only neighbour they share its copy and `~/.agents/skills` is not written.
-
-It runs again only when iFixAi is upgraded (to refresh the text) or when a new coding agent appears. It never writes over a `SKILL.md` it didn't write; `ifixai install --user --force` replaces yours. `ifixai install --user` adds it again on demand, `ifixai install --revert` removes it and keeps it off, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
+It runs again when iFixAi is upgraded, to refresh the text. It never writes over a `SKILL.md` it didn't write; `ifixai install --user --force` replaces yours. `ifixai install --revert` removes it and keeps it off, `IFIXAI_NO_SKILL=1` turns it off, and it never runs in CI.
 
 Optional, per project: `ifixai install` writes the same instructions into the current repo as a native `/ifixai` command, for teammates who don't have iFixAi installed. It needs only `uv` and Python 3.10+, no API key:
 
 ```bash
-uvx ifixai install --agents cursor   # any slug: claude, codex, vscode, windsurf, cline, continue, gemini, zed, agents
+uvx ifixai install --agents cursor   # or any slug from --list
 uvx ifixai install --agents all      # every agent at once
 uvx ifixai install --list            # every supported agent and where its file lands
 ```
@@ -125,7 +116,7 @@ All three run the same engine. The difference is how you drive it.
 | **Who grades it** | the model itself, one independent judge, or a panel of judges | same | same |
 | **Output** | JSON + Markdown reports + terminal scorecard | same | same, plus an interactive results page |
 | **Suite** | picked in the wizard | 10 inspections by default; `--full-run` for all 61, or `--suite` ([options](cli.md#suite-options)) | the agent picks, same engine |
-| **Works in** | any terminal | any terminal or CI | Claude Code, Codex, Cursor, VS Code / Copilot, Gemini CLI, opencode, Amp, Cline, Windsurf, Zed and more |
+| **Works in** | any terminal | any terminal or CI | any coding agent that reads Agent Skills |
 
 ## Next steps
 

@@ -88,7 +88,7 @@ pip install ifixai     # 不想安装的话：uvx ifixai --help
 ifixai --help          # 任意 ifixai 命令都会添加 Skill
 ```
 
-你运行的第一条 `ifixai` 命令会把 iFixAi Skill 添加到这台电脑上找到的每个编程智能体，并用一行说明加到了哪些（[支持的智能体](docs/get-started.md#run-it-from-your-coding-agent)）。然后对你的编程智能体说 “用 iFixAi 审计我的智能体”。它会找到你的智能体，构建模拟环境，在产生任何费用之前先告诉你成本，然后运行审计，并解释审计结果。升级 iFixAi 后，第一次运行会同时更新 Skill。`ifixai install --revert` 可将其移除，`IFIXAI_NO_SKILL=1` 可将其关闭，在 CI 中不会运行。
+你运行的第一条 `ifixai` 命令会把 iFixAi Skill 添加到你的编程智能体（[添加位置](docs/get-started.md#run-it-from-your-coding-agent)）。然后对你的编程智能体说 “用 iFixAi 审计我的智能体”。它会找到你的智能体，构建模拟环境，在产生任何费用之前先告诉你成本，然后运行审计，并解释审计结果。升级 iFixAi 后，第一次运行会同时更新 Skill。`ifixai install --revert` 可将其移除，`IFIXAI_NO_SKILL=1` 可将其关闭，在 CI 中不会运行。
 
 以前用过 Claude Code 或 Codex 插件？Skill 已取代它。请移除插件及其 marketplace：
 
@@ -97,7 +97,7 @@ claude plugin uninstall ifixai@ifixai-community && claude plugin marketplace rem
 codex plugin remove ifixai@ifixai-community && codex plugin marketplace remove ifixai-community
 ```
 
-可选：`ifixai install --agents cursor` 会把同样的说明写入当前项目，作为该智能体的 `/ifixai` 命令。把 `cursor` 换成 `claude`、`vscode`、`windsurf`、`cline`、`continue`、`gemini`、`zed`、`agents`（`AGENTS.md` 中的一段）或 `all`。
+可选：`ifixai install` 会把同样的说明写入当前项目，作为在其中找到的智能体的 `/ifixai` 命令。`ifixai install --list` 可列出所有支持的智能体。
 
 ### 使用引导式 CLI
 
