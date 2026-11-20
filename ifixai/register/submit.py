@@ -88,7 +88,7 @@ def submit(
     target.write_text(prepared.yaml(), encoding="utf-8")
     _run([git, "checkout", "-b", prepared.branch], checkout)
     _run([git, "add", prepared.relative_path], checkout)
-    _run([git, "commit", "-m", prepared.title], checkout)
+    _run([git, "commit", "--only", "-m", prepared.title, "--", prepared.relative_path], checkout)
     record = approval_module.record(approved)
     if dry_run:
         return Submission(pull_request_url="", branch=prepared.branch, approval=record)

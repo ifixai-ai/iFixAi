@@ -145,6 +145,10 @@ it, and tell the person at the keyboard to run `ifixai report submit <path>`. Do
 the pull request yourself with `git` or `gh`: the person has to see what would be published and
 approve it, and that is not a step you can take for them.
 
+The server writes new draft files only inside its working project directory. Start it from
+that project, choose an unused output filename, and keep the parent directories inside the project.
+`register_root` selects the register to consult; it does not grant write access elsewhere.
+
 To wire the server up, add to your editor's MCP configuration:
 
 ```json

@@ -104,21 +104,18 @@ _KEY_RULES: tuple[tuple[Pattern[str], str], ...] = (
     (re.compile(r"(?<![\w-])gh[pousr]_[A-Za-z0-9]{20,}"), "TOKEN"),
     (re.compile(r"(?<![\w-])xox[baprs]-[A-Za-z0-9-]{10,}"), "TOKEN"),
     (re.compile(r"(?<![\w-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"), "JWT"),
-    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "PRIVATE_KEY"),
+    (
+        re.compile(
+            r"-----BEGIN (?P<key_type>(?:[A-Z0-9]+ )*PRIVATE KEY)-----"
+            r"[\s\S]*?(?:-----END (?P=key_type)-----|\Z)"
+        ),
+        "PRIVATE_KEY",
+    ),
 )
 
-#: The format's own vocabulary. These values are never rewritten: they are enum members, derived
-#: digests, dates and identifiers belonging to the report rather than to anybody's data, and a
-#: redactor that touches them produces a file that no longer parses. (``state: accepted`` really did
-#: come out as ``accACCT_0001`` before this list existed.)
-NEVER_SCRUB_KEYS = frozenset({
-    "spec_version", "state", "id", "candidate_ref", "rejection_reason",
-    "predicate", "source", "source_kind", "combination", "identity_source", "status",
-    "risk", "severity", "digest", "image_digest", "score",
-    "created_on", "updated_on", "observed_on", "calibrated_on", "last_verified_on",
-    "family", "failure", "trigger", "runtime", "version", "task_id",
-    "model", "model_version", "harness", "harness_version",
-})
+# Every string value is scanned, including nested mappings under keys such as
+# id, status, source, version and model. Schema vocabulary is protected by the
+# pattern rules (for example date and identifier guards), never by a key-wide bypass.
 
 #: Where a value may be a person or an organisation. Only the world and the identities hold
 #: anybody's data; a ``name`` under ``tools`` is a tool's name ("Issue refund") and a ``name`` under
@@ -396,9 +393,7 @@ class Scrubber:
             for key, value in payload.items():
                 child = f"{path}.{key}" if path else str(key)
                 lowered = str(key).lower()
-                if lowered in NEVER_SCRUB_KEYS:
-                    out[key] = value
-                elif isinstance(value, str) and _is_personal_field(child, lowered, ORG_FIELD_HINTS):
+                if isinstance(value, str) and _is_personal_field(child, lowered, ORG_FIELD_HINTS):
                     self._path = child
                     out[key] = self.literal("ORG", value)
                 elif (

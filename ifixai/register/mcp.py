@@ -137,8 +137,18 @@ def tool_prepare_submission(arguments: dict[str, Any]) -> dict[str, Any]:
     root = Path(str(arguments.get("register_root", ".")))
     register = store.load_register(root)
     prepared = proposal.prepare(scrubbed.report, register.reports)
-    out = Path(str(arguments.get("out", "register-submission.yaml")))
-    out.write_text(prepared.yaml(), encoding="utf-8")
+    # The server's working directory is the trusted project boundary. Tool
+    # arguments (including register_root) cannot grant write access elsewhere.
+    project = Path.cwd().resolve()
+    requested = Path(str(arguments.get("out", "register-submission.yaml")))
+    out = (project / requested).resolve()
+    if not out.is_relative_to(project):
+        raise ToolError("draft output must stay inside the server's project directory")
+    try:
+        with out.open("x", encoding="utf-8") as destination:
+            destination.write(prepared.yaml())
+    except FileExistsError:
+        raise ToolError("draft output already exists; choose a new file") from None
     lines = [
         f"Prepared a candidate for review and saved it to {out}.",
         "",
@@ -241,7 +251,7 @@ TOOLS: tuple[Tool, ...] = (
                     "items": {"type": "string"},
                     "description": "Real names to strike from free text as well as structured fields.",
                 },
-                "out": {"type": "string", "description": "Where to save the draft (default register-submission.yaml)"},
+                "out": {"type": "string", "description": "New draft file inside the server project directory (default register-submission.yaml); existing files are never overwritten"},
                 "register_root": {"type": "string"},
             },
             "required": ["report"],

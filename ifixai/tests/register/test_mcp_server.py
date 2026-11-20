@@ -14,6 +14,12 @@ from ifixai.register.spec import MisbehaviourReport
 pytestmark = pytest.mark.unit
 
 
+
+@pytest.fixture(autouse=True)
+def project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The MCP server runs in the synthetic project rather than the source checkout."""
+    monkeypatch.chdir(tmp_path)
+
 def _call(name: str, arguments: dict) -> dict:
     response = mcp.handle(
         {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
