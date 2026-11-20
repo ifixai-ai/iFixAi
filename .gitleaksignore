@@ -2,7 +2,7 @@
 # moving one of these lines means updating its entry here.
 
 # PostHog project key: public by design, write-only (see the comment above it).
-ifixai/telemetry.py:generic-api-key:38
+ifixai/telemetry.py:generic-api-key:40
 
 # Fake AWS key id used by the Bedrock tests.
 ifixai/tests/test_bedrock_auth_error_codes.py:aws-access-token:33
