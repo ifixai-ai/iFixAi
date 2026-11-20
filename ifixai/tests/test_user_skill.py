@@ -65,7 +65,7 @@ def test_first_command_adds_the_skill_to_each_agent_found_in_one_line(home, caps
     err = run(capsys, monkeypatch, "--help")
 
     assert err.count("\n") == 1
-    assert "iFixAi skill added to Claude Code, Codex" in err
+    assert "iFixAi skill added to your coding agents (Claude Code, Codex)" in err
     assert "ifixai install --revert" in err
     for path in (skill(home / ".claude" / "skills"), skill(home / ".agents" / "skills")):
         assert frontmatter(path)["name"] == "ifixai"
@@ -95,7 +95,7 @@ def test_a_new_version_refreshes_the_text_and_says_so(home, capsys, monkeypatch)
     err = run(capsys, monkeypatch, "--help")
 
     assert err.count("\n") == 1
-    assert "iFixAi skill updated to 99.0.0 in Claude Code" in err
+    assert "iFixAi skill updated to 99.0.0 in your coding agents (Claude Code" in err
     assert "# New instructions" in skill(home / ".claude" / "skills").read_text(encoding="utf-8")
 
 
@@ -114,7 +114,7 @@ def test_an_agent_that_appears_later_gets_the_skill_on_the_next_command(home, ca
 
     err = run(capsys, monkeypatch, "--help")
 
-    assert "iFixAi skill added to Cline" in err
+    assert "iFixAi skill added to your coding agents (Cline)" in err
     assert "Claude Code" not in err
     assert skill(home / ".cline" / "skills").is_file()
     assert run(capsys, monkeypatch, "--help") == ""

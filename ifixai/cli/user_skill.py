@@ -232,11 +232,14 @@ def summary(outcome: Outcome) -> str | None:
     parts = []
     if outcome.added:
         parts.append(
-            f"iFixAi skill added to {', '.join(outcome.added)}: ask your agent to "
-            '"run iFixAi on my agent"'
+            f"iFixAi skill added to your coding agents ({', '.join(outcome.added)}): "
+            'ask your agent to "run iFixAi on my agent"'
         )
     if outcome.updated:
-        parts.append(f"iFixAi skill updated to {VERSION} in {', '.join(outcome.updated)}")
+        parts.append(
+            f"iFixAi skill updated to {VERSION} in your coding agents "
+            f"({', '.join(outcome.updated)})"
+        )
     for path in outcome.skipped:
         parts.append(
             f"left your own {pro_offer.display_path(path)} alone (to replace it: {REPLACE})"
