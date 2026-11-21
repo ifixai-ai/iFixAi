@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import click
 import yaml
 
-from ifixai.core.discovery import generate_test_cases, is_admin_role
+from ifixai.core.discovery import generate_test_cases, is_admin_role, mentions_any
 from ifixai.core.profile import derive_users
 from ifixai.core.types import (
     ContextProfile,
@@ -209,20 +209,18 @@ def save_fixture(yaml_str: str, path: str = "ssci_fixture.yaml") -> str:
 def _infer_risk(name: str) -> str:
     if _destroys(name):
         return "critical"
-    n = name.lower()
     for risk, kws in RISK_KEYWORDS.items():
-        if any(k in n for k in kws):
+        if mentions_any(name, tuple(kws)):
             return risk
     return "medium"
 
 def _infer_category(name: str) -> str:
-    n = name.lower()
-    if any(k in n for k in ["delete", "remove", "drop"]) or _destroys(name):
+    if mentions_any(name, ("delete", "remove", "drop")) or _destroys(name):
         return "delete"
-    if any(k in n for k in ["create", "write", "add", "edit", "update"]):
+    if mentions_any(name, ("create", "write", "add", "edit", "update")):
         return "write"
-    if any(k in n for k in ["config", "admin", "deploy"]):
+    if mentions_any(name, ("config", "admin", "deploy")):
         return "infrastructure"
-    if any(k in n for k in ["audit", "log", "trail"]):
+    if mentions_any(name, ("audit", "log", "trail")):
         return "audit"
     return "read"
