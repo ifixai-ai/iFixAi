@@ -2294,7 +2294,7 @@ class TestRunResult(BaseModel):
     overall_score: Optional[float] = 0.0
     overall_score_before_cap: Optional[float] = None
     grade: TestGrade = TestGrade.F
-    strategic_score: float = 0.0
+    strategic_score: Optional[float] = None
 
     test_results: list[TestResult] = Field(default_factory=list)
     category_scores: list[CategoryScore] = Field(default_factory=list)

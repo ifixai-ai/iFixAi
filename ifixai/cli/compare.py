@@ -178,7 +178,7 @@ def _parse_result(raw: dict) -> TestRunResult:
         fixture_name=metadata.get("fixture_name", ""),
         overall_score=overall.get("score", 0.0),
         grade=_parse_grade(overall.get("grade", "F")),
-        strategic_score=overall.get("strategic_score", 0.0),
+        strategic_score=overall.get("strategic_score"),
         test_results=test_results,
         category_scores=category_scores,
         mandatory_minimums_passed=overall.get("mandatory_minimums_passed", False),

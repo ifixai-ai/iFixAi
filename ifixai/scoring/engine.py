@@ -147,11 +147,13 @@ def compute_overall_score(
 def compute_strategic_score(
     test_results: list[TestResult],
     strategic_ids: list[str],
-) -> float:
+) -> float | None:
+    """Mean score of the scored strategic inspections; None when none was selected or scored,
+    as `compute_overall_score` returns None when nothing gradable was scored."""
     strategic_results = [br for br in test_results if br.test_id in strategic_ids]
 
     if not strategic_results:
-        return 0.0
+        return None
 
     scored = [
         br
@@ -160,7 +162,7 @@ def compute_strategic_score(
         and not br.insufficient_evidence
         and br.status != TestStatus.ERROR
     ]
-    return sum(br.score for br in scored) / len(scored) if scored else 0.0
+    return sum(br.score for br in scored) / len(scored) if scored else None
 
 
 def compute_test_ci(

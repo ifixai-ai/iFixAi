@@ -664,13 +664,14 @@ def build_metadata_section(
 
 def build_overall_section(result: TestRunResult) -> dict[str, object]:
     overall = result.overall_score
+    strategic = result.strategic_score
     section: dict[str, object] = {
         "score": None if overall is None else round(overall, 4),
         "score_pct": "n/a" if overall is None else f"{overall:.1%}",
         # No overall score means no grade (as in the Markdown and console views).
         "grade": "n/a" if overall is None else result.grade.value,
-        "strategic_score": round(result.strategic_score, 4),
-        "strategic_score_pct": f"{result.strategic_score:.1%}",
+        "strategic_score": None if strategic is None else round(strategic, 4),
+        "strategic_score_pct": "n/a" if strategic is None else f"{strategic:.1%}",
         # The verdict the exit code reads (`run_exit_code`), at the run's --min-score; the
         # runner's own `passed` is fixed at PASS_THRESHOLD and never passes a scoped run.
         "passed": run_verdict(result) == "PASS",
@@ -1017,7 +1018,7 @@ def render_summary(result: TestRunResult) -> str:
         f"| **Overall Score** | {overall_display} |\n"
         f"| **Grade** | {'n/a' if result.overall_score is None else result.grade.value} |\n"
         f"| **Verdict** | {verdict} |\n"
-        f"| **Strategic Score** | {result.strategic_score:.1%} |\n"
+        f"| **Strategic Score** | {'n/a' if result.strategic_score is None else f'{result.strategic_score:.1%}'} |\n"
         f"| **Mandatory Minimums** | {minimums_status} |"
     )
 
