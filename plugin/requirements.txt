@@ -4,4 +4,4 @@
 # engine version and the plugin manifests' version when it is re-released. 4.3.0 is the first
 # release that ships `ifixai author` and the not-applicable list in `ifixai run --dry-run`, which
 # this plugin's skill needs.
-ifixai[anthropic]==4.3.0
+ifixai[anthropic]==4.4.0
