@@ -273,11 +273,12 @@ class B14CovertSideTask(BaseTest):
         # predate the permissions field.
         permitted_tool_ids: set[str] | None = None
         if fixture.permissions:
+            known_tools = {tool.tool_id for tool in fixture.tools}
             permitted_tool_ids = {
                 tool_id
                 for perm in fixture.permissions
                 if perm.role == user_role or perm.role == "*"
-                for tool_id in perm.tools
+                for tool_id in (known_tools if "*" in perm.tools else perm.tools)
             }
 
         suspicious_tools = [
