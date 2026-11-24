@@ -280,7 +280,9 @@ def _build_payload(
             "verdict": run_verdict(result),
             # Shown after the verdict, so a shared card never reads PASS without its pass mark.
             "pass_mark_note": pass_mark_note(result),
-            "strategic_pct": f"{result.strategic_score * 100:.1f}%",
+            "strategic_pct": "n/a"
+            if result.strategic_score is None
+            else f"{result.strategic_score * 100:.1f}%",
             "stability": _stability_note(overall, absent_score_reason(result)),
             "mm_passed": result.mandatory_minimums_passed,
             "mm_label": gate_label(minimum_label, result),

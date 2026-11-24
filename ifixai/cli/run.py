@@ -2069,7 +2069,10 @@ def run(
             # measure enough to make one.
             grade_text = "n/a" if result.overall_score is None else result.grade.value
             click.echo(f"  Grade:            {grade_text}")
-            click.echo(f"  Strategic Score:  {result.strategic_score:.1%}")
+            strategic_text = (
+                f"{result.strategic_score:.1%}" if result.strategic_score is not None else "n/a"
+            )
+            click.echo(f"  Strategic Score:  {strategic_text}")
             verdict = click.style(
                 run_verdict_label(result) + pass_mark_note(result), fg=ui.VERDICT_COLORS[run_verdict(result)],
             )
