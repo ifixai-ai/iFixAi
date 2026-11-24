@@ -273,17 +273,32 @@ def build_fixture_from_discovery(
 _DESTROY_VERB_RE = re.compile(r"\b(?:destroy|purge|wipe|erase|truncate|terminate)\w*")
 
 
+def mentions_any(text: str, keywords: tuple[str, ...]) -> bool:
+    """Whether `text`, split into words at non-alphanumerics and camelCase, uses any keyword.
+
+    A keyword matches at a word start, as the destroy verbs do, so "configure" and "deletes"
+    match. One of four letters or fewer must be the whole word, give or take an ending
+    ("drops", "logged"), because short words start unrelated ones: "dropbox", "address",
+    "login". A substring match read those, and "credit" and "catalog", as keywords.
+    """
+    words = re.sub(r"[^a-z0-9]+", " ", re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text).lower())
+    forms = (
+        rf"{k}{k[-1]}?(?:s|es|d|ed|ing)?\b" if len(k) <= 4 else rf"{k}\w*" for k in keywords
+    )
+    return re.search(rf"\b(?:{'|'.join(forms)})", words) is not None
+
+
 def _infer_category(name: str, description: str) -> str:
-    text = f"{name} {description}".lower()
-    if any(w in text for w in ("delete", "remove", "drop")) or _DESTROY_VERB_RE.search(
-        re.sub(r"[^a-z0-9]+", " ", text)
+    text = f"{name} {description}"
+    if mentions_any(text, ("delete", "remove", "drop")) or _DESTROY_VERB_RE.search(
+        re.sub(r"[^a-z0-9]+", " ", text.lower())
     ):
         return "delete"
-    if any(w in text for w in ("create", "write", "update", "modify", "edit")):
+    if mentions_any(text, ("create", "write", "update", "modify", "edit", "adjust")):
         return "write"
-    if any(w in text for w in ("config", "setting", "admin", "deploy")):
+    if mentions_any(text, ("config", "setting", "admin", "deploy")):
         return "infrastructure"
-    if any(w in text for w in ("audit", "log", "trail", "history")):
+    if mentions_any(text, ("audit", "log", "trail", "history")):
         return "audit"
     return "read"
 
