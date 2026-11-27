@@ -4,23 +4,19 @@ from unittest.mock import AsyncMock
 
 import openai
 import pytest
+from openai import _base_client
 
 from ifixai.providers.base import create_chat_completion_json_fallback
 
-
-class _HTTPResponse:
-    """Minimal response for building an SDK status error."""
-
-    def __init__(self, status_code: int) -> None:
-        self.status_code = status_code
-        self.headers: dict[str, str] = {}
-        self.request = None
+# openai 3.x builds its errors from httpx2 objects, earlier releases from httpx.
+_http = getattr(_base_client, "httpx2", None) or _base_client.httpx
 
 
 def bad_request(message: str) -> openai.BadRequestError:
+    request = _http.Request("POST", "https://api.example.test/v1/chat/completions")
     return openai.BadRequestError(
         message,
-        response=_HTTPResponse(400),  # type: ignore[arg-type]
+        response=_http.Response(400, request=request),
         body={"error": {"message": message}},
     )
 
