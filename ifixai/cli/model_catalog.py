@@ -27,6 +27,7 @@ DEFAULT_MODEL: dict[str, str] = {
     "openrouter": "openai/gpt-4o",
     "orcarouter": "openai/gpt-4o",
     "requesty": "openai/gpt-4o-mini",
+    "llmtr": "qwen/qwen3.8-27b-free",
     "cloudflare": "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "vercel": "openai/gpt-4o-mini",
     "openai": "gpt-4o",
@@ -70,6 +71,12 @@ MODEL_SUGGESTIONS: dict[str, list[tuple[str, str]]] = {
         ("anthropic/claude-sonnet-4-6", "Anthropic Claude Sonnet 4.6 — strong reasoning & safety"),
         ("google/gemini-2.5-flash", "Google Gemini 2.5 Flash — fast and inexpensive"),
         ("google/gemini-2.5-pro", "Google Gemini 2.5 Pro — large context, strong reasoning"),
+    ],
+    "llmtr": [
+        ("qwen/qwen3.8-27b-free", "Qwen3.8 27B — free-tier instruct"),
+        ("minimax/minimax-m3.1-flash", "MiniMax M3.1 Flash — fast and inexpensive"),
+        ("deepseek/deepseek-chat", "DeepSeek Chat — strong, low cost"),
+        ("openai/gpt-4o-mini", "OpenAI GPT-4o Mini — cheap and fast"),
     ],
     "cloudflare": [
         ("workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Meta Llama 3.3 70B on Workers AI — free plan covers about one small inspection a day"),

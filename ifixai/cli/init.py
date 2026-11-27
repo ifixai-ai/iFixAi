@@ -19,6 +19,7 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "openrouter": "OPENROUTER_API_KEY",
     "orcarouter": "ORCAROUTER_API_KEY",
     "requesty": "REQUESTY_API_KEY",
+    "llmtr": "LLMTR_API_KEY",
     "vercel": "AI_GATEWAY_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "azure": "AZURE_OPENAI_API_KEY",
