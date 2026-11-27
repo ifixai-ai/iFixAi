@@ -29,8 +29,18 @@ from ifixai.providers.base import (
     raise_if_choice_errored,
     raise_if_truncated,
 )
+from ifixai.providers.http import content_flag_refusal
 
 DEFAULT_MODEL = "openai/gpt-4o"
+
+
+def _auth_refusal(endpoint: str, exc: Exception) -> ProviderError:
+    """A 401/403 from the SDK. A gateway's content-flag 403 fails only this request;
+    any other is a key refusal."""
+    flagged = content_flag_refusal("litellm", endpoint, getattr(exc, "status_code", 0), str(exc))
+    if flagged is not None:
+        return flagged
+    return ProviderAuthError(provider="litellm", endpoint=endpoint, details=str(exc))
 
 
 class LiteLLMProvider(ChatProvider):
@@ -102,11 +112,7 @@ class LiteLLMProvider(ChatProvider):
         except ProviderError:
             raise
         except (_litellm.AuthenticationError, openai.PermissionDeniedError) as exc:
-            raise ProviderAuthError(
-                provider="litellm",
-                endpoint=config.endpoint or "default",
-                details=str(exc),
-            ) from exc
+            raise _auth_refusal(config.endpoint or "default", exc) from exc
         except _litellm.RateLimitError as exc:
             raise ProviderRateLimitError(
                 provider="litellm",
@@ -134,11 +140,7 @@ class LiteLLMProvider(ChatProvider):
         except (_litellm.APIError, openai.APIStatusError) as exc:
             status = getattr(exc, "status_code", None)
             if status in (401, 403):
-                raise ProviderAuthError(
-                    provider="litellm",
-                    endpoint=config.endpoint or "default",
-                    details=str(exc),
-                ) from exc
+                raise _auth_refusal(config.endpoint or "default", exc) from exc
             if status == 429:
                 raise ProviderRateLimitError(
                     provider="litellm",
