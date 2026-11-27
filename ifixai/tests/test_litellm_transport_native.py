@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from ifixai.core.types import ChatMessage, ProviderConfig
+from ifixai.judge.evaluator import judge_refusal
 from ifixai.providers.base import (
     ProviderAuthError,
     ProviderConnectionError,
@@ -21,7 +22,7 @@ from ifixai.providers.base import (
 
 
 @contextmanager
-def owned_server(status=200, stall=False, disconnect=False):
+def owned_server(status=200, stall=False, disconnect=False, error_body=None):
     received = threading.Event()
     release = threading.Event()
 
@@ -42,6 +43,8 @@ def owned_server(status=200, stall=False, disconnect=False):
                 payload = {"error": {"message": "Rate limit exceeded" if status == 429 else "Owned HTTP rejection",
                                      "type": "rate_limit_error" if status == 429 else "api_error",
                                      "code": "rate_limit_exceeded" if status == 429 else str(status)}}
+            if error_body is not None:
+                payload = error_body
             body = json.dumps(payload).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -93,6 +96,18 @@ def test_real_sdk_http_errors_preserve_shared_contract(status, error, monkeypatc
         assert caught.value.endpoint == url
         if status == 429:
             assert not is_fatal_provider_error(caught.value)
+
+
+def test_real_sdk_content_flag_403_fails_only_the_probe(monkeypatch):
+    flagged = {"error": {"code": 403, "message": (
+        "openai/gpt-4o requires moderation on OpenRouter. Your input was flagged for "
+        "\"violence\". No credits were charged.")}}
+    with owned_server(status=403, error_body=flagged) as (url, _received):
+        with pytest.raises(ProviderResponseError) as caught:
+            send(url, monkeypatch)
+        assert "flagged" in str(caught.value)
+        assert not is_fatal_provider_error(caught.value)
+        assert judge_refusal(caught.value) is None
 
 
 def test_real_sdk_read_timeout_is_typed(monkeypatch):
