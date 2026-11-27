@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import closing
 from traceback import clear_frames
 
@@ -25,6 +26,14 @@ INITIAL_BACKOFF_SECONDS = 1.0
 BACKOFF_MULTIPLIER = 2.0
 _DEFAULT_REGION = "us-east-1"
 
+_logger = logging.getLogger(__name__)
+
+# Endpoint/model pairs whose API rejected temperature. Process-wide so the SUT,
+# judge and connection check share learned support only for the same API.
+_NO_TEMPERATURE_MODELS: set[tuple[str | None, str]] = set()
+# (endpoint, model, role) already warned about.
+_DEFAULT_TEMPERATURE_WARNED: set[tuple[str | None, str, str]] = set()
+
 
 class BedrockProvider(ChatProvider):
 
@@ -35,6 +44,10 @@ class BedrockProvider(ChatProvider):
     ) -> None:
         self.region_name = region_name
         self.profile_name = profile_name
+
+    def accepts_temperature(self, model: str | None, endpoint: str | None) -> bool:
+        # As far as this run knows: a pair joins _NO_TEMPERATURE_MODELS on its first rejection.
+        return (endpoint, model or "") not in _NO_TEMPERATURE_MODELS
 
     async def send_message(
         self,
@@ -195,6 +208,7 @@ class BedrockProvider(ChatProvider):
                     details=str(exc),
                 ) from exc
             else:
+                _warn_once_at_default_temperature(config.endpoint, config.model, config.role)
                 return response
 
         raise ProviderRateLimitError(
@@ -220,7 +234,7 @@ def _invoke_owned_converse(
         with closing(session.client(**client_kwargs)) as client:
             return _invoke_converse(
                 client, model_id, system_prompts, messages, inference_config,
-                reject_truncated,
+                reject_truncated, client_kwargs.get("endpoint_url"),
             )
     except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as exc:
         # Completed SDK frames retain response/pool objects through the error.
@@ -236,6 +250,7 @@ def _invoke_converse(
     messages: list[dict],
     inference_config: dict,
     reject_truncated: bool = False,
+    endpoint: str | None = None,
 ) -> str:
     converse_kwargs: dict = {
         "modelId": model_id,
@@ -245,7 +260,7 @@ def _invoke_converse(
     if system_prompts:
         converse_kwargs["system"] = system_prompts
 
-    response = client.converse(**converse_kwargs)  # type: ignore[union-attr]
+    response = _converse(client, endpoint, converse_kwargs)
 
     output = response.get("output", {})
     message = output.get("message", {})
@@ -278,6 +293,44 @@ def _invoke_converse(
         )
 
     return "\n".join(text_parts)
+
+
+def _converse(client: object, endpoint: str | None, converse_kwargs: dict) -> dict:
+    # Newer Claude models reject any temperature: retry once without it and remember the model.
+    inference_config = converse_kwargs["inferenceConfig"]
+    temperature = inference_config["temperature"]
+    without_temperature = {
+        **converse_kwargs,
+        "inferenceConfig": {k: v for k, v in inference_config.items() if k != "temperature"},
+    }
+    capability_key = (endpoint, converse_kwargs["modelId"])
+    if capability_key not in _NO_TEMPERATURE_MODELS:
+        try:
+            return client.converse(**converse_kwargs)  # type: ignore[attr-defined]
+        except botocore.exceptions.ClientError as exc:
+            error = exc.response.get("Error", {})
+            # Outside 0..1 the error is our bad value, not a model that refuses temperature.
+            if (
+                error.get("Code") != "ValidationException"
+                or "temperature" not in error.get("Message", "").lower()
+                or not 0 <= temperature <= 1
+            ):
+                raise
+            _NO_TEMPERATURE_MODELS.add(capability_key)
+    return client.converse(**without_temperature)  # type: ignore[attr-defined]
+
+
+def _warn_once_at_default_temperature(endpoint: str | None, model: str, role: str) -> None:
+    warned_key = (endpoint, model, role)
+    if (endpoint, model) not in _NO_TEMPERATURE_MODELS or warned_key in _DEFAULT_TEMPERATURE_WARNED:
+        return
+    _DEFAULT_TEMPERATURE_WARNED.add(warned_key)
+    _logger.warning(
+        "%s model %s rejects temperature; the %s runs at the model's default temperature",
+        role,
+        model,
+        role,
+    )
 
 
 def _format_for_converse(
