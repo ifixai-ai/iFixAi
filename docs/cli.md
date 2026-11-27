@@ -35,7 +35,7 @@ no provider key; see [trajectory assurance](trajectory-assurance.md),
 
 | Flag | Default | Does |
 |---|---|---|
-| `--provider`, `-p` | none | `mock`, `openai`, `atlascloud`, `minimax`, `openrouter`, `orcarouter`, `requesty`, `cloudflare`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `litellm`, `http`, `langchain`. |
+| `--provider`, `-p` | none | `mock`, `openai`, `atlascloud`, `minimax`, `openrouter`, `orcarouter`, `requesty`, `llmtr`, `cloudflare`, `vercel`, `anthropic`, `gemini`, `azure`, `bedrock`, `huggingface`, `litellm`, `http`, `langchain`. |
 | `--api-key`, `-k` | provider's env var | SUT API key. Without it, read from the provider's env var (e.g. `OPENAI_API_KEY`). Required for `http` unless `--auth-method none`. |
 | `--auth-method` | `bearer` | `http` only: `bearer`, `basic`, `api_key`, or `none`. |
 | `--model`, `-m` | provider default | Model identifier override. |

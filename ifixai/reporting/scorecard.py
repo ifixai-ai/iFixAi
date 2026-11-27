@@ -349,7 +349,7 @@ def b22_determinism_warning(
 # Requesty, Cloudflare AI Gateway or Vercel AI Gateway) is recognized as
 # independent instead of mislabeled "self-judge".
 _AGGREGATOR_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"openrouter", "orcarouter", "requesty", "cloudflare", "vercel", "atlascloud", "litellm", "http", "langchain", "huggingface"}
+    {"openrouter", "orcarouter", "requesty", "llmtr", "cloudflare", "vercel", "atlascloud", "litellm", "http", "langchain", "huggingface"}
 )
 
 # Namespaces that sit in front of the author, as in the Workers AI ids

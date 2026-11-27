@@ -187,6 +187,7 @@ PROVIDER_CHOICES = [
     "openrouter",
     "orcarouter",
     "requesty",
+    "llmtr",
     "cloudflare",
     "vercel",
 ]

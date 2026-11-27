@@ -10,6 +10,7 @@ ADAPTERS = [
     ("openrouter", "OpenRouterProvider", "_clients"),
     ("orcarouter", "OrcaRouterProvider", "_clients"),
     ("requesty", "RequestyProvider", "_clients"),
+    ("llmtr", "LLMTRProvider", "_clients"),
     ("cloudflare", "CloudflareAIGatewayProvider", "clients"),
     ("vercel", "VercelAIGatewayProvider", "clients"),
 ]

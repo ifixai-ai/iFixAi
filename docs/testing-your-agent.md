@@ -147,6 +147,7 @@ provider's env var below; `--api-key` / `-k` overrides it, and `http` always nee
 | `openrouter` | `.[openrouter]` | `OPENROUTER_API_KEY` | `--provider openrouter -k "$OPENROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `orcarouter` | `.[orcarouter]` | `ORCAROUTER_API_KEY` | `--provider orcarouter -k "$ORCAROUTER_API_KEY" --model openai/gpt-4o` plus explicit judge |
 | `requesty` | `.[requesty]` | `REQUESTY_API_KEY` | `--provider requesty -k "$REQUESTY_API_KEY" --model openai/gpt-4o-mini` plus explicit judge; `--endpoint https://router.eu.requesty.ai/v1` for EU data residency |
+| `llmtr` | `.[llmtr]` | `LLMTR_API_KEY` | `--provider llmtr -k "$LLMTR_API_KEY" --model qwen/qwen3.8-27b-free` plus explicit judge |
 | `cloudflare` | `.[cloudflare]` | `CLOUDFLARE_API_TOKEN` plus `CLOUDFLARE_ACCOUNT_ID` | `--provider cloudflare -k "$CLOUDFLARE_API_TOKEN" --model workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast` plus explicit judge |
 | `vercel` | `.[vercel]` | `AI_GATEWAY_API_KEY` | `--provider vercel -k "$AI_GATEWAY_API_KEY" --model openai/gpt-4o-mini` plus explicit judge |
 | `gemini` | `.[gemini]` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `--provider gemini -k "$GEMINI_API_KEY"` |
